@@ -171,7 +171,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		got.Coverage.RatedDays != calendar.Summary.RatedDays || got.Coverage.TotalDays != calendar.Summary.TotalDays {
 		t.Fatalf("Gio summary differs from Wails: %+v and %+v", got, calendar.Summary)
 	}
-	for _, label := range []string{"Summary · 2026-02-01 to 2026-02-03 · USD", "Return amount", "Return rate", "+25%", "$ 25.00", "Day still open"} {
+	for _, label := range []string{"Summary · 2026-02-01 to 2026-02-03 · USD", "Return amount", "Return rate", "+25%", "US$25.00", "Day still open"} {
 		assertPageLabel(t, &h.router, label)
 	}
 	wailsYear, err := adapter.ReturnCalendar(ctx, query, "", "day")
@@ -202,7 +202,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		t.Fatal("the year card did not open the selected month")
 	}
 	h.focused(&page.monthMode)
-	h.click("2026-02-02 · +25% · $ 25.00", true)
+	h.click("2026-02-02 · +25% · US$25.00", true)
 	page.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "Could not load investment returns.")
@@ -216,9 +216,9 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatalf("Gio and Wails day or provider reads differ: %+v and %+v", day, wailsDay)
 	}
-	assertPageLabel(t, &h.router, "Return amount · $ 25.00")
-	assertPageLabel(t, &h.router, "Price change · $ 25.00")
-	assertPageLabel(t, &h.router, "Synthetic fund · $ 25.00")
+	assertPageLabel(t, &h.router, "Return amount · US$25.00")
+	assertPageLabel(t, &h.router, "Price change · US$25.00")
+	assertPageLabel(t, &h.router, "Synthetic fund · US$25.00")
 	trigger := page.day.button
 	h.press(key.NameEscape)
 	h.frame()
@@ -279,7 +279,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		assets.driver.value.ByInstrument[0].Amount.CanonicalAmount() != wailsDriver.ByInstrument[0].Amount.Amount {
 		t.Fatal("the waterfall did not open the Wails-backed Price change detail")
 	}
-	assertPageLabel(t, &h.router, "Total · $ 25.00")
+	assertPageLabel(t, &h.router, "Total · US$25.00")
 	assertPageLabel(t, &h.router, "By account")
 	wantDriverRanks, err := adapter.Contribution(ctx, dayQuery, string(application.ContributionTotalReturn),
 		string(application.ContributionGroupInstrument), string(application.ContributionSortAmountDesc))
@@ -349,6 +349,8 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		assets.current.trend.Rate == nil || wailsRate.Rate == nil || assets.current.trend.Rate.String() != *wailsRate.Rate {
 		t.Fatalf("the linked day's return rate differs from Wails: %v", assets.err)
 	}
+	h.click("View data table", false)
+	h.frame()
 	assertPageLabel(t, &h.router, "2026-02-02 · +25% · Rated days 1/1")
 	wailsCategories, err := adapter.Categories(ctx, dayQuery, string(application.CategoryInvestmentReturn))
 	if err != nil {
@@ -418,13 +420,13 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	h.router.Queue(key.EditEvent{Text: "No match"})
 	h.frame()
 	h.frame()
-	if findPageLabel(&h.router, "Synthetic fund · $ 25.00 · +25%") != nil {
+	if findPageLabel(&h.router, "Synthetic fund · US$25.00 · +25%") != nil {
 		t.Fatal("the details list did not respond to search")
 	}
 	h.router.Queue(key.EditEvent{Range: key.Range{End: len("No match")}, Text: "synthetic"})
 	h.frame()
 	h.frame()
-	assertPageLabel(t, &h.router, "Synthetic fund · $ 25.00 · +25%")
+	assertPageLabel(t, &h.router, "Synthetic fund · US$25.00 · +25%")
 	h.click("Largest impact", false)
 	h.click("Show 20", false)
 	assertPageLabel(t, &h.router, "Showing 1 of 1 contributions")
@@ -460,7 +462,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.click("Synthetic fund · $ 25.00 · +25%", false)
+	h.click("Synthetic fund · US$25.00 · +25%", false)
 	page.workers.Wait()
 	h.frame()
 	if page.item == nil || page.item.value == nil || page.item.value.Amount == nil || wailsItem.Amount == nil ||

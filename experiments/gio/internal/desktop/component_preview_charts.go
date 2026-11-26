@@ -17,6 +17,10 @@ type previewExample struct {
 	chart    any
 	selected charts.Selection
 	draw     func(gtx layout.Context, view ui.View, selected charts.Selection) (layout.Dimensions, []charts.Event)
+	// table builds the data table of a chart type that has one, as the pages
+	// show it under their line and donut charts.
+	table func(view ui.View, selected charts.Selection) (int, func() charts.Table)
+	data  chartDataTable
 }
 
 // previewChartGroup shows every example of one chart type.
@@ -34,6 +38,16 @@ func newPreviewExample[S any](caption i18n.MessageID, chart any,
 		caption: caption, chart: chart,
 		draw: func(gtx layout.Context, view ui.View, selected charts.Selection) (layout.Dimensions, []charts.Event) {
 			return layoutChart(gtx, view, build(view, selected))
+		},
+		table: func(view ui.View, selected charts.Selection) (int, func() charts.Table) {
+			labels := chartTableLabels(view.Language, i18n.ChartDetails)
+			switch spec := any(build(view, selected)).(type) {
+			case charts.LineSpec:
+				return lineTableItems(spec), func() charts.Table { return spec.Table(labels) }
+			case charts.DonutSpec:
+				return len(spec.Slices), func() charts.Table { return spec.Table(labels) }
+			}
+			return 0, nil
 		},
 	}
 }
@@ -105,6 +119,9 @@ func (p *componentPreview) chartCard(gtx layout.Context, view ui.View, group *pr
 						}
 						return dims
 					}))
+				if items, build := example.table(view, example.selected); items > 0 {
+					children = append(children, layout.Rigid(example.data.layout(view, items, build)))
+				}
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, children...)
 		})

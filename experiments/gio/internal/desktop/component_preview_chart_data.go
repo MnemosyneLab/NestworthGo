@@ -88,7 +88,7 @@ func previewWealthLine(view ui.View, selected charts.Selection) charts.LineSpec 
 		Series:      []charts.LineSeries{net, assets, liabilities},
 		FormatTime:  func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
 		FormatTick:  previewMonth,
-		FormatValue: func(tick float64) string { return previewMoney(view, decimal.NewFromFloat(tick).Round(0)) },
+		FormatValue: func(tick float64) string { return chartAxisNumber(view, tick) },
 		Messages:    previewMessages(view), Selected: selected,
 	}
 }
@@ -142,7 +142,7 @@ func previewBars(view ui.View, selected charts.Selection, symmetric bool, rows [
 	l := view.Language
 	spec := charts.BarSpec{
 		Label: l.Text(i18n.ReturnContribution), Summary: l.Text(i18n.ChartPreviewHint), Symmetric: symmetric,
-		FormatValue: func(v float64) string { return previewSigned(view, decimal.NewFromFloat(v).Round(0)) },
+		FormatValue: func(v float64) string { return chartAxisNumber(view, v) },
 		Messages:    previewMessages(view), Selected: selected,
 	}
 	for _, row := range rows {
@@ -186,7 +186,7 @@ func previewEdgeBars(view ui.View, selected charts.Selection) charts.BarSpec {
 }
 
 func previewWaterfallFormat(view ui.View) func(float64) string {
-	return func(v float64) string { return previewMoney(view, decimal.NewFromFloat(v).Round(0)) }
+	return func(v float64) string { return chartAxisNumber(view, v) }
 }
 
 // previewStandardWaterfall derives the running levels here with decimals, as a

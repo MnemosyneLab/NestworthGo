@@ -2,11 +2,14 @@ package desktop
 
 import (
 	"fmt"
+	"image"
 	"slices"
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
@@ -242,7 +245,18 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 		row := rows[i]
 		return view.RowCard(gtx, i == 0, i == len(rows)-1, func(gtx layout.Context) layout.Dimensions {
 			return accessibility.Row(gtx, row.ID, func(gtx layout.Context) layout.Dimensions {
-				return p.layoutActivityRow(gtx, view, row)
+				// The day heads the first row of its group, as the Wails
+				// list heads each day, so rows need not repeat it.
+				heading := i == 0 || rows[i-1].EffectiveLocalDate != row.EffectiveLocalDate
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !heading {
+							return layout.Dimensions{}
+						}
+						return historyDayHeading(gtx, view, row.EffectiveLocalDate, i != 0)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutActivityRow(gtx, view, row) }),
+				)
 			})
 		})
 	})
@@ -262,9 +276,23 @@ func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row hi
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, button)
-			return layout.Inset{Right: ui.Space12}.Layout(gtx, view.NamedButton(button, view.Language.Text(i18n.DirectoryView), name))
+			return layout.Inset{Right: ui.Space8}.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name}))
 		}),
 	)
+}
+
+// historyDayHeading is the muted band that opens a day of activities.
+func historyDayHeading(gtx layout.Context, view ui.View, day string, divider bool) layout.Dimensions {
+	return layout.Background{}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		size := gtx.Constraints.Min
+		paint.FillShape(gtx.Ops, ui.WithAlpha(view.Colors.HoverSurface, 0.6), clip.Rect(image.Rectangle{Max: size}).Op())
+		return layout.Dimensions{Size: size}
+	}, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.Y = 0
+		return layout.Inset{Top: 6, Bottom: 6, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return view.Line(gtx, ui.TextCaption, historyDay(view, day), view.Colors.SecondaryInk)
+		})
+	})
 }
 
 func historyDay(view ui.View, day string) string {
@@ -275,17 +303,11 @@ func historyDay(view ui.View, day string) string {
 }
 
 func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	day := historyDay(view, row.EffectiveLocalDate)
 	kind := historyKindLabel(row.Kind, row.Reason)
 	return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return view.Line(gtx, ui.TextLabel, view.Language.Text(kind), view.Colors.Ink)
-					}),
-					layout.Rigid(view.Body(ui.TextCaption, day, view.Colors.SecondaryInk)),
-				)
+				return view.Line(gtx, ui.TextLabel, view.Language.Text(kind), view.Colors.Ink)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				if row.Note == nil || *row.Note == "" {

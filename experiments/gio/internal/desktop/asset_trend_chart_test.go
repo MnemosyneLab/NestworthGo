@@ -40,10 +40,10 @@ func TestAssetTrendLineKeepsEmptyPeriodsAndKnownSubtotals(t *testing.T) {
 		points[1].Value.Valid() || points[2].ID != "2026-08-17" || points[2].Value.Valid() || !points[3].Provisional || points[3].Value != charts.Num(102.75) {
 		t.Fatalf("weekly observations lost the clamped first week, a gap or provisional value: %+v", points)
 	}
-	table := spec.Rows()
-	if !strings.Contains(analysisLineTableText(table[1]), "Known net contribution · $ 45.25") ||
-		!strings.Contains(analysisLineTableText(table[3]), "Quote dates 2026-08-23") {
-		t.Fatalf("the readable data lost evidence: %+v", table)
+	table := spec.Table(chartTableLabels(view.Language, i18n.ChartCoverage))
+	if len(table.Rows) != 4 || !strings.Contains(strings.Join(table.Rows[1], " · "), "Known net contribution · US$45.25") ||
+		!strings.Contains(strings.Join(table.Rows[3], " · "), "Quote dates 2026-08-23") {
+		t.Fatalf("the data table lost evidence: %+v", table)
 	}
 	months := assetTrendPeriods("2026-02-24", "2026-04-04", application.TrendMonth)
 	if len(months) != 3 || months[0].key != "2026-02" || months[0].day.Format(time.DateOnly) != "2026-02-24" || months[2].key != "2026-04" {
@@ -59,7 +59,7 @@ func TestAssetTrendUsesSignedDebtLevelsAndExactRates(t *testing.T) {
 	data := application.AssetTrendPoint{DisplayValuation: &level, Rate: &rate, Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 1}}
 	period := assetTrendPeriod{key: "2026-08-04"}
 	debt := assetTrendChartPoint(view, application.TrendLiabilities, period, data)
-	if debt.Value != charts.Num(-25.1) || debt.Text != "-$ 25.10" {
+	if debt.Value != charts.Num(-25.1) || debt.Text != "-US$25.10" {
 		t.Fatalf("debt level sign changed: %+v", debt)
 	}
 	point := assetTrendChartPoint(view, application.TrendReturnRate, period, data)

@@ -210,7 +210,7 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	h.click("Retry", false)
 	finish()
 	label("Harbor Renamed")
-	label("USD · $ 1,734.13")
+	label("USD · US$1,734.13")
 	label("Group · Former group · Archived")
 	if fault.updates.Load() != 1 || p.target.account != id {
 		t.Fatal("retry replayed a write or lost the ID")
@@ -268,7 +268,7 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 		t.Fatal("archive refresh replayed the mutation")
 	}
 	label("Archived account. Restore it to edit its settings.")
-	label("USD · $ 1,734.13")
+	label("USD · US$1,734.13")
 	if err := wails.ArchiveAccount(ctx, id.String(), true); err != nil {
 		t.Fatal(err)
 	}

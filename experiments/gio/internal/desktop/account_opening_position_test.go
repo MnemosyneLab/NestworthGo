@@ -152,7 +152,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	click := func(text string) { t.Helper(); h.click(text, false); settle() }
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
 	settle()
-	label("$ 200.00")
+	label("US$200.00")
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record existing position")
@@ -242,7 +242,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	click("Overview")
 	quoteDefault := ""
 	if quoted {
-		label("$ 305.00")
+		label("US$305.00")
 		quoteDefault = "40"
 	} else {
 		label("Incomplete valuation")

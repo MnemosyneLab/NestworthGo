@@ -141,7 +141,7 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 	h.click("Search contributions", true)
 	h.router.Queue(key.EditEvent{Text: "EURO"})
 	settle()
-	assertPageLabel(t, &h.router, "EURO · € 12.35")
+	assertPageLabel(t, &h.router, "EURO · €12.35")
 	trigger := page.output.rankButtons[fund.String()]
 	h.router.Source().Execute(key.FocusCmd{Tag: trigger})
 	h.frame()

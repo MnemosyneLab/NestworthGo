@@ -11,8 +11,11 @@ import (
 	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
+	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
@@ -300,13 +303,17 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-							layout.Rigid(view.Body(ui.TextBody, caption, view.Colors.SecondaryInk)),
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+							layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+									layout.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
+									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
+									}),
+								)
+							}),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
 						)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Line(gtx, ui.TextMoneyLG, display, view.Colors.Ink)
 					}),
 					layout.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -370,10 +377,17 @@ func (p *portfolioPage) positionCard(gtx layout.Context, view ui.View, row domai
 		if showFullName {
 			title = append(title, layout.Rigid(view.Body(ui.TextCaption, fullName, view.Colors.SecondaryInk)))
 		}
+		heading := func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, title...)
+		}
+		if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space24)}.Layout(gtx,
+				layout.Flexed(1, heading),
+				layout.Rigid(holdingFigures(view, row.Amounts, row.QuantityUnit)),
+			)
+		}
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, title...)
-			}),
+			layout.Rigid(heading),
 			layout.Rigid(view.Hairline),
 			layout.Rigid(holdingAmounts(view, row.Amounts, row.QuantityUnit)),
 		)
@@ -459,7 +473,9 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 	return rows
 }
 
-func holdingAmounts(view ui.View, amounts domain.HoldingAmounts, unit string) layout.Widget {
+// holdingAmountTexts are the quantity, cost and market value of a holding as
+// display text.
+func holdingAmountTexts(view ui.View, amounts domain.HoldingAmounts, unit string) (quantity, cost, value string) {
 	l := view.Language
 	display := func(money *domain.MoneyView) string {
 		if money == nil {
@@ -472,16 +488,67 @@ func holdingAmounts(view ui.View, amounts domain.HoldingAmounts, unit string) la
 		}
 		return code + formatted
 	}
-	quantity := portfolioDecimal(view, amounts.Quantity)
+	quantity = portfolioDecimal(view, amounts.Quantity)
 	if unit != "" {
 		quantity += " " + unit
 	}
+	return quantity, display(amounts.TotalCost), display(amounts.CurrentValue)
+}
+
+func holdingAmounts(view ui.View, amounts domain.HoldingAmounts, unit string) layout.Widget {
+	quantity, cost, value := holdingAmountTexts(view, amounts, unit)
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 			layout.Rigid(labeledAmount(view, i18n.AccountQuantity, quantity, view.Colors.Ink)),
-			layout.Rigid(labeledAmount(view, i18n.PortfolioCost, display(amounts.TotalCost), view.Colors.Ink)),
-			layout.Rigid(labeledAmount(view, i18n.PortfolioNativeValue, display(amounts.CurrentValue), view.Colors.Ink)),
+			layout.Rigid(labeledAmount(view, i18n.PortfolioCost, cost, view.Colors.Ink)),
+			layout.Rigid(labeledAmount(view, i18n.PortfolioNativeValue, value, view.Colors.Ink)),
 		)
+	}
+}
+
+// holdingFigures lays quantity, cost and market value side by side, each a
+// caption over its figure, for a holding card wide enough to hold them.
+func holdingFigures(view ui.View, amounts domain.HoldingAmounts, quantityUnit string) layout.Widget {
+	l := view.Language
+	quantity, cost, value := holdingAmountTexts(view, amounts, quantityUnit)
+	cells := [...]struct {
+		label  i18n.MessageID
+		figure string
+		strong bool
+		width  unit.Dp
+	}{{i18n.AccountQuantity, quantity, false, 88}, {i18n.PortfolioCost, cost, false, 150}, {i18n.PortfolioNativeValue, value, true, 150}}
+	return func(gtx layout.Context) layout.Dimensions {
+		children := make([]layout.FlexChild, len(cells))
+		for i, cell := range cells {
+			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				style := ui.TextBody
+				if cell.strong {
+					style = ui.TextLabel
+				}
+				// Equal column widths line the figures up from card to card.
+				gtx.Constraints.Min.X = gtx.Dp(cell.width)
+				pattern := l.Text(cell.label)
+				const marker = "\x00"
+				name, _, _ := strings.Cut(fmt.Sprintf(pattern, marker), marker)
+				name = strings.TrimRight(name, " ·:：")
+				macro := op.Record(gtx.Ops)
+				dims := layout.Flex{Axis: layout.Vertical, Alignment: layout.End, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.LineEnd(gtx, ui.TextCaption, name, view.Colors.SecondaryInk)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.LineEnd(gtx, style, cell.figure, view.Colors.Ink)
+					}),
+				)
+				call := macro.Stop()
+				area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
+				semantic.LabelOp(fmt.Sprintf(pattern, cell.figure)).Add(gtx.Ops)
+				call.Add(gtx.Ops)
+				area.Pop()
+				return dims
+			})
+		}
+		return layout.Flex{Gap: gtx.Dp(ui.Space24)}.Layout(gtx, children...)
 	}
 }
 

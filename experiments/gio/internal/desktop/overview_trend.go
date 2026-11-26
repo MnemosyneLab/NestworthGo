@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"gioui.org/layout"
@@ -48,13 +49,13 @@ type overviewTrend struct {
 	chosen       bool
 	// allTime is the explicit All history choice. It is not inferred from
 	// whether the visible dates currently cover the whole ledger.
-	allTime                         bool
-	allQueriedOn                    string
-	history, gaps, gap, retry, data widget.Clickable
-	showData                        bool
-	dayGaps                         map[string]*widget.Clickable
-	chart                           charts.LineChart
-	selected                        charts.Selection
+	allTime                   bool
+	allQueriedOn              string
+	history, gaps, gap, retry widget.Clickable
+	dayGaps                   map[string]*widget.Clickable
+	chart                     charts.LineChart
+	table                     chartDataTable
+	selected                  charts.Selection
 }
 
 // invalidate drops the loaded series and the history origin; the ledger may
@@ -157,7 +158,6 @@ func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {
 		if result.err == nil {
 			t.current = &result.value
 			t.selected = charts.Selection{}
-			clear(t.dayGaps)
 		}
 	default:
 	}
@@ -220,11 +220,9 @@ func overviewTrendSpec(view ui.View, trend *domain.NetWorthTrend) charts.LineSpe
 	spec := charts.LineSpec{
 		Label: l.Text(i18n.OverviewNetWorthTrend), Summary: l.Text(i18n.OverviewTrendBasis),
 		From: from, To: to, Height: 245, Area: true,
-		FormatTime: func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
-		FormatValue: func(value float64) string {
-			return overviewAllocationMoney(view, trend.Currency, decimal.NewFromFloat(value))
-		},
-		Messages: charts.Messages{Empty: l.Text(i18n.OverviewTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
+		FormatTime:  func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
+		FormatValue: func(value float64) string { return chartAxisNumber(view, value) },
+		Messages:    charts.Messages{Empty: l.Text(i18n.OverviewTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}
 	series := charts.LineSeries{ID: overviewTrendSeries, Name: l.Text(i18n.NetWorth)}
 	for _, raw := range trend.Points {
@@ -346,36 +344,110 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 			break
 		}
 	}
-	if t.data.Clicked(gtx) {
-		t.showData = !t.showData
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	rows = append(rows, ui.Rigid(analysisDisclosure(view, &t.data, l.Text(i18n.OverviewTrendData), t.showData)))
+	rows = append(rows, ui.Rigid(t.table.layoutWithActions(view, len(trend.Points), func() charts.Table {
+		return overviewTrendTable(view, trend, t.selected)
+	}, func(row int) layout.Widget {
+		return p.overviewTrendGapAction(gtx, view, trend.Points[row])
+	})))
 	return rows
 }
 
-func (p *overviewPage) overviewTrendDataRow(gtx layout.Context, view ui.View, point domain.NetWorthTrendPoint) layout.Dimensions {
-	values := point.DisplayValuation
-	day := wealthDay(view, point.LocalDate)
+// overviewTrendTable is the net worth chart's data table, with the columns of
+// the Wails net worth card: each day's net worth, assets and liabilities and
+// what the valuation covers.
+func overviewTrendTable(view ui.View, trend *domain.NetWorthTrend, selected charts.Selection) charts.Table {
+	l := view.Language
+	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartDate)},
+		{Title: l.Text(i18n.NetWorth), Numeric: true}, {Title: l.Text(i18n.Assets), Numeric: true},
+		{Title: l.Text(i18n.Liabilities), Numeric: true}, {Title: l.Text(i18n.ChartCoverage), Wrap: true}}, Selected: charts.NoRow}
+	amount := func(label i18n.MessageID, value domain.ValuationAmount) string {
+		name, display := wealthAmountParts(view, label, value)
+		if qualifier := strings.TrimPrefix(strings.TrimPrefix(name, l.Text(label)), " · "); qualifier != "" {
+			display += " · " + qualifier
+		}
+		return display
+	}
+	for i, point := range trend.Points {
+		values := point.DisplayValuation
+		table.Rows = append(table.Rows, []string{wealthDay(view, point.LocalDate),
+			amount(i18n.NetWorth, values.NetWorth), amount(i18n.Assets, values.Assets),
+			amount(i18n.Liabilities, values.Liabilities), overviewTrendCoverage(view, point)})
+		if charts.ID(point.LocalDate) == selected.Item {
+			table.Selected = i
+		}
+	}
+	return table
+}
+
+// overviewTrendGapAction opens Data health on a closed day without a
+// valuation, from that day's row of the data table.
+func (p *overviewPage) overviewTrendGapAction(gtx layout.Context, view ui.View, point domain.NetWorthTrendPoint) layout.Widget {
+	if p.openHealth == nil || point.Current || overviewTrendTotal(point) != nil {
+		return nil
+	}
+	if p.trend.dayGaps == nil {
+		p.trend.dayGaps = make(map[string]*widget.Clickable)
+	}
+	button := portfolioButton(p.trend.dayGaps, point.LocalDate)
+	if button.Clicked(gtx) {
+		p.openHealth(healthFindingFocus{from: point.LocalDate, to: point.LocalDate}, button)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return returnMonthButton(view, button, i18n.OverviewTrendSelectedGap, nil, true)
+}
+
+func overviewTrendCoverage(view ui.View, point domain.NetWorthTrendPoint) string {
+	l := view.Language
+	var parts []string
 	if point.Current {
-		day += " · " + view.Language.Text(i18n.OverviewCurrentEstimate)
+		parts = append(parts, l.Text(i18n.OverviewCurrentEstimate))
 	}
-	rows := []ui.ColumnChild{
-		ui.Rigid(view.Body(ui.TextLabel, day, view.Colors.Ink)),
-		ui.Rigid(view.Message(wealthAmount(view, i18n.NetWorth, values.NetWorth), view.Colors.Ink)),
-		ui.Rigid(view.Message(wealthAmount(view, i18n.Assets, values.Assets), view.Colors.Ink)),
-		ui.Rigid(view.Message(wealthAmount(view, i18n.Liabilities, values.Liabilities), view.Colors.Ink)),
+	if point.MissingCount > 0 {
+		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), point.MissingCount))
 	}
-	if p.openHealth != nil && !point.Current && overviewTrendTotal(point) == nil {
-		if p.trend.dayGaps == nil {
-			p.trend.dayGaps = make(map[string]*widget.Clickable)
+	q := point.DisplayValuation.NetWorth.Quality
+	if q.OldestMarketDate != nil {
+		dates := wealthDay(view, *q.OldestMarketDate)
+		if q.NewestMarketDate != nil && *q.NewestMarketDate != *q.OldestMarketDate {
+			dates += " – " + wealthDay(view, *q.NewestMarketDate)
 		}
-		button := portfolioButton(p.trend.dayGaps, point.LocalDate)
-		if button.Clicked(gtx) {
-			p.openHealth(healthFindingFocus{from: point.LocalDate, to: point.LocalDate}, button)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		rows = append(rows, ui.Rigid(returnMonthButton(view, button, i18n.OverviewTrendSelectedGap, nil, true)))
+		parts = append(parts, fmt.Sprintf(l.Text(i18n.OverviewQuoteDates), dates))
 	}
-	return (ui.Column{Gap: 3}).Layout(gtx, rows...)
+	if q.CarriedCount > 0 || q.StaleCount > 0 {
+		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryQuoteAge), q.CarriedCount, q.StaleCount))
+	}
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
+}
+
+// chartAxisNumber labels a value tick as a grouped whole number, as the Wails
+// axes do. The amounts, tooltips and tables keep their exact currency text;
+// this is display rounding of an axis position only.
+func chartAxisNumber(view ui.View, value float64) string {
+	// Axis ticks are round values, so two places only keep the fraction of a
+	// small scale such as 0.25; whole ticks show no decimals.
+	digits := decimal.NewFromFloat(value).Round(2).String()
+	digits, negative := strings.CutPrefix(digits, "-")
+	digits, fraction, _ := strings.Cut(digits, ".")
+	var grouped strings.Builder
+	for i, r := range digits {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			grouped.WriteString(view.GroupingSeparator)
+		}
+		grouped.WriteRune(r)
+	}
+	if fraction != "" {
+		separator := view.DecimalSeparator
+		if separator == "" {
+			separator = "."
+		}
+		grouped.WriteString(separator)
+		grouped.WriteString(fraction)
+	}
+	if negative && grouped.String() != "0" {
+		return "-" + grouped.String()
+	}
+	return grouped.String()
 }

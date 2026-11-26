@@ -465,9 +465,12 @@ func (p *returnAnalysisPage) contributors(gtx layout.Context, view ui.View, valu
 		case name == "":
 			name = l.Text(i18n.HistoryInstrumentUnavailable)
 		}
-		rows = append(rows, layout.Rigid(view.Message(name+" · "+returnMoney(view, value.Amount), view.Colors.Ink)))
+		amount := returnMoney(view, value.Amount)
+		rows = append(rows, layout.Rigid(labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink)))
 	}
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, rows...)
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, rows...)
+	})
 }
 
 func returnComponentLabel(l i18n.Language, component domain.ReturnComponent) string {

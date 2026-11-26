@@ -4,7 +4,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
@@ -26,9 +25,7 @@ func assetWaterfall(view ui.View, data application.AssetChangeResult) (charts.Wa
 		return spec, false
 	}
 	currency, running := beginning.Currency(), beginning.Amount()
-	spec.FormatValue = func(value float64) string {
-		return valuationMoney(view, domain.MoneyView{Amount: decimal.NewFromFloat(value).String(), Currency: currency}, false)
-	}
+	spec.FormatValue = func(value float64) string { return chartAxisNumber(view, value) }
 	total := func(id charts.ID, label i18n.MessageID, amount *domain.SignedMoney) charts.WaterfallStep {
 		step := charts.WaterfallStep{ID: id, Label: l.Text(label), Kind: charts.StepTotal,
 			Text: returnMoney(view, amount), Tone: charts.ToneNeutral}

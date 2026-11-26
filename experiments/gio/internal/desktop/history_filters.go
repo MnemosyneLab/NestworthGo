@@ -176,8 +176,15 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 			return layout.Dimensions{Size: image.Pt(dims.Size.X, gtx.Dp(ui.PickerHeight))}
 		},
 	}
-	return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-		return pickers[i](gtx, view.Origin)
+	// The filters sit in one card, as in Wails; the pickers anchor their
+	// popovers to the card's content corner.
+	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(ui.Space16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(ui.Space16), gtx.Dp(ui.Space16)))
+			return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+				return pickers[i](gtx, view.Origin)
+			})
+		})
 	})
 }
 

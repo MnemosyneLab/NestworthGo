@@ -59,7 +59,7 @@ func returnTrendLine(view ui.View, trend application.ReturnTrendResult, from, to
 			if trend.Display == application.ReturnTrendLinkedRate {
 				return returnRate(view, &number)
 			}
-			return valuationMoney(view, domain.MoneyView{Amount: number.String(), Currency: currency}, false)
+			return chartAxisNumber(view, tick)
 		},
 		Messages: charts.Messages{Empty: l.Text(i18n.ReturnInsufficient), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}

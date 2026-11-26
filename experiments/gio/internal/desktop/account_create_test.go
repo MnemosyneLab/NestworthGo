@@ -274,8 +274,8 @@ func TestBankAccountCreateMatchesWailsAndRefreshesWithoutReplayingWrite(t *testi
 	h.click("Retry", false)
 	finish()
 	label("Fixture bank savings")
-	label("USD · $ 123.45")
-	label("AUD · A$ 185.18")
+	label("USD · US$123.45")
+	label("AUD · A$185.18")
 	label("Group · Default group")
 	if fault.writes.Load() != 1 {
 		t.Fatal("read retry wrote again")

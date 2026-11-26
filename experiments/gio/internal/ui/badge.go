@@ -74,7 +74,17 @@ func (v View) Hairline(gtx layout.Context) layout.Dimensions {
 // CardPadded is a Card with the standard 20dp content padding.
 func (v View) CardPadded(gtx layout.Context, content layout.Widget) layout.Dimensions {
 	return v.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(Space20).Layout(gtx, content)
+		// The card honors a minimum height, which a stretched Grid row sets, by
+		// growing its padded content rather than adding padding to the minimum.
+		padding := gtx.Dp(Space20)
+		minimum := max(gtx.Constraints.Min.Y-2*padding, 0)
+		return layout.UniformInset(Space20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = 0
+			dims := content(gtx)
+			v.reportNaturalHeight(dims.Size.Y + 2*padding)
+			dims.Size.Y = max(dims.Size.Y, minimum)
+			return dims
+		})
 	})
 }
 

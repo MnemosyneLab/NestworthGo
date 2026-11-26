@@ -13,23 +13,27 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-// currencySymbols maps display symbols onto the currencies accepted by
-// settings.SupportedCurrencies (the single whitelist); unknown codes fall
-// back to the code itself.
+// currencySymbols maps display prefixes onto the currencies accepted by
+// settings.SupportedCurrencies (the single whitelist); unknown codes fall back
+// to the code itself. The prefixes match the Wails app (lib/money.ts) and stay
+// distinct where CLDR symbols collide, such as CNY and JPY. CHF keeps a
+// trailing space so letters never touch the digits.
 var currencySymbols = map[string]string{
 	"AUD": "A$",
-	"CHF": "CHF",
-	"CNY": "¥",
+	"CHF": "CHF ",
+	"CNY": "CN¥",
 	"EUR": "€",
 	"GBP": "£",
 	"HKD": "HK$",
-	"JPY": "¥",
+	"JPY": "JP¥",
 	"KRW": "₩",
 	"SGD": "S$",
 	"TWD": "NT$",
-	"USD": "$",
+	"USD": "US$",
 }
 
+// CurrencySymbol is the display prefix of a currency; an unknown code is its
+// own prefix.
 func CurrencySymbol(currency string) string {
 	if symbol := currencySymbols[currency]; symbol != "" {
 		return symbol
@@ -63,7 +67,11 @@ func Money(value, currency string, preference settings.Settings) string {
 	integer, fraction = roundDecimal(integer, fraction, places)
 	integer = groupInteger(integer, preference.GroupingSeparator)
 
-	result := CurrencySymbol(currency) + " " + integer
+	prefix := CurrencySymbol(currency)
+	if _, known := currencySymbols[currency]; !known {
+		prefix += " "
+	}
+	result := prefix + integer
 	if places > 0 {
 		result += preference.DecimalSeparator + fraction
 	}

@@ -271,22 +271,64 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 	})
 }
 
+// detailItems is how many page list items the table behind the allocation
+// chart takes: the back link, then one per account path. Each is its own list
+// item, so a long table lays out only the rows near the viewport.
+func (a *overviewAllocation) detailItems() int {
+	return 1 + len(a.model.rows)
+}
+
+// detailItem is one item of the allocation table. The items join into one
+// card: the back link rounds its top, the last path rounds its bottom, and the
+// shared edge between items is the row divider.
+func (a *overviewAllocation) detailItem(gtx layout.Context, view ui.View, item int) layout.Dimensions {
+	rows := a.model.rows
+	last := item == len(rows)
+	if item == 0 {
+		return view.RowCard(gtx, true, last, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, returnMonthButton(view, &a.back, i18n.OverviewAllocationBack, nil, true))
+			})
+		})
+	}
+	return view.RowCard(gtx, false, last, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return a.row(gtx, view, rows[item-1])
+	})
+}
+
 func (a *overviewAllocation) row(gtx layout.Context, view ui.View, row overviewAllocationRow) layout.Dimensions {
 	title := row.account.label + " · " + row.amount
 	context := row.class + " › " + row.institution
-	label := view.Message(title, view.Colors.Ink)
-	if row.account.id != "" && a.openAccount != nil {
-		if a.buttons == nil {
-			a.buttons = make(map[string]*widget.Clickable)
-		}
-		button := portfolioButton(a.buttons, string(row.id))
-		view.Focus.Watch(gtx, button)
-		if button.Clicked(gtx) {
-			a.openAccount(row.account.id, row.account.label, button)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		label = view.ButtonOf(button, ui.ButtonSpec{Title: title, Description: context, Variant: ui.ButtonGhost, Fill: true})
+	colors := view.Colors
+	content := func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Column{Gap: 2}).Layout(gtx,
+					ui.Rigid(view.Body(ui.TextBody, row.account.label, colors.Ink)),
+					ui.Rigid(view.Body(ui.TextCaption, context, colors.SecondaryInk)))
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return view.Line(gtx, ui.TextLabel, row.amount, colors.Ink)
+			}),
+		)
 	}
-	return (ui.Column{Gap: 3}).Layout(gtx,
-		ui.Rigid(view.Message(context, view.Colors.SecondaryInk)), ui.Rigid(label))
+	if row.account.id == "" || a.openAccount == nil {
+		return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return semanticRow(gtx, title+" · "+context, content)
+			}))
+		})
+	}
+	if a.buttons == nil {
+		a.buttons = make(map[string]*widget.Clickable)
+	}
+	button := portfolioButton(a.buttons, string(row.id))
+	view.Focus.Watch(gtx, button)
+	if button.Clicked(gtx) {
+		a.openAccount(row.account.id, row.account.label, button)
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return view.ButtonOf(button, ui.ButtonSpec{Name: title, Description: context, Variant: ui.ButtonGhost, Fill: true, Content: content})(gtx)
 }

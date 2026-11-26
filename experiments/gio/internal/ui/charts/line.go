@@ -254,7 +254,7 @@ func (s LineSpec) plan(d lineDomain, plot image.Rectangle, maxXTicks, missingMar
 	for i, series := range s.Series {
 		sp := lineSeriesPlan{id: series.ID, ink: series.Color, marker: markerShape(i) % markerShapes, last: -1}
 		if sp.ink == (color.NRGBA{}) {
-			sp.ink = colors.Category[i%len(colors.Category)]
+			sp.ink = colors.ChartInk(i)
 		}
 		var chain []int
 		flush := func() {
@@ -563,19 +563,24 @@ func (c *LineChart) layoutLegend(gtx layout.Context, view ui.View, spec LineSpec
 	colors := view.Colors
 	defer op.Offset(at).Push(gtx.Ops).Pop()
 	gtx.Constraints.Max.X = width
-	radius := gtx.Dp(5)
-	dims := ui.Wrap{Gap: ui.Space12}.Layout(gtx, len(spec.Series), func(gtx layout.Context, i int) layout.Dimensions {
+	radius := gtx.Dp(4)
+	icon := gtx.Dp(18)
+	dims := ui.Wrap{Gap: ui.Space16}.Layout(gtx, len(spec.Series), func(gtx layout.Context, i int) layout.Dimensions {
 		series := spec.Series[i]
 		ink := series.Color
 		if ink == (color.NRGBA{}) {
-			ink = colors.Category[i%len(colors.Category)]
+			ink = colors.ChartInk(i)
 		}
-		block := textBlock{style: ui.TextCaption, content: series.Name, ink: colors.Ink, maxWidth: max(1, width-2*radius-gtx.Dp(ui.Space6))}
+		gap := gtx.Dp(ui.Space6)
+		block := textBlock{style: ui.TextCaption, content: series.Name, ink: colors.Ink, maxWidth: max(1, width-icon-gap)}
 		size := block.measure(gtx, view)
 		h := max(size.Y, 2*radius)
-		drawMarker(gtx, markerShape(i)%markerShapes, f32.Pt(float32(radius), float32(h)/2), float32(radius)*0.85, ink)
-		block.draw(gtx, view, image.Pt(2*radius+gtx.Dp(ui.Space6), (h-size.Y)/2))
-		return layout.Dimensions{Size: image.Pt(2*radius+gtx.Dp(ui.Space6)+size.X, h)}
+		// The legend repeats the plot: a short stroke through the series marker.
+		mid := float32(h) / 2
+		strokePolyline(gtx, []f32.Point{{X: 0, Y: mid}, {X: float32(icon), Y: mid}}, float32(gtx.Dp(2)), ink)
+		drawMarker(gtx, markerShape(i)%markerShapes, f32.Pt(float32(icon)/2, mid), float32(radius), ink)
+		block.draw(gtx, view, image.Pt(icon+gap, (h-size.Y)/2))
+		return layout.Dimensions{Size: image.Pt(icon+gap+size.X, h)}
 	})
 	return dims.Size.Y
 }
@@ -602,12 +607,21 @@ func (c *LineChart) drawPlot(gtx layout.Context, view ui.View, spec LineSpec, pl
 		block.draw(gtx, view, image.Pt(plot.Min.X-gap-block.maxWidth, py-size.Y/2))
 	}
 	hairline(gtx, image.Pt(plot.Min.X, plot.Max.Y), image.Pt(plot.Max.X, plot.Max.Y), 1, ui.WithAlpha(colors.Ink, 0.25))
+	// Labels stay inside the chart: an end label shifts inward rather than
+	// being clipped, and a label that would overlap its neighbor is skipped.
+	edge := gtx.Constraints.Max.X - gtx.Dp(ringPad)
+	lastRight := math.MinInt
 	for _, tick := range plan.xTicks {
 		px := int(math.Round(plan.x.at(float64(tick.UnixNano()) / 1e9)))
 		hairline(gtx, image.Pt(px, plot.Max.Y), image.Pt(px, plot.Max.Y+gtx.Dp(ui.Space4)), 1, ui.WithAlpha(colors.Ink, 0.25))
 		block := label(spec.formatTick(tick))
 		size := block.measure(gtx, view)
-		block.draw(gtx, view, image.Pt(px-size.X/2, plot.Max.Y+gap))
+		x := min(max(px-size.X/2, gtx.Dp(ringPad)), edge-size.X)
+		if x < lastRight+gtx.Dp(ui.Space8) {
+			continue
+		}
+		block.draw(gtx, view, image.Pt(x, plot.Max.Y+gap))
+		lastRight = x + size.X
 	}
 
 	markerRadius := float32(gtx.Dp(4))
@@ -616,11 +630,66 @@ func (c *LineChart) drawPlot(gtx layout.Context, view ui.View, spec LineSpec, pl
 		c.drawSeries(gtx, view, spec, plan, active, markerRadius)
 	}()
 	if at, ok := plan.anchor(active); ok && (!c.hover.IsZero() || gtx.Focused(c)) {
-		if item := spec.readout(active); item != nil {
+		if item := spec.tooltip(plan, active); item != nil {
 			bounds := image.Rectangle{Min: image.Pt(0, 0), Max: image.Pt(plot.Max.X+gtx.Dp(ringPad)+gtx.Dp(ui.Space8), plot.Max.Y+gap)}
 			drawTooltip(gtx, view, bounds, at, *item)
 		}
 	}
+}
+
+// column lists, per series, the index of the point drawn at the same time as
+// sel, or -1 for a series with no point there. Points closer than a pixel
+// share a column, as they do on a time axis.
+func (p linePlan) column(sel Selection) []int {
+	si, pi, ok := p.lookup(sel)
+	if !ok {
+		return nil
+	}
+	x := p.series[si].points[pi].at.X
+	out := make([]int, len(p.series))
+	for i, s := range p.series {
+		out[i] = -1
+		best := float32(1)
+		for j, pt := range s.points {
+			if d := float32(math.Abs(float64(pt.at.X - x))); d < best || (d == best && out[i] < 0) {
+				out[i], best = j, d
+			}
+		}
+	}
+	out[si] = pi
+	return out
+}
+
+// tooltip is the readout of sel with its legend mark. With several series it
+// becomes an axis tooltip: the time as its title and every series' value at
+// that time, the active series first in weight.
+func (s LineSpec) tooltip(plan linePlan, sel Selection) *readout {
+	item := s.readout(sel)
+	si, pi, ok := plan.lookup(sel)
+	if item == nil || !ok {
+		return item
+	}
+	if len(plan.series) < 2 {
+		item.mark = readoutMark{ink: plan.series[si].ink, shape: plan.series[si].marker}
+		return item
+	}
+	point := s.Series[si].Points[pi]
+	tip := &readout{label: s.formatTime(point.Time), detail: point.Detail, selected: item.selected}
+	for i, j := range plan.column(sel) {
+		if j < 0 {
+			continue
+		}
+		p := s.Series[i].Points[j]
+		value, missing := valueText(p.Value, p.Text, s.Messages)
+		tip.rows = append(tip.rows, readoutRow{
+			mark: readoutMark{ink: plan.series[i].ink, shape: plan.series[i].marker},
+			name: s.Series[i].Name, value: value, missing: missing, lead: i == si,
+		})
+	}
+	if tip.selected && s.Messages.Selected != "" {
+		tip.label = s.Messages.Selected + " · " + tip.label
+	}
+	return tip
 }
 
 func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, plan linePlan, active Selection, markerRadius float32) {
@@ -638,6 +707,16 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 		}
 	}
 	baseline := float32(min(max(plan.zero, float64(plot.Min.Y)), float64(plot.Max.Y)))
+	// A light stroke color over a dark page reads stronger than the same
+	// alpha over a light one, so the dark fill is thinner.
+	areaAlpha := 0.22
+	if colors.Dark {
+		areaAlpha = 0.16
+	}
+	bands := len(plan.series) == 1
+	if bands {
+		c.drawMissingBands(gtx, view, plan, plan.series[0])
+	}
 	for _, s := range plan.series {
 		ink := s.ink
 		width := float32(gtx.Dp(lineWidth))
@@ -650,7 +729,16 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 			for _, chain := range s.chains {
 				poly := append([]f32.Point{{X: chain[0].X, Y: baseline}}, chain...)
 				poly = append(poly, f32.Pt(chain[len(chain)-1].X, baseline))
-				fillPolygon(gtx, poly, ui.WithAlpha(ink, 0.12))
+				// The fill fades toward the baseline from the line's far edge,
+				// on whichever side of the baseline the chain lies.
+				far := baseline
+				for _, pt := range chain {
+					if math.Abs(float64(pt.Y-baseline)) > math.Abs(float64(far-baseline)) {
+						far = pt.Y
+					}
+				}
+				fillPolygonGradient(gtx, poly, f32.Pt(0, far), f32.Pt(0, baseline),
+					ui.WithAlpha(ink, areaAlpha), ui.WithAlpha(ink, areaAlpha*0.1))
 			}
 		}
 		for _, run := range s.runs {
@@ -663,9 +751,13 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 			}
 		}
 	}
-	// A missing point has no mark on the line, so it gets a short tick on the
-	// time axis. A gap in the line then never reads as a zero.
+	// With several series a missing point of one series has no band, so it
+	// gets a short tick on the time axis. A gap in the line then never reads
+	// as a zero.
 	for _, s := range plan.series {
+		if bands {
+			break
+		}
 		for _, pt := range s.points {
 			if !pt.present {
 				x := int(math.Round(float64(pt.at.X)))
@@ -703,8 +795,17 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 	// guide, so the two states differ in form as well as in color.
 	if si, pi, ok := plan.lookup(active); ok {
 		pt := plan.series[si].points[pi]
-		x := int(math.Round(float64(pt.at.X)))
-		hairline(gtx, image.Pt(x, plot.Min.Y), image.Pt(x, plot.Max.Y), 1, ui.WithAlpha(colors.Ink, 0.35))
+		x := float32(math.Round(float64(pt.at.X))) + 0.5
+		dashedLine(gtx, f32.Pt(x, float32(plot.Min.Y)), f32.Pt(x, float32(plot.Max.Y)), float32(max(1, gtx.Dp(1))), ui.WithAlpha(colors.Ink, 0.4))
+		// Every series at the active time is marked, as an axis pointer does;
+		// the active series' marker is the larger one.
+		for i, j := range plan.column(active) {
+			if j < 0 || i == si || !plan.series[i].points[j].present {
+				continue
+			}
+			s := plan.series[i]
+			drawRingedMarker(gtx, s.marker, s.points[j].at, markerRadius, float32(gtx.Dp(2)), s.ink, colors.Surface)
+		}
 		if pt.present {
 			drawRingedMarker(gtx, plan.series[si].marker, pt.at, markerRadius*1.3, float32(gtx.Dp(2)), plan.series[si].ink, colors.Surface)
 		}
@@ -716,6 +817,52 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 		if pt.present {
 			drawRingedMarker(gtx, plan.series[si].marker, pt.at, markerRadius*1.3, float32(gtx.Dp(2)), plan.series[si].ink, colors.Ink)
 		}
+	}
+}
+
+// drawMissingBands shades every run of missing points of a single series
+// across the plot, as a marked area does. The band spans from halfway after
+// the last value before the run to halfway before the next value, so it fills
+// the gap the line leaves.
+func (c *LineChart) drawMissingBands(gtx layout.Context, view ui.View, plan linePlan, s lineSeriesPlan) {
+	plot := plan.plot
+	fill := ui.WithAlpha(view.Colors.SecondaryInk, 0.10)
+	edge := ui.WithAlpha(view.Colors.SecondaryInk, 0.20)
+	if view.Colors.Dark {
+		fill = ui.WithAlpha(view.Colors.SecondaryInk, 0.06)
+		edge = ui.WithAlpha(view.Colors.SecondaryInk, 0.14)
+	}
+	half := func(a, b float32) float32 { return (a + b) / 2 }
+	for i := 0; i < len(s.points); i++ {
+		if s.points[i].present {
+			continue
+		}
+		j := i
+		for j+1 < len(s.points) && !s.points[j+1].present {
+			j++
+		}
+		first, last := s.points[i].at.X, s.points[j].at.X
+		x0, x1 := float32(plot.Min.X), float32(plot.Max.X)
+		if i > 0 {
+			x0 = half(s.points[i-1].at.X, first)
+		} else if j+1 < len(s.points) {
+			x0 = max(x0, first-(s.points[j+1].at.X-last)/2)
+		}
+		if j+1 < len(s.points) {
+			x1 = half(last, s.points[j+1].at.X)
+		} else if i > 0 {
+			x1 = min(x1, last+(first-s.points[i-1].at.X)/2)
+		}
+		x0, x1 = max(x0, float32(plot.Min.X)), min(x1, float32(plot.Max.X))
+		if w := float32(gtx.Dp(6)); x1-x0 < w {
+			mid := half(x0, x1)
+			x0, x1 = mid-w/2, mid+w/2
+		}
+		band := image.Rect(int(math.Round(float64(x0))), plot.Min.Y, int(math.Round(float64(x1))), plot.Max.Y)
+		fillRect(gtx, band, fill)
+		hairline(gtx, image.Pt(band.Min.X, plot.Min.Y), image.Pt(band.Min.X, plot.Max.Y), 1, edge)
+		hairline(gtx, image.Pt(band.Max.X-1, plot.Min.Y), image.Pt(band.Max.X-1, plot.Max.Y), 1, edge)
+		i = j
 	}
 }
 

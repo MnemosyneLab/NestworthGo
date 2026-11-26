@@ -383,7 +383,7 @@ func (s SankeySpec) nodeInks(colors *ui.Palette, g sankeyGraph) []color.NRGBA {
 				continue
 			}
 		}
-		inks[i] = colors.Category[fresh%len(colors.Category)]
+		inks[i] = colors.ChartInk(fresh)
 		fresh++
 	}
 	return inks

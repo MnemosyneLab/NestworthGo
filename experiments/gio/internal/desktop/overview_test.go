@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -89,11 +90,11 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Incomplete valuation")
 	label("Base currency AUD")
 	label("Net worth · Known net contribution")
-	label("A$ 128.75")
+	label("A$128.75")
 	label("Unavailable")
-	absent("A$ 0.00")
+	absent("A$0.00")
 	label("Missing exchange rate · AUD/USD · Foreign debt")
-	stamp := "Read 2026-08-18 01:34 (Asia/Singapore)"
+	stamp := "Updated 2026-08-18 01:34"
 	label(stamp)
 	h.click("Settings", false)
 	h.click("Back", false)
@@ -107,10 +108,10 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Incomplete valuation")
 	h.click("Retry", false)
 	finish(overviewRead{value: domain.OverviewResult{Currency: "AUD", Complete: true}})
-	label("Read 2026-08-19 01:34 (Asia/Singapore)")
+	label("Updated 2026-08-19 01:34")
 	label("No accounts to show.")
 	absent("Net worth · Known net contribution")
-	absent("A$ 0.00")
+	absent("A$0.00")
 	h.click("Reload", false)
 	finish(overviewRead{value: domain.OverviewResult{
 		Currency: "AUD", AccountCount: 1, DisplayValuation: domain.HouseholdDisplayValuation{Assets: unknown, Liabilities: unknown, NetWorth: unknown},
@@ -120,7 +121,7 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Unavailable")
 	label("Missing price · DEMO")
 	absent("Net worth · Known net contribution")
-	absent("A$ 0.00")
+	absent("A$0.00")
 }
 
 type unavailableOverviewProvider struct{ requests int }
@@ -251,7 +252,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	if ref.NetWorth != "98.411725" || !ref.Complete || value.DisplayValuation.NetWorth.Quality.StaleCount == 0 {
 		t.Fatalf("expected exact net worth with stale cached FX, got %+v", ref)
 	}
-	for _, label := range []string{"A$ 98.41", "A$ 123.51", "-A$ 25.10", "Some cached quotes await an update.", "Current estimate"} {
+	for _, label := range []string{"A$98.41", "A$123.51", "-A$25.10", "Some cached quotes await an update.", "Current estimate"} {
 		assertPageLabel(t, &h.router, label)
 	}
 	model := page.allocation.model
@@ -259,7 +260,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 		t.Fatalf("path or node omitted by Gio: %+v", model)
 	}
 	row := model.rows[0]
-	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$ 123.51" {
+	if row.account.id.String() != ref.AssetComposition.Paths[0].AccountID || row.amount != "A$123.51" {
 		t.Fatalf("allocation row did not use the Wails path: %+v", row)
 	}
 	page.list.ScrollTo(page.compositionIndex())
@@ -274,7 +275,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	h.size = image.Pt(700, 480)
 	page.list.ScrollTo(page.dimensionsIndex() - 1)
 	h.frame()
-	h.click("USD Cash · A$ 123.51", false)
+	h.click("USD Cash · A$123.51", false)
 	h.frame()
 	if h.shell.trail.current().target.account != row.account.id {
 		t.Fatal("allocation row did not open the exact account")
@@ -314,7 +315,7 @@ func TestOverviewSankeyKeepsEveryPositivePathAndBusinessLabel(t *testing.T) {
 	}
 	last := model.rows[count-1]
 	if last.account.id != domain.AccountID("account-159") || last.account.label != "Savings (160)" || last.institution != "Unassigned institution" ||
-		last.amount != "$ 2.75" || model.spec.Nodes[0].Label != "Known subtotal" {
+		last.amount != "US$2.75" || model.spec.Nodes[0].Label != "Known subtotal" {
 		t.Fatalf("last real path and partial summary: %+v, %+v", last, model.spec.Nodes[0])
 	}
 	node := charts.ID(c.Nodes[len(c.Nodes)-1].ID)
@@ -387,7 +388,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 	for i, path := range reference.AssetComposition.Paths {
 		amount, ok := want[path.AccountID+"/"+path.AssetClass]
 		if !ok || path.Amount != amount || got.rows[i].account.id.String() != path.AccountID ||
-			got.rows[i].amount != "$ "+amount {
+			got.rows[i].amount != "US$"+amount {
 			t.Fatalf("allocation row %d = %+v, Wails = %+v", i, got.rows[i], path)
 		}
 		total = total.Add(decimal.RequireFromString(path.Amount))
@@ -404,7 +405,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 		leaves[target.id]++
 	}
 	if leaves[mixed] != 2 || leaves[small] != 1 || !total.Equal(read.AssetComposition.Positive) ||
-		total.String() != "215.04" || total.String() != reference.Assets || got.spec.Nodes[0].Text != "$ 215.04" {
+		total.String() != "215.04" || total.String() != reference.Assets || got.spec.Nodes[0].Text != "US$215.04" {
 		t.Fatalf("leaf coverage %v, exact total %s, Wails assets %s", leaves, total, reference.Assets)
 	}
 }
@@ -416,9 +417,9 @@ func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
 		zero, missing int
 		labels        []string
 	}{
-		{"zero", decimal.Zero, 1, 0, []string{"Total assets · $ 0.00", "Zero-value asset components · 1", "No positive asset values to chart."}},
+		{"zero", decimal.Zero, 1, 0, []string{"Total assets · US$0.00", "Zero-value asset components · 1", "No positive asset values to chart."}},
 		{"missing", decimal.Zero, 0, 1, []string{"Asset components without a base-currency value · 1", "Asset values are unavailable."}},
-		{"negative", decimal.RequireFromString("-12.25"), 0, 1, []string{"Negative components · -$ 12.25", "Known subtotal · -$ 12.25", "No positive asset values to chart."}},
+		{"negative", decimal.RequireFromString("-12.25"), 0, 1, []string{"Negative components · -US$12.25", "Known subtotal · -US$12.25", "No positive asset values to chart."}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			quoteDate, carriedDate := "2026-11-01", "2026-10-29"
@@ -441,5 +442,55 @@ func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
 				t.Fatal("nonpositive or unavailable assets appeared as chart paths")
 			}
 		})
+	}
+}
+
+// The allocation table behind a dense chart keeps every real path, lays out
+// only the rows near the viewport, and still opens the last account.
+func TestOverviewAllocationDetailsVirtualizeLongTables(t *testing.T) {
+	const count = 600
+	unit := decimal.RequireFromString("2.75")
+	total := unit.Mul(decimal.NewFromInt(count))
+	data := domain.OverviewResult{Currency: "USD", AccountCount: count, Assets: total,
+		AssetComposition: domain.OverviewAssetComposition{Positive: total}}
+	c := &data.AssetComposition
+	c.Nodes = []domain.OverviewAssetNode{
+		{ID: "assets", Kind: "total", Amount: total},
+		{ID: "assets/cash", ParentID: "assets", Key: "cash", Kind: "assetClass", Amount: total},
+		{ID: "assets/cash/institution:bank", ParentID: "assets/cash", Key: "bank", Kind: "institution", Amount: total},
+	}
+	for i := range count {
+		id := fmt.Sprintf("account-%03d", i)
+		c.Paths = append(c.Paths, domain.OverviewAssetPath{AssetClass: "cash", InstitutionID: "bank", InstitutionName: "Synthetic bank",
+			AccountID: id, AccountName: fmt.Sprintf("Synthetic account %03d", i), Amount: unit})
+		c.Nodes = append(c.Nodes, domain.OverviewAssetNode{ID: "assets/cash/institution:bank/account:" + id, ParentID: "assets/cash/institution:bank", Kind: "account", Key: id, Amount: unit})
+	}
+	read := overviewRead{readAt: time.Now(), value: data}
+	p := newOverviewPage(t.Context(), nil, time.Now, func() {})
+	p.current = &read
+	h := newShellHarnessWithPages(t, ledgerPages{overview: p})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1000, 720)
+	var opened domain.AccountID
+	p.allocation.openAccount = func(id domain.AccountID, _ string, _ event.Tag) { opened = id }
+	h.frame()
+	if len(p.allocation.model.rows) != count || p.dimensionsIndex()-p.compositionIndex()-1 != count+1 {
+		t.Fatalf("details rows = %d, list items = %d; want every one of %d paths", len(p.allocation.model.rows), p.dimensionsIndex()-p.compositionIndex()-1, count)
+	}
+	p.list.ScrollTo(p.compositionIndex() + 1)
+	h.frame()
+	assertPageLabel(t, &h.router, "Back to asset composition")
+	if laid := len(p.allocation.buttons); laid == 0 || laid > 40 {
+		t.Fatalf("laid out %d detail rows at the top of a %d-row table; want only the visible ones", laid, count)
+	}
+	p.list.ScrollTo(p.dimensionsIndex() - 1)
+	h.frame()
+	if laid := len(p.allocation.buttons); laid > 80 {
+		t.Fatalf("laid out %d detail rows after jumping to the end; want only rows near the viewport", laid)
+	}
+	h.click("Synthetic account 599 · US$2.75", false)
+	h.frame()
+	if opened != "account-599" {
+		t.Fatalf("last allocation row opened %q, want account-599", opened)
 	}
 }

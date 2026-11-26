@@ -9,7 +9,6 @@ import (
 
 	"gioui.org/io/clipboard"
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -47,7 +46,7 @@ func (p *marketDataPage) marketHistoryAction(gtx layout.Context, view ui.View, k
 func (p *marketDataPage) layoutQuoteHistory(gtx layout.Context, view ui.View, mayOpenHealth bool) (event.Tag, *healthFindingFocus) {
 	d := p.quoteHistory
 	d.update()
-	tags := []event.Tag{&d.swap, &d.showAll, &d.table, &d.health, &d.attribution, &d.chart, &d.dates.previous, &d.dates.next}
+	tags := []event.Tag{&d.swap, &d.showAll, &d.table.toggle, &d.table.list, &d.health, &d.attribution, &d.chart, &d.dates.previous, &d.dates.next}
 	for i := range d.dates.presets {
 		tags = append(tags, &d.dates.presets[i])
 	}
@@ -58,11 +57,6 @@ func (p *marketDataPage) layoutQuoteHistory(gtx layout.Context, view ui.View, ma
 		p.closeQuoteHistory()
 		gtx.Execute(op.InvalidateCmd{})
 		return d.visit.source, nil
-	}
-	if d.request == nil && d.err == nil && d.result != nil && len(d.result.series.Observations) != 0 && d.table.Clicked(gtx) {
-		d.sheet.list.ScrollTo(2)
-		gtx.Execute(key.FocusCmd{Tag: &d.sheet.list})
-		gtx.Execute(op.InvalidateCmd{})
 	}
 	if mayOpenHealth && d.health.Clicked(gtx) && d.result != nil {
 		target := d.visit.target
@@ -113,7 +107,7 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 	ready := d.request == nil && d.err == nil
 	count := 1
 	if ready && len(observations) != 0 {
-		count = 3 + len(observations)
+		count = 2
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &d.sheet.list, l.Text(i18n.QuoteHistoryTitleList), count, func(gtx layout.Context, index int) layout.Dimensions {
@@ -125,13 +119,11 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 				if len(spec.Series) == 0 {
 					return view.Message(l.Text(i18n.QuoteHistoryOffCurrency), view.Colors.SecondaryInk)(gtx)
 				}
-				return analysisLineCard(view, &d.chart, spec, &d.selected)(gtx)
-			case 2:
-				return view.Body(ui.TextHeading, l.Text(i18n.QuoteHistoryObservations), view.Colors.Ink)(gtx)
+				return analysisLineCardTable(view, &d.chart, spec, &d.selected, &d.table, len(observations), func(charts.LineSpec) charts.Table {
+					return quoteHistoryTable(view, data, d.visit.direction())
+				})(gtx)
 			default:
-				point := observations[index-3]
-				lines := append([]string{quoteHistoryAmount(view, point, d.visit.direction(), data.instrument)}, quoteHistoryEvidence(view, point)...)
-				return healthRepairLines(gtx, view, lines)
+				return layout.Dimensions{}
 			}
 		})
 	}
@@ -185,9 +177,6 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 	var actions []layout.Widget
 	if mayOpenHealth {
 		actions = append(actions, returnMonthButton(view, &d.health, i18n.HealthOpen, nil, true))
-	}
-	if d.request == nil && d.err == nil && len(data.series.Observations) != 0 {
-		actions = append(actions, returnMonthButton(view, &d.table, i18n.QuoteHistoryViewTable, nil, true))
 	}
 	if len(actions) > 0 {
 		rows = append(rows, ui.Rigid(marketActionRow(view, actions)))
@@ -252,6 +241,28 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 		rows = append(rows, ui.Rigid(returnMonthButton(view, &d.showAll, i18n.QuoteHistoryShowAll, nil, true)))
 	}
 	return (ui.Column{Gap: 7}).Layout(gtx, rows...)
+}
+
+// quoteHistoryTable lists every saved observation in the range, as the Wails
+// quote chart's data table does: when it was observed, the exact value and its
+// evidence.
+func quoteHistoryTable(view ui.View, data *marketQuoteHistoryRead, pair marketFXPair) charts.Table {
+	l := view.Language
+	value := i18n.ChartPrice
+	if pair.first != "" {
+		value = i18n.ChartRate
+	}
+	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartObservedAt)}, {Title: l.Text(value), Numeric: true},
+		{Title: l.Text(i18n.ChartDetails), Wrap: true}}, Selected: charts.NoRow}
+	for _, point := range data.series.Observations {
+		observed := wealthDay(view, point.EffectiveDate)
+		if point.TimestampBasis != "date_label" && !point.QuotedAt.IsZero() {
+			observed = strings.TrimPrefix(portfolioQuoteStamp(view, "", "", point.QuotedAt), " · ")
+		}
+		table.Rows = append(table.Rows, []string{observed, quoteHistoryAmount(view, point, pair, data.instrument),
+			strings.Join(quoteHistoryEvidence(view, point), " · ")})
+	}
+	return table
 }
 
 func quoteHistoryAmount(view ui.View, point domain.QuoteSeriesPoint, pair marketFXPair, instrument *domain.Instrument) string {

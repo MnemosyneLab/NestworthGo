@@ -200,6 +200,11 @@ func (h *Overlay) Layout(gtx layout.Context, view View) {
 		if h.pane.menu {
 			return layout.UniformInset(4).Layout(gtx, h.pane.Body)
 		}
+		if h.pane.focus != nil {
+			// A pane with its own focus closes with Escape, Tab or an outside
+			// press, as Wails pickers do, so it carries no Close button.
+			return layout.UniformInset(8).Layout(gtx, h.pane.Body)
+		}
 		return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

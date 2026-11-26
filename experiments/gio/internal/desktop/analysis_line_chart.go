@@ -1,8 +1,6 @@
 package desktop
 
 import (
-	"strings"
-
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -11,7 +9,19 @@ import (
 
 const analysisWideChartMinWidth = 610
 
-func analysisLineCard(view ui.View, chart *charts.LineChart, spec charts.LineSpec, selected *charts.Selection) layout.Widget {
+// analysisLineCard is a titled card holding a line chart and, under it, the
+// chart's data table disclosure with the given column titles. A nil table
+// leaves the disclosure out.
+func analysisLineCard(view ui.View, chart *charts.LineChart, spec charts.LineSpec, selected *charts.Selection, table *chartDataTable, labels charts.TableLabels) layout.Widget {
+	return analysisLineCardTable(view, chart, spec, selected, table, lineTableItems(spec), func(current charts.LineSpec) charts.Table {
+		return current.Table(labels)
+	})
+}
+
+// analysisLineCardTable is analysisLineCard with the owner's own table of the
+// given number of rows, for a chart whose table lists more than its points.
+// build receives the spec with the current selection.
+func analysisLineCardTable(view ui.View, chart *charts.LineChart, spec charts.LineSpec, selected *charts.Selection, table *chartDataTable, items int, build func(charts.LineSpec) charts.Table) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		current := spec
 		current.Selected = *selected
@@ -19,7 +29,7 @@ func analysisLineCard(view ui.View, chart *charts.LineChart, spec charts.LineSpe
 			current.Height = 180
 		}
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Column{Gap: 4}).Layout(gtx,
+			rows := []ui.ColumnChild{
 				ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return (layout.Inset{Top: 10, Left: 10, Right: 10}).Layout(gtx, view.Body(ui.TextLabel, current.Label, view.Colors.Ink))
 				}),
@@ -31,7 +41,15 @@ func analysisLineCard(view ui.View, chart *charts.LineChart, spec charts.LineSpe
 						gtx.Execute(op.InvalidateCmd{})
 					}
 					return dims
+				}),
+			}
+			if table != nil {
+				rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return (layout.Inset{Left: 10, Right: 10, Bottom: 10}).Layout(gtx,
+						table.layout(view, items, func() charts.Table { return build(current) }))
 				}))
+			}
+			return (ui.Column{Gap: 4}).Layout(gtx, rows...)
 		})
 	}
 }
@@ -53,26 +71,4 @@ func analysisLineBody(view ui.View, chart *charts.LineChart, spec charts.LineSpe
 		}
 		return dims
 	}
-}
-
-// analysisTableRow shows a table row as its first detail (the date) on the
-// left and the value on the right, with any further details as a caption. The
-// joined sentence stays the accessible label.
-func analysisTableRow(view ui.View, row charts.TextRow) layout.Widget {
-	head := labeledRow(view, analysisLineTableText(row), row.Detail[0], row.Value, view.Colors.Ink)
-	if len(row.Detail) < 2 {
-		return head
-	}
-	extra := strings.Join(row.Detail[1:], " · ")
-	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
-			layout.Rigid(head),
-			layout.Rigid(view.Body(ui.TextCaption, extra, view.Colors.SecondaryInk)),
-		)
-	}
-}
-
-func analysisLineTableText(row charts.TextRow) string {
-	parts := []string{row.Detail[0], row.Value}
-	return strings.Join(append(parts, row.Detail[1:]...), " · ")
 }

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image"
+	"slices"
 	"testing"
 	"time"
 
@@ -134,5 +135,77 @@ func TestMeasureCentersAReadableColumnAndMovesTheOrigin(t *testing.T) {
 	_, view = testView().Measure(gtx, 600)
 	if view.Origin.X != 0 {
 		t.Errorf("a window narrower than the measure must not shift, got %v", view.Origin)
+	}
+}
+
+func TestGridRowsStretchCellsToTheTallestOnTheNextFrame(t *testing.T) {
+	view := testView()
+	var rows RowHeights
+	grid := Grid{MinColumn: 150, Gap: 10, Rows: &rows}
+	var minimums []int
+	frame := func() {
+		var ops op.Ops
+		gtx := testContext(&ops, nil, time.Unix(0, 0), 330)
+		minimums = minimums[:0]
+		grid.Layout(gtx, view, 2, func(gtx layout.Context, view View, index int) layout.Dimensions {
+			minimums = append(minimums, gtx.Constraints.Min.Y)
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, max(20+30*index, gtx.Constraints.Min.Y))}
+		})
+	}
+	frame()
+	if minimums[0] != 0 || minimums[1] != 0 {
+		t.Fatalf("first frame minimums = %v, want none", minimums)
+	}
+	frame()
+	if minimums[0] != 50 || minimums[1] != 50 {
+		t.Fatalf("second frame minimums = %v, want the tallest cell (50)", minimums)
+	}
+}
+
+// A stretched row follows its tallest card's natural height down as well as
+// up: the painted height of a stretched card must not feed back as its
+// measurement.
+func TestGridRowsShrinkWhenTheTallestCardShrinks(t *testing.T) {
+	view := testView()
+	var rows RowHeights
+	grid := Grid{MinColumn: 150, Gap: 10, Rows: &rows}
+	content := [2]int{40, 40}
+	frame := func() (cards [2]int, height int) {
+		var ops op.Ops
+		gtx := testContext(&ops, nil, time.Unix(0, 0), 330)
+		dims := grid.Layout(gtx, view, 2, func(gtx layout.Context, view View, index int) layout.Dimensions {
+			card := view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, content[index])}
+			})
+			cards[index] = card.Size.Y
+			return card
+		})
+		return cards, dims.Size.Y
+	}
+	settle := func() ([2]int, int) {
+		// The grid asks for a frame exactly when a row's stored height changes.
+		for range 4 {
+			before := append([]int(nil), rows.heights...)
+			cards, height := frame()
+			if slices.Equal(before, rows.heights) {
+				return cards, height
+			}
+		}
+		t.Fatal("the stretched grid kept asking for frames")
+		return [2]int{}, 0
+	}
+	baseCards, baseHeight := settle()
+	if baseCards != [2]int{80, 80} || baseHeight != 80 {
+		t.Fatalf("settled cards = %v, height %d; want two 80px cards", baseCards, baseHeight)
+	}
+	content[0] = 200
+	tall, tallHeight := settle()
+	if tall != [2]int{240, 240} || tallHeight != 240 {
+		t.Fatalf("expanded cards = %v, height %d; want the peer stretched to 240", tall, tallHeight)
+	}
+	content[0] = 40
+	back, backHeight := settle()
+	if back != baseCards || backHeight != baseHeight {
+		t.Fatalf("collapsed cards = %v, height %d; want both back to %v", back, backHeight, baseCards)
 	}
 }

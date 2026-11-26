@@ -112,7 +112,7 @@ func assetTrendLine(view ui.View, trend application.AssetTrendResult, query doma
 			if metric == application.TrendReturnRate {
 				return returnRate(view, &amount)
 			}
-			return valuationMoney(view, domain.MoneyView{Amount: amount.String(), Currency: currency}, false)
+			return chartAxisNumber(view, value)
 		},
 		Messages: charts.Messages{Empty: l.Text(i18n.AssetNoData), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}, missing
@@ -197,13 +197,7 @@ func (p *assetChangesPage) assetTrendRows(view ui.View, data application.AssetTr
 	if missing > 0 {
 		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AssetTrendMissingPeriods), missing), view.Colors.SecondaryInk)))
 	}
-	rows = append(rows, ui.Rigid(analysisLineCard(view, &p.trendChart, spec, &p.trendSelected)))
-	table := spec.Rows()
-	rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &p.list, l.Text(i18n.AssetTrendTable), len(table), func(gtx layout.Context, index int) layout.Dimensions {
-			return analysisTableRow(view, table[index])(gtx)
-		})
-	}))
+	rows = append(rows, ui.Rigid(analysisLineCard(view, &p.trendChart, spec, &p.trendSelected, &p.trendTable, chartTableLabels(l, i18n.ChartCoverage))))
 	if data.ValueChange == nil {
 		value := returnMoney(view, data.Summary)
 		if metric == application.TrendReturnRate {

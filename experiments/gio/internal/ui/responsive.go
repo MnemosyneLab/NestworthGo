@@ -52,6 +52,23 @@ type Grid struct {
 	// Balanced evens out the rows so a short last row never leaves an orphan:
 	// four cells in three columns become two rows of two.
 	Balanced bool
+	// Rows, when set, gives every cell the height of the tallest cell in its
+	// row, as stretched CSS grid items are. It carries the heights between
+	// frames, so a cell must pass its Constraints.Min.Y on to a CardPadded.
+	// The card reports its natural height separately from the stretched
+	// height it paints, which lets a row shrink when its tallest cell does.
+	// A cell without a CardPadded is measured by its painted height and can
+	// only grow its row.
+	Rows *RowHeights
+}
+
+// RowHeights remembers the tallest natural cell height of each grid row from
+// the previous frame. The first frame after the grid's shape changes, or after
+// a cell's natural height changes, lays out with the old heights and asks for
+// another frame.
+type RowHeights struct {
+	shape   [3]int
+	heights []int
 }
 
 // Columns returns how many columns hold count cells in a width in pixels.
@@ -75,18 +92,44 @@ func (g Grid) Layout(gtx layout.Context, view View, count int, cell func(gtx lay
 	gap := gtx.Dp(g.Gap)
 	columns := g.Columns(gtx, width, count)
 	cellWidth := max(0, (width-(columns-1)*gap)/columns)
+	rows := (count + columns - 1) / columns
+	var known []int
+	if g.Rows != nil {
+		shape := [3]int{cellWidth, columns, count}
+		if g.Rows.shape != shape || len(g.Rows.heights) != rows {
+			g.Rows.shape, g.Rows.heights = shape, make([]int, rows)
+		}
+		known = g.Rows.heights
+	}
 	y := 0
+	changed := false
 	for start := 0; start < count; start += columns {
-		row := 0
+		row, natural := 0, 0
 		for column := 0; column < columns && start+column < count; column++ {
 			index := start + column
 			position := image.Pt(column*(cellWidth+gap), y)
+			reported := -1
 			dims := Place(gtx, view, position, cellWidth, func(gtx layout.Context, view View) layout.Dimensions {
+				view.naturalHeight = nil
+				if known != nil {
+					gtx.Constraints.Min.Y = known[start/columns]
+					view.naturalHeight = &reported
+				}
 				return cell(gtx, view, index)
 			})
 			row = max(row, dims.Size.Y)
+			if reported < 0 {
+				reported = dims.Size.Y
+			}
+			natural = max(natural, reported)
+		}
+		if known != nil && known[start/columns] != natural {
+			known[start/columns], changed = natural, true
 		}
 		y += row + gap
+	}
+	if changed {
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	if count > 0 {
 		y -= gap
@@ -100,6 +143,9 @@ func (g Grid) Layout(gtx layout.Context, view View, count int, cell func(gtx lay
 type Wrap struct {
 	// Gap separates children horizontally and lines vertically.
 	Gap unit.Dp
+	// Middle centers the children of a line on its tallest child; otherwise
+	// they share the top edge.
+	Middle bool
 }
 
 // Layout places count children. A child that is wider than the row still gets
@@ -107,22 +153,40 @@ type Wrap struct {
 func (w Wrap) Layout(gtx layout.Context, count int, child func(gtx layout.Context, index int) layout.Dimensions) layout.Dimensions {
 	width, gap := gtx.Constraints.Max.X, gtx.Dp(w.Gap)
 	gtx.Constraints.Min = image.Point{}
-	var x, y, line, widest int
+	type placed struct {
+		call op.CallOp
+		at   image.Point
+		size image.Point
+	}
+	var line []placed
+	var x, y, height, widest int
+	flush := func() {
+		for _, item := range line {
+			dy := 0
+			if w.Middle {
+				dy = (height - item.size.Y) / 2
+			}
+			stack := op.Offset(image.Pt(item.at.X, y+dy)).Push(gtx.Ops)
+			item.call.Add(gtx.Ops)
+			stack.Pop()
+		}
+		line = line[:0]
+	}
 	for i := 0; i < count; i++ {
 		macro := op.Record(gtx.Ops)
 		dims := child(gtx, i)
 		call := macro.Stop()
 		if x > 0 && x+dims.Size.X > width {
-			x, y, line = 0, y+line+gap, 0
+			flush()
+			x, y, height = 0, y+height+gap, 0
 		}
-		stack := op.Offset(image.Pt(x, y)).Push(gtx.Ops)
-		call.Add(gtx.Ops)
-		stack.Pop()
+		line = append(line, placed{call: call, at: image.Pt(x, 0), size: dims.Size})
 		x += dims.Size.X + gap
-		line = max(line, dims.Size.Y)
+		height = max(height, dims.Size.Y)
 		widest = max(widest, x-gap)
 	}
-	return layout.Dimensions{Size: image.Pt(widest, y+line)}
+	flush()
+	return layout.Dimensions{Size: image.Pt(widest, y+height)}
 }
 
 // Measure narrows a page to a readable column and centers it in the width it

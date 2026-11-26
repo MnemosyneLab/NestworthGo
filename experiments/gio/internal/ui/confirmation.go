@@ -64,23 +64,28 @@ func (c *Confirmation) Layout(gtx layout.Context, view View, options Confirmatio
 		// The dialog scales up from 96% while it fades in.
 		macro := op.Record(gtx.Ops)
 		dims := view.Surface(gtx, SurfaceSpec{Elevation: ElevationLG}, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(22).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(Space24).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				if options.Busy {
 					gtx = gtx.Disabled()
 				}
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(14)}.Layout(gtx,
+				// Title and body read as one block; the actions sit apart at
+				// the trailing edge, as in the Wails alert dialog.
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						return view.Line(gtx, TextHeading, options.Title, view.Colors.Ink)
 					}),
+					layout.Rigid(layout.Spacer{Height: Space8}.Layout),
 					layout.Rigid(view.Body(TextBody, options.Body, view.Colors.SecondaryInk)),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if options.Problem == "" {
 							return layout.Dimensions{}
 						}
-						return view.Message(options.Problem, view.Colors.ErrorInk)(gtx)
+						return layout.Inset{Top: Space12}.Layout(gtx, view.Message(options.Problem, view.Colors.ErrorInk))
 					}),
+					layout.Rigid(layout.Spacer{Height: Space24}.Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Gap: gtx.Dp(12)}.Layout(gtx,
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						return layout.Flex{Spacing: layout.SpaceStart, Gap: gtx.Dp(Space8)}.Layout(gtx,
 							layout.Rigid(view.Button(&c.Cancel, options.Cancel)),
 							layout.Rigid(view.PrimaryButton(&c.Confirm, options.Confirm)),
 						)

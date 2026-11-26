@@ -75,6 +75,7 @@ type assetChangesPage struct {
 	waterfall                  charts.WaterfallChart
 	waterfallSelected          charts.Selection
 	trendChart                 charts.LineChart
+	trendTable                 chartDataTable
 	trendSelected              charts.Selection
 	driver                     *assetDriverSheet
 	driverButtons              map[string]*widget.Clickable

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gioui.org/io/key"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -75,8 +77,15 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.clear, i18n.HealthShowAll, nil, true)))
 		}
 	}
-	if report := p.report; report != nil && !p.focus.active() {
-		rows = append(rows, ui.Rigid(healthSummary(view, *report)))
+	recheck := i18n.HealthRecheck
+	switch {
+	case p.err != nil:
+		recheck = i18n.HistoryRetry
+	}
+	recheckButton := returnMonthButton(view, &p.recheck, recheck, nil, p.request == nil)
+	inSummary := p.report != nil && !p.focus.active()
+	if report := p.report; inSummary {
+		rows = append(rows, ui.Rigid(healthSummary(view, *report, recheckButton)))
 		if p.repair != nil && !report.Healthy {
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return p.repairAction(gtx, view)
@@ -88,15 +97,15 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			return p.repairProgress(gtx, view)
 		}))
 	}
-	recheck := i18n.HealthRecheck
 	switch {
 	case p.request != nil:
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthLoading), view.Colors.SecondaryInk)))
 	case p.err != nil:
-		recheck = i18n.HistoryRetry
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthFailed), view.Colors.ErrorInk)))
 	}
-	rows = append(rows, ui.Rigid(returnMonthButton(view, &p.recheck, recheck, nil, p.request == nil)))
+	if !inSummary {
+		rows = append(rows, ui.Rigid(recheckButton))
+	}
 	if p.report != nil {
 		issues := p.findings
 		if len(issues) != 0 {
@@ -117,7 +126,7 @@ func (p *dataHealthPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 	return dims
 }
 
-func healthSummary(view ui.View, report application.MarketDataHealthReport) layout.Widget {
+func healthSummary(view ui.View, report application.MarketDataHealthReport, recheck layout.Widget) layout.Widget {
 	l := view.Language
 	title := l.Text(i18n.HealthHealthy)
 	var details []string
@@ -145,13 +154,33 @@ func healthSummary(view ui.View, report application.MarketDataHealthReport) layo
 		}
 	}
 	return func(gtx layout.Context) layout.Dimensions {
+		colors := view.Colors
+		icon, fill, ink := lucide.TriangleAlert, ui.Mix(colors.Surface, colors.Warning, 0.18), colors.WarningInk
+		if report.Healthy {
+			icon, fill, ink = lucide.CircleCheck, ui.Mix(colors.Surface, colors.Success, 0.16), colors.Success
+		}
 		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				items := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, title, view.Colors.Ink))}
-				for _, detail := range details {
-					items = append(items, ui.Rigid(view.Message(detail, view.Colors.SecondaryInk)))
+			return layout.UniformInset(16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				tile := func(gtx layout.Context) layout.Dimensions { return view.IconTile(gtx, icon, 36, fill, ink) }
+				text := func(gtx layout.Context) layout.Dimensions {
+					items := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, title, colors.Ink))}
+					if len(details) != 0 {
+						items = append(items, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return (ui.Wrap{Gap: ui.Space6, Middle: true}).Layout(gtx, len(details), func(gtx layout.Context, i int) layout.Dimensions {
+								return view.Badge(gtx, ui.BadgeNeutral, details[i])
+							})
+						}))
+					}
+					return (ui.Column{Gap: ui.Space8}).Layout(gtx, items...)
 				}
-				return (ui.Column{Gap: 5}).Layout(gtx, items...)
+				if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 640) {
+					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+						layout.Rigid(tile), layout.Flexed(1, text), layout.Rigid(recheck))
+				}
+				return (ui.Column{Gap: ui.Space12}).Layout(gtx,
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Alignment: layout.Start, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, layout.Rigid(tile), layout.Flexed(1, text))
+					}), ui.Rigid(recheck))
 			})
 		})
 	}
@@ -165,68 +194,108 @@ func (p *dataHealthPage) issueRow(gtx layout.Context, view ui.View, row healthIs
 		kind = i18n.HealthFinding
 	}
 	if row.startSection {
-		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(healthSections[row.section]), view.Colors.Ink)))
+		heading := view.Body(ui.TextHeading, l.Text(healthSections[row.section]), view.Colors.Ink)
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: ui.Space4, Bottom: ui.Space4}.Layout(gtx, heading)
+		}))
 	}
 	if row.startGroup {
-		heading := fmt.Sprintf("%s · %d", l.Text(kind), row.groupCount)
-		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, heading, view.Colors.Ink)))
-	}
-	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				name := healthIssueName(issue)
-				if name == "" {
-					name = l.Text(kind)
-				}
-				if isSnapshotFinding(issue) && issue.AccountID != "" {
-					account := p.accountNames[issue.AccountID]
-					if account == "" {
-						account = l.Text(i18n.OverviewAllocationUnknownAccount)
-					}
-					name = account + " · " + name
-				}
-				items := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink))}
-				if evidence := healthIssueEvidence(view, issue); evidence != "" {
-					items = append(items, ui.Rigid(view.Message(evidence, view.Colors.SecondaryInk)))
-				}
-				if row.combined {
-					items = append(items, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthSnapshotAffected), issue.RangeCount), view.Colors.SecondaryInk)))
-				}
-				if isSnapshotFinding(issue) && issue.Collapsed {
-					items = append(items, ui.Rigid(view.Message(l.Text(i18n.HealthSnapshotBlocked), view.Colors.WarningInk)))
-				}
-				if message := healthIssueAction(issue); message != i18n.NoMessage {
-					items = append(items, ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk)))
-				}
-				if action := p.issueAction(gtx, view, issue, name); action != nil {
-					items = append(items, ui.Rigid(action))
-				}
-				if p.quoteHistory != nil {
-					if target, ok := quoteHistoryFinding(issue, name); ok {
-						if p.historyActions == nil {
-							p.historyActions = make(map[string]*widget.Clickable)
-						}
-						items = append(items, ui.Rigid(p.quoteHistory(gtx, view, target, portfolioButton(p.historyActions, issue.ID), p.request == nil && p.err == nil)))
-					}
-				}
-				if actions := p.snapshotActions(gtx, view, row, name); len(actions) > 0 {
-					items = append(items, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return (ui.Wrap{Gap: 6}).Layout(gtx, len(actions), func(gtx layout.Context, index int) layout.Dimensions {
-							return actions[index](gtx)
-						})
+		title := view.Body(ui.TextLabel, l.Text(kind), view.Colors.Ink)
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: ui.Space4, Bottom: ui.Space4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Rigid(title),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Badge(gtx, ui.BadgeNeutral, strconv.Itoa(row.groupCount))
 					}))
-				}
-				return (ui.Column{Gap: 6}).Layout(gtx, items...)
 			})
-		})
+		}))
+	}
+	name := healthIssueName(issue)
+	if name == "" {
+		name = l.Text(kind)
+	}
+	if isSnapshotFinding(issue) && issue.AccountID != "" {
+		account := p.accountNames[issue.AccountID]
+		if account == "" {
+			account = l.Text(i18n.OverviewAllocationUnknownAccount)
+		}
+		name = account + " · " + name
+	}
+	var actions []layout.Widget
+	if action := p.issueAction(gtx, view, issue, name); action != nil {
+		actions = append(actions, action)
+	}
+	if p.quoteHistory != nil {
+		if target, ok := quoteHistoryFinding(issue, name); ok {
+			if p.historyActions == nil {
+				p.historyActions = make(map[string]*widget.Clickable)
+			}
+			actions = append(actions, p.quoteHistory(gtx, view, target, portfolioButton(p.historyActions, issue.ID), p.request == nil && p.err == nil))
+		}
+	}
+	actions = append(actions, p.snapshotActions(gtx, view, row, name)...)
+	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		colors := view.Colors
+		title := func(gtx layout.Context) layout.Dimensions {
+			tone := ui.BadgeNeutral
+			switch issue.Severity {
+			case application.HealthSeverityBlocking:
+				tone = ui.BadgeDestructive
+			case application.HealthSeverityWarning:
+				tone = ui.BadgeWarning
+			}
+			severity := healthSeverities[issue.Severity]
+			return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, 1+boolInt(severity != i18n.NoMessage), func(gtx layout.Context, i int) layout.Dimensions {
+				if i == 0 {
+					return view.Body(ui.TextLabel, name, colors.Ink)(gtx)
+				}
+				return view.Badge(gtx, tone, l.Text(severity))
+			})
+		}
+		details := []ui.ColumnChild{ui.Rigid(title)}
+		if evidence := healthIssueEvidenceText(view, issue, false); evidence != "" {
+			details = append(details, ui.Rigid(view.Message(evidence, colors.SecondaryInk)))
+		}
+		if row.combined {
+			details = append(details, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HealthSnapshotAffected), issue.RangeCount), colors.SecondaryInk)))
+		}
+		if isSnapshotFinding(issue) && issue.Collapsed {
+			details = append(details, ui.Rigid(view.Message(l.Text(i18n.HealthSnapshotBlocked), colors.WarningInk)))
+		}
+		if message := healthIssueAction(issue); message != i18n.NoMessage {
+			details = append(details, ui.Rigid(view.Message(l.Text(message), colors.SecondaryInk)))
+		}
+		info := func(gtx layout.Context) layout.Dimensions { return (ui.Column{Gap: ui.Space4}).Layout(gtx, details...) }
+		if len(actions) == 0 {
+			return info(gtx)
+		}
+		buttons := func(gtx layout.Context) layout.Dimensions {
+			return (ui.Wrap{Gap: ui.Space6}).Layout(gtx, len(actions), func(gtx layout.Context, i int) layout.Dimensions { return actions[i](gtx) })
+		}
+		if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+				layout.Flexed(1, info),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(340))
+					return layout.E.Layout(gtx, buttons)
+				}))
+		}
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, ui.Rigid(info), ui.Rigid(buttons))
 	}))
 	return (ui.Column{Gap: 7}).Layout(gtx, rows...)
 }
 
 func healthIssueEvidence(view ui.View, issue application.HealthIssue) string {
+	return healthIssueEvidenceText(view, issue, true)
+}
+
+// healthIssueEvidenceText joins the facts of a finding; a row that shows its
+// severity as a badge leaves the severity word out.
+func healthIssueEvidenceText(view ui.View, issue application.HealthIssue, withSeverity bool) string {
 	l := view.Language
 	var evidence []string
-	if severity := healthSeverities[issue.Severity]; severity != i18n.NoMessage {
+	if severity := healthSeverities[issue.Severity]; withSeverity && severity != i18n.NoMessage {
 		evidence = append(evidence, l.Text(severity))
 	}
 	if issue.RangeStart != "" {

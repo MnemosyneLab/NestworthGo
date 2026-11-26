@@ -153,7 +153,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	}
 
 	settle()
-	label("$ 236.00")
+	label("US$236.00")
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record buy")
@@ -223,8 +223,8 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	}
 	click("Open instrument · QA-BUY")
 	label("Quantity 5")
-	label("Cost basis · USD $ 135.00")
-	label("Native market value · USD $ 200.00")
+	label("Cost basis · USD US$135.00")
+	label("Native market value · USD US$200.00")
 	refAddition := request(refIDs, "buy", "2", "63", "1", "")
 	refAddition.EffectiveLocalDate = ""
 	refAddition.EffectiveAt = now.Format(time.RFC3339Nano)

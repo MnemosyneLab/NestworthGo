@@ -110,6 +110,9 @@ type barGeometry struct {
 	// textHeights are the line heights used to place the bar of a narrow row.
 	headHeights []int
 	rowGap      int
+	// ticks are the value axis ticks. When set, the scale spans the first to
+	// the last tick, so a gridline falls on every round value.
+	ticks []float64
 }
 
 type barRowPlan struct {
@@ -136,6 +139,7 @@ type barPlan struct {
 	lo, hi             float64
 	height             int
 	scale              scale
+	ticks              []float64
 	order              []Selection
 	// compact is true for the two-line row layout, where the label shares the
 	// row's left edge with the zero axis.
@@ -147,7 +151,10 @@ const minBarTickPx = 3
 
 func (s BarSpec) plan(g barGeometry) barPlan {
 	lo, hi, _ := s.domain()
-	p := barPlan{lo: lo, hi: hi, compact: !g.wide}
+	if len(g.ticks) >= 2 {
+		lo, hi = g.ticks[0], g.ticks[len(g.ticks)-1]
+	}
+	p := barPlan{lo: lo, hi: hi, compact: !g.wide, ticks: g.ticks}
 	if g.wide {
 		p.trackMin, p.trackMax = g.inset+g.labelW+g.gap, g.width-g.inset-g.valueW-g.gap
 	} else {
@@ -230,7 +237,7 @@ const (
 	// rowsWideBreakpoint is the content width from which a bar row puts its
 	// label, bar and amount on one line.
 	rowsWideBreakpoint unit.Dp = 480
-	barRowHeight       unit.Dp = 16
+	barRowHeight       unit.Dp = 14
 	barRowPad          unit.Dp = 10
 )
 
@@ -268,6 +275,13 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 	g := barGeometry{
 		width: inner, wide: wide, labelW: labelW, valueW: valueW, gap: gap, inset: inset,
 		barHeight: gtx.Dp(barRowHeight), rowGap: gtx.Dp(ui.Space8),
+	}
+	if spec.FormatValue != nil {
+		trackW := inner - 2*inset
+		if wide {
+			trackW -= labelW + valueW + 2*gap
+		}
+		g.ticks = spec.axisTicks(gtx, view, trackW)
 	}
 	narrowLabel := inner - 2*inset - valueW - gap
 	for i, b := range spec.Bars {
@@ -325,6 +339,30 @@ func (c *BarChart) Layout(gtx layout.Context, view ui.View, spec BarSpec) (layou
 	return dims, events
 }
 
+// axisTicks picks round value ticks that fit the track with their labels
+// side by side. The end labels only estimate the label width, so the chosen
+// ticks are measured and the budget shrinks while they would collide.
+func (s BarSpec) axisTicks(gtx layout.Context, view ui.View, trackW int) []float64 {
+	lo, hi, _ := s.domain()
+	widest := func(ticks []float64) int {
+		w := 0
+		for _, t := range ticks {
+			w = max(w, textBlock{style: ui.TextCaption, content: s.FormatValue(t)}.natural(gtx, view))
+		}
+		return w
+	}
+	space := gtx.Dp(ui.Space16)
+	labelW := widest([]float64{lo, hi})
+	ticks := niceTicks(lo, hi, 2)
+	for budget := min(8, max(2, trackW/max(1, labelW+space))); budget >= 2; budget-- {
+		ticks = niceTicks(lo, hi, budget)
+		if (len(ticks)-1)*(widest(ticks)+space) <= trackW || budget == 2 {
+			break
+		}
+	}
+	return ticks
+}
+
 func (s BarSpec) readout(sel Selection) *readout {
 	if sel.IsZero() {
 		return nil
@@ -356,15 +394,25 @@ func (c *BarChart) drawRows(gtx layout.Context, view ui.View, spec BarSpec, plan
 	// The shared zero axis runs behind every bar. In the compact layout the
 	// label sits above the bar at the same left edge, so the axis is drawn only
 	// beside the bars.
+	// Value gridlines sit on the round ticks, quieter than the zero axis.
 	axis := ui.WithAlpha(colors.Ink, 0.3)
-	if plan.compact {
-		for _, row := range plan.rows {
+	grid := ui.WithAlpha(colors.Divider, 0.9)
+	vertical := func(x int, ink color.NRGBA) {
+		if plan.compact {
 			pad := gtx.Dp(ui.Space4)
-			hairline(gtx, image.Pt(plan.zeroX, row.band.Min.Y-pad), image.Pt(plan.zeroX, row.band.Max.Y+pad), 1, axis)
+			for _, row := range plan.rows {
+				hairline(gtx, image.Pt(x, row.band.Min.Y-pad), image.Pt(x, row.band.Max.Y+pad), 1, ink)
+			}
+			return
 		}
-	} else {
-		hairline(gtx, image.Pt(plan.zeroX, 0), image.Pt(plan.zeroX, plan.height), 1, axis)
+		hairline(gtx, image.Pt(x, 0), image.Pt(x, plan.height), 1, ink)
 	}
+	for _, tick := range plan.ticks {
+		if x := int(math.Round(plan.scale.at(tick))); tick != 0 && x != plan.zeroX {
+			vertical(x, grid)
+		}
+	}
+	vertical(plan.zeroX, axis)
 	for i, row := range plan.rows {
 		b := spec.Bars[i]
 		textBlock{style: ui.TextBody, content: b.Label, ink: colors.Ink, maxWidth: max(1, row.labelWidth)}.draw(gtx, view, row.label)
@@ -376,7 +424,10 @@ func (c *BarChart) drawRows(gtx layout.Context, view ui.View, spec BarSpec, plan
 		textBlock{style: ui.TextLabel, content: texts[i], ink: ink, maxWidth: max(1, valueW), align: text.End}.draw(gtx, view, row.amount)
 		if row.present {
 			tone := toneColor(colors, b.Tone, row.value)
-			ui.FillRoundRect(gtx, row.bar, ui.RadiusFull, tone)
+			if row.sel != active && !active.IsZero() && row.sel != spec.Selected {
+				tone = ui.Mix(colors.Surface, tone, 0.55)
+			}
+			ui.FillRoundRect(gtx, row.bar, ui.Space4, tone)
 		}
 		if row.sel == active && gtx.Focused(c) {
 			ui.StrokeRoundRect(gtx, row.row, radius, 2, ui.WithAlpha(colors.Accent, 0.8))
@@ -390,32 +441,42 @@ func (c *BarChart) drawRows(gtx layout.Context, view ui.View, spec BarSpec, plan
 // its height.
 func (c *BarChart) drawScale(gtx layout.Context, view ui.View, spec BarSpec, plan barPlan, y int) int {
 	colors := view.Colors
-	gap := gtx.Dp(ui.Space4)
-	marks := []struct {
-		at    float64
-		label string
-		align text.Alignment
-	}{
-		{plan.lo, spec.FormatValue(plan.lo), text.Start},
-		{0, spec.FormatValue(0), text.Middle},
-		{plan.hi, spec.FormatValue(plan.hi), text.End},
+	gap := gtx.Dp(ui.Space6)
+	ticks := plan.ticks
+	if len(ticks) < 2 {
+		ticks = []float64{plan.lo, plan.hi}
+	}
+	// Labels center on their ticks, shift inward at the ends of the track and
+	// are skipped where they would touch a neighbor, zero always kept.
+	type placed struct{ x0, x1 int }
+	var shown []placed
+	fits := func(p placed) bool {
+		for _, q := range shown {
+			if p.x0 < q.x1+gtx.Dp(ui.Space8) && q.x0 < p.x1+gtx.Dp(ui.Space8) {
+				return false
+			}
+		}
+		return true
+	}
+	order := make([]float64, 0, len(ticks))
+	for _, t := range ticks {
+		if t == 0 {
+			order = append([]float64{t}, order...)
+		} else {
+			order = append(order, t)
+		}
 	}
 	height := 0
-	for _, m := range marks {
-		// The zero label stands alone when an end of the scale is zero.
-		if m.at == 0 && m.align != text.Middle {
+	for _, t := range order {
+		block := textBlock{style: ui.TextCaption, content: spec.FormatValue(t), ink: colors.SecondaryInk, maxWidth: max(1, plan.trackMax-plan.trackMin), maxLines: 1}
+		size := block.measure(gtx, view)
+		x := int(math.Round(plan.scale.at(t))) - size.X/2
+		x = max(plan.trackMin, min(x, plan.trackMax-size.X))
+		p := placed{x, x + size.X}
+		if !fits(p) {
 			continue
 		}
-		block := textBlock{style: ui.TextCaption, content: m.label, ink: colors.SecondaryInk, maxWidth: max(1, plan.trackMax-plan.trackMin), maxLines: 1}
-		size := block.measure(gtx, view)
-		x := int(math.Round(plan.scale.at(m.at)))
-		switch m.align {
-		case text.Middle:
-			x -= size.X / 2
-		case text.End:
-			x -= size.X
-		}
-		x = max(plan.trackMin, min(x, plan.trackMax-size.X))
+		shown = append(shown, p)
 		block.draw(gtx, view, image.Pt(x, y+gap))
 		height = max(height, size.Y+gap)
 	}

@@ -87,7 +87,7 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	label := func(text string) { t.Helper(); assertPageLabel(t, &h.router, text) }
 
 	settle()
-	label("$ 254.00")
+	label("US$254.00")
 	click("Accounts")
 	click("Harbor Brokerage")
 	click("Record cash dividend")
@@ -189,11 +189,11 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	label("Income")
 	click("Open instrument · QA-BUY")
 	label("Quantity 3")
-	label("Cost basis · USD $ 81.00")
-	label("Native market value · USD $ 120.00")
+	label("Cost basis · USD US$81.00")
+	label("Native market value · USD US$120.00")
 	click("Open account · Harbor Brokerage")
 	click("Overview")
-	label("$ 273.47")
+	label("US$273.47")
 	if len(fault.attempts) != 3 {
 		t.Fatal("refresh or history navigation wrote again")
 	}
