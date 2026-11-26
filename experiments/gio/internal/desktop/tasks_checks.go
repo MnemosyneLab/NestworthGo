@@ -10,6 +10,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -112,21 +113,14 @@ func (p *tasksPage) reviewRows(view ui.View) []layout.Widget {
 	for _, group := range report.Items {
 		var fields []layout.Widget
 		for _, rule := range group.Rules {
-			if !rule.Actionable {
+			if !taskReviewVisible(rule) {
 				continue
 			}
-			fields = append(fields, view.Message(rule.Name, view.Colors.Ink))
-			if rule.TriggeredOn != "" {
-				fields = append(fields, view.Message(fmt.Sprintf(l.Text(i18n.TasksReviewTriggered), historyDay(view, rule.TriggeredOn)), view.Colors.SecondaryInk))
+			if len(fields) != 0 {
+				fields = append(fields, view.Hairline)
 			}
-			if rule.Window.WindowStart != "" && rule.Window.WindowEnd != "" {
-				window := fmt.Sprintf(l.Text(i18n.TasksReviewWindow), historyDay(view, rule.Window.WindowStart),
-					historyDay(view, rule.Window.WindowEnd), rule.Window.HitCount)
-				fields = append(fields, view.Message(window, view.Colors.SecondaryInk))
-			}
-			if action := p.reviewAcknowledgeButton(view, group.DisplayName, rule); action != nil {
-				fields = append(fields, action)
-			}
+			known, hasKnownRead := p.reviewKnown[rule.EpisodeID]
+			fields = append(fields, taskReviewRule(view, rule, p.reviewAcknowledgeButton(view, group.DisplayName, rule), known, hasKnownRead))
 		}
 		if len(fields) == 0 {
 			continue
@@ -134,9 +128,13 @@ func (p *tasksPage) reviewRows(view ui.View) []layout.Widget {
 		if id, err := domain.ParseInstrumentID(group.InstrumentID.String()); err == nil && p.openInstrument != nil {
 			button := portfolioButton(p.instruments, id)
 			label := fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), group.DisplayName)
-			fields = append(fields, taskLink(view, button, label, func() { p.openInstrument(id, group.DisplayName, button) }))
+			link := taskLink(view, button, label, func() { p.openInstrument(id, group.DisplayName, button) })
+			fields = append([]layout.Widget{link}, fields...)
 		}
-		rows = append(rows, fundsCard(view, group.DisplayName, fields...))
+		card := fundsCard(view, group.DisplayName, fields...)
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			return accessibility.Row(gtx, group.InstrumentID, card)
+		})
 	}
 	return rows
 }

@@ -2370,6 +2370,26 @@ const (
 	TasksReviewEmpty
 	TasksReviewTriggered
 	TasksReviewWindow
+	TasksReviewPriorityHighest
+	TasksReviewPriorityHigh
+	TasksReviewPriorityNormal
+	TasksReviewLatestAssessment
+	TasksReviewKnownAssessment
+	TasksReviewNoKnownAssessment
+	TasksReviewEvidenceLoadFailed
+	TasksReviewUnknownDoesNotRecover
+	TasksReviewPerformanceUnknown
+	TasksReviewHoldingAmountUnknown
+	TasksReviewAssessmentUnavailable
+	TasksReviewNoDailyEvidence
+	TasksReviewHit
+	TasksReviewNoHit
+	TasksReviewUnknown
+	TasksReviewLookbackDays
+	TasksReviewAmount
+	TasksReviewCost
+	TasksReviewPriceChange
+	TasksReviewAnnualized
 	TasksReviewAcknowledge
 	TasksReviewAcknowledging
 	TasksReviewAcknowledged

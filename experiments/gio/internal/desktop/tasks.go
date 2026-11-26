@@ -52,10 +52,11 @@ type tasksVisit struct {
 }
 
 type tasksRead struct {
-	upcoming   *domain.UpcomingActions
-	review     *domain.ReviewAlertPage
-	statements []taskStatement
-	holdings   holdingReconDirectory
+	upcoming    *domain.UpcomingActions
+	review      *domain.ReviewAlertPage
+	reviewKnown map[domain.ReviewEpisodeID]taskReviewKnown
+	statements  []taskStatement
+	holdings    holdingReconDirectory
 }
 
 type taskLinks struct {
@@ -89,6 +90,7 @@ type tasksPage struct {
 	tabs           [len(taskTabLabels)]widget.Clickable
 	taskBadges     taskCategoryBadges
 	review         *domain.ReviewAlertPage
+	reviewKnown    map[domain.ReviewEpisodeID]taskReviewKnown
 	reviewCursors  []string
 	reviewAck      taskReviewAcknowledgement
 	statements     []taskStatement
@@ -218,7 +220,10 @@ func (p *tasksPage) read() {
 		switch tab {
 		case tasksInvestment:
 			page, err := p.checks.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "pending"}, cursor, 50)
-			return tasksRead{review: &page}, err
+			if err != nil {
+				return tasksRead{}, err
+			}
+			return tasksRead{review: &page, reviewKnown: readTaskReviewKnown(ctx, p.checks, page)}, nil
 		case tasksReconciliation:
 			sessions, holdings, err := readTaskReconciliation(ctx, p.checks, includeHoldings)
 			return tasksRead{statements: sessions, holdings: holdings}, err
@@ -234,11 +239,11 @@ func (p *tasksPage) update() {
 	select {
 	case result := <-p.request:
 		p.leave()
-		p.err, p.current, p.review, p.statements = result.err, nil, nil, nil
+		p.err, p.current, p.review, p.reviewKnown, p.statements = result.err, nil, nil, nil, nil
 		if p.err != nil {
 			return
 		}
-		p.review, p.statements = result.value.review, result.value.statements
+		p.review, p.reviewKnown, p.statements = result.value.review, result.value.reviewKnown, result.value.statements
 		if p.tab == tasksReconciliation && p.holdingRecon != nil {
 			p.holdingRecon.directory = result.value.holdings
 		}

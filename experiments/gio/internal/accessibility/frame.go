@@ -244,6 +244,11 @@ func Row(gtx layout.Context, tag any, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: tag, role: group, enabled: true}, widget)
 }
 
+// Section groups related content under one accessible name.
+func Section(gtx layout.Context, tag any, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: tag, role: group, name: name, enabled: true}, widget)
+}
+
 // Modal exposes a named sheet and its children in the native accessibility tree.
 func Modal(gtx layout.Context, tag any, name string, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: tag, role: sheet, name: name, enabled: true}, widget)
