@@ -247,7 +247,8 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	}
 	click("Back")
 	click("Upcoming")
-	label("Term deposit tasks")
+	label("Upcoming actions")
+	click("All actions")
 	label("Receipt schedule incomplete")
 	if after, err := app.ListActivities(ctx, 30); err != nil || !reflect.DeepEqual(before, after) || version != app.MobileDataVersion() {
 		t.Fatalf("task browsing changed ledger facts or version: %v", err)

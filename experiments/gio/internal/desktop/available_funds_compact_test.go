@@ -17,7 +17,7 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette}
+	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette, DecimalSeparator: ".", GroupingSeparator: ","}
 	breakdown := fundsBreakdown(view, data.today.NativeCurrencyGroups, data.native[data.today.HorizonOn])
 	draw := func(width int) *input.Router {
 		t.Helper()
