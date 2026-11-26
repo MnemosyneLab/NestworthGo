@@ -638,6 +638,12 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 		}
 	}
 	baseline := float32(min(max(plan.zero, float64(plot.Min.Y)), float64(plot.Max.Y)))
+	// A light stroke color over a dark page reads stronger than the same
+	// alpha over a light one, so the dark fill is thinner.
+	areaAlpha := 0.12
+	if colors.Dark {
+		areaAlpha = 0.07
+	}
 	for _, s := range plan.series {
 		ink := s.ink
 		width := float32(gtx.Dp(lineWidth))
@@ -650,7 +656,7 @@ func (c *LineChart) drawSeries(gtx layout.Context, view ui.View, spec LineSpec, 
 			for _, chain := range s.chains {
 				poly := append([]f32.Point{{X: chain[0].X, Y: baseline}}, chain...)
 				poly = append(poly, f32.Pt(chain[len(chain)-1].X, baseline))
-				fillPolygon(gtx, poly, ui.WithAlpha(ink, 0.12))
+				fillPolygon(gtx, poly, ui.WithAlpha(ink, areaAlpha))
 			}
 		}
 		for _, run := range s.runs {

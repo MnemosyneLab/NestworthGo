@@ -48,7 +48,7 @@ func TestVisualSnapshotsEveryPage(t *testing.T) {
 	h.size = image.Pt(1375, 943)
 	h.shell.prefs.saved = values
 	h.shell.prefs.systemLocation = time.Local
-	h.shell.prefs.systemDark = false
+	h.shell.prefs.systemDark = os.Getenv("NESTWORTH_GIO_SNAPSHOT_DARK") != ""
 	settle := func() {
 		for range 4 {
 			h.frame()
@@ -81,7 +81,11 @@ func TestVisualSnapshotsEveryPage(t *testing.T) {
 		h.frame()
 		h.click(page.label, false)
 		settle()
-		h.snapshot(t, dir, "page-"+page.file)
+		name := "page-" + page.file
+		if h.shell.prefs.systemDark {
+			name += "-dark"
+		}
+		h.snapshot(t, dir, name)
 	}
 }
 

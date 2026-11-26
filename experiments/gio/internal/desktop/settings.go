@@ -405,29 +405,24 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 				status = i18n.SettingsSaveError
 				ink = view.Colors.ErrorInk
 			}
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = 0
-					if p.prefs.busy {
-						gtx = gtx.Disabled()
-					}
-					return view.ButtonOf(&p.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: view.Language.Text(i18n.SettingsReset)})(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					message := view.Body(ui.TextCaption, view.Language.Text(status), ink)
-					actions := func(gtx layout.Context) layout.Dimensions { return p.actions(gtx, view, canSave, dirty) }
-					if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
-						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))
-					}
-					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx, layout.Flexed(1, message), layout.Rigid(actions))
-				}),
-			)
+			message := view.Body(ui.TextCaption, view.Language.Text(status), ink)
+			actions := func(gtx layout.Context) layout.Dimensions { return p.actions(gtx, view, canSave, dirty) }
+			if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))
+			}
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx, layout.Flexed(1, message), layout.Rigid(actions))
 		})
 	})
 }
 
 func (p *settingsPage) actions(gtx layout.Context, view ui.View, canSave, dirty bool) layout.Dimensions {
-	return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.prefs.busy {
+				gtx = gtx.Disabled()
+			}
+			return view.ButtonOf(&p.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: view.Language.Text(i18n.SettingsReset)})(gtx)
+		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !canSave {
 				gtx = gtx.Disabled()
