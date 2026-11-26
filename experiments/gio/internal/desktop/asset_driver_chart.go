@@ -98,13 +98,14 @@ func (p *assetChangesPage) driverButton(view ui.View, row application.AssetChang
 		p.driverButtons = make(map[string]*widget.Clickable)
 	}
 	button := portfolioButton(p.driverButtons, row.Key)
-	label := assetBucketLabel(view.Language, row.Bucket) + " · " + returnMoney(view, row.Amount)
+	name, money := assetBucketLabel(view.Language, row.Bucket), returnMoney(view, row.Amount)
+	label := name + " · " + money
 	return func(gtx layout.Context) layout.Dimensions {
 		p.restoreDriverFocus(gtx, view, button)
 		if button.Clicked(gtx) {
 			p.openDriver(row, button)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		return view.ButtonOf(button, ui.ButtonSpec{Title: label, Variant: ui.ButtonGhost, Fill: true})(gtx)
+		return view.ButtonOf(button, ui.ButtonSpec{Name: label, Variant: ui.ButtonGhost, Fill: true, Content: valueRow(view, name, money, "")})(gtx)
 	}
 }

@@ -312,7 +312,7 @@ func scrollProductControl(t *testing.T, h *previewHarness, name string) {
 				return
 			}
 		}
-		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(470, 465), Scroll: f32.Pt(0, 140)})
+		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(470, 440), Scroll: f32.Pt(0, 140)})
 		h.frame()
 	}
 	t.Fatalf("could not scroll to %s", name)

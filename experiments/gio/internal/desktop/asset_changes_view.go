@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -98,7 +99,7 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 	if p.err != nil {
 		reload = i18n.HistoryRetry
 	}
-	rows := []ui.ColumnChild{ui.Rigid(returnMonthButton(view, &p.reload, reload, nil, true))}
+	var rows []ui.ColumnChild
 	status := i18n.NoMessage
 	switch {
 	case p.refsRead != nil || p.request != nil:
@@ -117,7 +118,11 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 	}
 	if result := p.current; result != nil && result.query.From <= result.query.To {
 		rangeLabel := wealthDay(view, result.query.From) + " – " + wealthDay(view, result.query.To)
-		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, rangeLabel, view.Colors.Ink)))
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+				layout.Flexed(1, view.Body(ui.TextLabel, rangeLabel, view.Colors.Ink)),
+				layout.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)))
+		}))
 		switch {
 		case result.drivers != nil:
 			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query.Valuation)...)
@@ -159,16 +164,19 @@ func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetC
 			seenResidual = seenResidual || row.Bucket == domain.BucketResidual
 		}
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					lines := []layout.FlexChild{
-						layout.Rigid(view.Body(ui.TextLabel, l.Text(groupLabel)+" · "+returnMoney(view, group.Amount), view.Colors.Ink)),
-					}
-					for _, row := range group.Rows {
-						lines = append(lines, layout.Rigid(p.driverButton(view, row)))
-					}
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(7)}.Layout(gtx, lines...)
-				})
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				lines := []layout.FlexChild{
+					layout.Rigid(headingRow(view, l.Text(groupLabel)+" · "+returnMoney(view, group.Amount), l.Text(groupLabel),
+						returnMoney(view, group.Amount), view.Colors.Ink)),
+					layout.Rigid(view.Hairline),
+				}
+				for _, row := range group.Rows {
+					lines = append(lines, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.Bleed(gtx, ui.Space12, p.driverButton(view, row))
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, lines...)
 			})
 		}))
 	}
@@ -183,18 +191,32 @@ func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetC
 func assetSummary(view ui.View, totals application.AssetChangeSummary, debts bool) layout.Widget {
 	l := view.Language
 	return func(gtx layout.Context) layout.Dimensions {
-		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
-				values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
-					assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
-				return (ui.Grid{MinColumn: 135, Gap: 10, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
-					func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(5)}.Layout(gtx,
-							layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
-							layout.Rigid(view.Body(ui.TextLabel, values[i], view.Colors.Ink)))
-					})
-			})
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
+			values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
+				assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
+			// The change and its rate carry the gain or loss color. A debt that
+			// grows is a loss, so its sign flips.
+			tone := returnTone(totals.ChangeRate, totals.Change)
+			if debts {
+				tone = -tone
+			}
+			ink := func(i int) color.NRGBA {
+				switch {
+				case i < 2 || tone == 0:
+					return view.Colors.Ink
+				case tone > 0:
+					return view.Colors.Success
+				}
+				return view.Colors.Destructive
+			}
+			return (ui.Grid{MinColumn: 135, Gap: 12, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
+				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
+						layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
+						layout.Rigid(summaryFigure(view, values[i], ink(i))))
+				})
 		})
 	}
 }

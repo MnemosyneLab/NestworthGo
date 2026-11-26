@@ -250,7 +250,7 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 					func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 							layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
-							layout.Rigid(view.Body(ui.TextMoneyMD, values[i], toneInk(i))),
+							layout.Rigid(summaryFigure(view, values[i], toneInk(i))),
 						)
 					})
 			}),

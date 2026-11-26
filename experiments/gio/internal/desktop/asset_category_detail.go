@@ -46,7 +46,9 @@ func (p *assetChangesPage) categoryButton(gtx layout.Context, view ui.View, row 
 		p.readCategoryDetail(p.categoryDetail)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return view.ButtonOf(button, ui.ButtonSpec{Title: name + " · " + returnMoney(view, row.Amount), Variant: ui.ButtonOutline})(gtx)
+	money := returnMoney(view, row.Amount)
+	return view.ButtonOf(button, ui.ButtonSpec{Name: name + " · " + money, Variant: ui.ButtonGhost, Fill: true,
+		Content: valueRow(view, name, money, "")})(gtx)
 }
 
 func (p *assetChangesPage) categoryName(l i18n.Language, categoryKey, accountID, instrumentID string) string {
