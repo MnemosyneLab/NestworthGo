@@ -10,6 +10,9 @@ export const marketHealthEn = {
     description:
       "Diagnose incomplete market data locally. Providers are contacted only after you confirm Repair All.",
     healthyTitle: "All data is healthy",
+    pendingCoverageTitle: "Valuation is available; some historical data is pending confirmation",
+    pendingCoverageDescription:
+      "There are no counted coverage gaps. Some historical data is still awaiting confirmation, so returns are not final.",
     healthyDescription:
       "Market data is complete through {{date}}. Required valuations are available and snapshots are current.",
     incompleteSince: "Data incomplete since {{date}}",
@@ -59,6 +62,7 @@ export const marketHealthEn = {
       snapshot_missing: "Snapshots missing",
       snapshot_outdated: "Snapshots outdated",
       history_pending: "Waiting for daily reference",
+      valuation_provisional: "Coverage pending confirmation",
       snapshot_incomplete: "Snapshot incomplete",
       sync_failure: "Sync failure",
       history_not_started: "History not started",
@@ -243,6 +247,8 @@ export const marketHealthZhCN = {
     description:
       "在本地诊断不完整的市场数据。只有在你确认全部修复后，才会联系数据提供方。",
     healthyTitle: "数据全部健康",
+    pendingCoverageTitle: "可估值，部分历史数据待确认",
+    pendingCoverageDescription: "没有计入的覆盖缺口。部分历史数据仍待确认，收益尚未最终确定。",
     healthyDescription:
       "市场数据已完整至 {{date}}。所需估值可用，快照也是最新的。",
     incompleteSince: "数据自 {{date}} 起不完整",
@@ -291,6 +297,7 @@ export const marketHealthZhCN = {
       snapshot_missing: "快照缺失",
       snapshot_outdated: "快照过期",
       history_pending: "等待日线确认",
+      valuation_provisional: "待确认覆盖",
       snapshot_incomplete: "快照不完整",
       sync_failure: "同步失败",
       history_not_started: "尚未开始历史记录",
@@ -456,6 +463,8 @@ export const marketHealthZhTW = {
     description:
       "在本機診斷不完整的市場資料。只有在你確認全部修復後，才會聯繫資料提供方。",
     healthyTitle: "資料全部健康",
+    pendingCoverageTitle: "可估值，部分歷史資料待確認",
+    pendingCoverageDescription: "沒有計入的覆蓋缺口。部分歷史資料仍待確認，收益尚未最終確定。",
     healthyDescription:
       "市場資料已完整至 {{date}}。所需估值可用，快照也是最新的。",
     incompleteSince: "資料自 {{date}} 起不完整",
@@ -504,6 +513,7 @@ export const marketHealthZhTW = {
       snapshot_missing: "快照缺失",
       snapshot_outdated: "快照過期",
       history_pending: "等待日線確認",
+      valuation_provisional: "待確認覆蓋",
       snapshot_incomplete: "快照不完整",
       sync_failure: "同步失敗",
       history_not_started: "尚未開始歷史紀錄",

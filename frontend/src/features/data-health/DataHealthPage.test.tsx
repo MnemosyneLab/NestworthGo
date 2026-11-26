@@ -12,7 +12,7 @@ import i18n from "@/i18n";
 const scanHealth = vi.fn();
 const previewSync = vi.fn();
 const startSync = vi.fn();
-const getCurrentSyncJob = vi.fn(async () => ({ jobId: "" }));
+const getCurrentSyncJob = vi.fn(async (): Promise<Record<string, unknown> & { jobId: string }> => ({ jobId: "" }));
 const refreshAll = vi.fn();
 const listAccounts = vi.fn();
 
@@ -160,6 +160,8 @@ describe("DataHealthPage", () => {
     expect(row).toHaveTextContent(i18n.t("valuation.returnPending"));
     expect(row).toHaveTextContent(i18n.t("valuation.awaitingUpdate"));
     expect(row).not.toHaveTextContent(i18n.t("common.unknownValue"));
+    expect(screen.getByText(i18n.t("dataHealth.kind.valuation_provisional"))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("common.unknownValue"))).not.toBeInTheDocument();
     expect(screen.getByTestId("repair-all")).toBeDisabled();
   });
 
@@ -177,6 +179,8 @@ describe("DataHealthPage", () => {
     renderPage();
     expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
     expect(await screen.findByText("All data is healthy")).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("dataHealth.pendingCoverageTitle"))).not.toBeInTheDocument();
+    expect(screen.getByTestId("data-health-coverage").querySelector(".text-success")).not.toBeNull();
     expect(scanHealth).toHaveBeenCalled();
     expect(previewSync).not.toHaveBeenCalled();
     expect(startSync).not.toHaveBeenCalled();
@@ -460,5 +464,96 @@ describe("Snapshot issue context", () => {
     expect(focusedRows[0]).toHaveTextContent("2026-09-18 – 2026-09-19");
     expect(screen.queryByText("Family brokerage · USD")).not.toBeInTheDocument();
     expect(screen.queryByText("Family brokerage · Equity fund")).not.toBeInTheDocument();
+  });
+
+  it("does not claim full health when counted gaps are zero but coverage is still pending", async () => {
+    getCurrentSyncJob.mockResolvedValue({
+      jobId: "job-done",
+      outcome: "succeeded",
+      items: [{
+        targetKey: "instrument:sol", label: "Solana", symbol: "SOL", kind: "instrument", status: "fetched",
+        provider: "coingecko", startDate: "2026-11-25", endDate: "2026-11-25", detail: "2026-11-25..2026-11-25",
+      }],
+    });
+    scanHealth.mockResolvedValue({
+      healthy: true, coverageThrough: "2026-11-25", lastFinalizedMarketDate: "2026-11-25",
+      issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
+      issues: [{
+        id: "pending-sol", kind: "valuation_provisional", severity: "info", targetKey: "instrument:sol",
+        instrumentId: "sol", label: "Solana", code: "valuation_coverage_pending", reason: "valuation_coverage_pending",
+        action: "none", executable: false, rangeStart: "2026-11-25", rangeEnd: "2026-11-25",
+      }],
+    });
+    renderPage();
+    const coverage = await screen.findByTestId("data-health-coverage");
+    const details = await screen.findByTestId("sync-work-details");
+    expect(coverage).toHaveTextContent(i18n.t("dataHealth.pendingCoverageTitle"));
+    expect(coverage).toHaveTextContent(i18n.t("dataHealth.pendingCoverageDescription"));
+    expect(coverage).not.toHaveTextContent(i18n.t("dataHealth.healthyTitle"));
+    expect(coverage).not.toHaveTextContent(i18n.t("syncReasons.unavailable"));
+    expect(coverage.querySelector(".text-success")).toBeNull();
+    expect(screen.getByText(i18n.t("dataHealth.kind.valuation_provisional"))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("common.unknownValue"))).not.toBeInTheDocument();
+    expect(details).toHaveTextContent("Solana");
+    expect(details).toHaveTextContent("2026-11-25");
+    expect(details).not.toHaveTextContent(i18n.t("syncReasons.unavailable"));
+    expect(details).not.toHaveTextContent(i18n.t("dataHealth.pendingCoverageTitle"));
+    expect(details).not.toHaveTextContent(i18n.t("dataHealth.healthyTitle"));
+    expect(screen.queryByTestId("repair-all")).not.toBeInTheDocument();
+  });
+
+  it("keeps an informational daily reference out of the all-clear summary", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0,
+      issues: [{
+        id: "pending-gold", kind: "history_pending", severity: "info", targetKey: "instrument:gold",
+        label: "Gold", reason: "daily_reference_pending", code: "daily_reference_pending", action: "none", executable: false,
+      }],
+    });
+    renderPage();
+    expect(await screen.findByText(i18n.t("dataHealth.pendingCoverageTitle"))).toBeInTheDocument();
+    expect(screen.getByText(i18n.t("dataHealth.kind.history_pending"))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("dataHealth.healthyTitle"))).not.toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("common.unknownValue"))).not.toBeInTheDocument();
+  });
+
+  it("keeps a real coverage gap prominent beside pending confirmation", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false, incompleteSince: "2026-11-20", issueCount: 1, executableCount: 1, prerequisiteCount: 0, snapshotDays: 0,
+      issues: [
+        {
+          id: "gap", kind: "missing_instrument_history", severity: "blocking", targetKey: "instrument:btc",
+          label: "Bitcoin", action: "repair", executable: true, rangeStart: "2026-11-20", rangeEnd: "2026-11-24",
+        },
+        {
+          id: "pending", kind: "valuation_provisional", severity: "info", targetKey: "instrument:sol",
+          label: "Solana", code: "valuation_coverage_pending", reason: "valuation_coverage_pending", action: "none", executable: false,
+        },
+      ],
+    });
+    renderPage();
+    const coverage = await screen.findByTestId("data-health-coverage");
+    expect(coverage).toHaveTextContent("Data incomplete since 2026-11-20");
+    expect(coverage).toHaveTextContent("1 market-data gap");
+    expect(coverage).not.toHaveTextContent(i18n.t("dataHealth.healthyTitle"));
+    expect(coverage).not.toHaveTextContent(i18n.t("dataHealth.pendingCoverageTitle"));
+    expect(screen.getByTestId("repair-all")).toBeEnabled();
+    expect(screen.getByText(i18n.t("dataHealth.kind.valuation_provisional"))).toBeInTheDocument();
+    expect(screen.getByText("Bitcoin")).toBeInTheDocument();
+  });
+
+  it("translates the pending coverage summary in every supported language", () => {
+    expect(i18n.t("dataHealth.pendingCoverageTitle", { lng: "en" })).toBe("Valuation is available; some historical data is pending confirmation");
+    expect(i18n.t("dataHealth.pendingCoverageDescription", { lng: "en" })).toBe("There are no counted coverage gaps. Some historical data is still awaiting confirmation, so returns are not final.");
+    expect(i18n.t("dataHealth.kind.valuation_provisional", { lng: "en" })).toBe("Coverage pending confirmation");
+    expect(i18n.t("dataHealth.pendingCoverageTitle", { lng: "zh-CN" })).toBe("可估值，部分历史数据待确认");
+    expect(i18n.t("dataHealth.pendingCoverageDescription", { lng: "zh-CN" })).toBe("没有计入的覆盖缺口。部分历史数据仍待确认，收益尚未最终确定。");
+    expect(i18n.t("dataHealth.kind.valuation_provisional", { lng: "zh-CN" })).toBe("待确认覆盖");
+    expect(i18n.t("dataHealth.pendingCoverageTitle", { lng: "zh-TW" })).toBe("可估值，部分歷史資料待確認");
+    expect(i18n.t("dataHealth.pendingCoverageDescription", { lng: "zh-TW" })).toBe("沒有計入的覆蓋缺口。部分歷史資料仍待確認，收益尚未最終確定。");
+    expect(i18n.t("dataHealth.kind.valuation_provisional", { lng: "zh-TW" })).toBe("待確認覆蓋");
+    expect(i18n.t("dataHealth.pendingCoverageTitle", { lng: "ja" })).toBe("評価額は算出できます。一部の過去データは確認待ちです");
+    expect(i18n.t("dataHealth.pendingCoverageDescription", { lng: "ja" })).toBe("件数に入る不足はありません。一部の過去データはまだ確認待ちのため、リターンは確定していません。");
+    expect(i18n.t("dataHealth.kind.valuation_provisional", { lng: "ja" })).toBe("確認待ちの対象範囲");
   });
 });

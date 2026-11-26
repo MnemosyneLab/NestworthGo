@@ -1124,6 +1124,8 @@
     "fixInDataHealth": "データの状態画面で修復",
     "healthyDescription": "{{date}} までの相場データが揃っています。必要な評価額を算出でき、スナップショットは最新です。",
     "healthyTitle": "データに問題はありません",
+    "pendingCoverageDescription": "件数に入る不足はありません。一部の過去データはまだ確認待ちのため、リターンは確定していません。",
+    "pendingCoverageTitle": "評価額は算出できます。一部の過去データは確認待ちです",
     "incompleteSince": "{{date}} 以降のデータが不足しています",
     "indicatorHealthy": "データの状態 ✓",
     "indicatorIssues": "データの状態 · 問題 {{count}} 件",
@@ -1147,7 +1149,8 @@
       "snapshot_outdated": "スナップショットが古くなっています",
       "stale_account_value": "以前の手入力評価額を確認",
       "sync_failure": "同期に失敗",
-      "unsupported_coverage": "取得対象外"
+      "unsupported_coverage": "取得対象外",
+      "valuation_provisional": "確認待ちの対象範囲"
     },
     "loadError": "データの状態を読み込めませんでした。",
     "nextCheckAt": "次回の確認は {{time}} 以降です（データの到着が遅れる場合があります）",
