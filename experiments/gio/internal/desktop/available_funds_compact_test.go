@@ -35,10 +35,10 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	const cash = "Accessible cash before reservations · €25.25"
 	const currency = "Native amounts · EUR"
 	wide := draw(900)
-	header := semanticBounds(t, wide, "Currency", false)
-	wideCurrency := semanticBounds(t, wide, currency, false)
-	wideCash := semanticBounds(t, wide, cash, false)
-	wideAfter := semanticBounds(t, wide, unreserved, false)
+	header := assertPageLabel(t, wide, "Currency")
+	wideCurrency := assertPageLabel(t, wide, currency)
+	wideCash := assertPageLabel(t, wide, cash)
+	wideAfter := assertPageLabel(t, wide, unreserved)
 	if header.Max.Y > wideCurrency.Min.Y || wideCurrency.Max.X > wideCash.Min.X || wideCash.Max.X > wideAfter.Min.X ||
 		wideCurrency.Intersect(image.Rect(0, wideCash.Min.Y, 900, wideCash.Max.Y)).Empty() {
 		t.Fatalf("wide comparison did not align columns: %v %v %v %v", header, wideCurrency, wideCash, wideAfter)
@@ -47,9 +47,9 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	if findPageLabel(narrow, "Currency") != nil {
 		t.Fatal("narrow comparison displayed the wide currency header")
 	}
-	narrowCurrency := semanticBounds(t, narrow, currency, false)
-	narrowCash := semanticBounds(t, narrow, cash, false)
-	narrowAfter := semanticBounds(t, narrow, unreserved, false)
+	narrowCurrency := assertPageLabel(t, narrow, currency)
+	narrowCash := assertPageLabel(t, narrow, cash)
+	narrowAfter := assertPageLabel(t, narrow, unreserved)
 	if narrowCurrency.Max.Y > narrowCash.Min.Y || narrowCash.Min.Y >= narrowAfter.Min.Y {
 		t.Fatalf("narrow comparison did not wrap under the currency: %v %v %v", narrowCurrency, narrowCash, narrowAfter)
 	}
@@ -60,6 +60,9 @@ func TestAvailableFundsGlobalReservationEmptyAndReturnFocus(t *testing.T) {
 	funds, h, settle := reservationHarness(t, app, app)
 	h.click("Manage reservations", false)
 	settle()
+	if funds.reservation == nil || funds.reservation.entry != &funds.manageReservations {
+		t.Fatal("the initial global action did not open the reservation manager")
+	}
 	assertPageLabel(t, &h.router, "All reservations")
 	assertPageLabel(t, &h.router, "No reservations yet.")
 	assertPageLabel(t, &h.router, "No funding sources are eligible for reservations.")

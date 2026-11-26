@@ -28,6 +28,7 @@ func (p *availableFundsPage) sourceButtons(key string) *fundsLinks {
 func (p *availableFundsPage) reservationButton(view ui.View, name string, source domain.LiquiditySourceRef) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		button := &p.sourceButtons(source.Key()).reserve
+		p.restoreReservationEntry(gtx, button)
 		if button.Clicked(gtx) {
 			p.openReservations(source, name, button)
 			gtx.Execute(op.InvalidateCmd{})
@@ -45,6 +46,7 @@ func (p *availableFundsPage) globalReservationButton(view ui.View, button *widge
 		if p.reservationLedger == nil {
 			return layout.Dimensions{}
 		}
+		p.restoreReservationEntry(gtx, button)
 		if button.Clicked(gtx) {
 			p.openReservations(domain.LiquiditySourceRef{}, "", button)
 			gtx.Execute(op.InvalidateCmd{})
@@ -53,6 +55,13 @@ func (p *availableFundsPage) globalReservationButton(view ui.View, button *widge
 		return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{
 			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.ReserveManageAll),
 		}))
+	}
+}
+
+func (p *availableFundsPage) restoreReservationEntry(gtx layout.Context, button *widget.Clickable) {
+	if gtx.Enabled() && p.reservationFocus == button {
+		p.reservationFocus = nil
+		gtx.Execute(key.FocusCmd{Tag: button})
 	}
 }
 
@@ -70,8 +79,7 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 		} else if r.editing {
 			r.editing, r.editRow, r.notice, r.restoreFocus = false, nil, i18n.NoMessage, true
 		} else {
-			p.reservation = nil
-			gtx.Execute(key.FocusCmd{Tag: r.entry})
+			p.reservation, p.reservationFocus = nil, r.entry
 			gtx.Execute(op.InvalidateCmd{})
 			return layout.Dimensions{}
 		}

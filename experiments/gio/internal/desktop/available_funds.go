@@ -81,6 +81,7 @@ type availableFundsPage struct {
 	current             *availableFundsRead
 	reservationLedger   fundsReservationLedger
 	reservation         *fundsReservationSession
+	reservationFocus    *widget.Clickable
 	policyLedger        fundsPolicyLedger
 	policy              *fundsPolicyDraft
 	policyFocus         *widget.Clickable
@@ -120,6 +121,7 @@ func (p *availableFundsPage) enter(position layout.Position, state fundsViewStat
 	p.list.Position, p.current, p.state = position, nil, state
 	p.controls.early.Value = p.state.includeEarly
 	p.productSaved, p.restoreAddFocus = false, false
+	p.reservationFocus = nil
 	p.policyFocus, p.policyNotice = nil, i18n.NoMessage
 	p.actionFocus, p.actionNotice = fundsActionFocus{}, i18n.NoMessage
 	p.read()
@@ -269,6 +271,7 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					if p.request != nil {
 						gtx = gtx.Disabled()
 					}
+					p.restoreReservationEntry(gtx, &p.reload)
 					view.Focus.Watch(gtx, &p.reload)
 					return view.Button(&p.reload, l.Text(action))(gtx)
 				}))
