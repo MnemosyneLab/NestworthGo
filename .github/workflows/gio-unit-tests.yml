@@ -1,0 +1,58 @@
+name: Gio unit tests
+
+# Same origin-branch policy as check.yml: one run per pushed PR head and main
+# update. No path filter, since Gio also imports the shared parent Go module
+# and checks Wails translation resources.
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gio-unit-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+    working-directory: experiments/gio
+
+env:
+  GOTOOLCHAIN: local
+  GOWORK: off
+  CGO_ENABLED: '1'
+
+jobs:
+  gio-unit-tests:
+    name: gio-unit-tests
+    if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: experiments/gio/go.mod
+          cache: true
+          cache-dependency-path: |
+            experiments/gio/go.sum
+            go.sum
+      - name: Install Gio Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
+            libxcursor-dev libxfixes-dev libegl-dev libvulkan-dev
+      - name: Download Go modules
+        run: go mod download
+      - name: Run all Gio unit tests
+        run: |
+          # These flags request manual snapshot/fixture exports; a sample-ledger
+          # snapshot can read the default profile. Never enable them in CI.
+          unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR
+          go test -mod=readonly -count=1 ./...

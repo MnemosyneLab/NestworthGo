@@ -188,12 +188,31 @@ class MacCI(unittest.TestCase):
         active = {p.name for p in (ROOT / '.github/workflows').iterdir()
                   if p.suffix in {'.yml', '.yaml'}}
         self.assertEqual(active, {'check.yml', 'perf.yml', 'ci-native-image.yml',
-                                  'eino-provider.yml', 'package-macos.yml'})
+                                  'eino-provider.yml', 'package-macos.yml',
+                                  'gio-unit-tests.yml'})
         mac = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('    name: test\n', mac)
         self.assertNotIn('pull_request:', mac)
         self.assertNotIn('pull_request_target:', mac)
         self.assertIn("branches: ['**']", mac)
+
+    def test_gio_tests_run_once_on_hosted_linux_separately_from_mac(self):
+        workflow = (ROOT / '.github/workflows/gio-unit-tests.yml').read_text()
+        self.assertIn("on:\n  push:\n    branches: ['**']\n  workflow_dispatch:\n", workflow)
+        for forbidden in ('pull_request:', 'pull_request_target:', 'paths:',
+                          'self-hosted', 'container:', 'continue-on-error:', ' -short', ' -run '):
+            self.assertNotIn(forbidden, workflow)
+        self.assertIn('runs-on: ubuntu-latest', workflow)
+        self.assertIn('permissions:\n  contents: read\n', workflow)
+        self.assertIn('working-directory: experiments/gio', workflow)
+        self.assertIn('go-version-file: experiments/gio/go.mod', workflow)
+        self.assertIn('cache-dependency-path: |\n            experiments/gio/go.sum\n            go.sum', workflow)
+        self.assertIn('unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR', workflow)
+        self.assertIn('go test -mod=readonly -count=1 ./...', workflow)
+        for lane in load('ci-macos-gates').LANES:
+            self.assertFalse(any(cwd == 'experiments/gio' or name == 'gio-i18n'
+                                 for name, _, cwd in lane))
+        self.assertNotIn('gio-i18n', load('ci-macos-results').GATES)
 
     def test_eino_provider_requires_trusted_origin_and_hosted_linux_runner(self):
         workflow = (ROOT / '.github/workflows/eino-provider.yml').read_text()

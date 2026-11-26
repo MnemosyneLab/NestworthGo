@@ -150,7 +150,7 @@ and jsdom evidence. Keep synthetic isolation and the safety rules in root
 
 ## Frontend-only checks
 
-The full regular check set runs on the self-hosted native Mac. See
+The regular Wails and parent-module check set runs on the self-hosted native Mac. See
 [Native Mac CI](ci-macos-trial.md) for trusted internal branch triggers,
 external contribution handling, isolation and the nonrunning Linux rollback archive.
 
@@ -182,6 +182,9 @@ frontend tests, and `git diff --check`.
 The same automated gates run on native macOS for every origin branch push,
 covering `main` and each internal PR head (`.github/workflows/check.yml`). The
 check name is `test`; fork PRs require reviewed import onto an internal branch.
+Gio has its own `gio-unit-tests` workflow on GitHub-hosted `ubuntu-latest`,
+triggered by the same origin branch pushes and manual dispatch (no path filter).
+See the [Gio Linux test command](../../experiments/gio/README.md#linux).
 Non-race Go tests enumerate all packages with bounded local parallelism. Race
 detection and `//go:build perf` evidence run daily at 21:00 UTC, and on
 manual dispatch, in `.github/workflows/perf.yml`, not on every pull request.
