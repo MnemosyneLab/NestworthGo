@@ -1734,6 +1734,9 @@ const (
 	FundsNativeCash
 	FundsNativeProceeds
 	FundsNativeBreakdown
+	FundsBreakdownCurrency
+	FundsSourceDetails
+	FundsNamedSourceDetails
 	FundsSameAs
 	FundsMoreThan
 	FundsLessThan
@@ -1796,6 +1799,9 @@ const (
 	ReserveConfirmRelease
 	ReserveReleasedRow
 	ReserveEmpty
+	ReserveGlobalTitle
+	ReserveGlobalEmpty
+	ReserveNoEligibleSources
 	ReserveSourceUnavailable
 	ReserveSaved
 	ReserveReleasedNotice

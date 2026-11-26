@@ -9,7 +9,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"github.com/shopspring/decimal"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -203,6 +202,7 @@ func (p *availableFundsPage) fundsComparison(view ui.View, selected string) layo
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 			layout.Rigid(view.Body(ui.TextHeading, l.Text(i18n.NavAvailableFunds)+" · "+p.current.report.Overview.BaseCurrency.String(), view.Colors.Ink)),
+			layout.Rigid(p.fundsQuickActions(view)),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return (ui.Grid{MinColumn: 126, MaxColumns: 4, Gap: ui.Space8, Balanced: true}).Layout(gtx, view, len(horizons), func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 					horizon := horizons[index]
@@ -301,8 +301,21 @@ func fundsHorizonUsesEarly(sources []application.LiquidityReadSource, day string
 	})
 }
 
-func fundsNativeAmount(view ui.View, label i18n.MessageID, amount *decimal.Decimal, currency domain.CurrencyCode) layout.Widget {
-	return labeledAmount(view, label, fundsNativeAmountText(view, amount, currency), view.Colors.Ink)
+func (p *availableFundsPage) fundsQuickActions(view ui.View) layout.Widget {
+	actions := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+		if p.jumpSources.Clicked(gtx) {
+			p.state.focusSources = true
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		view.Focus.Watch(gtx, &p.jumpSources)
+		return view.ButtonOf(&p.jumpSources, ui.ButtonSpec{
+			Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.FundsSources),
+		})(gtx)
+	}}
+	if p.reservationLedger != nil {
+		actions = append(actions, p.globalReservationButton(view, &p.manageReservations))
+	}
+	return fundsWrappedActions(actions)
 }
 
 func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.LiquidityBucket, counts [fundsFilterCount]int) layout.Widget {
@@ -319,9 +332,6 @@ func (p *availableFundsPage) fundsSourcesHeader(view ui.View, bucket *domain.Liq
 			}
 		}
 		children := []layout.FlexChild{layout.Rigid(view.Body(ui.TextHeading, fmt.Sprintf(l.Text(i18n.FundsSourcesByDate), historyDay(view, bucket.HorizonOn)), view.Colors.Ink))}
-		if p.reservationLedger != nil {
-			children = append(children, layout.Rigid(p.globalReservationButton(view, &p.manageReservations)))
-		}
 		switch {
 		case counts[fundsExcluded] == counts[fundsAll]:
 			children = append(children, layout.Rigid(view.Message(l.Text(i18n.FundsAllExcluded), view.Colors.SecondaryInk)))

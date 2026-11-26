@@ -67,7 +67,8 @@ func readAvailableFundsQuery(ctx context.Context, service availableFundsReader, 
 }
 
 type fundsLinks struct {
-	account, instrument, reserve, product, policy widget.Clickable
+	account, instrument, reserve, product, policy, details widget.Clickable
+	showDetails                                            bool
 }
 
 type availableFundsPage struct {
@@ -101,6 +102,7 @@ type availableFundsPage struct {
 	list               widget.List
 	reload             widget.Clickable
 	manageReservations widget.Clickable
+	jumpSources        widget.Clickable
 	links              map[string]*fundsLinks
 	openAccount        func(domain.AccountID, string, event.Tag)
 	openInstrument     func(domain.InstrumentID, string, event.Tag)
@@ -319,22 +321,16 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	var rows []layout.Widget
 	if len(data.report.Sources) != 0 {
 		rows = append(rows, p.fundsComparison(view, bucket.HorizonOn))
-		if len(groups) != 0 {
-			rows = append(rows, tradeTitle(view, i18n.FundsNativeBreakdown))
-		}
+	} else if p.reservationLedger != nil {
+		rows = append(rows, p.globalReservationButton(view, &p.manageReservations))
 	}
 	// Across currencies the converted base total is a distinct projection.
 	// A single native group in the base currency already shows those amounts.
 	if len(groups) != 1 || groups[0].Currency != overview.BaseCurrency {
-		rows = append(rows, fundsSummary(view, fmt.Sprintf(view.Language.Text(i18n.FundsBase), overview.BaseCurrency), bucket.Status,
-			bucket.FullAvailable, bucket.KnownAvailableSubtotal, bucket.AppliedReserveSubtotal, bucket.FullUnreserved, bucket.KnownUnreservedSubtotal))
+		rows = append(rows, fundsBaseSummary(view, overview.BaseCurrency, bucket))
 	}
-	for _, group := range groups {
-		amounts := data.native[bucket.HorizonOn][group.Currency]
-		rows = append(rows, fundsSummary(view, fmt.Sprintf(view.Language.Text(i18n.FundsNative), group.Currency), group.Status,
-			group.FullAvailable, group.KnownAvailableSubtotal, group.AppliedReserveSubtotal, group.FullUnreserved, group.KnownUnreservedSubtotal,
-			fundsNativeAmount(view, i18n.FundsNativeCash, amounts.Cash, group.Currency),
-			fundsNativeAmount(view, i18n.FundsNativeProceeds, amounts.Proceeds, group.Currency)))
+	if len(groups) != 0 {
+		rows = append(rows, fundsBreakdown(view, groups, data.native[bucket.HorizonOn]))
 	}
 	for _, warning := range bucket.Warnings {
 		rows = append(rows, view.Message(view.Language.Text(fundsReason(warning)), view.Colors.SecondaryInk))
@@ -366,35 +362,6 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	return rows, sourcesIndex
 }
 
-func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, full, known, applied, fullAfter, knownAfter *domain.Money, breakdown ...layout.Widget) layout.Widget {
-	beforeLabel, reserveLabel, afterLabel := i18n.FundsAvailableBefore, i18n.FundsApplied, i18n.FundsAvailableAfter
-	if status != domain.StatusComplete && applied != nil {
-		reserveLabel = i18n.FundsAppliedSubtotal
-	}
-	if full == nil && known != nil {
-		full, beforeLabel = known, i18n.FundsBeforeSubtotal
-	}
-	if fullAfter == nil && knownAfter != nil {
-		fullAfter, afterLabel = knownAfter, i18n.FundsAfterSubtotal
-	}
-	fields := []layout.Widget{
-		func(gtx layout.Context) layout.Dimensions {
-			tone := ui.BadgeWarning
-			if status == domain.StatusComplete {
-				tone = ui.BadgeSuccess
-			}
-			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return view.Badge(gtx, tone, view.Language.Text(fundsStatus(status)))
-			})
-		},
-	}
-	fields = append(fields, breakdown...)
-	return fundsCard(view, title, append(fields,
-		fundsAmount(view, beforeLabel, full),
-		fundsAmount(view, reserveLabel, applied),
-		fundsAmount(view, afterLabel, fullAfter))...)
-}
-
 func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadSource, day string) layout.Widget {
 	source := row.Result
 	var kind domain.ProductKind
@@ -402,17 +369,19 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		kind = domain.ProductKind(*row.ProductKind)
 	}
 	l := view.Language
-	fields := []layout.Widget{fundsAmount(view, i18n.FundsCurrent, source.CurrentNativeValue)}
+	figures := []fundsFigure{fundsMoneyFigure(view, i18n.FundsCurrent, source.CurrentNativeValue)}
+	var notes, details, actions []layout.Widget
 	result := fundsResultForHorizon(source, day)
 	if result != nil && !source.Excluded {
-		fields = append(fields, fundsAmount(view, i18n.FundsAvailableBefore, result.NetNative),
-			fundsAmount(view, i18n.FundsApplied, result.AppliedReserveNative), fundsAmount(view, i18n.FundsAvailableAfter, result.UnreservedNative))
+		figures = append(figures, fundsMoneyFigure(view, i18n.FundsAvailableBefore, result.NetNative),
+			fundsMoneyFigure(view, i18n.FundsApplied, result.AppliedReserveNative),
+			fundsMoneyFigure(view, i18n.FundsAvailableAfter, result.UnreservedNative))
 		if result.ReserveShortfallNative != nil && !result.ReserveShortfallNative.IsZero() {
-			fields = append(fields, fundsAmount(view, i18n.FundsShortfall, result.ReserveShortfallNative))
+			notes = append(notes, fundsAmount(view, i18n.FundsShortfall, result.ReserveShortfallNative))
 		}
 	}
 	if !source.ReservationRequested.IsZero() {
-		fields = append(fields, fundsAmount(view, i18n.FundsRequested, &source.ReservationRequested))
+		details = append(details, fundsAmount(view, i18n.FundsRequested, &source.ReservationRequested))
 	}
 	reasons := make([]i18n.MessageID, 0, 4)
 	addReasons := func(values []string) {
@@ -435,13 +404,13 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		addReasons(result.Reasons)
 		if route != nil {
 			if route.ReceiptOn != nil {
-				fields = append(fields, view.Message(fmt.Sprintf(l.Text(i18n.FundsLater), historyDay(view, *route.ReceiptOn)), view.Colors.SecondaryInk))
+				notes = append(notes, view.Message(fmt.Sprintf(l.Text(i18n.FundsLater), historyDay(view, *route.ReceiptOn)), view.Colors.SecondaryInk))
 			}
 			if route.Kind == domain.RouteEarly {
-				fields = append(fields, view.Message(l.Text(i18n.FundsEarlyRoute), view.Colors.SecondaryInk))
+				notes = append(notes, view.Message(l.Text(i18n.FundsEarlyRoute), view.Colors.SecondaryInk))
 			}
 			if route.FeeNative == nil || !route.FeeNative.IsZero() {
-				fields = append(fields, fundsAmount(view, i18n.FundsRouteFee, route.FeeNative))
+				details = append(details, fundsAmount(view, i18n.FundsRouteFee, route.FeeNative))
 			}
 			if result.SelectedRoute == nil && !source.DueUnconfirmed && (route.ReceiptOn == nil || *route.ReceiptOn <= day) {
 				addReasons(route.MissingReasons)
@@ -455,34 +424,36 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		if kind != "" && reason == i18n.FundsDue && source.DisplayState == domain.ProductDisplayDueUnconfirmed {
 			continue // The product state below already explains the unconfirmed receipt.
 		}
-		fields = append(fields, view.Message(l.Text(reason), view.Colors.SecondaryInk))
+		notes = append(notes, view.Message(l.Text(reason), view.Colors.SecondaryInk))
 	}
 	var instrument domain.InstrumentID
 	if source.ProductID == nil && row.InstrumentID != nil {
 		instrument = domain.InstrumentID(*row.InstrumentID)
 	}
 	if kind == domain.ProductTermDeposit || kind == domain.ProductLockedProduct {
-		fields = append(fields, productState(view, kind, source.DisplayState))
+		notes = append(notes, productState(view, kind, source.DisplayState))
 		if p.openProduct != nil {
-			fields = append(fields, productLink(view, *source.ProductID, source.DisplayName, &p.sourceButtons(source.SourceKey).product, p.openProduct))
+			actions = append(actions, productLink(view, *source.ProductID, source.DisplayName, &p.sourceButtons(source.SourceKey).product, p.openProduct))
 		}
-	}
-	fields = append(fields, p.sourceLinks(view, source.SourceKey, source.AccountID, instrument, source.DisplayName))
-	if p.reservationLedger != nil && reservableFundsSource(&source) {
-		fields = append(fields, p.reservationButton(view, source.DisplayName, source.Ref))
 	}
 	title := p.sourceTitle(view, source)
 	if p.policyLedger != nil {
 		switch {
 		case editableFundsPolicy(row):
-			fields = append(fields, p.policyButton(view, row, title, result != nil && result.NeedsRules))
+			actions = append(actions, p.policyButton(view, row, title, result != nil && result.NeedsRules))
 		case source.ProductID != nil:
-			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyManaged), view.Colors.SecondaryInk))
+			details = append(details, view.Message(l.Text(i18n.FundsPolicyManaged), view.Colors.SecondaryInk))
 		default:
-			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
+			details = append(details, view.Message(l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
 		}
 	}
-	return fundsCard(view, title, fields...)
+	if p.reservationLedger != nil && reservableFundsSource(&source) {
+		actions = append(actions, p.reservationButton(view, source.DisplayName, source.Ref))
+	}
+	actions = append(actions, p.sourceNavigationActions(view, source.SourceKey, source.AccountID, instrument, source.DisplayName)...)
+	return func(gtx layout.Context) layout.Dimensions {
+		return fundsSourceRow(view, title, p.sourceButtons(source.SourceKey), figures, notes, actions, details)(gtx)
+	}
 }
 
 func (p *availableFundsPage) sourceTitle(view ui.View, source domain.LiquiditySourceResult) string {
@@ -499,36 +470,39 @@ func (p *availableFundsPage) sourceTitle(view ui.View, source domain.LiquiditySo
 }
 
 func (p *availableFundsPage) sourceLinks(view ui.View, key string, account domain.AccountID, instrument domain.InstrumentID, name string) layout.Widget {
-	return func(gtx layout.Context) layout.Dimensions {
-		l := view.Language
-		buttons := p.sourceButtons(key)
-		var actions []layout.FlexChild
-		if accountName := p.current.accounts[account].Name; p.openAccount != nil && accountName != "" {
+	return fundsWrappedActions(p.sourceNavigationActions(view, key, account, instrument, name))
+}
+
+func (p *availableFundsPage) sourceNavigationActions(view ui.View, key string, account domain.AccountID, instrument domain.InstrumentID, name string) []layout.Widget {
+	l := view.Language
+	var actions []layout.Widget
+	if accountName := p.current.accounts[account].Name; p.openAccount != nil && accountName != "" {
+		actions = append(actions, func(gtx layout.Context) layout.Dimensions {
+			buttons := p.sourceButtons(key)
 			if buttons.account.Clicked(gtx) {
 				p.openAccount(account, accountName, &buttons.account)
 				gtx.Execute(op.InvalidateCmd{})
 			}
-			actions = append(actions, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					view.Focus.Watch(gtx, &buttons.account)
-					return view.Button(&buttons.account, fmt.Sprintf(l.Text(i18n.HistoryOpenAccount), accountName))(gtx)
-				})
-			}))
-		}
-		if instrument != "" && p.openInstrument != nil {
+			view.Focus.Watch(gtx, &buttons.account)
+			return view.ButtonOf(&buttons.account, ui.ButtonSpec{
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fmt.Sprintf(l.Text(i18n.HistoryOpenAccount), accountName),
+			})(gtx)
+		})
+	}
+	if instrument != "" && p.openInstrument != nil {
+		actions = append(actions, func(gtx layout.Context) layout.Dimensions {
+			buttons := p.sourceButtons(key)
 			if buttons.instrument.Clicked(gtx) {
 				p.openInstrument(instrument, name, &buttons.instrument)
 				gtx.Execute(op.InvalidateCmd{})
 			}
-			actions = append(actions, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					view.Focus.Watch(gtx, &buttons.instrument)
-					return view.Button(&buttons.instrument, fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), name))(gtx)
-				})
-			}))
-		}
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx, actions...)
+			view.Focus.Watch(gtx, &buttons.instrument)
+			return view.ButtonOf(&buttons.instrument, ui.ButtonSpec{
+				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), name),
+			})(gtx)
+		})
 	}
+	return actions
 }
 
 func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widget {

@@ -71,7 +71,7 @@ func (p *availableFundsPage) policyButton(view ui.View, row application.Liquidit
 			gtx.Execute(key.FocusCmd{Tag: button})
 		}
 		label := view.Language.Text(name)
-		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: label, Name: label + " · " + title})(gtx)
+		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: label, Name: label + " · " + title})(gtx)
 	}
 }
 

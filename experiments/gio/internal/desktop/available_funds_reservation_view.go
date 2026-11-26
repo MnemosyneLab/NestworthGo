@@ -35,7 +35,7 @@ func (p *availableFundsPage) reservationButton(view ui.View, name string, source
 		label := fmt.Sprintf(view.Language.Text(i18n.ReserveManage), name)
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, button)
-			return view.Button(button, label)(gtx)
+			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: label})(gtx)
 		})
 	}
 }
@@ -82,6 +82,9 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	title := i18n.ReserveTitle
+	if r.source.Kind == "" {
+		title = i18n.ReserveGlobalTitle
+	}
 	if r.editing {
 		title = i18n.ReserveAdd
 		if r.editRow != nil {
@@ -111,6 +114,23 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 		}
 		appendRow(view.Message(name, view.Colors.Ink))
 	}
+	if !r.editing && r.plan == nil && !p.reservationUnresolved() {
+		appendRow(func(gtx layout.Context) layout.Dimensions {
+			if r.restoreFocus {
+				focus := r.actionFocus
+				if focus == nil || focus == &r.add && !r.canAdd() {
+					focus = &r.close
+				}
+				gtx.Execute(key.FocusCmd{Tag: focus})
+				r.restoreFocus = false
+			}
+			actions := []layout.Widget{view.Button(&r.close, l.Text(i18n.ReserveBack))}
+			if r.current != nil && !r.readError && r.read == nil && r.canAdd() {
+				actions = append(actions, func(gtx layout.Context) layout.Dimensions { return p.reservationListActions(gtx, view) })
+			}
+			return fundsWrappedActions(actions)(gtx)
+		})
+	}
 	if r.notice != i18n.NoMessage {
 		color := view.Colors.ErrorInk
 		if r.notice == i18n.ReserveSaved || r.notice == i18n.ReserveReleasedNotice {
@@ -138,25 +158,17 @@ func (p *availableFundsPage) layoutReservations(gtx layout.Context, view ui.View
 			return r.layoutReservationDraft(gtx, view)
 		})
 	default:
-		appendRow(func(gtx layout.Context) layout.Dimensions {
-			if r.restoreFocus {
-				focus := r.actionFocus
-				if focus == nil || focus == &r.add && !r.canAdd() {
-					focus = &r.close
-				}
-				gtx.Execute(key.FocusCmd{Tag: focus})
-				r.restoreFocus = false
-			}
-			return layout.W.Layout(gtx, view.Button(&r.close, l.Text(i18n.ReserveBack)))
-		})
 		if r.source.Kind != "" {
 			appendRow(fundsAmount(view, i18n.FundsAvailableAfter, r.current.available(r.source)))
 		}
-		appendRow(func(gtx layout.Context) layout.Dimensions { return p.reservationListActions(gtx, view) })
+		if !r.canAdd() {
+			message := i18n.ReserveSourceUnavailable
+			if r.source.Kind == "" {
+				message = i18n.ReserveNoEligibleSources
+			}
+			appendRow(view.Message(l.Text(message), view.Colors.SecondaryInk))
+		}
 		header = append(header, ui.Fill(func(gtx layout.Context) layout.Dimensions { return r.layoutReservationList(gtx, view) }))
-	}
-	if r.readError && !r.checking {
-		appendRow(view.Button(&r.close, l.Text(i18n.ReserveBack)))
 	}
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx, header...)
 }
@@ -172,9 +184,6 @@ func (r *fundsReservationSession) canAdd() bool {
 
 func (p *availableFundsPage) reservationListActions(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reservation, view.Language
-	if !r.canAdd() {
-		return view.Message(l.Text(i18n.ReserveSourceUnavailable), view.Colors.SecondaryInk)(gtx)
-	}
 	if r.add.Clicked(gtx) {
 		r.startDraft(gtx, nil, &r.add)
 		if r.source.Kind == "" {
@@ -205,7 +214,11 @@ func reservationSourceName(view ui.View, source *domain.LiquiditySourceResult, a
 
 func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view ui.View) layout.Dimensions {
 	if len(r.current.records) == 0 {
-		return view.Message(view.Language.Text(i18n.ReserveEmpty), view.Colors.SecondaryInk)(gtx)
+		message := i18n.ReserveEmpty
+		if r.source.Kind == "" {
+			message = i18n.ReserveGlobalEmpty
+		}
+		return view.Message(view.Language.Text(message), view.Colors.SecondaryInk)(gtx)
 	}
 	records := slices.Clone(r.current.records)
 	slices.SortStableFunc(records, func(a, b domain.LiquidityReservation) int {
