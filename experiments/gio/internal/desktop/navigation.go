@@ -30,6 +30,9 @@ type navigationTarget struct {
 	statement   string
 	health      healthFindingFocus
 	accountList accountListScope
+	fundsDay    string
+
+	portfolioAccount domain.AccountID
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -47,7 +50,9 @@ type navigationEntry struct {
 	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
+	funds            fundsViewState
 	portfolioSearch  string
+	holdings         portfolioHoldingsVisit
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	returns          *returnAnalysisVisit
@@ -182,7 +187,12 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.portfolio != nil && s.portfolio.investment.unresolved() {
 		return
 	}
-	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved()) {
+	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved() || s.funds.policyUnresolved()) {
+		return
+	}
+	if request.step == -1 && s.activeRoute() == fundsRoute && s.funds.policy != nil {
+		s.funds.cancelPolicy(false)
+		gtx.Execute(op.InvalidateCmd{})
 		return
 	}
 	entry := s.trail.current()
@@ -216,6 +226,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 		if request.target.instrument != "" && request.target.route != portfolioRoute &&
 			(request.target.route != historyRoute || request.target.activity != "" || s.historyPage == nil || s.historyPage.reads == nil) {
+			return
+		}
+		if request.target.portfolioAccount != "" && (request.target.route != portfolioRoute || request.target.instrument == "") {
 			return
 		}
 	}
@@ -272,6 +285,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == fundsRoute {
 		s.funds.reservation, s.funds.setup = nil, nil
+		s.funds.policy = nil
 		if entry.target.product == "" {
 			s.funds.leave()
 		} else {
@@ -340,7 +354,16 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == fundsRoute {
 		if entry.target.product == "" {
-			s.funds.enter(entry.scroll)
+			state := entry.funds
+			if !entry.visited {
+				state = s.funds.state
+				state.focusSources = false
+				if day := entry.target.fundsDay; day != "" {
+					state.horizonOn, state.filter = day, fundsNeedsRules
+					state.includeEarly, state.focusSources = false, true
+				}
+			}
+			s.funds.enter(entry.scroll, state)
 		} else {
 			s.funds.productPage.enter(entry.target.product, entry.scroll, request.verifyProductReceipt)
 		}
@@ -351,7 +374,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == portfolioRoute {
-		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
+		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
+		if entry.target.instrument == "" {
+			s.portfolio.restoreHoldingsVisit(entry.holdings)
+		}
 	}
 	if entry.target.route == wealthHistoryRoute {
 		s.wealthHistory.enter()
@@ -438,6 +464,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case fundsRoute:
 		if entry.target.product == "" {
 			entry.scroll = s.funds.list.Position
+			entry.funds = s.funds.state
+			entry.funds.focusSources = false
 		} else {
 			entry.scroll = s.funds.productPage.list.Position
 		}
@@ -446,6 +474,9 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
+		if entry.target.instrument == "" {
+			entry.holdings = s.portfolio.holdingsVisit()
+		}
 	case overviewRoute:
 		if s.overviewPage != nil {
 			entry.scroll = s.overviewPage.list.Position
@@ -540,6 +571,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 }
 
 func (s *shell) waitingForPageFocus() bool {
+	if s.activeRoute() == overviewRoute && s.overviewPage != nil {
+		return s.overviewPage.loading || s.overviewPage.funds.request != nil
+	}
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		if r := s.historyPage.reads; r != nil && r.detail != nil {
 			return r.detail.pending != nil || r.detail.dirty

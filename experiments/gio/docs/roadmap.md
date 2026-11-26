@@ -69,7 +69,8 @@ live Overview, account browsing, and creation and maintenance across the
 account Catalog. Production startup and target-platform acceptance remain
 open. Stage 5 includes Holdings and instrument reads, same-currency buys,
 partial sales, liquidations, cash dividends, a positive opening position and
-the Today view of Available Funds with standard bank-account reservations.
+[Available Funds from Overview](#available-funds-from-overview) with date and
+source selection, plus standard bank-account reservations.
 Stage 6 includes the [read-only Wealth History table](#read-only-wealth-history)
 and the [Return Analysis calendar](#read-only-return-analysis-calendar).
 Stage 7 is paused. Use [navigation history](../../../docs/design/navigation-history.md),
@@ -1228,7 +1229,8 @@ base-currency valuation and its quality, with a known subtotal when some
 inputs are missing. Portfolio value covers securities. Household net worth in
 Overview also reflects cash and other eligible balances. A funded account can
 show no investment holdings. Zero-quantity positions are omitted from the
-current list. [Wails Portfolio view](../../../frontend/src/features/portfolio/PortfolioPage.tsx) · [Shared holdings read](../../../internal/application/instrument_holdings.go)
+current list by default. See [My holdings groups](#my-holdings-groups) for the
+grouped workspace. [Wails Portfolio view](../../../frontend/src/features/portfolio/PortfolioPage.tsx) · [Shared holdings read](../../../internal/application/instrument_holdings.go)
 
 Instrument detail shows the shared aggregate and each account's position.
 It reads current price and the stored market FX quote independently and shows
@@ -1250,7 +1252,32 @@ the prior visit, including search, scroll and available source focus.
 | Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
 | Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Portfolio grouping and allocation, performance and market-data maintenance, position import, broader trade support, dividends and products remain separate slices. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun for this slice. |
+| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. Allocation and performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
+
+#### My holdings groups
+
+**Investment assets → My holdings** defaults to instrument rows. Shared Go
+projections supply asset classes, per-currency costs, market values and
+unrealized gains or losses. Each instrument shows its matching account count.
+Expand the row to inspect each account's quantity and amounts, or choose
+**Account details** for account-level rows. Groups can be collapsed together
+or individually. Search filters the displayed instruments and the visible
+count. Currency subtotals report the full category. Zero holdings are hidden
+until selected. Missing amounts retain the corresponding evidence reason.
+[Wails grouped holdings](../../../frontend/src/features/investments/HoldingGroupsList.tsx)
+
+Instrument, account and managed-product links use their existing destinations.
+The row actions open the existing Ledger activity, Return Analysis and Asset
+Changes with instrument and optional account scope. Back restores the search,
+disclosures, position and source focus. The shared money formatter supplies
+the currency symbol once. Table-column sorting and the other Investment Assets
+tabs remain open.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | The same synthetic holdings showed USD 232.95 known value in both apps. Stocks had independent EUR 78.625 cost, 101.875 value and +23.25 gain, and GBP 133 cost, 82 value and −51 loss. The five EUR units expanded into two accounts with gains of EUR 10.5 and 12.75. [Wails groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/wails-holdings.jpg) · [Gio groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings.jpg) |
+| Native coverage and navigation | JPY 360 cost remained available with market value and gain missing. A separate pre-History fixture showed S$57.00 market value with unavailable cost and gain. Search, collapse and expand, account detail and Back worked. The Ledger link kept the account and instrument. At 700 × 480, Tab and Return opened the holding actions and scoped Return Analysis to the selected instrument. [Narrow JPY holding](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-narrow.jpg) · [SGD missing cost](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-missing-cost.jpg) |
+| Automated workflow | Compact frame tests compare the exact Go projection and Wails adapter, including zero, mixed currencies, independent cost and value availability, account-scoped detail, all three analysis actions and Back focus. VoiceOver, native IME and Wayland acceptance remain open. |
 
 #### First recorded security buy
 
@@ -2121,7 +2148,65 @@ report and restores the list position and source focus. [Shared availability pro
 | Linux X11 | In a 900×660 Xvfb window, viewed the USD and EUR amounts and missing-FX explanation, opened the saved account and instrument sources, returned to the scrolled report, and found the unresolved reservation. Normal reopen repeated the same amounts. A separate profile showed the no-source message and known USD zero. Read-only SQLite comparison found the same rows across 13 financial tables in both profiles. A temporary build overlay seeded the verified profiles and controlled the clock. |
 | Tests | The Gio module suite and focused application, domain and Wails Go liquidity tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | [Bank-account reservations](#bank-account-reservations) and [read-only term deposits](#read-only-term-deposits) follow this milestone. Additional horizons, early-withdrawal estimates, broader reservation and policy editing, product lifecycle actions and Tasks remain open. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Follow-up | See [bank-account reservations](#bank-account-reservations), [read-only term deposits](#read-only-term-deposits) and [Available Funds from Overview](#available-funds-from-overview) for later capabilities and acceptance. |
+
+#### Available Funds from Overview
+
+On a household with accounts, **Overview** places **Available funds** beside
+Net worth when space permits. The card independently loads Today and Within
+30 days with normal access, shows the amount after reservations and its
+coverage, and distinguishes a confirmed subtotal from an unknown total. A
+failed liquidity read can be retried from the card. The page link opens the
+workspace. A missing-rules link opens the corresponding civil date with the
+Missing rules filter and focuses the source controls. Back restores the
+originating Overview link. [Wails summary](../../../frontend/src/features/liquidity/OverviewLiquidityCard.tsx)
+
+The workspace compares Today, Within 7 days, Within 30 days and an optional
+custom date in the household's History timezone. It estimates early withdrawal
+only when selected. The selected horizon supplies currency totals, cash and
+proceeds, reservation effects, expected dates, fees, coverage and the source
+filters and counts. Account, instrument, reservation and product actions retain
+their established Gio entry points. The date picker can be cleared after a
+failed read. Back and Forward restore the saved date, filters and position.
+An onboarded empty household uses the sidebar to reach Available Funds. Gio
+retains its known-zero display and no-source message in that state.
+[Wails workspace](../../../frontend/src/features/liquidity/AvailableFundsPage.tsx)
+
+The read uses the shared Go service and existing price and FX recovery from
+Data Health. The domain checks cumulative amounts in date order while retaining
+the preset and custom bucket positions expected by Wails. See [ordinary source
+availability rules](#ordinary-source-availability-rules) for rule editing and
+same-horizon readback. Broader reservation management and eligible grouped
+product undo remain open. Stage 7 remains paused.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | Independent copies of the same synthetic ledger were opened with the Wails development and Gio preview identities. Both reached the December 26 Missing rules scope for QA-FUND from Overview. Gio Back restored the originating link, and Return reopened the scope. Wails shows US$85.31 and US$125.31. The shared read and Wails adapter agree on the exact USD 85.3071 and USD 125.3071 subtotals. [Wails Overview](../../../docs/qa/gio-available-funds-2026-11-26/evidence/wails-overview.jpg) · [Wails rules scope](../../../docs/qa/gio-available-funds-2026-11-26/evidence/wails-rules.jpg) · [Gio Overview](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-overview.jpg) · [Gio workspace](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-funds.jpg) |
+| Native compact controls | At 700 × 480 content points, Tab and Return opened the 30-day rules scope and focused Missing rules. Selecting December 6 loaded the USD 85.3071 subtotal, with the 30-day subtotal still USD 125.3071. [Gio compact rules scope](../../../docs/qa/gio-available-funds-2026-11-26/evidence/gio-narrow.jpg) |
+| Native repair, complete and empty | From Overview, saved EUR/USD 1.2 and QA-FUND USD 12.3456 through Data Health. The refreshed estimates were USD 115.6071 and USD 155.6071 with the access rule still missing. A separately seeded complete ledger showed USD 140.2983 and USD 180.2983. On that ledger, early withdrawal raised Today and 7 days to USD 177.2983 and left 30 days at USD 180.2983. An onboarded empty copy reached the no-source message and known USD zero from the sidebar. |
+| Automated workflow | Frame regressions exercise independent loading and retry, scoped navigation and Back/Forward focus, quote and rule readback, and compact keyboard horizon, custom-date and early-withdrawal selection. The selected date test compares the exact results against the Wails Go adapter. Full VoiceOver, native IME and Wayland acceptance remain open. |
+
+#### Ordinary source availability rules
+
+From the selected source row, **Complete availability rules** or **Edit source
+rules** opens the normal-access presets and the advanced timing, cap, fee and
+early-withdrawal fields. Managed products keep their rules in product terms.
+The shared Go commands validate the source and compare the explicit rule
+revision. Reset asks for confirmation. A conflict keeps the competing revision
+intact and offers explicit readback before another edit. An unreadable result
+retries the read without repeating the mutation.
+[Wails editor](../../../frontend/src/features/liquidity/PolicySheet.tsx)
+
+The saved date, early-withdrawal option and source filter survive save and
+reset. The source action regains focus if it still matches. When the source
+leaves the filtered list, the active filter receives focus. Back and Forward
+restore the saved scope, and Overview reads the current rule counts.
+
+| Check | Evidence |
+| --- | --- |
+| Paired macOS 27.2.1 ARM64 | From the 30-day Missing rules link, both apps saved QA-FUND with a December 10 unlock, two calendar settlement days and USD 0.6912 exit fee. The December 12 receipt contributes exactly USD 24. Today stayed USD 115.6071, 30 days rose from USD 155.6071 to USD 179.6071, and coverage became complete. Gio focused Missing rules 0 when the repaired source disappeared. Restart retained the results. [Wails form](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/wails-policy.jpg) · [Gio form](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy.jpg) · [Gio restart](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy-saved.jpg) |
+| Compact keyboard and reset | At 700 × 480 in the native Gio window, Tab and Return selected the dated preset. Escape cancelled reset and restored the reset button's focus. Tab and Return then confirmed reset. The source again needed rules and the original known subtotals returned. [Reset confirmation](../../../docs/qa/gio-availability-rules-2026-11-26/evidence/gio-policy-reset.jpg) |
+| Automated workflow | The SQLite frame regression verifies a conflicting revision, explicit reload, retained filter and date, readback retry without a duplicate write, Back and Forward, cancellation, validation and saved-rule reopen. It compares exact amounts through the Wails Go adapter. |
 
 #### Bank-account reservations
 
@@ -3112,7 +3197,9 @@ and the [`20fc2e0d` reconciliation journal run](https://github.com/MnemosyneLab/
 
 #### Follow-up order across Stages 4 to 6
 
-1. Complete the standalone [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
+1. Extend reservation management across eligible funding sources in the
+   [Available Funds workspace](#available-funds-from-overview). Then cover the standalone
+   [product detail actions](../../../frontend/src/features/liquidity/ProductDetailSheet.tsx).
    Standalone locked-product valuation and redemption, interest and terms are
    covered, along with the pre-maturity term-deposit receipt and paged product
    history. Prioritize eligible grouped undo. Renewal is covered

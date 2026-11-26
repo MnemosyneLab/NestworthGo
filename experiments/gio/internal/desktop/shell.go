@@ -291,6 +291,12 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: route}, focus: focus}
 		}
 	}
+	if s.overviewPage != nil && s.funds != nil {
+		s.overviewPage.funds.reader = s.funds.service
+		s.overviewPage.funds.open = func(day string, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: fundsRoute, fundsDay: day}, focus: focus}
+		}
+	}
 	if s.returns != nil && s.assets != nil {
 		s.returns.openAssets = func(selection analysisSelection, focus *widget.Clickable) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: assetChangesRoute},
@@ -462,6 +468,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id}, name: name, focus: from}
 		}
+		p.openHoldingInstrument = func(id domain.InstrumentID, account domain.AccountID, name string, from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id, portfolioAccount: account}, name: name, focus: from}
+		}
 		if s.tasks != nil {
 			s.tasks.openInstrument = p.openInstrument
 		}
@@ -473,9 +482,13 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.historyPage != nil && s.historyPage.reads != nil {
 			p.openHistory = func(id domain.InstrumentID, name string, from event.Tag) {
-				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, instrument: id}, name: name, focus: from}
+				p.openHoldingHistory(id, "", name, from)
 			}
+			p.openHoldingHistory = s.openHoldingHistory
 			s.historyPage.reads.openInstrument = p.openInstrument
+		}
+		if s.returns != nil && s.assets != nil {
+			p.openHoldingAnalysis = s.openHoldingAnalysis
 		}
 	}
 	if s.tasks != nil && s.accounts != nil && s.accounts.statement != nil {
@@ -599,7 +612,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			}
 		}
 	}
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -656,6 +669,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.accounts.layoutAccountCreationReview(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
+	} else if s.fundsPolicyConfirming() {
+		s.funds.layoutPolicyConfirmation(windowContext, view)
 	} else if s.returnDetailOpen() {
 		if s.returns.day != nil {
 			s.returns.layoutDay(windowContext, view)
@@ -745,6 +760,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 
 func (s *shell) wealthDetailOpen() bool {
 	return s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil && s.wealthHistory.detail != nil
+}
+
+func (s *shell) fundsPolicyConfirming() bool {
+	return s.activeRoute() == fundsRoute && s.funds != nil && s.funds.policyConfirming()
 }
 
 func (s *shell) assetDetailOpen() bool {

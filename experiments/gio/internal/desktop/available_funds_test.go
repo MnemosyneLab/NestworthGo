@@ -180,10 +180,14 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	label("Today · 2026-11-21 (UTC)")
 	label("Base currency total · USD")
 	label("Partial coverage")
-	label("Missing exchange rate to the base currency.")
+	reveal("Native amounts · EUR", 100)
 	label("Native amounts · EUR")
+	reveal("Available after reservations · 25.25 EUR", 80)
 	label("Available after reservations · 25.25 EUR")
+	reveal("Known available after reservations · 85.3071 USD", 80)
 	label("Known available after reservations · 85.3071 USD")
+	reveal("Missing exchange rate to the base currency.", 80)
+	label("Missing exchange rate to the base currency.")
 	if fault.attempts.Load() != 2 {
 		t.Fatalf("read retry made %d attempts", fault.attempts.Load())
 	}

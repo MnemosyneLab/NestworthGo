@@ -29,52 +29,71 @@ type availableFundsRead struct {
 	report   application.LiquidityReadResult
 	today    domain.LiquidityBucket
 	accounts map[domain.AccountID]domain.Account
+	native   map[string]map[domain.CurrencyCode]application.LiquidityNativeAmounts
 }
 
-func readAvailableFunds(ctx context.Context, service availableFundsReader) (out availableFundsRead, err error) {
+func readAvailableFunds(ctx context.Context, service availableFundsReader) (availableFundsRead, error) {
+	return readAvailableFundsQuery(ctx, service, application.LiquidityOverviewQuery{})
+}
+
+func readAvailableFundsQuery(ctx context.Context, service availableFundsReader, query application.LiquidityOverviewQuery) (out availableFundsRead, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
-		report, err := service.LiquidityRead(ctx, application.LiquidityOverviewQuery{})
+		report, err := service.LiquidityRead(ctx, query)
 		if err != nil {
 			return err
 		}
-		at := slices.IndexFunc(report.Overview.Buckets, func(b domain.LiquidityBucket) bool { return b.HorizonOn == report.Overview.LocalDate })
-		if at < 0 {
+		today := fundsBucketForHorizon(report.Overview.Buckets, report.Overview.LocalDate)
+		if today == nil {
 			return &domain.Error{Code: domain.ErrIntegrity}
 		}
 		accounts, err := service.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 		if err != nil {
 			return err
 		}
-		out = availableFundsRead{report: report, today: report.Overview.Buckets[at], accounts: make(map[domain.AccountID]domain.Account, len(accounts))}
+		out = availableFundsRead{report: report, today: *today, accounts: make(map[domain.AccountID]domain.Account, len(accounts))}
 		for _, row := range accounts {
 			out.accounts[row.Account.ID] = row.Account
 		}
 		return nil
 	})
+	if err == nil {
+		out.native = make(map[string]map[domain.CurrencyCode]application.LiquidityNativeAmounts, len(out.report.Overview.Buckets))
+		for _, bucket := range out.report.Overview.Buckets {
+			out.native[bucket.HorizonOn] = out.report.NativeSourceAmounts(bucket.HorizonOn)
+		}
+	}
 	return out, err
 }
 
 type fundsLinks struct {
-	account, instrument, reserve, product widget.Clickable
+	account, instrument, reserve, product, policy widget.Clickable
 }
 
 type availableFundsPage struct {
-	ctx               context.Context
-	service           availableFundsReader
-	invalidate        func()
-	workers           sync.WaitGroup
-	cancel            context.CancelFunc
-	request           <-chan historyResult[availableFundsRead]
-	current           *availableFundsRead
-	reservationLedger fundsReservationLedger
-	reservation       *fundsReservationSession
-	productLedger     fundsProductLedger
-	productClock      func() time.Time
-	setup             *fundsProductSetup
-	addProduct        widget.Clickable
-	productSaved      bool
-	restoreAddFocus   bool
-	err               error
+	ctx                 context.Context
+	service             availableFundsReader
+	invalidate          func()
+	workers             sync.WaitGroup
+	cancel              context.CancelFunc
+	request             <-chan historyResult[availableFundsRead]
+	current             *availableFundsRead
+	reservationLedger   fundsReservationLedger
+	reservation         *fundsReservationSession
+	policyLedger        fundsPolicyLedger
+	policy              *fundsPolicyDraft
+	policyFocus         *widget.Clickable
+	policyNotice        i18n.MessageID
+	productLedger       fundsProductLedger
+	productClock        func() time.Time
+	setup               *fundsProductSetup
+	addProduct          widget.Clickable
+	productSaved        bool
+	restoreAddFocus     bool
+	err                 error
+	state               fundsViewState
+	controls            fundsControls
+	localDate, timezone string
+	nextRefresh         time.Time
 
 	list           widget.List
 	reload         widget.Clickable
@@ -86,13 +105,16 @@ type availableFundsPage struct {
 }
 
 func newAvailableFundsPage(ctx context.Context, service availableFundsReader, invalidate func()) *availableFundsPage {
-	return &availableFundsPage{ctx: ctx, service: service, invalidate: invalidate,
+	policyLedger, _ := service.(fundsPolicyLedger)
+	return &availableFundsPage{ctx: ctx, service: service, invalidate: invalidate, policyLedger: policyLedger,
 		list: widget.List{List: layout.List{Axis: layout.Vertical}}, links: make(map[string]*fundsLinks)}
 }
 
-func (p *availableFundsPage) enter(position layout.Position) {
-	p.list.Position, p.current = position, nil
+func (p *availableFundsPage) enter(position layout.Position, state fundsViewState) {
+	p.list.Position, p.current, p.state = position, nil, state
+	p.controls.early.Value = p.state.includeEarly
 	p.productSaved, p.restoreAddFocus = false, false
+	p.policyFocus, p.policyNotice = nil, i18n.NoMessage
 	p.read()
 }
 
@@ -106,10 +128,12 @@ func (p *availableFundsPage) leave() {
 func (p *availableFundsPage) read() {
 	p.leave()
 	p.err = nil
+	p.nextRefresh = time.Time{}
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
+	query := p.state.query()
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (availableFundsRead, error) {
-		return readAvailableFunds(ctx, p.service)
+		return readAvailableFundsQuery(ctx, p.service, query)
 	})
 }
 
@@ -123,6 +147,10 @@ func (p *availableFundsPage) update() {
 			return
 		}
 		p.current = &result.value
+		p.localDate, p.timezone = p.current.report.Overview.LocalDate, p.current.report.Overview.Timezone
+		if fundsBucketForHorizon(p.current.report.Overview.Buckets, p.state.horizonOn) == nil {
+			p.state.horizonOn = ""
+		}
 		// Retain the button instances for surviving sources so Back can
 		// restore focus even when its read replaces the report.
 		active := make(map[string]bool)
@@ -143,10 +171,15 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.policy != nil {
+		p.pollPolicy()
+		if p.policy != nil {
+			return p.layoutPolicy(gtx, view)
+		}
+	}
 	if d := p.setup; d != nil {
 		if !d.poll() {
-			overview := p.current.report.Overview
-			return d.layout(gtx, view, productFormCalendar{today: overview.LocalDate, zone: overview.Timezone}, func() {
+			return d.layout(gtx, view, productFormCalendar{today: p.localDate, zone: p.timezone}, func() {
 				p.setup, p.restoreAddFocus = nil, true
 			})
 		}
@@ -172,16 +205,31 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
+	if p.current != nil && p.request == nil {
+		switch {
+		case p.nextRefresh.IsZero():
+			p.nextRefresh = gtx.Now.Add(time.Minute)
+		case !gtx.Now.Before(p.nextRefresh):
+			p.read()
+		}
+		if !p.nextRefresh.IsZero() {
+			gtx.Execute(op.InvalidateCmd{At: p.nextRefresh})
+		}
+	}
 	var status i18n.MessageID
 	action := i18n.HistoryRefresh
 	switch {
 	case p.err != nil:
 		status, action = i18n.FundsReadFailed, i18n.HistoryRetry
-	case p.request != nil:
+	case p.request != nil && p.current == nil:
 		status = i18n.FundsLoading
+	case p.request != nil:
+		status = i18n.FundsUpdating
 	}
-	return ui.Column{Gap: 10}.Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+	var headerHeight int
+	return ui.Column{Gap: ui.Space8}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) (dims layout.Dimensions) {
+			defer func() { headerHeight = dims.Size.Y }()
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if status == i18n.NoMessage && p.current != nil {
@@ -218,48 +266,85 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.localDate == "" || p.current != nil && len(p.current.report.Sources) == 0 {
+				return layout.Dimensions{}
+			}
+			view.Origin.Y += headerHeight + gtx.Dp(ui.Space8)
+			return p.layoutFundsControls(gtx, view)
+		}),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.policyNotice != i18n.NoMessage {
+				return view.Message(l.Text(p.policyNotice), view.Colors.Ink)(gtx)
+			}
 			if p.productSaved {
 				return view.Message(l.Text(i18n.ProductSetupSaved), view.Colors.Ink)(gtx)
 			}
 			return layout.Dimensions{}
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			if p.current == nil || p.request != nil {
+			if p.current == nil {
 				return layout.Dimensions{}
 			}
-			rows := p.rows(view)
+			rows, sourcesIndex := p.rows(view)
+			if p.state.focusSources && p.request == nil {
+				if sourcesIndex >= 0 {
+					p.list.Position = layout.Position{First: sourcesIndex}
+				} else {
+					p.state.focusSources = false
+				}
+			}
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
 			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavAvailableFunds), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
+				if p.request != nil {
+					gtx = gtx.Disabled()
+				}
 				return rows[i](gtx)
 			})
 		}))
 }
 
-func (p *availableFundsPage) rows(view ui.View) []layout.Widget {
+func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	data := p.current
-	overview, today := data.report.Overview, data.today
-	groups := today.NativeCurrencyGroups
+	overview, bucket := data.report.Overview, p.selectedFundsBucket()
+	groups := bucket.NativeCurrencyGroups
 	var rows []layout.Widget
+	if len(data.report.Sources) != 0 {
+		rows = append(rows, p.fundsComparison(view, bucket.HorizonOn))
+		if len(groups) != 0 {
+			rows = append(rows, tradeTitle(view, i18n.FundsNativeBreakdown))
+		}
+	}
 	// Across currencies the converted base total is a distinct projection.
 	// A single native group in the base currency already shows those amounts.
 	if len(groups) != 1 || groups[0].Currency != overview.BaseCurrency {
-		rows = append(rows, fundsSummary(view, fmt.Sprintf(view.Language.Text(i18n.FundsBase), overview.BaseCurrency), today.Status,
-			today.FullAvailable, today.KnownAvailableSubtotal, today.AppliedReserveSubtotal, today.FullUnreserved, today.KnownUnreservedSubtotal))
+		rows = append(rows, fundsSummary(view, fmt.Sprintf(view.Language.Text(i18n.FundsBase), overview.BaseCurrency), bucket.Status,
+			bucket.FullAvailable, bucket.KnownAvailableSubtotal, bucket.AppliedReserveSubtotal, bucket.FullUnreserved, bucket.KnownUnreservedSubtotal))
 	}
 	for _, group := range groups {
+		amounts := data.native[bucket.HorizonOn][group.Currency]
 		rows = append(rows, fundsSummary(view, fmt.Sprintf(view.Language.Text(i18n.FundsNative), group.Currency), group.Status,
-			group.FullAvailable, group.KnownAvailableSubtotal, group.AppliedReserveSubtotal, group.FullUnreserved, group.KnownUnreservedSubtotal))
+			group.FullAvailable, group.KnownAvailableSubtotal, group.AppliedReserveSubtotal, group.FullUnreserved, group.KnownUnreservedSubtotal,
+			fundsNativeAmount(view, i18n.FundsNativeCash, amounts.Cash, group.Currency),
+			fundsNativeAmount(view, i18n.FundsNativeProceeds, amounts.Proceeds, group.Currency)))
 	}
-	for _, warning := range today.Warnings {
+	for _, warning := range bucket.Warnings {
 		rows = append(rows, view.Message(view.Language.Text(fundsReason(warning)), view.Colors.SecondaryInk))
 	}
+	sourcesIndex := -1
 	if len(data.report.Sources) == 0 {
 		rows = append(rows, view.Message(view.Language.Text(i18n.FundsEmpty), view.Colors.SecondaryInk))
 	} else {
-		rows = append(rows, tradeTitle(view, i18n.FundsSources))
-	}
-	for _, source := range data.report.Sources {
-		rows = append(rows, p.source(view, source, today.HorizonOn))
+		counts := countFundsSources(data.report.Sources, bucket.HorizonOn)
+		sourcesIndex = len(rows)
+		rows = append(rows, p.fundsSourcesHeader(view, bucket, counts))
+		for _, source := range data.report.Sources {
+			if fundsMatchesSourceFilter(source.Result, bucket.HorizonOn, p.state.filter) {
+				rows = append(rows, p.source(view, source, bucket.HorizonOn))
+			}
+		}
+		if counts[p.state.filter] == 0 {
+			rows = append(rows, p.noMatchingFundsSources(view))
+		}
 	}
 	for _, unresolved := range overview.UnresolvedReservations {
 		reservation := unresolved.Reservation
@@ -268,10 +353,10 @@ func (p *availableFundsPage) rows(view ui.View) []layout.Widget {
 			view.Message(view.Language.Text(fundsReason(unresolved.Reason)), view.Colors.SecondaryInk),
 			p.sourceLinks(view, reservation.ID.String(), reservation.Source.AccountID, "", "")))
 	}
-	return rows
+	return rows, sourcesIndex
 }
 
-func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, full, known, applied, fullAfter, knownAfter *domain.Money) layout.Widget {
+func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, full, known, applied, fullAfter, knownAfter *domain.Money, breakdown ...layout.Widget) layout.Widget {
 	beforeLabel, reserveLabel, afterLabel := i18n.FundsAvailableBefore, i18n.FundsApplied, i18n.FundsAvailableAfter
 	if status != domain.StatusComplete && applied != nil {
 		reserveLabel = i18n.FundsAppliedSubtotal
@@ -282,7 +367,7 @@ func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, 
 	if fullAfter == nil && knownAfter != nil {
 		fullAfter, afterLabel = knownAfter, i18n.FundsAfterSubtotal
 	}
-	return fundsCard(view, title,
+	fields := []layout.Widget{
 		func(gtx layout.Context) layout.Dimensions {
 			tone := ui.BadgeWarning
 			if status == domain.StatusComplete {
@@ -292,9 +377,12 @@ func fundsSummary(view ui.View, title string, status domain.CompletenessStatus, 
 				return view.Badge(gtx, tone, view.Language.Text(fundsStatus(status)))
 			})
 		},
+	}
+	fields = append(fields, breakdown...)
+	return fundsCard(view, title, append(fields,
 		fundsAmount(view, beforeLabel, full),
 		fundsAmount(view, reserveLabel, applied),
-		fundsAmount(view, afterLabel, fullAfter))
+		fundsAmount(view, afterLabel, fullAfter))...)
 }
 
 func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadSource, day string) layout.Widget {
@@ -305,9 +393,8 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	}
 	l := view.Language
 	fields := []layout.Widget{fundsAmount(view, i18n.FundsCurrent, source.CurrentNativeValue)}
-	at := slices.IndexFunc(source.BucketResults, func(r domain.LiquidityBucketResult) bool { return r.HorizonOn == day })
-	if at >= 0 && !source.Excluded {
-		result := source.BucketResults[at]
+	result := fundsResultForHorizon(source, day)
+	if result != nil && !source.Excluded {
 		fields = append(fields, fundsAmount(view, i18n.FundsAvailableBefore, result.NetNative),
 			fundsAmount(view, i18n.FundsApplied, result.AppliedReserveNative), fundsAmount(view, i18n.FundsAvailableAfter, result.UnreservedNative))
 		if result.ReserveShortfallNative != nil && !result.ReserveShortfallNative.IsZero() {
@@ -327,20 +414,31 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	addReasons(source.Reasons)
-	if at >= 0 && !source.Excluded {
-		result := source.BucketResults[at]
-		route := source.NormalRoute
+	if result != nil && !source.Excluded {
+		route := result.SelectedRoute
+		if route == nil {
+			route = source.NormalRoute
+			if p.state.includeEarly && source.EarlyRoute != nil {
+				route = source.EarlyRoute
+			}
+		}
 		addReasons(result.Reasons)
-		if route != nil && result.SelectedRoute == nil && !source.DueUnconfirmed {
-			if route.ReceiptOn != nil && *route.ReceiptOn > day {
+		if route != nil {
+			if route.ReceiptOn != nil {
 				fields = append(fields, view.Message(fmt.Sprintf(l.Text(i18n.FundsLater), historyDay(view, *route.ReceiptOn)), view.Colors.SecondaryInk))
-			} else {
+			}
+			if route.Kind == domain.RouteEarly {
+				fields = append(fields, view.Message(l.Text(i18n.FundsEarlyRoute), view.Colors.SecondaryInk))
+			}
+			if route.FeeNative == nil || !route.FeeNative.IsZero() {
+				fields = append(fields, fundsAmount(view, i18n.FundsRouteFee, route.FeeNative))
+			}
+			if result.SelectedRoute == nil && !source.DueUnconfirmed && (route.ReceiptOn == nil || *route.ReceiptOn <= day) {
 				addReasons(route.MissingReasons)
 			}
 		}
-		if result.SelectedRoute == nil && result.Status == domain.StatusComplete && len(reasons) == 0 &&
-			(route == nil || route.ReceiptOn == nil || *route.ReceiptOn <= day) {
-			reasons = append(reasons, i18n.FundsNoRoute)
+		if result.SelectedRoute == nil && result.Status == domain.StatusComplete && !source.DueUnconfirmed {
+			reasons = append(reasons, i18n.FundsAtDateUnavailable)
 		}
 	}
 	for _, reason := range reasons {
@@ -372,6 +470,16 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 	}
 	if source.NativeCurrency != "" {
 		title += " · " + source.NativeCurrency.String()
+	}
+	if p.policyLedger != nil {
+		switch {
+		case editableFundsPolicy(row):
+			fields = append(fields, p.policyButton(view, row, title, result != nil && result.NeedsRules))
+		case source.ProductID != nil:
+			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyManaged), view.Colors.SecondaryInk))
+		default:
+			fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
+		}
 	}
 	return fundsCard(view, title, fields...)
 }
@@ -431,11 +539,14 @@ func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widge
 // fundsAmount shows a labelled amount as a name on the left and the figure on
 // the right.
 func fundsAmount(view ui.View, label i18n.MessageID, amount *domain.Money) layout.Widget {
-	value := view.Language.Text(i18n.OverviewNoValue)
-	if amount != nil {
-		value = portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
+	return labeledAmount(view, label, fundsAmountText(view, amount), view.Colors.Ink)
+}
+
+func fundsAmountText(view ui.View, amount *domain.Money) string {
+	if amount == nil {
+		return view.Language.Text(i18n.OverviewNoValue)
 	}
-	return labeledAmount(view, label, value, view.Colors.Ink)
+	return portfolioDecimal(view, amount.CanonicalAmount()) + " " + amount.Currency().String()
 }
 
 func fundsStatus(status domain.CompletenessStatus) i18n.MessageID {
@@ -463,9 +574,9 @@ func fundsReason(value string) i18n.MessageID {
 		return i18n.FundsMissingRules
 	case "access timing is unknown", "receipt timing is unknown":
 		return i18n.FundsMissingTiming
-	case "amount is unknown":
+	case "amount is unknown", "early amount is unknown":
 		return i18n.FundsMissingAmount
-	case "exit fee is unknown":
+	case "exit fee is unknown", "early fee is unknown":
 		return i18n.FundsMissingFee
 	case "reservation currency does not match the source":
 		return i18n.FundsReservationCurrency

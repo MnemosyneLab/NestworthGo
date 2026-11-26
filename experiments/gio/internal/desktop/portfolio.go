@@ -11,11 +11,8 @@ import (
 	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
-	"gioui.org/io/semantic"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
@@ -32,6 +29,8 @@ type portfolioReader interface {
 	WithRead(context.Context, func(context.Context) error) error
 	Portfolio(context.Context, domain.AccountFilter) (domain.PortfolioValuation, error)
 	InstrumentHoldings(context.Context) ([]domain.InstrumentHoldingsView, error)
+	InstrumentHoldingGroups(context.Context) ([]domain.InstrumentHoldingGroupView, error)
+	AccountHoldingDetails(context.Context, ...domain.AccountID) ([]domain.InstrumentHoldingsView, error)
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
 	Product(context.Context, domain.ProductContractID) (application.ProductDetail, error)
 	Bootstrap(context.Context) (application.Bootstrap, error)
@@ -43,6 +42,7 @@ type portfolioReader interface {
 type portfolioRead struct {
 	importAccounts []domain.Account
 	summary        domain.PortfolioValuation
+	groups         []domain.InstrumentHoldingGroupView
 	positions      []domain.InstrumentHoldingsView
 	instrument     *domain.Instrument
 	price          *domain.InstrumentQuote
@@ -52,21 +52,10 @@ type portfolioRead struct {
 	product        *application.ProductDetail
 }
 
-func readPortfolio(ctx context.Context, service portfolioReader, id domain.InstrumentID) (out portfolioRead, err error) {
+func readPortfolio(ctx context.Context, service portfolioReader, id domain.InstrumentID, account domain.AccountID) (out portfolioRead, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
-		ownership, err := service.InstrumentProductOwnership(ctx)
-		if err != nil {
-			return err
-		}
-		if contractID := ownership[id.String()]; id != "" && contractID != "" {
-			out.managed = true
-			detail, err := service.Product(ctx, domain.ProductContractID(contractID))
-			if err == nil && detail.Contract.Kind == domain.ProductTermDeposit {
-				out.product = &detail
-			}
-			return err
-		}
 		if id == "" {
+			var err error
 			out.summary, err = service.Portfolio(ctx, domain.AccountFilter{})
 			if err != nil {
 				return err
@@ -75,43 +64,53 @@ func readPortfolio(ctx context.Context, service portfolioReader, id domain.Instr
 			if err != nil {
 				return err
 			}
-		} else {
-			instruments, err := service.ListInstruments(ctx, true)
+			out.groups, err = service.InstrumentHoldingGroups(ctx)
+			return err
+		}
+		ownership, err := service.InstrumentProductOwnership(ctx)
+		if err != nil {
+			return err
+		}
+		if contractID := ownership[id.String()]; contractID != "" {
+			out.managed = true
+			detail, err := service.Product(ctx, domain.ProductContractID(contractID))
+			if err == nil {
+				out.product = &detail
+			}
+			return err
+		}
+		instruments, err := service.ListInstruments(ctx, true)
+		if err != nil {
+			return err
+		}
+		i := slices.IndexFunc(instruments, func(row domain.Instrument) bool { return row.ID == id })
+		if i < 0 {
+			return nil
+		}
+		out.instrument = &instruments[i]
+		boot, err := service.Bootstrap(ctx)
+		if err != nil || boot.Household == nil {
+			return err
+		}
+		out.base = boot.Household.BaseCurrency
+		out.price, err = service.CurrentInstrumentQuote(ctx, id)
+		if err != nil {
+			return err
+		}
+		if out.instrument.QuoteCurrency != out.base {
+			out.fx, err = service.CurrentFXQuote(ctx, out.instrument.QuoteCurrency, out.base)
 			if err != nil {
 				return err
-			}
-			i := slices.IndexFunc(instruments, func(row domain.Instrument) bool { return row.ID == id })
-			if i < 0 {
-				return nil
-			}
-			out.instrument = &instruments[i]
-			boot, err := service.Bootstrap(ctx)
-			if err != nil || boot.Household == nil {
-				return err
-			}
-			out.base = boot.Household.BaseCurrency
-			out.price, err = service.CurrentInstrumentQuote(ctx, id)
-			if err != nil {
-				return err
-			}
-			if out.instrument.QuoteCurrency != out.base {
-				out.fx, err = service.CurrentFXQuote(ctx, out.instrument.QuoteCurrency, out.base)
-				if err != nil {
-					return err
-				}
 			}
 		}
-		out.positions, err = service.InstrumentHoldings(ctx)
+		if account == "" {
+			out.positions, err = service.InstrumentHoldings(ctx)
+		} else {
+			out.positions, err = service.AccountHoldingDetails(ctx, account)
+		}
 		if err == nil {
 			out.positions = slices.DeleteFunc(out.positions, func(row domain.InstrumentHoldingsView) bool {
-				if id != "" {
-					return row.InstrumentID != id
-				}
-				if ownership[row.InstrumentID.String()] != "" {
-					out.managed = out.managed || row.Amounts.Quantity != "0"
-					return true
-				}
-				return false
+				return row.InstrumentID != id
 			})
 		}
 		return err
@@ -120,29 +119,34 @@ func readPortfolio(ctx context.Context, service portfolioReader, id domain.Instr
 }
 
 type portfolioPage struct {
-	ctx        context.Context
-	service    portfolioReader
-	invalidate func()
-	workers    sync.WaitGroup
-	id         domain.InstrumentID
-	cancel     context.CancelFunc
-	request    <-chan historyResult[portfolioRead]
-	current    *portfolioRead
-	err        error
-	investment *accountInvestment
-	clock      func() time.Time
+	ctx          context.Context
+	service      portfolioReader
+	invalidate   func()
+	workers      sync.WaitGroup
+	id           domain.InstrumentID
+	accountScope domain.AccountID
+	cancel       context.CancelFunc
+	request      <-chan historyResult[portfolioRead]
+	current      *portfolioRead
+	err          error
+	investment   *accountInvestment
+	clock        func() time.Time
+	holdings     portfolioHoldings
 
-	search         ui.SearchField
-	list           widget.List
-	reload         widget.Clickable
-	history        widget.Clickable
-	instruments    map[domain.InstrumentID]*widget.Clickable
-	accounts       map[domain.AccountID]*widget.Clickable
-	openInstrument func(domain.InstrumentID, string, event.Tag)
-	openAccount    func(domain.AccountID, string, event.Tag)
-	openHistory    func(domain.InstrumentID, string, event.Tag)
-	openProduct    func(domain.ProductContractID, string, event.Tag)
-	productButtons map[domain.ProductContractID]*widget.Clickable
+	search                ui.SearchField
+	list                  widget.List
+	reload                widget.Clickable
+	history               widget.Clickable
+	instruments           map[domain.InstrumentID]*widget.Clickable
+	accounts              map[domain.AccountID]*widget.Clickable
+	openInstrument        func(domain.InstrumentID, string, event.Tag)
+	openHoldingInstrument func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openAccount           func(domain.AccountID, string, event.Tag)
+	openHistory           func(domain.InstrumentID, string, event.Tag)
+	openProduct           func(domain.ProductContractID, string, event.Tag)
+	openHoldingHistory    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingAnalysis   func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
+	productButtons        map[domain.ProductContractID]*widget.Clickable
 }
 
 func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate func()) *portfolioPage {
@@ -151,8 +155,9 @@ func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate f
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), accounts: make(map[domain.AccountID]*widget.Clickable), productButtons: make(map[domain.ProductContractID]*widget.Clickable)}
 }
 
-func (p *portfolioPage) enter(id domain.InstrumentID, query string, position layout.Position) {
+func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.AccountID, query string, position layout.Position) {
 	p.id, p.current = id, nil
+	p.accountScope = account
 	p.search.Field.Editor.SetText(query)
 	p.list.Position = position
 	p.read()
@@ -176,9 +181,9 @@ func (p *portfolioPage) read() {
 	}
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
-	id := p.id
+	id, account := p.id, p.accountScope
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (portfolioRead, error) {
-		return readPortfolio(ctx, p.service, id)
+		return readPortfolio(ctx, p.service, id, account)
 	})
 }
 
@@ -258,13 +263,10 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.id != "" {
+			if p.id != "" || p.current == nil {
 				return layout.Dimensions{}
 			}
-			return p.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.PortfolioSearch, i18n.PortfolioSearchHint, func(string) {
-				p.list.Position = layout.Position{}
-				gtx.Execute(op.InvalidateCmd{})
-			})
+			return p.holdingsControls(gtx, view)
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil {
@@ -323,32 +325,7 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			})
 		})
 	}
-	active := func(row domain.InstrumentHoldingsView) bool { return row.Amounts.Quantity != "0" }
-	if !slices.ContainsFunc(p.current.positions, active) {
-		label := i18n.PortfolioEmpty
-		if p.current.managed {
-			label = i18n.PortfolioManagedOnly
-		}
-		return append(rows, view.Message(l.Text(label), view.Colors.SecondaryInk))
-	}
-
-	query := normalizeDirectoryQuery(p.search.Field.Text())
-	matched := false
-	for _, row := range p.current.positions {
-		name := domain.InstrumentDisplayLabel(row.Name, row.Symbol, row.ShortName)
-		if !active(row) || !strings.Contains(normalizeDirectoryQuery(strings.Join([]string{row.Name, row.Symbol, row.ShortName}, " ")), query) {
-			continue
-		}
-		matched = true
-		button := portfolioButton(p.instruments, row.InstrumentID)
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return p.positionCard(gtx, view, row, name, button)
-		})
-	}
-	if !matched {
-		rows = append(rows, view.Message(l.Text(i18n.PortfolioNoMatches), view.Colors.SecondaryInk))
-	}
-	return rows
+	return append(rows, p.holdingsRows(view)...)
 }
 
 func portfolioButton[ID comparable](buttons map[ID]*widget.Clickable, id ID) *widget.Clickable {
@@ -356,42 +333,6 @@ func portfolioButton[ID comparable](buttons map[ID]*widget.Clickable, id ID) *wi
 		buttons[id] = new(widget.Clickable)
 	}
 	return buttons[id]
-}
-
-func (p *portfolioPage) positionCard(gtx layout.Context, view ui.View, row domain.InstrumentHoldingsView, name string, button *widget.Clickable) layout.Dimensions {
-	if button.Clicked(gtx) && p.openInstrument != nil {
-		p.openInstrument(row.InstrumentID, name, button)
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	fullName := strings.TrimSpace(row.Name)
-	showFullName := fullName != "" && fullName != name
-	if row.Archived {
-		name += " · " + view.Language.Text(i18n.DirectoryArchived)
-	}
-	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-		title := []layout.FlexChild{
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonSoft, Title: name, Name: name}))
-			}),
-		}
-		if showFullName {
-			title = append(title, layout.Rigid(view.Body(ui.TextCaption, fullName, view.Colors.SecondaryInk)))
-		}
-		heading := func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, title...)
-		}
-		if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 720) {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space24)}.Layout(gtx,
-				layout.Flexed(1, heading),
-				layout.Rigid(holdingFigures(view, row.Amounts, row.QuantityUnit)),
-			)
-		}
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-			layout.Rigid(heading),
-			layout.Rigid(view.Hairline),
-			layout.Rigid(holdingAmounts(view, row.Amounts, row.QuantityUnit)),
-		)
-	})
 }
 
 func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
@@ -471,85 +412,6 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		}
 	}
 	return rows
-}
-
-// holdingAmountTexts are the quantity, cost and market value of a holding as
-// display text.
-func holdingAmountTexts(view ui.View, amounts domain.HoldingAmounts, unit string) (quantity, cost, value string) {
-	l := view.Language
-	display := func(money *domain.MoneyView) string {
-		if money == nil {
-			return l.Text(i18n.OverviewNoValue)
-		}
-		formatted := valuationMoney(view, *money, false)
-		code := money.Currency.String() + " "
-		if strings.HasPrefix(formatted, code) {
-			return formatted
-		}
-		return code + formatted
-	}
-	quantity = portfolioDecimal(view, amounts.Quantity)
-	if unit != "" {
-		quantity += " " + unit
-	}
-	return quantity, display(amounts.TotalCost), display(amounts.CurrentValue)
-}
-
-func holdingAmounts(view ui.View, amounts domain.HoldingAmounts, unit string) layout.Widget {
-	quantity, cost, value := holdingAmountTexts(view, amounts, unit)
-	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
-			layout.Rigid(labeledAmount(view, i18n.AccountQuantity, quantity, view.Colors.Ink)),
-			layout.Rigid(labeledAmount(view, i18n.PortfolioCost, cost, view.Colors.Ink)),
-			layout.Rigid(labeledAmount(view, i18n.PortfolioNativeValue, value, view.Colors.Ink)),
-		)
-	}
-}
-
-// holdingFigures lays quantity, cost and market value side by side, each a
-// caption over its figure, for a holding card wide enough to hold them.
-func holdingFigures(view ui.View, amounts domain.HoldingAmounts, quantityUnit string) layout.Widget {
-	l := view.Language
-	quantity, cost, value := holdingAmountTexts(view, amounts, quantityUnit)
-	cells := [...]struct {
-		label  i18n.MessageID
-		figure string
-		strong bool
-		width  unit.Dp
-	}{{i18n.AccountQuantity, quantity, false, 88}, {i18n.PortfolioCost, cost, false, 150}, {i18n.PortfolioNativeValue, value, true, 150}}
-	return func(gtx layout.Context) layout.Dimensions {
-		children := make([]layout.FlexChild, len(cells))
-		for i, cell := range cells {
-			children[i] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				style := ui.TextBody
-				if cell.strong {
-					style = ui.TextLabel
-				}
-				// Equal column widths line the figures up from card to card.
-				gtx.Constraints.Min.X = gtx.Dp(cell.width)
-				pattern := l.Text(cell.label)
-				const marker = "\x00"
-				name, _, _ := strings.Cut(fmt.Sprintf(pattern, marker), marker)
-				name = strings.TrimRight(name, " ·:：")
-				macro := op.Record(gtx.Ops)
-				dims := layout.Flex{Axis: layout.Vertical, Alignment: layout.End, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.LineEnd(gtx, ui.TextCaption, name, view.Colors.SecondaryInk)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.LineEnd(gtx, style, cell.figure, view.Colors.Ink)
-					}),
-				)
-				call := macro.Stop()
-				area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
-				semantic.LabelOp(fmt.Sprintf(pattern, cell.figure)).Add(gtx.Ops)
-				call.Add(gtx.Ops)
-				area.Pop()
-				return dims
-			})
-		}
-		return layout.Flex{Gap: gtx.Dp(ui.Space24)}.Layout(gtx, children...)
-	}
 }
 
 func portfolioDecimal(view ui.View, canonical string) string {

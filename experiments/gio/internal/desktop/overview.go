@@ -57,6 +57,7 @@ type overviewPage struct {
 	allocation   overviewAllocation
 	breakdowns   overviewBreakdowns
 	trend        overviewTrend
+	funds        overviewFunds
 	health       widget.Clickable
 	fixHealth    widget.Clickable
 	accounts     widget.Clickable
@@ -107,6 +108,7 @@ func (p *overviewPage) refresh() {
 	p.retireRead()
 	p.needsRefresh = true
 	p.trend.invalidate()
+	p.funds.invalidate()
 }
 
 func (p *overviewPage) update() {
@@ -132,7 +134,9 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.reload.Clicked(gtx) {
 		p.read()
 		p.trend.invalidate()
+		p.funds.invalidate()
 	}
+	p.updateFunds(gtx)
 	if p.current != nil && p.current.value.AccountCount > 0 {
 		p.allocation.update(view, p.current)
 	}
@@ -272,7 +276,7 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		}
 		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 	case row == 1:
-		return p.totals(gtx, view)
+		return p.financialRow(gtx, view)
 	case row == 2 && len(result.MissingInputs) > 0:
 		return p.attention(gtx, view, result.MissingInputs)
 	case row == composition-1 && p.hasCompositionSummary():
@@ -481,13 +485,12 @@ func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimension
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Line(gtx, ui.TextLabel, caption, colors.SecondaryInk)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Badge(gtx, tone, l.Text(status))
-					}))
+				return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+					if i == 0 {
+						return view.Body(ui.TextLabel, caption, colors.SecondaryInk)(gtx)
+					}
+					return view.Badge(gtx, tone, l.Text(status))
+				})
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return view.Line(gtx, ui.TextHero, hero, colors.Ink)

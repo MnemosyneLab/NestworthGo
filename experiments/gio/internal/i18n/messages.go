@@ -478,6 +478,11 @@ const (
 	HealthFocusedEmpty
 	OverviewKnownNet
 	OverviewNoValue
+	OverviewFundsToday
+	OverviewFundsUnknownAmount
+	OverviewFundsUnavailable
+	OverviewFundsPriceHint
+	OverviewOpenFunds
 	OverviewQuoteDates
 	OverviewCarried
 	OverviewHistoryUnverified
@@ -1424,6 +1429,34 @@ const (
 	PortfolioFXMissing
 	PortfolioInstrumentHistory
 	PortfolioOpenInstrument
+	PortfolioMyHoldings
+	PortfolioByInstrument
+	PortfolioByAccount
+	PortfolioShowZero
+	PortfolioZeroOnly
+	PortfolioExpandAll
+	PortfolioCollapseAll
+	PortfolioGroupStock
+	PortfolioGroupFund
+	PortfolioGroupBond
+	PortfolioGroupBankWealth
+	PortfolioGroupMetal
+	PortfolioGroupCrypto
+	PortfolioGroupCashLike
+	PortfolioGroupOther
+	PortfolioGroupOne
+	PortfolioGroupCount
+	PortfolioCurrencySubtotal
+	PortfolioAccountOne
+	PortfolioAccountCount
+	PortfolioUnrealized
+	PortfolioCostMissing
+	PortfolioHoldingFXMissing
+	PortfolioHoldingEvidenceMissing
+	PortfolioActionsFor
+	PortfolioViewReturn
+	PortfolioViewChanges
+	PortfolioContractUnit
 	BuyOpen
 	BuyReview
 	BuyConfirm
@@ -1595,6 +1628,79 @@ const (
 	FundsReservationCurrency
 	FundsUnresolvedReason
 	FundsUnknownRoute
+	FundsUpdating
+	FundsHorizonToday
+	FundsHorizonWeek
+	FundsHorizonMonth
+	FundsCustomDate
+	FundsConsiderEarly
+	FundsEarlyInfo
+	FundsEarlyIncluded
+	FundsFilterAll
+	FundsFilterAvailable
+	FundsFilterLocked
+	FundsFilterNeedsRules
+	FundsFilterNeedsInfo
+	FundsFilterExcluded
+	FundsSourcesByDate
+	FundsSourcesNeedInfo
+	FundsShowNeedsInfo
+	FundsAllExcluded
+	FundsAllLocked
+	FundsNoMatchingSources
+	FundsShowAllSources
+	FundsNoMissingRules
+	FundsSpendableHint
+	FundsSubtotalHint
+	FundsUnknownHint
+	FundsEarlyRoute
+	FundsAtDateUnavailable
+	FundsNativeCash
+	FundsNativeProceeds
+	FundsNativeBreakdown
+	FundsSameAs
+	FundsMoreThan
+	FundsLessThan
+	FundsMissingRuleCountOne
+	FundsMissingRuleCountMany
+	FundsComparisonNote
+	FundsRouteFee
+
+	FundsPolicyTitle
+	FundsPolicyEdit
+	FundsPolicyComplete
+	FundsPolicyManaged
+	FundsPolicyReadOnly
+	FundsPolicyQuick
+	FundsPolicyNow
+	FundsPolicyNowHint
+	FundsPolicySoon
+	FundsPolicySoonHint
+	FundsPolicyDate
+	FundsPolicyDateHint
+	FundsPolicyExcluded
+	FundsPolicyExcludedHint
+	FundsPolicyQuickDate
+	FundsPolicyQuickHint
+	FundsPolicyAdvanced
+	FundsPolicyCustom
+	FundsPolicyCap
+	FundsPolicyCapHint
+	FundsPolicySave
+	FundsPolicyReset
+	FundsPolicyResetTitle
+	FundsPolicyResetBody
+	FundsPolicyResetConfirm
+	FundsPolicySaved
+	FundsPolicyResetSaved
+	FundsPolicyChecking
+	FundsPolicyReadFailed
+	FundsPolicyConflict
+	FundsPolicyLoadLatest
+	FundsPolicySaveFailed
+	FundsPolicyInvalid
+	FundsPolicyDateRequired
+	FundsPolicyEarlyRequired
 	ReserveManage
 	ReserveTitle
 	ReserveAdd
@@ -1642,7 +1748,6 @@ const (
 	ProductContractClosed
 	ProductConfirmReceipt
 	ProductReceiveInterest
-	PortfolioManagedOnly
 	ProductForecastInterest
 	ProductValuationAmount
 	ProductValuationHelp
