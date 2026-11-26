@@ -67,7 +67,7 @@ func (d *portfolioCatalogDraft) setTemplate(template string, label string) {
 	c.providerSymbol.Editor.SetText("")
 	d.fields[portfolioInstrumentMarket].Editor.SetText("")
 	if template != "" {
-		c.unit, c.source, c.provider = "g", domain.QuoteSourceProvider, application.YahooFinanceProviderKey
+		c.unit, c.source, c.provider = domain.GramQuantityUnit, domain.QuoteSourceProvider, application.YahooFinanceProviderKey
 		c.providerSymbol.Editor.SetText(domain.MetalProviderSymbol(template))
 		d.fields[portfolioInstrumentName].Editor.SetText(label)
 		d.fields[portfolioInstrumentMarket].Editor.SetText(domain.MetalFuturesMarket)

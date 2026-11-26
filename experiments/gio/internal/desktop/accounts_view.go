@@ -328,6 +328,9 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	if p.createdID != "" && p.target.account == p.createdID {
 		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
 	}
+	if p.productSaved {
+		lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.ProductSetupSaved), view.Colors.Ink)))
+	}
 	if f := p.cashBalance; f != nil && f.saved.ID != "" && p.target.account == f.saved.AccountID {
 		lines = append(lines, layout.Rigid(balanceSavedLine(view, i18n.AccountCashSaved, &f.view, f.saved.ActivityID != nil && f.openActivity != nil)))
 	}
@@ -807,9 +810,6 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 				return view.Button(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
 			}))
 	})
-	if p.productSaved {
-		rows = append(rows, accountLine(view, l.Text(i18n.ProductSetupSaved)))
-	}
 	if len(p.current.products) == 0 {
 		rows = append(rows, accountLine(view, l.Text(i18n.ManagedProductsEmpty)))
 	}

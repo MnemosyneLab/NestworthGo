@@ -10,6 +10,8 @@ import (
 // not drift apart.
 type InstrumentType string
 
+const CryptoMarket = "CRYPTO"
+
 const (
 	InstrumentStock                 InstrumentType = "stock"
 	InstrumentETF                   InstrumentType = "etf"
@@ -335,7 +337,7 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 				return Instrument{}, validation("providerKey", "CoinGecko only supports cryptocurrencies")
 			}
 			value = strings.ToLower(*providerSymbol)
-			market := "CRYPTO"
+			market := CryptoMarket
 			marketCode = &market
 		}
 		providerSymbol = &value

@@ -11,6 +11,8 @@ import (
 const TroyOunceGrams = "31.1034768"
 const MetalConversionPolicy = "metal_usd_troy_ounce_v1"
 const MetalFuturesMarket = "COMEX"
+const GramQuantityUnit = "g"
+const TroyOunceQuantityUnit = "troy_oz"
 
 // MetalConversionRawQuotedAt identifies the immutable raw observation behind
 // a converted price. FX recalculations are versions of that observation.
@@ -61,7 +63,7 @@ func ValidateMetalConfiguration(input InstrumentInput) error {
 	if input.Type != InstrumentPreciousMetal || MetalProviderSymbol(input.MetalTemplate) == "" {
 		return validation("metalTemplate", "unsupported precious metal template")
 	}
-	if input.QuantityUnit != "g" && input.QuantityUnit != "troy_oz" {
+	if input.QuantityUnit != GramQuantityUnit && input.QuantityUnit != TroyOunceQuantityUnit {
 		return validation("quantityUnit", "select grams or troy ounces")
 	}
 	if input.MarketCode == nil || *input.MarketCode != MetalFuturesMarket {
@@ -84,9 +86,9 @@ func ConvertMetalPrice(raw UnitPrice, unit string, usdRate decimal.Decimal) (Uni
 	}
 	value := raw.Decimal().Mul(usdRate)
 	switch unit {
-	case "g":
+	case GramQuantityUnit:
 		value = value.DivRound(decimal.RequireFromString(TroyOunceGrams), 24)
-	case "troy_oz":
+	case TroyOunceQuantityUnit:
 	default:
 		return UnitPrice{}, validation("quantityUnit", "unsupported weight unit")
 	}

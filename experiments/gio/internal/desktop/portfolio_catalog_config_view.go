@@ -16,6 +16,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+const catalogCryptoDefaultCurrency domain.CurrencyCode = "USD"
+
 func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d *portfolioCatalogDraft) layout.Dimensions {
 	c, l := &d.config, view.Language
 	create := d.instrument.ID == ""
@@ -88,8 +90,8 @@ func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d 
 				c.setCreateType(next)
 				c.currency = p.current.summary.Currency
 				if next == domain.InstrumentCrypto {
-					c.currency = "USD"
-					d.fields[portfolioInstrumentMarket].Editor.SetText("CRYPTO")
+					c.currency = catalogCryptoDefaultCurrency
+					d.fields[portfolioInstrumentMarket].Editor.SetText(domain.CryptoMarket)
 				}
 			}))
 		}
@@ -180,8 +182,8 @@ func (p *portfolioPage) layoutCatalogTemplate(gtx layout.Context, view ui.View, 
 		{ID: "silver", Label: l.Text(i18n.PortfolioCatalogMetalSilver)},
 	}
 	units := []ui.Choice{
-		{ID: "g", Label: l.Text(i18n.PortfolioCatalogGram)},
-		{ID: "troy_oz", Label: l.Text(i18n.PortfolioCatalogTroyOunce)},
+		{ID: domain.GramQuantityUnit, Label: l.Text(i18n.PortfolioCatalogGram)},
+		{ID: domain.TroyOunceQuantityUnit, Label: l.Text(i18n.PortfolioCatalogTroyOunce)},
 	}
 	if d.instrument.ID != "" {
 		if c.template == "" {
