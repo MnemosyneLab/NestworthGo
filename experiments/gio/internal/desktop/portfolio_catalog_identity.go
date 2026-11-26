@@ -40,6 +40,7 @@ func newPortfolioCatalogDraft(item domain.Instrument, button *widget.Clickable) 
 		d.fields[i] = ui.NewTextField(i != portfolioInstrumentNote)
 		d.fields[i].Editor.SetText(value)
 	}
+	d.config = newPortfolioInstrumentConfig(item)
 	return d
 }
 

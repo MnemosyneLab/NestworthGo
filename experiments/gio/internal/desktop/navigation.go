@@ -304,7 +304,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if f := s.portfolio.investment; f != nil {
 			f.draft, f.restore = nil, nil
 		}
-		s.portfolio.catalog.draft = nil
+		s.portfolio.catalog.cancelDraft()
 		s.portfolio.leave()
 	}
 	if entry.target.route == overviewRoute && s.overviewPage != nil {

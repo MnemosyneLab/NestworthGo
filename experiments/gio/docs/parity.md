@@ -85,6 +85,18 @@ August Calendar with the same selection.
   such as currency, asset class or member. Back restores Contribution, its selection
   and focus.
 
+### Instrument catalog
+
+Gio adds ordinary instruments with the shared catalog command. The form accepts
+manual, provider and Agent quote sources. Provider lookup fills the selected
+identity and denomination during creation. Existing denomination remains
+read-only. The form exposes gold and silver templates, their holding unit, an
+explicit reference-price preview, and advanced source and icon settings. Catalog
+rows show the saved current quote, timestamp and provenance from the same query
+used by Market Data. The initial compact form keeps identity fields visible and
+places optional configuration under Instrument settings on edit. The native
+comparison and the detailed metal-conversion evidence remain open.
+
 ## Remaining Stage 1–6 work
 
 1. Compare reservation management and grouped undo interactively. Treat

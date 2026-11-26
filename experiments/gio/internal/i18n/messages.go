@@ -1463,6 +1463,30 @@ const (
 	PortfolioCatalogMarket
 	PortfolioCatalogISIN
 	PortfolioCatalogCountry
+	PortfolioCatalogAdd
+	PortfolioCatalogCreated
+	PortfolioCatalogConfiguration
+	PortfolioCatalogType
+	PortfolioCatalogReadType
+	PortfolioCatalogCurrency
+	PortfolioCatalogReadCurrency
+	PortfolioCatalogQuoteSource
+	PortfolioCatalogReadQuoteSource
+	PortfolioCatalogMetalTemplate
+	PortfolioCatalogMetalUnit
+	PortfolioCatalogMetalCustom
+	PortfolioCatalogMetalGold
+	PortfolioCatalogMetalSilver
+	PortfolioCatalogGram
+	PortfolioCatalogTroyOunce
+	PortfolioCatalogReadMetal
+	PortfolioCatalogMetalPreview
+	PortfolioCatalogMetalUnavailable
+	PortfolioCatalogPricePerTroyOunce
+	PortfolioCatalogNameRequired
+	PortfolioCatalogShortNameInvalid
+	PortfolioCatalogCurrentIcon
+	PortfolioCatalogQuoteUnavailable
 	PortfolioSortAscending
 	PortfolioSortDescending
 	PortfolioByAccount

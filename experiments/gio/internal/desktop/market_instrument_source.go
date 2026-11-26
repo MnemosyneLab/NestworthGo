@@ -109,7 +109,11 @@ func (d *marketInstrumentSourceDraft) resetLookup() {
 }
 
 func (d *marketInstrumentSourceDraft) lookupProvider() string {
-	switch d.instrument.Type {
+	return instrumentLookupProvider(d.instrument.Type)
+}
+
+func instrumentLookupProvider(kind domain.InstrumentType) string {
+	switch kind {
 	case domain.InstrumentStock, domain.InstrumentETF:
 		return application.YahooFinanceProviderKey
 	case domain.InstrumentCrypto:
