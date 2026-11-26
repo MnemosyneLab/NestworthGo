@@ -27,6 +27,7 @@ type accountsReader interface {
 	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
 	ListMembers(context.Context, bool) ([]domain.Member, error)
 	ListGroups(context.Context, bool) ([]domain.Group, error)
+	AccountHoldingGroups(context.Context, domain.AccountID) ([]domain.InstrumentHoldingGroupView, error)
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	ListProducts(context.Context, *domain.AccountID, bool) ([]application.ProductDetail, error)
 }
@@ -42,6 +43,8 @@ type accountsResult struct {
 	members       map[domain.MemberID]domain.Member
 	groups        map[domain.GroupID]domain.Group
 	holdings      map[domain.HoldingID]domain.Holding
+	holdingGroups []domain.InstrumentHoldingGroupView
+	holdingsErr   error
 	managed       map[domain.InstrumentID]bool
 	products      []application.ProductDetail
 	unavailable   bool
@@ -163,6 +166,12 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		for _, product := range products {
 			result.managed[product.Contract.InstrumentID] = true
 		}
+		for _, holding := range holdings[target.account] {
+			if records[0].Account.AccountType != domain.TypeCashOnHand && holding.ArchivedAt == nil && !result.managed[holding.InstrumentID] {
+				result.holdingGroups, result.holdingsErr = service.AccountHoldingGroups(ctx, target.account)
+				break
+			}
+		}
 	}
 	return
 }
@@ -281,7 +290,10 @@ type accountsPage struct {
 	instruments                        map[domain.InstrumentID]*widget.Clickable
 	reload, archiveFilter, clear, back widget.Clickable
 	open                               func(navigationTarget, string, event.Tag)
-	openInstrument                     func(domain.InstrumentID, string, event.Tag)
+	openInstrument                     func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingHistory                 func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingAnalysis                func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
+	positions                          accountPositions
 	openProduct                        func(domain.ProductContractID, string, event.Tag)
 	productButtons                     map[domain.ProductContractID]*widget.Clickable
 	productLedger                      fundsProductLedger
@@ -316,6 +328,7 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
+	p.positions.visit = accountPositionsVisit{}
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }

@@ -19,7 +19,7 @@ import (
 type accountInvestment struct {
 	service                                                      history.InvestmentLedger
 	buy, sell, dividend, importOpen, custodyOpen, adjustmentOpen widget.Clickable
-	custodyHoldings, adjustmentHoldings                          map[domain.HoldingID]*widget.Clickable
+	custodyHoldings, adjustmentHoldings, dividendHoldings        map[domain.HoldingID]*widget.Clickable
 	restore                                                      *widget.Clickable
 	draft                                                        *accountInvestmentDraft
 	linked                                                       *holdingLinkedActivity
@@ -42,6 +42,7 @@ type accountInvestmentDraft struct {
 	kind                                 domain.ActivityKind
 	link                                 func() *domain.ReconciliationLink
 	lockedHolding                        domain.Holding
+	originAction                         *widget.Clickable
 	dividendCurrency                     domain.CurrencyCode
 	selectDividendCurrency               ui.Select
 	custody                              *custodyTransferDraft
@@ -127,12 +128,20 @@ func (f *accountInvestment) holdingActionFallback(tag event.Tag) *widget.Clickab
 			return &f.adjustmentOpen
 		}
 	}
+	for _, button := range f.dividendHoldings {
+		if tag == button {
+			return &f.dividend
+		}
+	}
 	return nil
 }
 
 func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable {
 	if f.linked != nil {
 		return f.linked.scope.action
+	}
+	if d.originAction != nil {
+		return d.originAction
 	}
 	if d.custody != nil {
 		if d.custody.scope.action != nil {

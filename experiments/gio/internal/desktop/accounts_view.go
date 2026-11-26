@@ -12,7 +12,6 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
@@ -699,88 +698,39 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			rows = append(rows, accountLine(view, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat))))
 		}
 	}
-	if row.value == nil {
-		return p.appendProducts(rows, view, a)
-	}
-	value := row.value
-	issues := make(map[string]bool)
-	addIssues := func(inputs []domain.MissingInputView) {
-		for _, input := range inputs {
-			issue := overviewIssue(l, input)
-			if !issues[issue] {
-				issues[issue] = true
-				rows = append(rows, accountLine(view, issue))
-			}
-		}
-	}
-	addIssues(value.MissingInputs)
-	if value.DisplayValue != nil {
-		addIssues(value.DisplayValue.MissingInputs)
-	}
-	if a.TrackingMode == domain.TrackingHoldings {
-		var cash, investments []layout.Widget
-		for _, component := range value.Components {
-			if component.InstrumentID == nil {
-				currency, amount := component.NativeCurrency.String(), accountComponentAmount(view, component)
-				cash = append(cash, labeledRow(view, currency+" · "+amount, currency, amount, view.Colors.Ink))
-				continue
-			}
-			if p.current.managed[*component.InstrumentID] {
-				continue
-			}
-			name := domain.InstrumentDisplayLabel(component.InstrumentName, component.InstrumentSymbol, component.InstrumentShortName)
-			instrumentName := name
-			if name == "" {
-				name = l.Text(i18n.OverviewMissingInstrument)
-			}
-			amount := accountComponentAmount(view, component)
-			var item []layout.Widget
-			if component.HoldingID != nil {
-				if holding, ok := p.current.holdings[*component.HoldingID]; ok {
-					if holding.Quantity.IsZero() {
-						continue
-					}
-					name += " · " + fmt.Sprintf(l.Text(i18n.AccountQuantity), holding.Quantity.Canonical())
+	if value := row.value; value != nil {
+		issues := make(map[string]bool)
+		addIssues := func(inputs []domain.MissingInputView) {
+			for _, input := range inputs {
+				issue := overviewIssue(l, input)
+				if !issues[issue] {
+					issues[issue] = true
+					rows = append(rows, accountLine(view, issue))
 				}
 			}
-			item = append(item, headingRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
-			if instrumentName != "" && p.openInstrument != nil {
-				id := *component.InstrumentID
-				button := portfolioButton(p.instruments, id)
-				item = append(item, func(gtx layout.Context) layout.Dimensions {
-					if button.Clicked(gtx) {
-						p.openInstrument(id, instrumentName, button)
-						gtx.Execute(op.InvalidateCmd{})
-					}
-					label := fmt.Sprintf(l.Text(i18n.PortfolioOpenInstrument), instrumentName)
-					return layout.W.Layout(gtx, view.Button(button, label))
-				})
-			}
-			if p.canImportPosition() && component.HoldingID != nil {
-				if holding, ok := p.current.holdings[*component.HoldingID]; ok && holding.ArchivedAt == nil && !holding.Quantity.IsZero() {
-					label := instrumentName
-					if label == "" {
-						label = l.Text(i18n.OverviewMissingInstrument)
-					}
-					item = append(item, p.holdingPositionActions(view, a, holding, label))
+		}
+		addIssues(value.MissingInputs)
+		if value.DisplayValue != nil {
+			addIssues(value.DisplayValue.MissingInputs)
+		}
+		if a.TrackingMode == domain.TrackingHoldings {
+			var cash []layout.Widget
+			for _, component := range value.Components {
+				if component.InstrumentID == nil {
+					currency, amount := component.NativeCurrency.String(), accountComponentAmount(view, component)
+					cash = append(cash, labeledRow(view, currency+" · "+amount, currency, amount, view.Colors.Ink))
 				}
 			}
-			investments = append(investments, stackWidgets(ui.Space8, item...))
-		}
-		rows = append(rows, accountSection(view, l.Text(i18n.AccountCash)))
-		if len(cash) == 0 {
-			rows = append(rows, accountLine(view, l.Text(i18n.AccountNoCash)))
-		} else {
-			rows = append(rows, sectionCard(view, cash))
-		}
-		if a.AccountType != domain.TypeCashOnHand {
-			rows = append(rows, accountSection(view, l.Text(i18n.AccountInvestments)))
-			if len(investments) == 0 {
-				rows = append(rows, accountLine(view, l.Text(i18n.AccountNoInvestments)))
+			rows = append(rows, accountSection(view, l.Text(i18n.AccountCash)))
+			if len(cash) == 0 {
+				rows = append(rows, accountLine(view, l.Text(i18n.AccountNoCash)))
 			} else {
-				rows = append(rows, sectionCard(view, investments))
+				rows = append(rows, sectionCard(view, cash))
 			}
 		}
+	}
+	if a.TrackingMode == domain.TrackingHoldings && a.AccountType != domain.TypeCashOnHand {
+		rows = append(rows, p.accountPositionRows(view, a)...)
 	}
 	return p.appendProducts(rows, view, a)
 }
@@ -889,18 +839,6 @@ func accountSection(view ui.View, label string) layout.Widget {
 }
 
 // stackWidgets lays widgets out in a column with a fixed gap.
-func stackWidgets(gap unit.Dp, items ...layout.Widget) layout.Widget {
-	return func(gtx layout.Context) layout.Dimensions {
-		children := make([]layout.FlexChild, len(items))
-		for i, item := range items {
-			children[i] = layout.Rigid(item)
-		}
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(gap)}.Layout(gtx, children...)
-	}
-}
-
-// sectionCard puts the lines of one detail section in a single card, divided
-// by hairlines, as the Wails detail cards do.
 func sectionCard(view ui.View, items []layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X

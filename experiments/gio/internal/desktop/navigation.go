@@ -50,6 +50,7 @@ type navigationEntry struct {
 	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
+	accountPositions accountPositionsVisit
 	funds            fundsViewState
 	portfolioSearch  string
 	holdings         portfolioHoldingsVisit
@@ -356,6 +357,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == accountsRoute {
 		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
+		s.accounts.positions.visit = entry.accountPositions.copy()
 	}
 	if entry.target.route == fundsRoute {
 		if entry.target.product == "" {
@@ -464,6 +466,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	switch entry.target.route {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
+		entry.accountPositions = s.accounts.positions.visit.copy()
 		entry.scroll = s.accounts.list.Position
 		if entry.target.statement != "" && s.accounts.statement.screen != nil {
 			entry.scroll = s.accounts.statement.screen.list.Position

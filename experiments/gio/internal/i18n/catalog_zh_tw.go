@@ -1047,6 +1047,15 @@ var traditionalChineseCatalog = catalog{
 	AccountTypeLoan:             "貸款",
 	AccountTypeOther:            "其他帳戶",
 
+	AccountPositionsCurrent:      "目前",
+	AccountPositionsClosed:       "已清倉",
+	AccountPositionsAll:          "全部",
+	AccountPositionsSubtotalHelp: "小計不包含數量為 0 的持倉。",
+	AccountPositionsNoCurrent:    "暫無目前持倉。",
+	AccountPositionsNoClosed:     "暫無已清倉持倉。",
+	AccountPositionsClosedNote:   "數量為零。金額為剩餘帳面紀錄。",
+	AccountPositionsReadFailed:   "無法載入投資持倉。",
+
 	AccountCreateAdd:                    "新增銀行帳戶",
 	AccountCreateTitle:                  "建立銀行帳戶",
 	AccountCreateName:                   "帳戶名稱",

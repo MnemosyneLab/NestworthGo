@@ -1047,6 +1047,15 @@ var simplifiedChineseCatalog = catalog{
 	AccountTypeLoan:             "贷款",
 	AccountTypeOther:            "其他账户",
 
+	AccountPositionsCurrent:      "当前",
+	AccountPositionsClosed:       "已清仓",
+	AccountPositionsAll:          "全部",
+	AccountPositionsSubtotalHelp: "小计不包含数量为 0 的持仓。",
+	AccountPositionsNoCurrent:    "暂无当前持仓。",
+	AccountPositionsNoClosed:     "暂无已清仓持仓。",
+	AccountPositionsClosedNote:   "数量为零。金额为剩余账面记录。",
+	AccountPositionsReadFailed:   "无法载入投资持仓。",
+
 	AccountCreateAdd:                    "新增银行账户",
 	AccountCreateTitle:                  "新建银行账户",
 	AccountCreateName:                   "账户名称",

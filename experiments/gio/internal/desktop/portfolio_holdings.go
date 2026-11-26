@@ -275,28 +275,33 @@ func holdingGroupLabel(key domain.HoldingGroupKey) i18n.MessageID {
 }
 
 func (p *portfolioPage) holdingGroupHeader(view ui.View, group domain.InstrumentHoldingGroupView) layout.Widget {
-	h, l := &p.holdings, view.Language
-	title := l.Text(holdingGroupLabel(group.Key))
+	h := &p.holdings
 	open := !h.visit.collapsed[group.Key]
-	count := len(group.Instruments)
+	button := portfolioButton(h.groups, group.Key)
+	return sharedHoldingGroupHeader(view, group.Key, len(group.Instruments), group.Subtotals, button, open, func() {
+		if h.visit.collapsed == nil {
+			h.visit.collapsed = make(map[domain.HoldingGroupKey]bool)
+		}
+		h.visit.collapsed[group.Key] = open
+	})
+}
+
+func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count int, subtotals []domain.HoldingCurrencySubtotal, button *widget.Clickable, open bool, toggle func()) layout.Widget {
+	l := view.Language
 	countLabel := i18n.PortfolioGroupCount
 	if count == 1 {
 		countLabel = i18n.PortfolioGroupOne
 	}
-	label := title + " · " + fmt.Sprintf(l.Text(countLabel), count)
-	button := portfolioButton(h.groups, group.Key)
+	label := l.Text(holdingGroupLabel(group)) + " · " + fmt.Sprintf(l.Text(countLabel), count)
 	disclosure := func(gtx layout.Context) layout.Dimensions {
 		if button.Clicked(gtx) {
-			if h.visit.collapsed == nil {
-				h.visit.collapsed = make(map[domain.HoldingGroupKey]bool)
-			}
-			h.visit.collapsed[group.Key] = open
+			toggle()
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		return analysisDisclosure(view, button, label, open)(gtx)
 	}
 	fields := []ui.ColumnChild{ui.Rigid(disclosure)}
-	for _, subtotal := range group.Subtotals {
+	for _, subtotal := range subtotals {
 		currency := subtotal.Currency.String()
 		fields = append(fields,
 			ui.Rigid(view.Body(ui.TextLabel, fmt.Sprintf(l.Text(i18n.PortfolioCurrencySubtotal), currency), view.Colors.SecondaryInk)),

@@ -1046,6 +1046,15 @@ var japaneseCatalog = catalog{
 	AccountTypeLoan:             "ローン",
 	AccountTypeOther:            "その他の口座",
 
+	AccountPositionsCurrent:      "現在",
+	AccountPositionsClosed:       "決済済み",
+	AccountPositionsAll:          "すべて",
+	AccountPositionsSubtotalHelp: "数量がゼロの保有明細は合計に含まれません。",
+	AccountPositionsNoCurrent:    "現在の保有銘柄はありません。",
+	AccountPositionsNoClosed:     "決済済みの保有銘柄はありません。",
+	AccountPositionsClosedNote:   "数量ゼロ。数値は記録上の残存値を示します。",
+	AccountPositionsReadFailed:   "保有銘柄を読み込めませんでした。",
+
 	AccountCreateAdd:                    "銀行口座を追加",
 	AccountCreateTitle:                  "新しい銀行口座",
 	AccountCreateName:                   "口座名",

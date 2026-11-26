@@ -492,11 +492,17 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			p.openAccount = func(id domain.AccountID, name string, from event.Tag) {
 				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
 			}
-			s.accounts.openInstrument = p.openInstrument
+			s.accounts.openInstrument = p.openHoldingInstrument
+			if s.historyPage != nil && s.historyPage.reads != nil {
+				s.accounts.openHoldingHistory = s.openHoldingHistory
+			}
+			if s.returns != nil && s.assets != nil {
+				s.accounts.openHoldingAnalysis = s.openHoldingAnalysis
+			}
 		}
 		if s.historyPage != nil && s.historyPage.reads != nil {
 			p.openHistory = func(id domain.InstrumentID, name string, from event.Tag) {
-				p.openHoldingHistory(id, "", name, from)
+				p.openHoldingHistory(id, p.accountScope, name, from)
 			}
 			p.openHoldingHistory = s.openHoldingHistory
 			s.historyPage.reads.openInstrument = p.openInstrument

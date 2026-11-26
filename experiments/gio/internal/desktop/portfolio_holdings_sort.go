@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gioui.org/layout"
+	"gioui.org/widget"
 	"github.com/shopspring/decimal"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
@@ -127,20 +128,25 @@ func holdingSortMeasure(row domain.InstrumentHoldingsView, amount domain.Holding
 }
 
 func (p *portfolioPage) holdingSortControls(gtx layout.Context, view ui.View, reset func()) layout.Dimensions {
-	h, l := &p.holdings, view.Language
+	h := &p.holdings
+	return layoutHoldingSortControls(gtx, view, &h.visit.sort, &h.sortButtons, reset)
+}
+
+func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, reset func()) layout.Dimensions {
+	l := view.Language
 	return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(holdingSortLabels), func(gtx layout.Context, i int) layout.Dimensions {
 		key := holdingSortKey(i)
-		button := &h.sortButtons[key]
+		button := &buttons[key]
 		if button.Clicked(gtx) {
-			h.visit.sort = holdingSort{key: key, descending: h.visit.sort.key == key && !h.visit.sort.descending}
+			*sort = holdingSort{key: key, descending: sort.key == key && !sort.descending}
 			reset()
 		}
 		label := holdingMetricLabel(l, holdingSortLabels[key])
 		name, title := label, label
-		selected := h.visit.sort.key == key
+		selected := sort.key == key
 		if selected {
 			direction, arrow := i18n.PortfolioSortAscending, " ↑"
-			if h.visit.sort.descending {
+			if sort.descending {
 				direction, arrow = i18n.PortfolioSortDescending, " ↓"
 			}
 			title += arrow

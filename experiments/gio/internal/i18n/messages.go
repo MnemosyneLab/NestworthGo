@@ -397,6 +397,14 @@ const (
 	AccountNoCash
 	AccountInvestments
 	AccountNoInvestments
+	AccountPositionsCurrent
+	AccountPositionsClosed
+	AccountPositionsAll
+	AccountPositionsSubtotalHelp
+	AccountPositionsNoCurrent
+	AccountPositionsNoClosed
+	AccountPositionsClosedNote
+	AccountPositionsReadFailed
 	AccountViewInstitution
 	AccountTypeCash
 	AccountTypeBank

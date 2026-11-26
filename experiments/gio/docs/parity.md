@@ -97,6 +97,18 @@ used by Market Data. The initial compact form keeps identity fields visible and
 places optional configuration under Instrument settings on edit. The native
 comparison and the detailed metal-conversion evidence remain open.
 
+### Account positions
+
+The account Investments section reads the exact scoped holding groups used by
+Wails. Current, Closed and All filter those rows. Closed positions carry their
+recorded amounts, and the currency totals cover current positions. Group
+disclosure, sorting and the position filter survive Back. Opening instrument
+detail, Ledger activity or analysis retains the source account. An eligible
+same-currency dividend starts with the selected holding fixed. The targeted
+Gio regression covers the closed position of an instrument held in two accounts
+and the account-specific dividend entry. Inline price performance and foreign
+dividends remain open.
+
 ## Remaining Stage 1–6 work
 
 1. Compare reservation management and grouped undo interactively. Treat

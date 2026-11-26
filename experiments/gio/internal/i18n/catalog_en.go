@@ -1047,6 +1047,15 @@ var englishCatalog = catalog{
 	AccountTypeLoan:             "Loan",
 	AccountTypeOther:            "Other account",
 
+	AccountPositionsCurrent:      "Current",
+	AccountPositionsClosed:       "Closed",
+	AccountPositionsAll:          "All",
+	AccountPositionsSubtotalHelp: "Totals exclude zero-quantity positions.",
+	AccountPositionsNoCurrent:    "No current positions.",
+	AccountPositionsNoClosed:     "No closed positions.",
+	AccountPositionsClosedNote:   "Zero quantity. Figures show remaining recorded values.",
+	AccountPositionsReadFailed:   "Could not load investment holdings.",
+
 	AccountCreateAdd:                    "Add bank account",
 	AccountCreateTitle:                  "New bank account",
 	AccountCreateName:                   "Account name",
