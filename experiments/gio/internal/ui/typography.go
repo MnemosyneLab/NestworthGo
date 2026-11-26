@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"runtime"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -10,10 +11,7 @@ import (
 )
 
 // The preview uses only fonts installed with the operating system. Each name
-// is a Gio typeface list. Keep the primary Latin families first, then name
-// the installed Han and emoji families before Gio's automatic script fallback.
-// On macOS the automatic lookup can choose a missing-character box for Han
-// text at medium and bold weights, and omit emoji even at regular weight.
+// is a Gio typeface list. Gio handles the automatic script fallback.
 //
 // Plus Jakarta Sans, which Wails bundles, cannot be loaded here. Avenir Next
 // is the closest macOS family with the same geometric proportions and tabular
@@ -23,16 +21,25 @@ import (
 // proportional and old-style. Where none of these exist, Gio uses its bundled
 // default, which also has tabular figures.
 const (
-	SansTypeface  font.Typeface = "Avenir Next, Helvetica Neue, Hiragino Sans GB, Apple Color Emoji"
-	SerifTypeface font.Typeface = "Iowan Old Style, Charter, Hiragino Sans GB, Apple Color Emoji"
+	sansTypeface  font.Typeface = "Avenir Next, Helvetica Neue"
+	serifTypeface font.Typeface = "Iowan Old Style, Charter"
 )
 
-// NewTheme returns a Material theme whose text and editors use SansTypeface.
+func systemTypeface(base font.Typeface) font.Typeface {
+	if runtime.GOOS == "darwin" {
+		// Automatic fallback can miss Han at medium and bold weights and
+		// omit emoji even at regular weight on macOS.
+		return base + ", Hiragino Sans GB, Apple Color Emoji"
+	}
+	return base
+}
+
+// NewTheme returns a Material theme whose text and editors use the sans stack.
 // Every window creates its theme here so no text falls back to the toolkit
 // default by accident.
 func NewTheme() *material.Theme {
 	theme := material.NewTheme()
-	theme.Face = SansTypeface
+	theme.Face = systemTypeface(sansTypeface)
 	return theme
 }
 
@@ -61,7 +68,7 @@ func (v View) styled(gtx layout.Context, style TextStyle, content string, fg col
 	label.MaxLines = maxLines
 	label.Alignment = alignment
 	if style.Serif {
-		label.Font.Typeface = SerifTypeface
+		label.Font.Typeface = systemTypeface(serifTypeface)
 	}
 	return label.Layout(gtx)
 }

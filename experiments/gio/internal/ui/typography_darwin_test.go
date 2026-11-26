@@ -39,7 +39,7 @@ func TestMacThemeMixedScriptFontFallback(t *testing.T) {
 				if len(want) != 1 {
 					t.Fatalf("expected one glyph for %q in %s, got %v", sample.value, sample.fallback, want)
 				}
-				for _, face := range []font.Typeface{theme.Face, SerifTypeface} {
+				for _, face := range []font.Typeface{theme.Face, systemTypeface(serifTypeface)} {
 					if got := glyphs(face, sample.value); !slices.Equal(got, want) {
 						t.Errorf("%s %s weight %d %q: got %v, want %s glyph %v", language, face, weight, sample.value, got, sample.fallback, want)
 					}
