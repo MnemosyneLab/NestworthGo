@@ -76,6 +76,14 @@ function compactSnapshotIssues(issues: HealthIssueDTO[]): DisplayHealthIssue[] {
   });
 }
 
+function isPendingConfirmation(issue: HealthIssueDTO): boolean {
+  if (issue.collapsed) return false;
+  if (issue.kind === "valuation_provisional" || issue.code === "valuation_coverage_pending" || issue.reason === "valuation_coverage_pending") {
+    return true;
+  }
+  return issue.severity === "info" && (issue.kind === "history_pending" || issue.code === "daily_reference_pending" || issue.reason === "daily_reference_pending");
+}
+
 function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: DisplayHealthIssue[]; count: number }[] {
   const groups = new Map<string, HealthIssueDTO[]>();
   for (const issue of issues) {
@@ -194,48 +202,57 @@ export function DataHealthPage({
   const report = health.data;
   const running = sync.running;
   const canRepair = executable.length > 0 && !running && !sync.preview.isPending && !sync.start.isPending;
+  const pendingConfirmation = report.healthy && (report.issues ?? []).some(isPendingConfirmation);
 
   return (
     <div className="flex flex-col gap-6" data-testid="data-health-page">
       {pageChrome}
       <PageIntro description={t("dataHealth.description")} />
 
-      {report.healthy ? (
-        <EmptyState
-          variant="success"
-          title={t("dataHealth.healthyTitle")}
-          description={t("dataHealth.healthyDescription", { date: formatCivilDate(report.coverageThrough || report.lastFinalizedMarketDate || "") })}
-          action={!focus && <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>}
-        />
-      ) : (
-        <Card>
-          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-2">
-              <CardTitle>{report.incompleteSince ? t("dataHealth.incompleteSince", { date: formatCivilDate(report.incompleteSince) }) : t("nav.dataHealth")}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {t("dataHealth.summaryGaps", { count: report.issueCount })}
-                {report.snapshotDays > 0 ? ` · ${t("dataHealth.summarySnapshots", { count: report.snapshotDays })}` : ""}
-                {report.prerequisiteCount > 0 ? ` · ${t("dataHealth.summaryPrerequisites", { count: report.prerequisiteCount })}` : ""}
-              </p>
-            </div>
-            <Button type="button" onClick={openPreview} disabled={!canRepair} data-testid="repair-all">
-              {sync.preview.isPending ? t("common.pending") : t("dataHealth.repairAll")}
-            </Button>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            {issues.some((issue) => issue.kind.startsWith("snapshot") && issue.collapsed) ? (
-              <p className="text-muted-foreground">{t("dataHealth.collapsedSnapshots")}</p>
-            ) : null}
-            {focus && <p className="text-muted-foreground">{t("connections.globalRepairScope")}</p>}
-            {running && sync.current.data ? (
-              <p role="status" data-testid="data-health-sync-progress">
-                {t("marketData.syncingMarketData")} {displayEnum(t, "marketData.phase", sync.current.data.phase)}{" "}
-                {t("marketData.syncProgress", { completed: sync.current.data.completedTargets, total: sync.current.data.targetCount })}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
+      <div data-testid="data-health-coverage">
+        {pendingConfirmation ? (
+          <EmptyState
+            title={t("dataHealth.pendingCoverageTitle")}
+            description={t("dataHealth.pendingCoverageDescription")}
+            action={!focus && <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>}
+          />
+        ) : report.healthy ? (
+          <EmptyState
+            variant="success"
+            title={t("dataHealth.healthyTitle")}
+            description={t("dataHealth.healthyDescription", { date: formatCivilDate(report.coverageThrough || report.lastFinalizedMarketDate || "") })}
+            action={!focus && <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>}
+          />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-col gap-2">
+                <CardTitle>{report.incompleteSince ? t("dataHealth.incompleteSince", { date: formatCivilDate(report.incompleteSince) }) : t("nav.dataHealth")}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {t("dataHealth.summaryGaps", { count: report.issueCount })}
+                  {report.snapshotDays > 0 ? ` · ${t("dataHealth.summarySnapshots", { count: report.snapshotDays })}` : ""}
+                  {report.prerequisiteCount > 0 ? ` · ${t("dataHealth.summaryPrerequisites", { count: report.prerequisiteCount })}` : ""}
+                </p>
+              </div>
+              <Button type="button" onClick={openPreview} disabled={!canRepair} data-testid="repair-all">
+                {sync.preview.isPending ? t("common.pending") : t("dataHealth.repairAll")}
+              </Button>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              {issues.some((issue) => issue.kind.startsWith("snapshot") && issue.collapsed) ? (
+                <p className="text-muted-foreground">{t("dataHealth.collapsedSnapshots")}</p>
+              ) : null}
+              {focus && <p className="text-muted-foreground">{t("connections.globalRepairScope")}</p>}
+              {running && sync.current.data ? (
+                <p role="status" data-testid="data-health-sync-progress">
+                  {t("marketData.syncingMarketData")} {displayEnum(t, "marketData.phase", sync.current.data.phase)}{" "}
+                  {t("marketData.syncProgress", { completed: sync.current.data.completedTargets, total: sync.current.data.targetCount })}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {(!report.healthy || focus) && <div className="flex flex-wrap items-center gap-2 text-sm">
         {focus && <p role="status">{focus.label} {focus.rangeStart ? formatCivilDateRange(focus.rangeStart, focus.rangeEnd || focus.rangeStart) : ""} · {t("connections.focusedGaps")}</p>}
