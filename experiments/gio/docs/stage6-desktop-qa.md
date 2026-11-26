@@ -89,6 +89,17 @@ activities, retained both original records and the unrelated linked
 expense, and agreed on a final bank balance of USD 88.531. The independent
 Go regression also verifies the intermediate USD 83.9632 balance.
 
+## macOS published Investment Review acknowledgement
+
+Both windows opened the same published **Review Stock** episode at revision
+1 with one pending alert. In Gio `885c0ef26aaf8c599118d86422e25f0b4ebb7169`,
+**Acknowledge** refreshed the pending list and returned to the Overview
+button with a zero count. Wails `8d98844` **Got it** showed the updated
+handling state and a zero pending count. The two SQLite copies stored one
+acknowledgement event each on the same episode at revision 2. The checked
+ledger and quote facts matched the source. The paired Go test also covers
+a stale episode revision and a lost response followed by a same-token retry.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
@@ -102,6 +113,8 @@ From the repository root, run:
   -run 'Test(CreditCardStatementHandoffReusesLedgerAndJournal|PortfolioInstrumentPerformanceMatchesWails|InstrumentPerformanceChartRespectsPriceBasisAndDenomination)')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestStage6PairedAccountFilteredAnalysisRoundTrip$')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(HistoryStandaloneBankExpenseCorrectionAndUndoMatchWails|TaskReviewAcknowledgement)')
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
