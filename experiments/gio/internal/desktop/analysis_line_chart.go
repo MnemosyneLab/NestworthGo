@@ -55,6 +55,23 @@ func analysisLineBody(view ui.View, chart *charts.LineChart, spec charts.LineSpe
 	}
 }
 
+// analysisTableRow shows a table row as its first detail (the date) on the
+// left and the value on the right, with any further details as a caption. The
+// joined sentence stays the accessible label.
+func analysisTableRow(view ui.View, row charts.TextRow) layout.Widget {
+	head := labeledRow(view, analysisLineTableText(row), row.Detail[0], row.Value, view.Colors.Ink)
+	if len(row.Detail) < 2 {
+		return head
+	}
+	extra := strings.Join(row.Detail[1:], " · ")
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
+			layout.Rigid(head),
+			layout.Rigid(view.Body(ui.TextCaption, extra, view.Colors.SecondaryInk)),
+		)
+	}
+}
+
 func analysisLineTableText(row charts.TextRow) string {
 	parts := []string{row.Detail[0], row.Value}
 	return strings.Join(append(parts, row.Detail[1:]...), " · ")

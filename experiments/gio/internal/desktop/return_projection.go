@@ -193,7 +193,7 @@ func (p *returnAnalysisPage) trendRows(gtx layout.Context, view ui.View, trend a
 		table := spec.Rows()
 		rows = append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return analysisResultList(gtx, view, &p.output.list, l.Text(i18n.ReturnTrendTable), len(table), func(gtx layout.Context, i int) layout.Dimensions {
-				return view.Message(analysisLineTableText(table[i]), view.Colors.Ink)(gtx)
+				return analysisTableRow(view, table[i])(gtx)
 			})
 		}))
 	}
@@ -225,9 +225,21 @@ func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, tit
 	return view.Panel(gtx, border, func(gtx layout.Context) layout.Dimensions {
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 		return keyboardList(gtx, view, list, title, count, func(gtx layout.Context, i int) layout.Dimensions {
-			return layout.Inset{Top: 5, Bottom: 5, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return row(gtx, i)
-			})
+			// A hairline above every row but the first turns the list into a
+			// table without drawing a box per row.
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if i == 0 {
+						return layout.Dimensions{}
+					}
+					return view.Hairline(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Top: 8, Bottom: 8, Left: 14, Right: 14}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return row(gtx, i)
+					})
+				}),
+			)
 		})
 	})
 }
