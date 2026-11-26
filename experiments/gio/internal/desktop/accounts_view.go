@@ -12,6 +12,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
@@ -630,12 +631,14 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	}
 	if opening {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
+			})
 		})
 	}
 	if buy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				var actions []layout.FlexChild
 				f := p.investment
 				action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
@@ -670,14 +673,16 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			f := p.investment
 			buttons := []*widget.Clickable{&f.importOpen, &f.custodyOpen, &f.adjustmentOpen}
 			labels := []i18n.MessageID{i18n.OpeningPositionOpen, i18n.CustodyOpen, i18n.QuantityAdjustOpen}
-			return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
-				return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
+					return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
+				})
 			})
 		})
 	}
 	if p.statement != nil && statementCard(a) && p.freshDetail() != nil {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.W.Layout(gtx, view.Button(&p.statement.open, l.Text(i18n.StatementOpen)))
 			})
 		})
@@ -709,7 +714,8 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		var cash, investments []layout.Widget
 		for _, component := range value.Components {
 			if component.InstrumentID == nil {
-				cash = append(cash, accountLine(view, component.NativeCurrency.String()+" · "+accountComponentAmount(view, component)))
+				currency, amount := component.NativeCurrency.String(), accountComponentAmount(view, component)
+				cash = append(cash, labeledRow(view, currency+" · "+amount, currency, amount, view.Colors.Ink))
 				continue
 			}
 			if p.current.managed[*component.InstrumentID] {
@@ -720,6 +726,8 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			if name == "" {
 				name = l.Text(i18n.OverviewMissingInstrument)
 			}
+			amount := accountComponentAmount(view, component)
+			var item []layout.Widget
 			if component.HoldingID != nil {
 				if holding, ok := p.current.holdings[*component.HoldingID]; ok {
 					if holding.Quantity.IsZero() {
@@ -728,11 +736,11 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					name += " · " + fmt.Sprintf(l.Text(i18n.AccountQuantity), holding.Quantity.Canonical())
 				}
 			}
-			investments = append(investments, accountLine(view, name+" · "+accountComponentAmount(view, component)))
+			item = append(item, headingRow(view, name+" · "+amount, name, amount, view.Colors.Ink))
 			if instrumentName != "" && p.openInstrument != nil {
 				id := *component.InstrumentID
 				button := portfolioButton(p.instruments, id)
-				investments = append(investments, func(gtx layout.Context) layout.Dimensions {
+				item = append(item, func(gtx layout.Context) layout.Dimensions {
 					if button.Clicked(gtx) {
 						p.openInstrument(id, instrumentName, button)
 						gtx.Execute(op.InvalidateCmd{})
@@ -747,21 +755,24 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					if label == "" {
 						label = l.Text(i18n.OverviewMissingInstrument)
 					}
-					investments = append(investments, p.holdingPositionActions(view, a, holding, label))
+					item = append(item, p.holdingPositionActions(view, a, holding, label))
 				}
 			}
+			investments = append(investments, stackWidgets(ui.Space8, item...))
 		}
 		rows = append(rows, accountSection(view, l.Text(i18n.AccountCash)))
 		if len(cash) == 0 {
-			cash = append(cash, accountLine(view, l.Text(i18n.AccountNoCash)))
+			rows = append(rows, accountLine(view, l.Text(i18n.AccountNoCash)))
+		} else {
+			rows = append(rows, sectionCard(view, cash))
 		}
-		rows = append(rows, cash...)
 		if a.AccountType != domain.TypeCashOnHand {
 			rows = append(rows, accountSection(view, l.Text(i18n.AccountInvestments)))
 			if len(investments) == 0 {
-				investments = append(investments, accountLine(view, l.Text(i18n.AccountNoInvestments)))
+				rows = append(rows, accountLine(view, l.Text(i18n.AccountNoInvestments)))
+			} else {
+				rows = append(rows, sectionCard(view, investments))
 			}
-			rows = append(rows, investments...)
 		}
 	}
 	return p.appendProducts(rows, view, a)
@@ -866,6 +877,35 @@ func accountSection(view ui.View, label string) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: ui.Space24, Bottom: ui.Space4, Left: ui.Space4}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return view.Line(gtx, ui.TextHeading, label, view.Colors.Ink)
+		})
+	}
+}
+
+// stackWidgets lays widgets out in a column with a fixed gap.
+func stackWidgets(gap unit.Dp, items ...layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		children := make([]layout.FlexChild, len(items))
+		for i, item := range items {
+			children[i] = layout.Rigid(item)
+		}
+		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(gap)}.Layout(gtx, children...)
+	}
+}
+
+// sectionCard puts the lines of one detail section in a single card, divided
+// by hairlines, as the Wails detail cards do.
+func sectionCard(view ui.View, items []layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			var children []layout.FlexChild
+			for i, item := range items {
+				if i > 0 {
+					children = append(children, layout.Rigid(view.Hairline))
+				}
+				children = append(children, layout.Rigid(item))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, children...)
 		})
 	}
 }
