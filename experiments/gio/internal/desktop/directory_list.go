@@ -273,7 +273,8 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName 
 						p.focusArchiveScope = false
 						gtx.Execute(key.FocusCmd{Tag: &p.archiveFilter})
 					}
-					return view.Checkbox(&p.archiveFilter, l.Text(i18n.InstitutionsShowArchived))(gtx)
+					label := l.Text(i18n.InstitutionsShowArchived)
+					return accessibility.Checkbox(gtx, &p.archiveFilter, label, view.Checkbox(&p.archiveFilter, label))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.busy {

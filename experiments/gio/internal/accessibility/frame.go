@@ -185,6 +185,8 @@ func SelectableButton(gtx layout.Context, click *widget.Clickable, name string, 
 	return ButtonWithSelection(gtx, click, name, "", selected, widget)
 }
 
+// Checkbox binds a toggle whose caller consumes its Value before drawing.
+// AXPress changes the value at frame start, like an external control event.
 func Checkbox(gtx layout.Context, box *widget.Bool, name string, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: box, role: checkbox, name: name, box: box}, widget)
 }
