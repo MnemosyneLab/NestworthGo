@@ -11,6 +11,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -118,8 +119,8 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 			return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(i18n.MarketNoFX), view.Colors.SecondaryInk))}
 		}
 		return []ui.ColumnChild{ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return pageListGap(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(result.fx), ui.Space8, func(gtx layout.Context, index int) layout.Dimensions {
-				return p.marketFXCard(gtx, view, result.fx[index])
+			return pageListGap(gtx, view, &p.list[marketFX], l.Text(i18n.MarketFX), len(result.fx), 0, func(gtx layout.Context, index int) layout.Dimensions {
+				return p.marketFXCard(gtx, view, result.fx[index], index == 0, index == len(result.fx)-1)
 			})
 		})}
 	}
@@ -138,7 +139,7 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 		return []ui.ColumnChild{ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk))}
 	}
 	return []ui.ColumnChild{ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return pageListGap(gtx, view, &p.list[marketInstruments], l.Text(i18n.MarketInstruments), len(matches), ui.Space8, func(gtx layout.Context, index int) layout.Dimensions {
+		return pageListGap(gtx, view, &p.list[marketInstruments], l.Text(i18n.MarketInstruments), len(matches), 0, func(gtx layout.Context, index int) layout.Dimensions {
 			row := matches[index]
 			group := i18n.NoMessage
 			if index == 0 || matches[index-1].instrument.Type != row.instrument.Type {
@@ -147,12 +148,13 @@ func (p *marketDataPage) resultRows(view ui.View, result marketDataResult) []ui.
 					group = i18n.MarketOther
 				}
 			}
-			return p.marketInstrumentCard(gtx, view, row, group)
+			last := index == len(matches)-1 || matches[index+1].instrument.Type != row.instrument.Type
+			return p.marketInstrumentCard(gtx, view, row, group, last)
 		})
 	})}
 }
 
-func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, row marketInstrumentRow, group i18n.MessageID) layout.Dimensions {
+func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, row marketInstrumentRow, group i18n.MessageID, last bool) layout.Dimensions {
 	l := view.Language
 	i := row.instrument
 	name := i.DisplayLabel()
@@ -168,13 +170,13 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 	if group != i18n.NoMessage {
 		heading := view.Body(ui.TextHeading, l.Text(group), view.Colors.Ink)
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			// A group starts with air above it, except at the top of the list.
-			return layout.Inset{Top: ui.Space8}.Layout(gtx, heading)
+			// A group starts with air above it; its rows join into one card.
+			return layout.Inset{Top: ui.Space12, Bottom: ui.Space4}.Layout(gtx, heading)
 		}))
 	}
-	source := i.QuoteCurrency.String() + " · " + marketSourceLabel(l, i.QuoteSource)
+	caption := ""
 	if i.QuoteSource == domain.QuoteSourceProvider && i.ProviderKey != nil && i.ProviderSymbol != nil {
-		source += " · " + instrumentProviderLabel(l, *i.ProviderKey) + " · " + *i.ProviderSymbol
+		caption = instrumentProviderLabel(l, *i.ProviderKey) + " · " + *i.ProviderSymbol
 	}
 	actions := p.marketHistoryAction(gtx, view, i.ID.String(), marketQuoteHistoryTarget{instrument: i.ID, name: i.DisplayLabel()})
 	if p.instrumentSources != nil {
@@ -196,11 +198,14 @@ func (p *marketDataPage) marketInstrumentCard(gtx layout.Context, view ui.View, 
 		actions = append(actions, p.marketTargetActions(gtx, view, marketLatestTarget{instrument: i.ID},
 			application.SyncRequest{Scope: application.SyncScopeInstrument, InstrumentID: i.ID.String()})...)
 	}
-	rows = append(rows, ui.Rigid(marketQuoteCard(view, name, source, price, evidence, actions)))
-	return (ui.Column{Gap: 8}).Layout(gtx, rows...)
+	rows = append(rows, ui.Rigid(marketQuoteRow(view, group != i18n.NoMessage, last, marketRowSpec{
+		icon: lucide.TrendingUp, name: name, caption: caption, badges: marketBadges(view, i.QuoteCurrency.String(), i.QuoteSource),
+		value: price, evidence: evidence,
+	}, actions)))
+	return (ui.Column{}).Layout(gtx, rows...)
 }
 
-func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row marketFXRow) layout.Dimensions {
+func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row marketFXRow, first, last bool) layout.Dimensions {
 	l := view.Language
 	rate, evidence := l.Text(i18n.MarketNoQuote), ""
 	if q := row.quote; q != nil {
@@ -217,35 +222,116 @@ func (p *marketDataPage) marketFXCard(gtx layout.Context, view ui.View, row mark
 			Scope: application.SyncScopeFX, CurrencyA: row.pair.first.String(), CurrencyB: row.pair.second.String(),
 		})...)
 	}
-	return marketQuoteCard(view, row.pair.first.String()+"/"+row.pair.second.String(), marketSourceLabel(l, row.source), rate, evidence, actions)(gtx)
+	return marketQuoteRow(view, first, last, marketRowSpec{
+		icon: lucide.GitCompareArrows, name: row.pair.first.String() + "/" + row.pair.second.String(),
+		badges: marketBadges(view, "", row.source), value: rate, evidence: evidence,
+	}, actions)(gtx)
 }
 
-func marketQuoteCard(view ui.View, name, source, value, evidence string, actions []layout.Widget) layout.Widget {
+// marketRowSpec is what a quote row shows: a glyph, the name with chips and an
+// optional caption on the left, the latest value and its evidence on the right.
+type marketRowSpec struct {
+	icon            ui.Glyph
+	name, caption   string
+	badges          []marketBadge
+	value, evidence string
+}
+
+type marketBadge struct {
+	tone ui.BadgeTone
+	text string
+}
+
+// marketBadges are the currency and quote-source chips of a row.
+func marketBadges(view ui.View, currency string, source domain.QuoteSourceKind) []marketBadge {
+	var badges []marketBadge
+	if currency != "" {
+		badges = append(badges, marketBadge{ui.BadgeNeutral, currency})
+	}
+	tone := ui.BadgeNeutral
+	switch source {
+	case domain.QuoteSourceProvider:
+		tone = ui.BadgeSuccess
+	case domain.QuoteSourceManual, domain.QuoteSourceAgent:
+		tone = ui.BadgeAccent
+	}
+	return append(badges, marketBadge{tone, marketSourceLabel(view.Language, source)})
+}
+
+// marketQuoteRow is one row of the joined quote card. A wide row keeps the
+// actions on its trailing edge; a narrow one puts them under the figures.
+func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions []layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				data := func(gtx layout.Context) layout.Dimensions {
-					return (ui.Grid{MinColumn: 244, Gap: 8, MaxColumns: 2, Balanced: true}).Layout(gtx, view, 2,
-						func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
-							if index == 0 {
-								return (ui.Column{Gap: 3}).Layout(gtx,
-									ui.Rigid(view.Body(ui.TextLabel, name, view.Colors.Ink)),
-									ui.Rigid(view.Body(ui.TextCaption, source, view.Colors.SecondaryInk)))
+		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				colors := view.Colors
+				tile := func(gtx layout.Context) layout.Dimensions {
+					return view.IconTile(gtx, spec.icon, 32, colors.Tint(colors.Accent, 0.10), colors.Accent)
+				}
+				left := func(gtx layout.Context) layout.Dimensions {
+					chips := func(gtx layout.Context) layout.Dimensions {
+						return (ui.Wrap{Gap: ui.Space6, Middle: true}).Layout(gtx, len(spec.badges)+boolInt(spec.caption != ""), func(gtx layout.Context, i int) layout.Dimensions {
+							if i < len(spec.badges) {
+								return view.Badge(gtx, spec.badges[i].tone, spec.badges[i].text)
 							}
-							rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextLabel, value, view.Colors.Ink))}
-							if evidence != "" {
-								rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, evidence, view.Colors.SecondaryInk)))
-							}
-							return (ui.Column{Gap: 3}).Layout(gtx, rows...)
+							return view.Line(gtx, ui.TextCaption, spec.caption, colors.SecondaryInk)
 						})
+					}
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+						ui.Rigid(view.Body(ui.TextLabel, spec.name, colors.Ink)), ui.Rigid(chips))
 				}
-				if len(actions) == 0 {
-					return data(gtx)
+				figures := func() layout.Widget {
+					return func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						children := []layout.FlexChild{layout.Rigid(view.Body(ui.TextLabel, spec.value, colors.Ink))}
+						if spec.evidence != "" {
+							children = append(children, layout.Rigid(layout.Spacer{Height: ui.Space4}.Layout),
+								layout.Rigid(view.Body(ui.TextCaption, spec.evidence, colors.SecondaryInk)))
+						}
+						return layout.Flex{Axis: layout.Vertical, Alignment: layout.Start}.Layout(gtx, children...)
+					}
 				}
-				return (ui.Column{Gap: 10}).Layout(gtx, ui.Rigid(data), ui.Rigid(marketActionRow(view, actions)))
+				buttons := marketActionRow(view, actions)
+				fill := func(w layout.Widget) layout.Widget {
+					return func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						return w(gtx)
+					}
+				}
+				if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 900) {
+					children := []layout.FlexChild{
+						layout.Rigid(tile), layout.Flexed(1, fill(left)), layout.Flexed(1, fill(figures())),
+					}
+					if len(actions) > 0 {
+						children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							// A fixed slot keeps the figures column aligned across rows.
+							gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(300))
+							gtx.Constraints.Min.X = gtx.Constraints.Max.X
+							return layout.E.Layout(gtx, buttons)
+						}))
+					}
+					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx, children...)
+				}
+				body := []ui.ColumnChild{ui.Rigid(left), ui.Rigid(figures())}
+				if len(actions) > 0 {
+					body = append(body, ui.Rigid(buttons))
+				}
+				return layout.Flex{Alignment: layout.Start, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+					layout.Rigid(tile),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return (ui.Column{Gap: ui.Space8}).Layout(gtx, body...)
+					}))
 			})
 		})
 	}
+}
+
+func boolInt(on bool) int {
+	if on {
+		return 1
+	}
+	return 0
 }
 
 func marketSourceLabel(l i18n.Language, kind domain.QuoteSourceKind) string {
