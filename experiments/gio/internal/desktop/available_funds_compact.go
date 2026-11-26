@@ -164,10 +164,12 @@ type fundsSourceValues struct {
 	early                        bool
 }
 
+const fundsSourceTableWidth = 768
+
 // Wails switches its source table at a 48rem container width. Use the list
 // body's width so the sidebar and wider text have room in either layout.
 func wideFundsSources(gtx layout.Context) bool {
-	return gtx.Constraints.Max.X >= gtx.Dp(768)
+	return gtx.Constraints.Max.X >= gtx.Dp(fundsSourceTableWidth)
 }
 
 func fundsSourceColumns(gtx layout.Context, cells [5]layout.Widget) layout.Dimensions {
