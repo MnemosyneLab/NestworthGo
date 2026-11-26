@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
@@ -137,6 +136,7 @@ type portfolioPage struct {
 	catalog      portfolioCatalog
 	tabs         portfolioTabs
 	allocation   portfolioAllocation
+	detail       portfolioInstrumentDetail
 
 	search                ui.SearchField
 	list                  widget.List
@@ -291,7 +291,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" {
-				return layout.Dimensions{}
+				return p.layoutInstrumentDetailHeader(gtx, view)
 			}
 			return p.layoutPortfolioTabs(gtx, view)
 		}),
@@ -405,16 +405,10 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		return []layout.Widget{view.Message(l.Text(i18n.PortfolioInstrumentUnavailable), view.Colors.SecondaryInk)}
 	}
 	name := i.DisplayLabel()
-	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
-		text := name
-		if i.ArchivedAt != nil {
-			text += " · " + l.Text(i18n.DirectoryArchived)
-		}
-		return view.Label(gtx, text, 23, font.Medium, view.Colors.Ink)
-	}}
-	if fullName := strings.TrimSpace(i.Name); fullName != "" && fullName != name {
-		rows = append(rows, view.Message(fullName, view.Colors.SecondaryInk))
+	if p.detail.visit.section == instrumentDetailData {
+		return p.instrumentDataRows(view, *i)
 	}
+	var rows []layout.Widget
 	if p.openHistory != nil {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			if p.history.Clicked(gtx) {

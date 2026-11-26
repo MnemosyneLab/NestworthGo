@@ -97,6 +97,16 @@ used by Market Data. The initial compact form keeps identity fields visible and
 places optional configuration under Instrument settings on edit. The native
 comparison and the detailed metal-conversion evidence remain open.
 
+### Instrument detail data
+
+An ordinary instrument opens on Holdings. Data shows the selected quote at its
+stored precision with its source and timestamp. When the quote currency differs
+from the household base currency, it also shows the oriented exchange rate or
+its unavailable state. Quote history, quote source editing, and manual price
+entry open the same instrument-scoped sheets used by Market Data. Closing a
+sheet returns focus to its action. Back restores the active tab and any account
+scope. The Wails Performance tab remains open for Gio parity.
+
 ### Account positions
 
 The account Investments section reads the exact scoped holding groups used by

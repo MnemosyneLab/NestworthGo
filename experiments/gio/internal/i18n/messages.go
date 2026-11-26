@@ -1470,6 +1470,8 @@ const (
 	PortfolioInstrumentHistory
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
+	PortfolioInstrumentHoldings
+	PortfolioInstrumentData
 	PortfolioByInstrument
 	PortfolioCatalogDetails
 	PortfolioCatalogOpen

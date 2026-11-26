@@ -1498,6 +1498,8 @@ var traditionalChineseCatalog = catalog{
 	PortfolioOpenInstrument:        "開啟證券 · %s",
 
 	PortfolioMyHoldings:               "我的持倉",
+	PortfolioInstrumentHoldings:       "持倉",
+	PortfolioInstrumentData:           "資料",
 	PortfolioCatalogDetails:           "詳情",
 	PortfolioCatalogOpen:              "開啟標的 · %s",
 	PortfolioCatalogManage:            "管理標的",

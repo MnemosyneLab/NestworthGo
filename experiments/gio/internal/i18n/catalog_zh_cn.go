@@ -1498,6 +1498,8 @@ var simplifiedChineseCatalog = catalog{
 	PortfolioOpenInstrument:        "打开证券 · %s",
 
 	PortfolioMyHoldings:               "我的持仓",
+	PortfolioInstrumentHoldings:       "持仓",
+	PortfolioInstrumentData:           "数据",
 	PortfolioCatalogDetails:           "详情",
 	PortfolioCatalogOpen:              "打开标的 · %s",
 	PortfolioCatalogManage:            "管理标的",

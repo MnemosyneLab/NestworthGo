@@ -57,6 +57,7 @@ type navigationEntry struct {
 	holdings         portfolioHoldingsVisit
 	catalog          portfolioCatalogVisit
 	portfolioTabs    portfolioTabsVisit
+	instrumentDetail instrumentDetailVisit
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	returns          *returnAnalysisVisit
@@ -394,6 +395,8 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.portfolio.restoreHoldingsVisit(entry.holdings)
 			s.portfolio.catalog.restore(entry.catalog)
 			s.portfolio.restorePortfolioTabs(entry.portfolioTabs)
+		} else {
+			s.portfolio.detail.visit = entry.instrumentDetail
 		}
 		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
 	}
@@ -501,6 +504,8 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.holdings = s.portfolio.holdingsVisit()
 			entry.catalog = s.portfolio.catalog.visit()
 			entry.portfolioTabs = s.portfolio.portfolioTabsVisit()
+		} else {
+			entry.instrumentDetail = s.portfolio.detail.visit
 		}
 	case overviewRoute:
 		if s.overviewPage != nil {

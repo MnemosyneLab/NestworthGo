@@ -486,6 +486,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	if p := s.portfolio; p != nil {
+		p.detail.market = s.marketData
 		p.openInstrument = func(id domain.InstrumentID, name string, from event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: portfolioRoute, instrument: id}, name: name, focus: from}
 		}
@@ -765,7 +766,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				s.refreshLedgerReads()
 				if s.activeRoute() == dataHealthRoute {
 					s.dataHealth.read()
-				} else {
+				} else if s.activeRoute() == marketDataRoute {
 					s.marketData.read()
 				}
 			}
@@ -792,7 +793,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				if s.activeRoute() == dataHealthRoute {
 					s.dataHealth.manualSaved = receipt
 					s.dataHealth.read()
-				} else {
+				} else if s.activeRoute() == marketDataRoute {
 					s.marketData.read()
 				}
 			}

@@ -1498,6 +1498,8 @@ var englishCatalog = catalog{
 	PortfolioOpenInstrument:        "Open instrument · %s",
 
 	PortfolioMyHoldings:               "My holdings",
+	PortfolioInstrumentHoldings:       "Holdings",
+	PortfolioInstrumentData:           "Data",
 	PortfolioCatalogDetails:           "Details",
 	PortfolioCatalogOpen:              "Open instrument · %s",
 	PortfolioCatalogManage:            "Manage instrument",
