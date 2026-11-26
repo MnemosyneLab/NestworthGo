@@ -14,6 +14,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -168,6 +169,7 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 
 type accountListRow struct {
 	heading string
+	icon    ui.Glyph
 	account *accountRow
 }
 
@@ -175,6 +177,7 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	type institutionGroup struct {
 		id    domain.InstitutionID
 		label string
+		icon  ui.Glyph
 		rank  decimal.Decimal
 		rows  []*accountRow
 	}
@@ -194,6 +197,13 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 				label = accountReference(lang, row.record.InstitutionName, institution.ArchivedAt != nil)
 			}
 			group = &institutionGroup{id: id, label: label}
+			if id != "" {
+				key := ""
+				if institution.IconKey != nil {
+					key = *institution.IconKey
+				}
+				group.icon = directoryGlyph(key, institutionFallbackIcon(institution.InstitutionType, domain.DefaultInstitutionIcon))
+			}
 			groups[id] = group
 			ordered = append(ordered, group)
 		}
@@ -218,7 +228,7 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	})
 	var rows []accountListRow
 	for _, group := range ordered {
-		rows = append(rows, accountListRow{heading: group.label})
+		rows = append(rows, accountListRow{heading: group.label, icon: group.icon})
 		slices.SortStableFunc(group.rows, func(a, b *accountRow) int {
 			if order := accountRank(*b).Cmp(accountRank(*a)); order != 0 {
 				return order

@@ -218,7 +218,7 @@ func accountShellHarness(t *testing.T, reader accountsReader, creator accountCre
 	p.creation = &balanceAccountCreation{service: creator}
 	t.Cleanup(p.workers.Wait)
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p})
-	h.size = image.Pt(700, 460)
+	h.size = image.Pt(700, 560)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 	h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, institution: institution}}

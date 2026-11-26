@@ -8,6 +8,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
@@ -237,13 +238,19 @@ func analysisResultList(gtx layout.Context, view ui.View, list *widget.List, tit
 // scrollbar rests against the window edge, as the Wails page scrollbar does.
 // Keyboard focus is shown as an accent outline.
 func pageList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {
+	return pageListGap(gtx, view, list, title, count, ui.Space16, row)
+}
+
+// pageListGap is pageList with a caller-chosen space under each row, for lists
+// whose rows join into one card.
+func pageListGap(gtx layout.Context, view ui.View, list *widget.List, title string, count int, gap unit.Dp, row layout.ListElement) layout.Dimensions {
 	list.Axis = layout.Vertical
 	bleed := gtx.Dp(pageInset.Right)
 	gtx.Constraints.Max.X += bleed
 	gtx.Constraints.Min.X = gtx.Constraints.Max.X
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	dims := keyboardList(gtx, view, list, title, count, func(gtx layout.Context, i int) layout.Dimensions {
-		return layout.Inset{Right: pageInset.Right, Bottom: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Right: pageInset.Right, Bottom: gap}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return row(gtx, i)
 		})
 	})
