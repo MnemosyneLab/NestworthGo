@@ -175,8 +175,9 @@ func (p *wealthHistoryPage) allocationRows(gtx layout.Context, view ui.View, res
 		return analysisResultList(gtx, view, &a.list, l.Text(i18n.WealthAllocationTable), len(items), func(gtx layout.Context, index int) layout.Dimensions {
 			item := items[index]
 			name := wealthAllocationName(l, item.Key, a.currency)
-			label := strings.Join([]string{name, wealthExactMoney(view, &item.Amount, state.Currency, false, false), wealthAllocationShare(view, &item.Share)}, " · ")
-			return p.allocationRowButton(gtx, view, item.Key, label, false)
+			money, share := wealthExactMoney(view, &item.Amount, state.Currency, false, false), wealthAllocationShare(view, &item.Share)
+			label := strings.Join([]string{name, money, share}, " · ")
+			return p.allocationRowButton(gtx, view, item.Key, label, false, valueRow(view, name, money, share))
 		})
 	}))
 	return rows
@@ -235,7 +236,9 @@ func (p *wealthHistoryPage) allocationChart(view ui.View, donut charts.DonutSpec
 	}
 }
 
-func (p *wealthHistoryPage) allocationRowButton(gtx layout.Context, view ui.View, key, label string, compare bool) layout.Dimensions {
+// allocationRowButton is a keyboard-reachable row that filters accounts to one
+// category. A nil content falls back to the centered label.
+func (p *wealthHistoryPage) allocationRowButton(gtx layout.Context, view ui.View, key, label string, compare bool, content layout.Widget) layout.Dimensions {
 	a := &p.allocation
 	if a.buttons == nil {
 		a.buttons = make(map[string]*widget.Clickable)
@@ -246,7 +249,11 @@ func (p *wealthHistoryPage) allocationRowButton(gtx layout.Context, view ui.View
 		p.filterAllocation(view, key, button, compare)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return view.ButtonOf(button, ui.ButtonSpec{Title: label, Variant: ui.ButtonGhost, Fill: true})(gtx)
+	spec := ui.ButtonSpec{Title: label, Name: label, Variant: ui.ButtonGhost, Fill: true}
+	if content != nil {
+		spec.Title, spec.Content = "", content
+	}
+	return view.ButtonOf(button, spec)(gtx)
 }
 
 func wealthAllocationShare(view ui.View, share *string) string {
@@ -315,7 +322,7 @@ func (p *wealthHistoryPage) allocationCompareRows(view ui.View, result applicati
 				return layout.UniformInset(10).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return (ui.Column{Gap: 6}).Layout(gtx,
 						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return p.allocationRowButton(gtx, view, item.Key, name, true)
+							return p.allocationRowButton(gtx, view, item.Key, name, true, nil)
 						}),
 						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return (ui.Grid{MinColumn: 170, MaxColumns: 2, Gap: 6}).Layout(gtx, view, 2,
