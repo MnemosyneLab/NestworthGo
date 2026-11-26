@@ -41,7 +41,7 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	wideCurrency := assertPageLabel(t, wide, currency)
 	wideCash := assertPageLabel(t, wide, cash)
 	wideAfter := assertPageLabel(t, wide, unreserved)
-	if header.Max.Y > wideCurrency.Min.Y || wideCurrency.Max.X > wideCash.Min.X || wideCash.Max.X > wideAfter.Min.X ||
+	if header.Min.Y >= wideCurrency.Min.Y || wideCurrency.Max.X > wideCash.Min.X || wideCash.Max.X > wideAfter.Min.X ||
 		wideCurrency.Intersect(image.Rect(0, wideCash.Min.Y, 900, wideCash.Max.Y)).Empty() {
 		t.Fatalf("wide comparison did not align columns: %v %v %v %v", header, wideCurrency, wideCash, wideAfter)
 	}

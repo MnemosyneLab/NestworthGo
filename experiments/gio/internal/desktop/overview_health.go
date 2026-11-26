@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -81,7 +80,7 @@ func overviewHealthFindings(issues []application.HealthIssue) []application.Heal
 	// informational findings or findings covered by the repair flow.
 	for _, actionable := range []bool{true, false} {
 		for _, issue := range issues {
-			if issue.Collapsed || issue.Kind == application.HealthKindHistoryNotStarted || strings.HasPrefix(issue.Kind, "snapshot") {
+			if issue.Collapsed || issue.Kind == application.HealthKindHistoryNotStarted || isSnapshotFinding(issue) {
 				continue
 			}
 			hasAction := issue.Action != application.HealthActionNone && issue.Action != application.HealthActionRepair

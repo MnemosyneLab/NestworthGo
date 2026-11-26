@@ -293,12 +293,20 @@ func (p *portfolioPage) holdingGroupHeader(view ui.View, group domain.Instrument
 	h := &p.holdings
 	open := !h.visit.collapsed[group.Key]
 	button := portfolioButton(h.groups, group.Key)
-	return sharedHoldingGroupHeader(view, group.Key, len(group.Instruments), group.Subtotals, button, open, func() {
+	card := sharedHoldingGroupHeader(view, group.Key, len(group.Instruments), group.Subtotals, button, open, func() {
 		if h.visit.collapsed == nil {
 			h.visit.collapsed = make(map[domain.HoldingGroupKey]bool)
 		}
 		h.visit.collapsed[group.Key] = open
 	})
+	if !open {
+		return card
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(card), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.holdingSortHeader(gtx, view, group.Key)
+		}))
+	}
 }
 
 func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count int, subtotals []domain.HoldingCurrencySubtotal, button *widget.Clickable, open bool, toggle func()) layout.Widget {
@@ -324,17 +332,9 @@ func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		card := func(gtx layout.Context) layout.Dimensions {
-			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: ui.Space8}).Layout(gtx, fields...)
-			})
-		}
-		if !open {
-			return card(gtx)
-		}
-		return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(card), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return p.holdingSortHeader(gtx, view, group.Key)
-		}))
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space8}).Layout(gtx, fields...)
+		})
 	}
 }
 

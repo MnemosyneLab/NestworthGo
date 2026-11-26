@@ -126,6 +126,9 @@ func (p *overviewPage) leave() {
 	if p.trend.request != nil {
 		p.trend.invalidate()
 	}
+	if p.healthScan.request != nil {
+		p.healthScan.invalidate()
+	}
 }
 
 func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {

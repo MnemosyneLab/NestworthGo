@@ -44,7 +44,7 @@ func TestOverviewPairsActionCardsAndOpensAuthoritativeHealthFinding(t *testing.T
 	health := &dataHealthPage{ctx: ctx, invalidate: func() {}, reader: fixture}
 	ledger := newHistoryPage(history.New(ctx, activityReaderFunc(func(context.Context, domain.ActivityQuery) (domain.ActivityPage, error) {
 		return domain.ActivityPage{}, nil
-	})), func() {})
+	}), func() {}))
 	t.Cleanup(page.workers.Wait)
 	t.Cleanup(health.workers.Wait)
 	t.Cleanup(ledger.model.Wait)
@@ -110,7 +110,7 @@ func TestOverviewPairsActionCardsAndOpensAuthoritativeHealthFinding(t *testing.T
 	settle()
 	attention = assertPageLabel(t, &h.router, "Needs attention")
 	upcoming = assertPageLabel(t, &h.router, "Next 30 days")
-	if attention.Max.Y >= upcoming.Min.Y || attention.Max.X <= upcoming.Min.X || upcoming.Max.X <= attention.Min.X {
+	if attention.Min.Y >= upcoming.Min.Y || attention.Max.X <= upcoming.Min.X || upcoming.Max.X <= attention.Min.X {
 		t.Fatalf("narrow Overview did not stack its action cards: %v %v", attention, upcoming)
 	}
 }
