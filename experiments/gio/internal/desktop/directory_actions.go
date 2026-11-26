@@ -9,6 +9,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/banklogos"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -21,18 +22,16 @@ func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item direct
 	if item.archived {
 		changeLabel, changeName = i18n.InstitutionsRestore, i18n.InstitutionsRestoreName
 	}
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return ui.LayoutGlyph(gtx, p.glyph(item.iconKey(), item.institutionType), 20, view.Colors.Accent)
-			})
+			return directoryTile(gtx, view, item.ID, p.glyph(item.iconKey(), item.institutionType))
 		}),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.Y = 0
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(2)}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Label(gtx, item.Name, 15, font.Medium, view.Colors.Ink)
+						return view.Line(gtx, ui.TextLabel, item.Name, view.Colors.Ink)
 					}),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						if item.institutionType == "" {
@@ -45,15 +44,41 @@ func (p *directoryList) rowContent(gtx layout.Context, view ui.View, item direct
 						if item.archived {
 							detail = fmt.Sprintf(view.Language.Text(i18n.InstitutionsArchivedType), detail)
 						}
-						return view.Label(gtx, detail, 13, font.Normal, view.Colors.SecondaryInk)
+						return view.Line(gtx, ui.TextCaption, detail, view.Colors.SecondaryInk)
 					}),
 				)
 			})
 		}),
-		layout.Rigid(view.NamedButton(&buttons.view, view.Language.Text(i18n.DirectoryView), fmt.Sprintf(view.Language.Text(i18n.DirectoryViewName), item.Name))),
-		layout.Rigid(view.NamedButton(&buttons.edit, view.Language.Text(i18n.InstitutionsEdit), fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name))),
-		layout.Rigid(view.NamedButton(&buttons.archive, view.Language.Text(changeLabel), fmt.Sprintf(view.Language.Text(changeName), item.Name))),
+		layout.Rigid(smallNamedButton(view, &buttons.view, view.Language.Text(i18n.DirectoryView), fmt.Sprintf(view.Language.Text(i18n.DirectoryViewName), item.Name))),
+		layout.Rigid(smallNamedButton(view, &buttons.edit, view.Language.Text(i18n.InstitutionsEdit), fmt.Sprintf(view.Language.Text(i18n.InstitutionsEditName), item.Name))),
+		layout.Rigid(smallNamedButton(view, &buttons.archive, view.Language.Text(changeLabel), fmt.Sprintf(view.Language.Text(changeName), item.Name))),
 	)
+}
+
+// smallNamedButton is the compact outline button for row actions.
+func smallNamedButton(view ui.View, button *widget.Clickable, title, name string) layout.Widget {
+	spec := view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: title, Name: name})
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min = image.Point{}
+		return spec(gtx)
+	}
+}
+
+// directoryTile is the leading mark of a directory row: the glyph on a tile
+// whose tint comes from the stable row id, so a member keeps its color.
+func directoryTile(gtx layout.Context, view ui.View, id string, glyph ui.Glyph) layout.Dimensions {
+	sum := 0
+	for _, c := range id {
+		sum += int(c)
+	}
+	tint := view.Colors.Category[sum%len(view.Colors.Category)]
+	side := gtx.Dp(36)
+	bounds := image.Rectangle{Max: image.Pt(side, side)}
+	ui.FillRoundRect(gtx, bounds, ui.RadiusMD, ui.Mix(view.Colors.Surface, tint, 0.14))
+	inset := (side - gtx.Dp(20)) / 2
+	defer op.Offset(image.Pt(inset, inset)).Push(gtx.Ops).Pop()
+	ui.LayoutGlyph(gtx, glyph, 20, tint)
+	return layout.Dimensions{Size: bounds.Size()}
 }
 
 func (p *directoryList) beginEditor(mode directoryOperation, row directoryRow) {
