@@ -149,10 +149,16 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("wrong instrument or account-level gain: Gio %+v, Wails %+v", row, ref)
 	}
 
-	compactSize := h.size
-	h.size = image.Pt(1120, 1080)
+	narrowSize := h.size
+	h.size = image.Pt(1280, 1080)
+	settle()
+	stockHeader := portfolio.holdings.sortButtons[domain.HoldingGroupStock]
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()
+	fundHeader := portfolio.holdings.sortButtons[domain.HoldingGroupFund]
+	if stockHeader == nil || fundHeader == nil || stockHeader == fundHeader {
+		t.Fatal("expanded asset groups should each have keyboard-reachable sort headers")
+	}
 	filtered := portfolio.visibleHoldingGroups(i18n.English)
 	if len(filtered) != 1 || len(filtered[0].Instruments) != 1 || filtered[0].Instruments[0].Symbol != "QA-FULL" {
 		t.Fatalf("search did not isolate the intended holding: %+v", filtered)
@@ -165,17 +171,26 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
 	assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	name := ids.instruments["QA-FULL"].DisplayLabel()
+	identity := assertPageLabel(t, &h.router, name)
+	cost := assertPageLabel(t, &h.router, "Cost basis · €60.36")
+	menu := assertPageLabel(t, &h.router, "Actions for "+name)
+	if cost.Min.X < identity.Max.X || menu.Min.X < cost.Max.X ||
+		cost.Min.Y >= identity.Max.Y || menu.Min.Y >= identity.Max.Y ||
+		cost.Max.Y <= identity.Min.Y || menu.Max.Y <= identity.Min.Y {
+		t.Fatalf("desktop holding cells should share a single row: instrument %v, cost %v, actions %v", identity, cost, menu)
+	}
 	click("Cost basis")
 	if portfolio.holdings.visit.sort != (holdingSort{key: holdingSortCost}) {
 		t.Fatal("the first column activation did not select ascending cost")
 	}
-	h.router.Source().Execute(key.FocusCmd{Tag: &portfolio.holdings.sortButtons[holdingSortCost]})
+	h.router.Source().Execute(key.FocusCmd{Tag: &fundHeader[holdingSortCost]})
 	h.press(key.NameReturn)
 	settle()
 	if !portfolio.holdings.visit.sort.descending {
 		t.Fatal("a second column activation did not reverse its direction")
 	}
-	h.size = compactSize
+	h.size = narrowSize
 
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-loss")
 	settle()

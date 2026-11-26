@@ -313,7 +313,11 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				return layout.Dimensions{}
 			}
 			rows := p.rows(view)
-			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
+			gap := ui.Space12
+			if p.id == "" && p.tabs.active == portfolioHoldingsTab && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
+				gap = ui.Space4
+			}
+			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, func(gtx layout.Context, i int) layout.Dimensions {
 				return rows[i](gtx)
 			})
 		}),

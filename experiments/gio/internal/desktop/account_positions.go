@@ -121,7 +121,7 @@ func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account)
 		return append(rows, accountLine(view, l.Text(message)))
 	}
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-		return layoutHoldingSortControls(gtx, view, &positions.visit.sort, &positions.sort, func() {
+		return layoutHoldingSortControls(gtx, view, &positions.visit.sort, &positions.sort, false, func() {
 			gtx.Execute(op.InvalidateCmd{})
 		})
 	})

@@ -14,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -34,13 +35,32 @@ type portfolioHoldingActions struct {
 	toggle, instrument, account, history, returns, changes widget.Clickable
 }
 
+const holdingTableWidth = 780
+
+var holdingTableInset = layout.Inset{Left: ui.Space12, Right: ui.Space12}
+
+// Both the header and each virtualized row use these same column widths.
+func holdingTableColumns(gtx layout.Context, cell func(layout.Context, int) layout.Dimensions, actions layout.Widget) layout.Dimensions {
+	weights := [holdingSortCount]float32{2.5, 1, 1.28, 1.42, 1.55}
+	var children [holdingSortCount + 1]layout.FlexChild
+	for index, weight := range weights {
+		children[index] = layout.Flexed(weight, func(gtx layout.Context) layout.Dimensions { return cell(gtx, index) })
+	}
+	children[holdingSortCount] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		width := min(gtx.Dp(82), gtx.Constraints.Max.X)
+		gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+		return layout.E.Layout(gtx, actions)
+	})
+	return (layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}).Layout(gtx, children[:]...)
+}
+
 type portfolioHoldings struct {
 	visit        portfolioHoldingsVisit
 	byInstrument widget.Clickable
 	byAccount    widget.Clickable
 	showZero     widget.Bool
 	toggleGroups widget.Clickable
-	sortButtons  [holdingSortCount]widget.Clickable
+	sortButtons  map[domain.HoldingGroupKey]*[holdingSortCount]widget.Clickable
 	groups       map[domain.HoldingGroupKey]*widget.Clickable
 	disclosures  map[domain.InstrumentID]*widget.Clickable
 	actions      map[portfolioHoldingKey]*portfolioHoldingActions
@@ -136,12 +156,6 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.PortfolioSearch, i18n.PortfolioSearchHint, func(string) { reset() })
 		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if len(visible) == 0 {
-				return layout.Dimensions{}
-			}
-			return p.holdingSortControls(gtx, view, reset)
-		}),
 	)
 }
 
@@ -226,6 +240,7 @@ func (p *portfolioPage) holdingsRows(view ui.View) []layout.Widget {
 	h := &p.holdings
 	if h.groups == nil {
 		h.groups = make(map[domain.HoldingGroupKey]*widget.Clickable)
+		h.sortButtons = make(map[domain.HoldingGroupKey]*[holdingSortCount]widget.Clickable)
 		h.disclosures = make(map[domain.InstrumentID]*widget.Clickable)
 		h.actions = make(map[portfolioHoldingKey]*portfolioHoldingActions)
 	}
@@ -309,15 +324,24 @@ func sharedHoldingGroupHeader(view ui.View, group domain.HoldingGroupKey, count 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-			return (ui.Column{Gap: ui.Space8}).Layout(gtx, fields...)
-		})
+		card := func(gtx layout.Context) layout.Dimensions {
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Column{Gap: ui.Space8}).Layout(gtx, fields...)
+			})
+		}
+		if !open {
+			return card(gtx)
+		}
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(card), ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return p.holdingSortHeader(gtx, view, group.Key)
+		}))
 	}
 }
 
 func (p *portfolioPage) holdingCard(view ui.View, row domain.InstrumentHoldingsView, member *domain.InstrumentHoldingMember, group domain.HoldingGroupKey) layout.Widget {
 	l, h := view.Language, &p.holdings
 	name := holdingInstrumentName(row)
+	fullName := strings.TrimSpace(row.Name)
 	title := name
 	identity := portfolioHoldingKey{instrument: row.InstrumentID}
 	amounts, account := row.Amounts, domain.AccountID("")
@@ -329,30 +353,38 @@ func (p *portfolioPage) holdingCard(view ui.View, row domain.InstrumentHoldingsV
 	if row.Archived && !compactMember {
 		title += " · " + l.Text(i18n.DirectoryArchived)
 	}
-	var fields []ui.ColumnChild
+	var instrument func(bool) layout.Widget
 	if !compactMember {
 		button := portfolioButton(p.instruments, row.InstrumentID)
 		if member != nil {
 			button = &p.holdingActions(identity).instrument
 		}
-		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if button.Clicked(gtx) {
-				if account != "" && p.openHoldingInstrument != nil {
-					p.openHoldingInstrument(row.InstrumentID, account, name, button)
-				} else if p.openInstrument != nil {
-					p.openInstrument(row.InstrumentID, name, button)
+		instrument = func(compact bool) layout.Widget {
+			return func(gtx layout.Context) layout.Dimensions {
+				if button.Clicked(gtx) {
+					if account != "" && p.openHoldingInstrument != nil {
+						p.openHoldingInstrument(row.InstrumentID, account, name, button)
+					} else if p.openInstrument != nil {
+						p.openInstrument(row.InstrumentID, name, button)
+					}
+					gtx.Execute(op.InvalidateCmd{})
 				}
-				gtx.Execute(op.InvalidateCmd{})
+				spec := ui.ButtonSpec{Variant: ui.ButtonSoft, Title: title, Name: title}
+				if compact {
+					spec.Variant, spec.Size = ui.ButtonLink, ui.ButtonCompact
+					if fullName != "" && fullName != name {
+						spec.Title += " · " + fullName
+						spec.Description = fullName
+					}
+				}
+				return layout.W.Layout(gtx, view.ButtonOf(button, spec))
 			}
-			return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonSoft, Title: title, Name: title}))
-		}))
-		if fullName := strings.TrimSpace(row.Name); fullName != "" && fullName != name {
-			fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, fullName, view.Colors.SecondaryInk)))
 		}
 	}
+	var accountControl layout.Widget
 	if member == nil {
 		disclosure := portfolioButton(h.disclosures, row.InstrumentID)
-		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		accountControl = func(gtx layout.Context) layout.Dimensions {
 			open := h.visit.expanded[row.InstrumentID]
 			if disclosure.Clicked(gtx) {
 				if h.visit.expanded == nil {
@@ -368,32 +400,52 @@ func (p *portfolioPage) holdingCard(view ui.View, row domain.InstrumentHoldingsV
 				countLabel = i18n.PortfolioAccountOne
 			}
 			return analysisDisclosure(view, disclosure, fmt.Sprintf(l.Text(countLabel), count), open)(gtx)
-		}))
+		}
 	} else {
-		fields = append(fields, ui.Rigid(p.holdingAccountLink(view, &p.holdingActions(identity).account, member.AccountID, member.AccountName)))
+		accountControl = p.holdingAccountLink(view, &p.holdingActions(identity).account, member.AccountID, member.AccountName)
 	}
 	unit := row.QuantityUnit
 	if group == domain.HoldingGroupCashLike {
 		unit = l.Text(i18n.PortfolioContractUnit)
 	}
-	heading := func(gtx layout.Context) layout.Dimensions {
+	narrowHeading := func(gtx layout.Context) layout.Dimensions {
+		var fields []ui.ColumnChild
+		if instrument != nil {
+			fields = append(fields, ui.Rigid(instrument(false)))
+			if fullName != "" && fullName != name {
+				fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, fullName, view.Colors.SecondaryInk)))
+			}
+		}
+		fields = append(fields, ui.Rigid(accountControl))
 		return (ui.Column{Gap: ui.Space4}).Layout(gtx, fields...)
 	}
-	metrics := holdingMetrics(view, amounts, unit, true)
-	actions := p.holdingActionRow(view, identity, account, name)
+	compactHeading := func(gtx layout.Context) layout.Dimensions {
+		if instrument == nil {
+			return layout.Inset{Left: ui.Space16}.Layout(gtx, accountControl)
+		}
+		support := layout.Flexed(1, accountControl)
+		if member == nil {
+			support = layout.Rigid(accountControl)
+		}
+		return (layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space4)}).Layout(gtx,
+			layout.Flexed(1, instrument(true)), support)
+	}
+	links := p.holdingActionLinks(view, identity, account, name)
 	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
+			return p.compactHoldingRow(gtx, view, compactHeading, identity, name, holdingMetricValues(view, amounts, unit, true), links)
+		}
 		wrapped := func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-				if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 795) {
-					return (layout.Flex{Gap: gtx.Dp(ui.Space16)}).Layout(gtx,
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(heading), ui.Rigid(actions))
-						}),
-						layout.Flexed(2.3, metrics))
+				rows := []ui.ColumnChild{
+					ui.Rigid(narrowHeading), ui.Rigid(view.Hairline), ui.Rigid(holdingMetrics(view, amounts, unit, true)),
+					ui.Rigid(p.holdingActionToggle(view, identity, name, false)),
 				}
-				return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-					ui.Rigid(heading), ui.Rigid(view.Hairline), ui.Rigid(metrics), ui.Rigid(actions))
+				if h.openActions == identity {
+					rows = append(rows, ui.Rigid(links))
+				}
+				return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 			})
 		}
 		if compactMember {
@@ -401,6 +453,45 @@ func (p *portfolioPage) holdingCard(view ui.View, row domain.InstrumentHoldingsV
 		}
 		return wrapped(gtx)
 	}
+}
+
+func (p *portfolioPage) compactHoldingRow(gtx layout.Context, view ui.View, identity layout.Widget, id portfolioHoldingKey, name string, metrics []holdingMetric, links layout.Widget) layout.Dimensions {
+	l := view.Language
+	rows := []ui.ColumnChild{
+		ui.Rigid(view.Hairline),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return holdingTableColumns(gtx, func(gtx layout.Context, index int) layout.Dimensions {
+					if index == int(holdingSortName) {
+						return identity(gtx)
+					}
+					field := metrics[index-1]
+					return semanticRow(gtx, fmt.Sprintf(l.Text(field.label), field.value), func(gtx layout.Context) layout.Dimensions {
+						return view.LineEnd(gtx, ui.TextLabel, field.value, field.ink)
+					})
+				}, p.holdingActionToggle(view, id, name, true))
+			})
+		}),
+	}
+	var reasons []string
+	for _, field := range metrics {
+		if field.reason != "" && !slices.Contains(reasons, field.reason) {
+			reasons = append(reasons, field.reason)
+		}
+	}
+	if len(reasons) > 0 {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(reasons), func(gtx layout.Context, index int) layout.Dimensions {
+					return view.Body(ui.TextCaption, l.Text(holdingMissingReason(reasons[index])), view.Colors.SecondaryInk)(gtx)
+				})
+			})
+		}))
+	}
+	if p.holdings.openActions == id {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return holdingTableInset.Layout(gtx, links) }))
+	}
+	return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
 }
 
 func (p *portfolioPage) holdingActions(id portfolioHoldingKey) *portfolioHoldingActions {
@@ -424,7 +515,7 @@ func (p *portfolioPage) holdingAccountLink(view ui.View, button *widget.Clickabl
 	}
 }
 
-func (p *portfolioPage) holdingActionRow(view ui.View, id portfolioHoldingKey, account domain.AccountID, name string) layout.Widget {
+func (p *portfolioPage) holdingActionToggle(view ui.View, id portfolioHoldingKey, name string, compact bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		h, l := &p.holdings, view.Language
 		if p.openHoldingHistory == nil && p.openHoldingAnalysis == nil {
@@ -440,30 +531,44 @@ func (p *portfolioPage) holdingActionRow(view ui.View, id portfolioHoldingKey, a
 			open = !open
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		children := []layout.Widget{analysisDisclosure(view, &controls.toggle, fmt.Sprintf(l.Text(i18n.PortfolioActionsFor), name), open)}
-		if open {
-			action := func(button *widget.Clickable, label i18n.MessageID, selectAction func(event.Tag)) layout.Widget {
-				return func(gtx layout.Context) layout.Dimensions {
-					if button.Clicked(gtx) {
-						h.openActions = portfolioHoldingKey{}
-						selectAction(&controls.toggle)
-						gtx.Execute(op.InvalidateCmd{})
-					}
-					return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(label)})(gtx)
+		label := fmt.Sprintf(l.Text(i18n.PortfolioActionsFor), name)
+		if compact {
+			return view.ButtonOf(&controls.toggle, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact,
+				Name: label, Icon: lucide.Ellipsis, Toggle: true, Selected: open})(gtx)
+		}
+		return analysisDisclosure(view, &controls.toggle, label, open)(gtx)
+	}
+}
+
+func (p *portfolioPage) holdingActionLinks(view ui.View, id portfolioHoldingKey, account domain.AccountID, name string) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		h, l := &p.holdings, view.Language
+		if h.openActions != id {
+			return layout.Dimensions{}
+		}
+		controls := p.holdingActions(id)
+		action := func(button *widget.Clickable, label i18n.MessageID, selectAction func(event.Tag)) layout.Widget {
+			return func(gtx layout.Context) layout.Dimensions {
+				if button.Clicked(gtx) {
+					h.openActions = portfolioHoldingKey{}
+					selectAction(&controls.toggle)
+					gtx.Execute(op.InvalidateCmd{})
 				}
+				return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(label)})(gtx)
 			}
-			if p.openHoldingAnalysis != nil {
-				children = append(children, action(&controls.returns, i18n.PortfolioViewReturn, func(focus event.Tag) {
-					p.openHoldingAnalysis(returnAnalysisRoute, id.instrument, account, name, focus)
-				}), action(&controls.changes, i18n.PortfolioViewChanges, func(focus event.Tag) {
-					p.openHoldingAnalysis(assetChangesRoute, id.instrument, account, name, focus)
-				}))
-			}
-			if p.openHoldingHistory != nil {
-				children = append(children, action(&controls.history, i18n.PortfolioInstrumentHistory, func(focus event.Tag) {
-					p.openHoldingHistory(id.instrument, account, name, focus)
-				}))
-			}
+		}
+		var children []layout.Widget
+		if p.openHoldingAnalysis != nil {
+			children = append(children, action(&controls.returns, i18n.PortfolioViewReturn, func(focus event.Tag) {
+				p.openHoldingAnalysis(returnAnalysisRoute, id.instrument, account, name, focus)
+			}), action(&controls.changes, i18n.PortfolioViewChanges, func(focus event.Tag) {
+				p.openHoldingAnalysis(assetChangesRoute, id.instrument, account, name, focus)
+			}))
+		}
+		if p.openHoldingHistory != nil {
+			children = append(children, action(&controls.history, i18n.PortfolioInstrumentHistory, func(focus event.Tag) {
+				p.openHoldingHistory(id.instrument, account, name, focus)
+			}))
 		}
 		return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, len(children), func(gtx layout.Context, i int) layout.Dimensions {
 			return children[i](gtx)
@@ -490,7 +595,7 @@ func holdingMetricLabel(language i18n.Language, label i18n.MessageID) string {
 	return pattern
 }
 
-func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, includeQuantity bool) layout.Widget {
+func holdingMetricValues(view ui.View, amounts domain.HoldingAmounts, unit string, includeQuantity bool) []holdingMetric {
 	l, colors := view.Language, view.Colors
 	unavailable := l.Text(i18n.OverviewNoValue)
 	money := func(value *domain.MoneyView) string {
@@ -517,10 +622,15 @@ func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, in
 		}
 		fields = append(fields, holdingMetric{label: i18n.AccountQuantity, value: quantity, ink: colors.Ink})
 	}
-	fields = append(fields,
+	return append(fields,
 		holdingMetric{i18n.PortfolioCost, money(amounts.TotalCost), amounts.CostMissingReason, colors.Ink},
 		holdingMetric{i18n.PortfolioNativeValue, money(amounts.CurrentValue), amounts.ValueMissingReason, colors.Ink},
 		holdingMetric{i18n.PortfolioUnrealized, gain, amounts.GainMissingReason, gainInk})
+}
+
+func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, includeQuantity bool) layout.Widget {
+	l, colors := view.Language, view.Colors
+	fields := holdingMetricValues(view, amounts, unit, includeQuantity)
 	return func(gtx layout.Context) layout.Dimensions {
 		return (ui.Grid{MinColumn: 128, MaxColumns: len(fields), Gap: ui.Space8, Balanced: true}).Layout(gtx, view, len(fields), func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			field := fields[index]

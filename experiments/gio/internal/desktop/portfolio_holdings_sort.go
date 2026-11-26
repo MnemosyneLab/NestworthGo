@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 	"github.com/shopspring/decimal"
 	"golang.org/x/text/collate"
@@ -127,14 +128,23 @@ func holdingSortMeasure(row domain.InstrumentHoldingsView, amount domain.Holding
 	return row.QuoteCurrency.String(), value
 }
 
-func (p *portfolioPage) holdingSortControls(gtx layout.Context, view ui.View, reset func()) layout.Dimensions {
+func (p *portfolioPage) holdingSortHeader(gtx layout.Context, view ui.View, group domain.HoldingGroupKey) layout.Dimensions {
 	h := &p.holdings
-	return layoutHoldingSortControls(gtx, view, &h.visit.sort, &h.sortButtons, reset)
+	buttons := h.sortButtons[group]
+	if buttons == nil {
+		buttons = new([holdingSortCount]widget.Clickable)
+		h.sortButtons[group] = buttons
+	}
+	wide := ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth)
+	return layoutHoldingSortControls(gtx, view, &h.visit.sort, buttons, wide, func() {
+		h.openActions = portfolioHoldingKey{}
+		gtx.Execute(op.InvalidateCmd{})
+	})
 }
 
-func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, reset func()) layout.Dimensions {
+func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, wide bool, reset func()) layout.Dimensions {
 	l := view.Language
-	return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(holdingSortLabels), func(gtx layout.Context, i int) layout.Dimensions {
+	column := func(gtx layout.Context, i int) layout.Dimensions {
 		key := holdingSortKey(i)
 		button := &buttons[key]
 		if button.Clicked(gtx) {
@@ -152,6 +162,21 @@ func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSo
 			title += arrow
 			name += " · " + l.Text(direction)
 		}
-		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: title, Name: name, Selected: selected})(gtx)
+		if !wide {
+			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: title, Name: name, Selected: selected})(gtx)
+		}
+		align := layout.E
+		if key == holdingSortName {
+			align = layout.W
+		}
+		return align.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact, Title: title, Name: name, Selected: selected}))
+	}
+	if !wide {
+		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(holdingSortLabels), column)
+	}
+	return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return holdingTableColumns(gtx, column, func(gtx layout.Context) layout.Dimensions {
+			return view.LineEnd(gtx, ui.TextCaption, l.Text(i18n.MarketMoreActions), view.Colors.SecondaryInk)
+		})
 	})
 }
