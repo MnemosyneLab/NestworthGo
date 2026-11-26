@@ -142,9 +142,9 @@ func (p *wealthHistoryPage) dateFields(gtx layout.Context, view ui.View, now tim
 	}
 	return (ui.Grid{MinColumn: 150, MaxColumns: 2, Gap: 10}).Layout(gtx, view, 2,
 		func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-			picker, label, value := &p.from, i18n.HistoryFilterFrom, &p.draft.from
+			picker, label, value := &p.from, i18n.WealthTrendFromDate, &p.draft.from
 			if i == 1 {
-				picker, label, value = &p.to, i18n.HistoryFilterTo, &p.draft.to
+				picker, label, value = &p.to, i18n.WealthTrendToDate, &p.draft.to
 			}
 			picker.Layout(gtx, view, ui.PickerField{Label: label, Origin: view.Origin}, options, *value, func(day string) {
 				*value = day

@@ -25,21 +25,21 @@ func (p *wealthHistoryPage) layoutWealthTabs(gtx layout.Context, view ui.View) l
 		allocationLabel = i18n.WealthAllocationCompare
 	}
 	type tab struct {
-		button      *widget.Clickable
-		title, name string
-		selected    bool
+		button   *widget.Clickable
+		label    i18n.MessageID
+		selected bool
 	}
 	tabs := []tab{
-		{&p.allocationTab, l.Text(allocationLabel), l.Text(allocationLabel), p.lens == wealthAllocationLens},
-		{&p.accountsTab, l.Text(i18n.NavAccounts), l.Text(i18n.WealthAccountTabName), p.lens == wealthAccountsLens},
-		{&p.trendTab, l.Text(i18n.WealthTrendTab), l.Text(i18n.WealthTrendTab), p.lens == wealthTrendLens},
+		{&p.allocationTab, allocationLabel, p.lens == wealthAllocationLens},
+		{&p.accountsTab, i18n.WealthAccountTab, p.lens == wealthAccountsLens},
+		{&p.trendTab, i18n.WealthTrendTab, p.lens == wealthTrendLens},
 	}
 	if p.accounts.current != nil && p.accounts.current.Right != nil {
-		tabs = append([]tab{{&p.changeTab, l.Text(i18n.WealthChangeTab), l.Text(i18n.WealthChangeTab), p.lens == wealthChangeLens}}, tabs...)
+		tabs = append([]tab{{&p.changeTab, i18n.WealthChangeTab, p.lens == wealthChangeLens}}, tabs...)
 	}
 	return view.TabTrack(gtx, len(tabs), func(gtx layout.Context, index int) layout.Dimensions {
 		t := tabs[index]
-		return view.TabSegmentNamed(t.button, t.title, t.name, t.selected)(gtx)
+		return view.TabSegment(t.button, l.Text(t.label), t.selected)(gtx)
 	})
 }
 
@@ -88,7 +88,7 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		}
 		label := i18n.WealthAccountDateA
 		if a.draft.mode == wealthSingleDay {
-			label = i18n.ChartDate
+			label = i18n.WealthAccountDate
 		}
 		fields := []analysisFilterField{analysisDate(&a.earlier, label, options, a.draft.from, func(value string) {
 			a.draft.from = value
@@ -104,7 +104,7 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
 					ui.Rigid(view.Body(ui.TextCaptionStrong, l.Text(i18n.WealthAccountDateB), view.Colors.SecondaryInk)),
 					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.WealthAccountCurrent))
+						return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.WealthCapturedCurrent))
 					}))
 			})
 		}
@@ -124,7 +124,10 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 		case a.err != nil && a.draft == a.requested:
 			label = i18n.HistoryRetry
 		case a.current != nil && a.draft == a.captured:
-			label = i18n.HistoryRefresh
+			label = i18n.WealthRefreshDate
+			if a.draft.mode != wealthSingleDay {
+				label = i18n.WealthRefreshComparison
+			}
 		}
 		var actions []layout.Widget
 		if a.draft.mode == wealthCompareDate {
@@ -135,7 +138,7 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 	})
 	offset += shortcuts.Size.Y + gap
 	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		dates := fmt.Sprintf(l.Text(i18n.WealthAccountAvailableDates), wealthDay(view, p.origin.first), wealthDay(view, last), p.origin.location)
+		dates := fmt.Sprintf(l.Text(i18n.WealthAccountAvailableDates), healthDateRange(view, p.origin.first, last), p.origin.location)
 		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextCaption, dates, view.Colors.SecondaryInk))}
 		if a.err != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthAccountFailed), view.Colors.ErrorInk)))
@@ -166,7 +169,7 @@ func (p *wealthHistoryPage) layoutWealthAccounts(gtx layout.Context, view ui.Vie
 								gtx.Execute(key.FocusCmd{Tag: &p.allocation.clear})
 							}
 							buttons := []layout.Widget{
-								returnMonthButton(view, &p.allocation.clear, i18n.HistoryClearFilters, nil, true),
+								returnMonthButton(view, &p.allocation.clear, i18n.WealthAllocationClearFilter, nil, true),
 								returnMonthButton(view, &p.allocation.back, i18n.WealthAllocationBack, nil, true),
 							}
 							return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, index int) layout.Dimensions {
@@ -239,7 +242,7 @@ func (p *wealthHistoryPage) accountRows(gtx layout.Context, view ui.View, result
 		return append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthAccountEmpty), view.Colors.SecondaryInk)))
 	}
 	return append(rows, ui.Fill(func(gtx layout.Context) layout.Dimensions {
-		return analysisResultList(gtx, view, &a.list, l.Text(i18n.WealthAccountTabName), len(visible), func(gtx layout.Context, index int) layout.Dimensions {
+		return analysisResultList(gtx, view, &a.list, l.Text(i18n.WealthAccountTab), len(visible), func(gtx layout.Context, index int) layout.Dimensions {
 			return p.accountRow(gtx, view, result, visible[index], true)
 		})
 	}))

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gioui.org/io/key"
+	"gioui.org/io/semantic"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -63,6 +64,73 @@ func openWealthHistoryTest(t *testing.T, reader wealthHistoryReader, clock func(
 		h.frame()
 	}
 	return h, page
+}
+
+func TestWealthHistoryLocalizedTabAndDateNames(t *testing.T) {
+	now := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	origin := &domain.HistoryOrigin{StartedAt: now.AddDate(0, 0, -5), Timezone: "UTC"}
+	reader := wealthHistoryTestReader{origin: origin, load: func(_ context.Context, r wealthDateRange) (application.HistoricalOverviewSeriesResult, error) {
+		return application.HistoricalOverviewSeriesResult{From: r.from, To: r.to}, nil
+	}}
+	for _, tc := range []struct {
+		language                                    settings.Language
+		composition, accounts, trend                string
+		single, dates, current                      string
+		date, baseline, comparison, capturedCurrent string
+		from, to                                    string
+	}{
+		{
+			settings.LanguageEnglish, "Asset composition", "Account details", "Time trend",
+			"Single date", "Compare dates", "Date vs. now",
+			"Historical date", "A baseline", "B comparison", "Captured current state",
+			"Trend A · First closed date", "Trend B · Last closed date",
+		},
+		{
+			settings.LanguageZhCN, "资产结构", "账户明细", "时间走势",
+			"单日查看", "双期对比", "日期对比当前",
+			"历史日期", "A 基准", "B 对照", "本次读取的当前状态",
+			"走势 A · 首个结日", "走势 B · 最后结日",
+		},
+	} {
+		t.Run(string(tc.language), func(t *testing.T) {
+			h, page := openWealthHistoryTest(t, reader, func() time.Time { return now })
+			page.workers.Wait()
+			h.size = image.Pt(1120, 1040)
+			h.shell.prefs.saved.Language = tc.language
+			h.frame()
+			assertTab := func(label string, selected bool) {
+				t.Helper()
+				node := findPageLabel(&h.router, label)
+				if node == nil || node.Desc.Class != semantic.Button || node.Desc.Description != label || node.Desc.Selected != selected {
+					t.Fatalf("tab named %q (selected = %t): %+v", label, selected, node)
+				}
+			}
+			assertTab(tc.composition, true)
+			assertTab(tc.accounts, false)
+			assertTab(tc.trend, false)
+			assertTab(tc.single, true)
+			semanticBounds(t, &h.router, tc.date, true)
+
+			h.click(tc.dates, false)
+			assertTab(tc.dates, true)
+			semanticBounds(t, &h.router, tc.baseline, true)
+			semanticBounds(t, &h.router, tc.comparison, true)
+
+			h.click(tc.current, false)
+			assertTab(tc.current, true)
+			assertPageLabel(t, &h.router, tc.comparison)
+			assertPageLabel(t, &h.router, tc.capturedCurrent)
+
+			h.click(tc.accounts, false)
+			assertTab(tc.accounts, true)
+			h.click(tc.trend, false)
+			page.workers.Wait()
+			h.frame()
+			assertTab(tc.trend, true)
+			semanticBounds(t, &h.router, tc.from, true)
+			semanticBounds(t, &h.router, tc.to, true)
+		})
+	}
 }
 
 func TestWealthHistoryRangeUsesClosedCivilDates(t *testing.T) {
@@ -189,10 +257,10 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	}}, func() time.Time { return now })
 	page.workers.Wait()
 	h.frame()
-	h.click("Trend", false)
+	h.click("Time trend", false)
 	h.size = image.Pt(900, 480)
 	h.frame()
-	assertPageLabel(t, &h.router, "Loading daily wealth values…")
+	assertPageLabel(t, &h.router, "Reconstructing wealth history…")
 	var active call
 	expectCall := func(from, to string) context.Context {
 		t.Helper()
@@ -215,12 +283,12 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	}
 	expectCall("2026-11-30", "2026-11-30")
 	finish(application.HistoricalOverviewSeriesResult{}, errors.New("first read failed"))
-	assertPageLabel(t, &h.router, "Could not load daily wealth values.")
+	assertPageLabel(t, &h.router, "Wealth history could not be loaded")
 	h.click("Retry", false)
 	previous := expectCall("2026-11-30", "2026-11-30")
 
 	// Edit the From picker with the keyboard while the original request is in flight.
-	h.click("From date", true)
+	h.click("Trend A · First closed date", true)
 	for i := 0; i < 3; i++ {
 		h.press(key.NameUpArrow)
 	}
@@ -368,7 +436,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatalf("default allocation did not match the Wails endpoint: %v, %v", err, page.accounts.err)
 	}
 	assertPageLabel(t, &h.router, "Valued assets only · Missing components 1")
-	h.click("By currency", false)
+	h.click("Original currency", false)
 	if !page.allocation.currency {
 		t.Fatal("allocation dimension did not switch")
 	}
@@ -381,13 +449,13 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	}
 	h.click("AUD · A$50.00 · 100%", false)
 	h.frame()
-	assertPageLabel(t, &h.router, "Filtered by · AUD")
+	assertPageLabel(t, &h.router, "Category: AUD")
 	h.focused(&page.allocation.clear)
 	assertPageLabel(t, &h.router, "Local cash")
 	if page.lens != wealthAccountsLens || findPageLabel(&h.router, "Foreign cash") != nil || findPageLabel(&h.router, "Local debt") != nil {
 		t.Fatal("currency drill-down included another currency or balance sheet role")
 	}
-	h.click("Return to allocation", false)
+	h.click("Return to categories", false)
 	h.frame()
 	h.focused(page.allocation.buttons["AUD"])
 	if h.shell.stage.Position.Offset != before {
@@ -395,17 +463,17 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	}
 	h.press(key.NameReturn)
 	h.frame()
-	assertPageLabel(t, &h.router, "Filtered by · AUD")
-	h.click("Return to allocation", false)
+	assertPageLabel(t, &h.router, "Category: AUD")
+	h.click("Return to categories", false)
 	h.size = image.Pt(1160, 1100)
 	h.frame()
-	h.click("Trend", false)
+	h.click("Time trend", false)
 	page.workers.Wait()
 	h.frame()
 	if page.err != nil || page.current == nil || page.current.series.To != "2026-08-02" {
 		t.Fatalf("first capture did not use Singapore's latest closed day: %v", page.err)
 	}
-	h.click("From date", true)
+	h.click("Trend A · First closed date", true)
 	h.press(key.NameLeftArrow)
 	h.press(key.NameReturn)
 	h.click("Load range", false)
@@ -435,7 +503,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.press(key.NameHome)
 	h.press(key.NameReturn)
 	assertPageLabel(t, &h.router, "Selected date · 2026-08-01")
-	h.click("Open accounts for this day", false)
+	h.click("Open day · New capture", false)
 	page.workers.Wait()
 	h.frame()
 	if page.lens != wealthAccountsLens || page.accounts.captured.from != "2026-08-01" ||
@@ -449,11 +517,11 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h.click("Accounts in Wealth history", false)
+	h.click("Account details", false)
 	page.workers.Wait()
 	h.frame()
 	h.click("Compare dates", false)
-	h.click("Date A", true)
+	h.click("A baseline", true)
 	h.press(key.NameRightArrow)
 	h.press(key.NameLeftArrow)
 	h.press(key.NameReturn)
@@ -465,6 +533,13 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "A · 2026-08-01 · Partial coverage")
 	assertPageLabel(t, &h.router, "B · 2026-08-02 · Coverage verified")
+	// Re-render the same captured comparison in Simplified Chinese.
+	h.shell.prefs.saved.Language = settings.LanguageZhCN
+	h.frame()
+	assertPageLabel(t, &h.router, "变化概览")
+	assertPageLabel(t, &h.router, "分类比较")
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.frame()
 	h.click("Category comparison", false)
 	assertPageLabel(t, &h.router, "A · Missing valuation")
 	assertPageLabel(t, &h.router, "B · A$123.51")
@@ -474,13 +549,13 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.focused(&page.allocation.paired)
 	h.press(key.NameEnd)
 	h.press(key.NameReturn)
-	assertPageLabel(t, &h.router, "Filtered by · AUD")
-	h.click("Return to allocation", false)
+	assertPageLabel(t, &h.router, "Category: AUD")
+	h.click("Return to categories", false)
 	h.frame()
 	h.focused(&page.allocation.paired)
 	h.click("Liabilities", false)
 	assertPageLabel(t, &h.router, "A · -A$25.10")
-	h.click("Change", false)
+	h.click("Changes overview", false)
 	assertPageLabel(t, &h.router, "Accounts to review separately")
 	if compare.Reconciliation == nil {
 		t.Fatal("reference did not include endpoint reconciliation")
@@ -521,21 +596,21 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	assertPageLabel(t, &h.router, "Retrieved at · 2026-08-02 20:00:00 (Asia/Singapore)")
 	assertPageLabel(t, &h.router, "Native amount multiplied by this rate.")
 	h.press(key.NameEscape)
-	h.click("Accounts in Wealth history", false)
+	h.click("Account details", false)
 	h.click("Changed accounts only", false)
 	assertPageLabel(t, &h.router, "Foreign cash")
 	h.click("Foreign cash", false)
 	h.frame()
 	assertPageLabel(t, &h.router, "Missing exchange rate · AUD / USD · Manual quote")
 	assertPageLabel(t, &h.router, "1 USD = 1.2345 AUD · Manual quote · 2026-08-02 11:00")
-	h.click("Swap dates", false)
+	h.click("Swap A and B", false)
 	h.click("Capture accounts", false)
 	page.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "A · 2026-08-02 · Coverage verified")
 	assertPageLabel(t, &h.router, "B · 2026-08-01 · Partial coverage")
-	h.click("Swap dates", false)
-	h.click("Compare with current", false)
+	h.click("Swap A and B", false)
+	h.click("Date vs. now", false)
 	h.click("Capture accounts", false)
 	page.workers.Wait()
 	h.frame()
@@ -544,9 +619,9 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatalf("Gio and Wails current comparisons disagree: %v, %v", err, page.accounts.err)
 	}
 	assertPageLabel(t, &h.router, "B · Current")
-	h.click("Trend", false)
+	h.click("Time trend", false)
 	assertPageLabel(t, &h.router, "2026-08-01 to 2026-08-02 · Base currency AUD · Asia/Singapore")
-	h.click("Accounts in Wealth history", false)
+	h.click("Account details", false)
 	assertPageLabel(t, &h.router, "B · Current")
 	if !page.accounts.changesOnly || gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatalf("comparison did not retain its filter or requested quotes: Gio %d, Wails %d", gioProvider.requests, wailsProvider.requests)

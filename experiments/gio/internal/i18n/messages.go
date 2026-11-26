@@ -538,6 +538,8 @@ const (
 	WealthHistoryRetained
 	WealthHistoryRangeHint
 	WealthHistoryLoad
+	WealthTrendFromDate
+	WealthTrendToDate
 	WealthHistoryCapture
 	WealthHistoryTable
 	WealthHistoryEmpty
@@ -553,7 +555,6 @@ const (
 	WealthHistoryScopeChanged
 	WealthHistoryBasisChanged
 	WealthHistoryFundingGap
-	WealthTrendChart
 	WealthTrendSelectedDate
 	WealthTrendSelectA
 	WealthTrendSelectB
@@ -610,6 +611,7 @@ const (
 	WealthAllocationCompare
 	WealthAllocationCapture
 	WealthAllocationFilter
+	WealthAllocationClearFilter
 	WealthAllocationBack
 	WealthAllocationClasses
 	WealthAllocationCurrencies
@@ -631,15 +633,19 @@ const (
 	WealthAllocationScopeChanged
 	WealthAllocationMembershipChanged
 	WealthAllocationShareUnavailable
-	WealthAccountTabName
+	WealthAccountTab
 	WealthTrendTab
 	WealthAccountSingle
 	WealthAccountCompareDate
 	WealthAccountCompareCurrent
 	WealthAccountCurrent
+	WealthCapturedCurrent
 	WealthAccountCapture
+	WealthAccountDate
 	WealthAccountDateA
 	WealthAccountDateB
+	WealthRefreshDate
+	WealthRefreshComparison
 	WealthAccountSideA
 	WealthAccountSideB
 	WealthAccountNetChange

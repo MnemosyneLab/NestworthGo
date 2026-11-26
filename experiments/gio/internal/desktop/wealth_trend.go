@@ -47,7 +47,7 @@ func wealthTrendLine(view ui.View, data application.HistoricalOverviewSeriesResu
 		}
 		series.Points = append(series.Points, wealthTrendPoint(view, p, date, unit, metric))
 	}
-	return charts.LineSpec{Label: l.Text(i18n.WealthTrendChart),
+	return charts.LineSpec{Label: l.Text(i18n.WealthTrendTab),
 		Summary: label + " · " + wealthDay(view, data.From) + " – " + wealthDay(view, data.To) + " · " + string(unit),
 		Series:  []charts.LineSeries{series}, From: from, To: to, Height: 260, Area: true,
 		FormatTime:  func(date time.Time) string { return ui.FormatDay(date, l, view.DateFormat) },

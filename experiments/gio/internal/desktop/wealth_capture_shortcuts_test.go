@@ -116,7 +116,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	}
 	settle()
 	assertCapture("2026-10-31", "")
-	date := assertPageLabel(t, &h.router, "Closed dates · 2026-10-20 – 2026-11-05 · Asia/Singapore")
+	date := assertPageLabel(t, &h.router, "Available dates: 2026-10-20 – 2026-11-05 · Asia/Singapore")
 	total := assertPageLabel(t, &h.router, "US$103.33")
 	coverage := assertPageLabel(t, &h.router, "2026-10-31 · Coverage verified")
 	if date.Min.Y >= total.Min.Y || total.Min.Y >= coverage.Min.Y {
@@ -148,7 +148,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	assertPageLabel(t, &h.router, "A · 2026-10-31")
 	assertPageLabel(t, &h.router, "US$103.33")
 
-	click("Accounts in Wealth history")
+	click("Account details")
 	click("Synthetic checking")
 	click("Valuation details")
 	click("View in Ledger activity")
