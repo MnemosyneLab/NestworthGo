@@ -689,16 +689,21 @@ func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, in
 		return (ui.Grid{MinColumn: 128, MaxColumns: len(fields), Gap: ui.Space8, Balanced: true}).Layout(gtx, view, len(fields), func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			field := fields[index]
 			label := holdingMetricLabel(l, field.label)
-			children := []ui.ColumnChild{
-				ui.Rigid(view.Body(ui.TextCaption, label, colors.SecondaryInk)),
-				ui.Rigid(view.Body(ui.TextLabel, field.value, field.ink)),
+			summary := fmt.Sprintf(l.Text(field.label), field.value)
+			column := ui.Column{Gap: ui.Space4}
+			amount := func(gtx layout.Context) layout.Dimensions {
+				return semanticRow(gtx, summary, func(gtx layout.Context) layout.Dimensions {
+					return column.Layout(gtx,
+						ui.Rigid(view.Body(ui.TextCaption, label, colors.SecondaryInk)),
+						ui.Rigid(view.Body(ui.TextLabel, field.value, field.ink)),
+					)
+				})
 			}
-			if field.reason != "" {
-				children = append(children, ui.Rigid(view.Body(ui.TextCaption, l.Text(holdingMissingReason(field.reason)), colors.SecondaryInk)))
+			if field.reason == "" {
+				return amount(gtx)
 			}
-			return semanticRow(gtx, fmt.Sprintf(l.Text(field.label), field.value), func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: ui.Space4}).Layout(gtx, children...)
-			})
+			reason := l.Text(holdingMissingReason(field.reason))
+			return column.Layout(gtx, ui.Rigid(amount), ui.Rigid(view.Body(ui.TextCaption, reason, colors.SecondaryInk)))
 		})
 	}
 }

@@ -19,6 +19,7 @@ import (
 const frameKey = "nestworth.accessibility"
 const bindingPrefix = "\x00"
 const hiddenDescription = "\x01"
+const summaryDescription = "\x02"
 
 // Roles are shared with bridge_darwin.m.
 type role uint8
@@ -238,6 +239,21 @@ func Modal(gtx layout.Context, tag any, name string, widget layout.Widget) layou
 	return track(gtx, binding{tag: tag, role: sheet, name: name, enabled: true}, widget)
 }
 
+// Summary labels the text in a row as a single sentence. The native bridge
+// retains tracked controls and groups alongside that label.
+func Summary(gtx layout.Context, label string, widget layout.Widget) layout.Dimensions {
+	recording := op.Record(gtx.Ops)
+	dims := widget(gtx)
+	content := recording.Stop()
+	defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
+	semantic.LabelOp(label).Add(gtx.Ops)
+	if forContext(gtx) != nil {
+		semantic.DescriptionOp(summaryDescription).Add(gtx.Ops)
+	}
+	content.Add(gtx.Ops)
+	return dims
+}
+
 // Hidden keeps a laid-out subtree out of the native accessibility tree.
 // The caller owns the input policy for the underlying widgets.
 func Hidden(gtx layout.Context, widget layout.Widget) layout.Dimensions {
@@ -340,13 +356,15 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			continue
 		}
 
+		hideChildLabels := hideLabels
 		if !hideLabels && !bounds.Empty() && desc.Label != "" {
 			id := uint64(node.ID) << 1
 			e := makeElement(id, parent, staticText, desc.Label, bounds)
 			e.Value = desc.Label
 			out = append(out, e)
+			hideChildLabels = desc.Description == summaryDescription
 		}
-		out = f.collect(out, node.Children, parent, viewport, hideLabels)
+		out = f.collect(out, node.Children, parent, viewport, hideChildLabels)
 	}
 	return out
 }

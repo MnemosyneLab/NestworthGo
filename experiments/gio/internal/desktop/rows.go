@@ -5,11 +5,9 @@ import (
 	"image/color"
 	"strings"
 
-	"gioui.org/io/semantic"
 	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
@@ -67,35 +65,23 @@ func headingRow(view ui.View, full, name, value string, ink color.NRGBA) layout.
 
 func styledRow(view ui.View, full, name string, style ui.TextStyle, nameInk color.NRGBA, value string, ink color.NRGBA) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		macro := op.Record(gtx.Ops)
-		dims := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return view.Body(style, name, nameInk)(gtx)
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextLabel, value, ink)
-			}),
-		)
-		call := macro.Stop()
-		area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
-		semantic.LabelOp(full).Add(gtx.Ops)
-		call.Add(gtx.Ops)
-		area.Pop()
-		return dims
+		return semanticRow(gtx, full, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return view.Body(style, name, nameInk)(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.Line(gtx, ui.TextLabel, value, ink)
+				}),
+			)
+		})
 	}
 }
 
 // semanticRow draws content under one accessible label, for a row whose parts
 // read as a single sentence.
 func semanticRow(gtx layout.Context, label string, content layout.Widget) layout.Dimensions {
-	macro := op.Record(gtx.Ops)
-	dims := content(gtx)
-	call := macro.Stop()
-	area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
-	semantic.LabelOp(label).Add(gtx.Ops)
-	call.Add(gtx.Ops)
-	area.Pop()
-	return dims
+	return accessibility.Summary(gtx, label, content)
 }
 
 // emptyState is a centered note in a card, for lists that have nothing to show.

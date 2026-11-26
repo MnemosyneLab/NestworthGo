@@ -208,6 +208,75 @@ func TestFrameModalExcludesBackgroundAndRetiresItsActions(t *testing.T) {
 	}
 }
 
+func TestFrameSummarySuppressesVisualLabelsAndPreservesControls(t *testing.T) {
+	var bridge frame
+	var router input.Router
+	var ops op.Ops
+	var edit widget.Clickable
+	var editor widget.Editor
+	var pressed bool
+	const summary = "Cost basis · €1,000.00"
+	render := func(req request) ([]element, layout.Dimensions) {
+		ops.Reset()
+		gtx := bridge.start(layout.Context{Ops: &ops, Source: router.Source(), Constraints: layout.Constraints{Max: image.Pt(400, 240)}}, req)
+		dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return Summary(gtx, summary, func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return testLabel(gtx, "Cost basis") }),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return testLabel(gtx, "€1,000.00") }),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							pressed = edit.Clicked(gtx)
+							return Button(gtx, &edit, "Edit cost", "", false, func(gtx layout.Context) layout.Dimensions {
+								return edit.Layout(gtx, func(gtx layout.Context) layout.Dimensions { return testLabel(gtx, "Edit") })
+							})
+						}),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							ApplyEditor(gtx, &editor)
+							return Editor(gtx, &editor, "Note", "", func(gtx layout.Context) layout.Dimensions {
+								return testLabel(gtx, "Editor placeholder")
+							})
+						}),
+					)
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return Summary(gtx, "", func(gtx layout.Context) layout.Dimensions {
+					return testLabel(gtx, "Acquisition source unavailable")
+				})
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return testLabel(gtx, "Other balance") }),
+		)
+		router.Frame(gtx.Ops)
+		bridge.snapshot(gtx)
+		return bridge.last, dims
+	}
+	nodes, dims := render(request{})
+	if dims.Size != image.Pt(100, 150) {
+		t.Fatalf("summary changed the layout size: %v", dims.Size)
+	}
+	var names []string
+	for _, node := range nodes {
+		names = append(names, node.Name)
+	}
+	if !slices.Equal(names, []string{summary, "Edit cost", "Note", "Acquisition source unavailable", "Other balance"}) {
+		t.Fatalf("native summary or neighbouring controls missing or repeated: %+v", nodes)
+	}
+	for _, label := range []string{summary, "Cost basis", "€1,000.00"} {
+		if !slices.ContainsFunc(router.AppendSemantics(nil), func(node input.SemanticNode) bool { return node.Desc.Label == label }) {
+			t.Fatalf("ordinary Gio semantics lost %q", label)
+		}
+	}
+	render(request{id: nodes[1].ID, action: press})
+	if !pressed || !nodes[1].Pressable {
+		t.Fatal("the summarized row lost its button action")
+	}
+	updated, _ := render(request{id: nodes[2].ID, action: setValue, value: "Checked"})
+	if !updated[2].Editable || updated[2].Value != "Checked" {
+		t.Fatalf("the summarized row lost its editor action: %+v", updated[2])
+	}
+}
+
 func testLabel(gtx layout.Context, label string) layout.Dimensions {
 	size := image.Pt(100, 25)
 	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
