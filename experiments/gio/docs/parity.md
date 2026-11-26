@@ -117,11 +117,11 @@ Wails. Current, Closed and All filter those rows. Closed positions carry their
 recorded amounts, and the currency totals cover current positions. Group
 disclosure, sorting and the position filter survive Back. Opening instrument
 detail, Ledger activity or analysis retains the source account. An eligible
-cash dividend starts with the selected holding fixed and credits only its selected cash currency. The targeted
-Gio regression covers the closed position of an instrument held in two accounts
-and the account-specific dividend entry. A separate paired test checks an exact
-EUR credit to a USD brokerage without changing its USD balance, holding quantity
-or cost. Inline price performance remains open.
+cash dividend starts with the selected holding fixed and credits the selected
+cash currency. The targeted Gio regression covers the closed position of an
+instrument held in two accounts and the account-specific dividend entry. A
+separate paired test checks an exact EUR credit to a USD brokerage while
+retaining its USD balance, holding quantity and cost.
 
 ### Ledger row summaries and date shortcuts
 
@@ -142,13 +142,28 @@ recorded quantities and the direction of adjustments. Custody transfers
 show both readable account names. An unavailable holding reference leaves the
 other facts visible. Reload retries the reference read.
 
+### Reservation and grouped undo acceptance
+
+The paired macOS native run at `0df199b` started Gio and Wails from independent
+copies of one synthetic household. Both saved and released the selected EUR
+reservation under the same custom date and retained the same-name USD
+reservation. The released EUR record and restored product reservation remained
+available after a normal quit and reopen. Gio presents released rows in the
+manager, and Wails presents them under a released-history disclosure.
+
+In both apps, Accounts opened the settled contract through Managed Products.
+Readback before and after the grouped undo preview matched for cash, product,
+reservation and operation records. Confirmation restored the same exact cash
+and contract value, reactivated the original reservation, and recorded one
+linked undo receipt. The paired Gio regression also rejects a stale reservation
+revision, loads a fresh preview, and replays the confirmed request after a
+lost response. Renewal retains its Reconciliation workflow.
+
 ## Remaining Stage 1–6 work
 
-1. Compare reservation management and grouped undo interactively. Treat
-   renewal as a Reconciliation workflow until a standalone Wails entry point
-   is traced.
-2. Close the remaining account-scope investment and specialized card statement
-   gaps. Analysis still needs Wealth History capture shortcuts, additional
+1. Close the remaining account-scope investment and specialized card statement
+   gaps, including Market performance in instrument detail.
+2. Analysis still needs Wealth History capture shortcuts, additional
    Contribution detail and remaining provider and coverage recovery flows.
 
 The [Stage 6 exit gates](roadmap.md#stage-6-exit-gates) track acceptance work
