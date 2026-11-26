@@ -871,7 +871,7 @@ var simplifiedChineseCatalog = catalog{
 	WealthAllocationMembershipChanged: "分类构成已变更。",
 	WealthAllocationShareUnavailable:  "对比占比需要完整的非负余额和正数总额。",
 
-	ReturnCalendar: "日历",
+	ReturnCalendar: "收益日历",
 	ReturnToday:    "今天",
 
 	ReturnMonth:        "月",
@@ -906,6 +906,7 @@ var simplifiedChineseCatalog = catalog{
 	ReturnAmountOnly:       "仅有收益金额的天数 %d",
 	ReturnTrend:            "收益趋势",
 	ReturnContribution:     "贡献",
+	ReturnContributionTab:  "标的贡献",
 	ReturnCumulative:       "累计收益",
 	ReturnLinked:           "收益率",
 	ReturnPeriodAmount:     "期间收益",

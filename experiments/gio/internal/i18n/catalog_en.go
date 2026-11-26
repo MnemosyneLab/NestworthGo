@@ -871,7 +871,7 @@ var englishCatalog = catalog{
 	WealthAllocationMembershipChanged: "Category membership changed.",
 	WealthAllocationShareUnavailable:  "Share comparison requires complete nonnegative balances and positive totals.",
 
-	ReturnCalendar: "Calendar",
+	ReturnCalendar: "Return calendar",
 	ReturnToday:    "Today",
 
 	ReturnMonth:        "Month",
@@ -906,6 +906,7 @@ var englishCatalog = catalog{
 	ReturnAmountOnly:       "Days with an amount and no rate %d",
 	ReturnTrend:            "Return trend",
 	ReturnContribution:     "Contribution",
+	ReturnContributionTab:  "Contribution",
 	ReturnCumulative:       "Cumulative Return",
 	ReturnLinked:           "Return %",
 	ReturnPeriodAmount:     "Period Return",

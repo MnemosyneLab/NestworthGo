@@ -723,6 +723,7 @@ const (
 	ReturnAmountOnly
 	ReturnTrend
 	ReturnContribution
+	ReturnContributionTab
 	ReturnCumulative
 	ReturnLinked
 	ReturnPeriodAmount

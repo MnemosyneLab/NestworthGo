@@ -871,7 +871,7 @@ var traditionalChineseCatalog = catalog{
 	WealthAllocationMembershipChanged: "分類構成已變更。",
 	WealthAllocationShareUnavailable:  "比較占比需要完整的非負餘額和正數總額。",
 
-	ReturnCalendar: "日曆",
+	ReturnCalendar: "收益日曆",
 	ReturnToday:    "今天",
 
 	ReturnMonth:        "月",
@@ -906,6 +906,7 @@ var traditionalChineseCatalog = catalog{
 	ReturnAmountOnly:       "僅有收益金額的天數 %d",
 	ReturnTrend:            "收益趨勢",
 	ReturnContribution:     "貢獻",
+	ReturnContributionTab:  "標的貢獻",
 	ReturnCumulative:       "累計收益",
 	ReturnLinked:           "收益率",
 	ReturnPeriodAmount:     "期間收益",

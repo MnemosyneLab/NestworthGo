@@ -78,7 +78,7 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 }
 
 func (p *returnAnalysisPage) layoutTabs(gtx layout.Context, view ui.View) layout.Dimensions {
-	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContribution}
+	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContributionTab}
 	return view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
 		return view.TabSegment(&p.tabs[index], view.Language.Text(labels[index]), p.tab == returnAnalysisTab(index))(gtx)
 	})

@@ -9,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -46,6 +49,27 @@ func (r *retryReturnReads) AssetDriverDetail(ctx context.Context, query domain.A
 		return application.AssetDriverDetailResult{}, errors.New("synthetic driver error")
 	}
 	return r.Service.AssetDriverDetail(ctx, query, bucket)
+}
+
+func TestReturnAnalysisTabLabelsMatchWails(t *testing.T) {
+	for _, tc := range []struct {
+		language i18n.Language
+		labels   [3]string
+	}{
+		{i18n.English, [3]string{"Return calendar", "Return trend", "Contribution"}},
+		{i18n.SimplifiedChinese, [3]string{"收益日历", "收益趋势", "标的贡献"}},
+	} {
+		t.Run(string(tc.language), func(t *testing.T) {
+			view := ui.View{Theme: ui.NewTheme(), Language: tc.language, Colors: &lightPalette}
+			gtx := chartTableContext(650)
+			new(returnAnalysisPage).layoutTabs(gtx, view)
+			var router input.Router
+			router.Frame(gtx.Ops)
+			for _, label := range tc.labels {
+				assertPageLabel(t, &router, label)
+			}
+		})
+	}
 }
 
 func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
@@ -733,13 +757,13 @@ func TestReturnAnalysisTabsKeepWailsMonthAndFilters(t *testing.T) {
 	h.click("Return trend", false)
 	settle()
 	want(reader.lastTrend, "2026-08-31")
-	h.click("Calendar", false)
+	h.click("Return calendar", false)
 	settle()
 	assertPageLabel(t, &h.router, "August 2026")
 	h.click("Contribution", false)
 	settle()
 	want(reader.lastRanks, "2026-08-31")
-	h.click("Calendar", false)
+	h.click("Return calendar", false)
 	settle()
 	assertPageLabel(t, &h.router, "August 2026")
 	if p.filters.selection.from != "2026-08-01" || p.filters.selection.to != "2026-08-31" {

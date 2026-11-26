@@ -870,7 +870,7 @@ var japaneseCatalog = catalog{
 	WealthAllocationMembershipChanged: "カテゴリの構成が変わりました。",
 	WealthAllocationShareUnavailable:  "構成比の比較には欠けのない非負の残高と正の合計が必要です。",
 
-	ReturnCalendar: "カレンダー",
+	ReturnCalendar: "収益カレンダー",
 	ReturnToday:    "今日",
 
 	ReturnMonth:        "月",
@@ -905,6 +905,7 @@ var japaneseCatalog = catalog{
 	ReturnAmountOnly:       "金額のみ算出できた日数 %d",
 	ReturnTrend:            "収益の推移",
 	ReturnContribution:     "寄与度",
+	ReturnContributionTab:  "寄与度",
 	ReturnCumulative:       "累積リターン",
 	ReturnLinked:           "リターン率",
 	ReturnPeriodAmount:     "期間リターン",
