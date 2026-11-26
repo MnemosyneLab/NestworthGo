@@ -37,23 +37,17 @@ type portfolioCatalogRead struct {
 }
 
 type portfolioCatalogVisit struct {
-	active bool
-	query  string
-	other  layout.Position
+	query string
 }
 
 type portfolioCatalog struct {
-	ledger   portfolioCatalogLedger
-	active   bool
-	other    layout.Position
-	search   ui.SearchField
-	add      widget.Clickable
-	holdings widget.Clickable
-	tab      widget.Clickable
-	links    map[domain.InstrumentID]*portfolioCatalogActions
-	draft    *portfolioCatalogDraft
-	notice   i18n.MessageID
-	focus    *widget.Clickable
+	ledger portfolioCatalogLedger
+	search ui.SearchField
+	add    widget.Clickable
+	links  map[domain.InstrumentID]*portfolioCatalogActions
+	draft  *portfolioCatalogDraft
+	notice i18n.MessageID
+	focus  *widget.Clickable
 }
 
 type portfolioCatalogActions struct {
@@ -109,30 +103,12 @@ func readPortfolioCatalog(ctx context.Context, service portfolioReader) (out por
 }
 
 func (c *portfolioCatalog) visit() portfolioCatalogVisit {
-	return portfolioCatalogVisit{active: c.active, query: c.search.Field.Text(), other: c.other}
+	return portfolioCatalogVisit{query: c.search.Field.Text()}
 }
 
 func (c *portfolioCatalog) restore(visit portfolioCatalogVisit) {
-	c.active, c.other, c.draft, c.notice, c.focus = visit.active, visit.other, nil, i18n.NoMessage, nil
+	c.draft, c.notice, c.focus = nil, i18n.NoMessage, nil
 	c.search.Field.Editor.SetText(visit.query)
-}
-
-func (p *portfolioPage) catalogTabs(gtx layout.Context, view ui.View) layout.Dimensions {
-	c, l := &p.catalog, view.Language
-	if c.holdings.Clicked(gtx) && c.active || c.tab.Clicked(gtx) && !c.active {
-		c.active = !c.active
-		p.list.Position, c.other = c.other, p.list.Position
-		p.current = nil
-		p.read()
-		view.RestorePageScroll(0)
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	return view.TabTrack(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
-		if i == 0 {
-			return view.TabSegment(&c.holdings, l.Text(i18n.PortfolioMyHoldings), !c.active)(gtx)
-		}
-		return view.TabSegment(&c.tab, l.Text(i18n.MarketInstruments), c.active)(gtx)
-	})
 }
 
 func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout.Dimensions {

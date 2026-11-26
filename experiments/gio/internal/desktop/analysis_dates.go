@@ -40,6 +40,9 @@ type analysisDateShortcuts struct {
 	// showRange writes the selected dates between the arrows. Leave it off
 	// where date fields beside the control already show them.
 	showRange bool
+	// oneDayLabel gives charts that include today's estimate a date label
+	// that does not imply a closed day.
+	oneDayLabel i18n.MessageID
 	// pinnedPreset, when pinned is set, stays highlighted even if the dates
 	// also match an earlier shortcut. Overview pins All history. Leave pinned
 	// unset and the shortcut is inferred from the dates.
@@ -138,6 +141,9 @@ func (p *analysisDateShortcuts) layout(gtx layout.Context, view ui.View, current
 	track := func(gtx layout.Context) layout.Dimensions {
 		return view.TabTrack(gtx, len(analysisDatePresets), func(gtx layout.Context, index int) layout.Dimensions {
 			preset := analysisDatePresets[index]
+			if index == 0 && p.oneDayLabel != i18n.NoMessage {
+				preset.label = p.oneDayLabel
+			}
 			return view.TabSegmentNamed(&p.presets[index], l.Text(preset.short), l.Text(preset.label), index == active)(gtx)
 		})
 	}

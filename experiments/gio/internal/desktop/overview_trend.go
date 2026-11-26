@@ -409,7 +409,16 @@ func overviewTrendCoverage(view ui.View, point domain.NetWorthTrendPoint) string
 	if point.MissingCount > 0 {
 		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), point.MissingCount))
 	}
-	q := point.DisplayValuation.NetWorth.Quality
+	parts = append(parts, trendQuoteCoverage(view, point.DisplayValuation.NetWorth.Quality)...)
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func trendQuoteCoverage(view ui.View, q domain.ValuationQuality) []string {
+	l := view.Language
+	var parts []string
 	if q.OldestMarketDate != nil {
 		dates := wealthDay(view, *q.OldestMarketDate)
 		if q.NewestMarketDate != nil && *q.NewestMarketDate != *q.OldestMarketDate {
@@ -420,10 +429,7 @@ func overviewTrendCoverage(view ui.View, point domain.NetWorthTrendPoint) string
 	if q.CarriedCount > 0 || q.StaleCount > 0 {
 		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryQuoteAge), q.CarriedCount, q.StaleCount))
 	}
-	if len(parts) == 0 {
-		return "—"
-	}
-	return strings.Join(parts, " · ")
+	return parts
 }
 
 // chartAxisNumber labels a value tick as a grouped whole number, as the Wails

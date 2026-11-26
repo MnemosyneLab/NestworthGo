@@ -51,6 +51,7 @@ type portfolioRead struct {
 	managed        bool
 	product        *application.ProductDetail
 	catalog        *portfolioCatalogRead
+	allocation     *portfolioAllocationRead
 }
 
 func readPortfolio(ctx context.Context, service portfolioReader, id domain.InstrumentID, account domain.AccountID) (out portfolioRead, err error) {
@@ -134,6 +135,8 @@ type portfolioPage struct {
 	clock        func() time.Time
 	holdings     portfolioHoldings
 	catalog      portfolioCatalog
+	tabs         portfolioTabs
+	allocation   portfolioAllocation
 
 	search                ui.SearchField
 	list                  widget.List
@@ -168,6 +171,11 @@ func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.Accou
 }
 
 func (p *portfolioPage) leave() {
+	p.retireRead()
+	p.allocation.retireTrend()
+}
+
+func (p *portfolioPage) retireRead() {
 	if p.cancel != nil {
 		p.cancel()
 	}
@@ -186,10 +194,16 @@ func (p *portfolioPage) read() {
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
 	id, account := p.id, p.accountScope
-	catalog := id == "" && p.catalog.active
+	tab := p.tabs.active
+	p.allocation.stale = true
 	p.request = runHistoryRead(&p.workers, p.invalidate, func() (portfolioRead, error) {
-		if catalog {
-			return readPortfolioCatalog(ctx, p.service)
+		if id == "" {
+			switch tab {
+			case portfolioInstruments:
+				return readPortfolioCatalog(ctx, p.service)
+			case portfolioAllocationTab:
+				return readPortfolioAllocation(ctx, p.service)
+			}
 		}
 		return readPortfolio(ctx, p.service, id, account)
 	})
@@ -198,7 +212,7 @@ func (p *portfolioPage) read() {
 func (p *portfolioPage) update() {
 	select {
 	case result := <-p.request:
-		p.leave()
+		p.retireRead()
 		p.err = result.err
 		if p.err == nil {
 			p.current = &result.value
@@ -209,6 +223,7 @@ func (p *portfolioPage) update() {
 
 func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	p.updateAllocationTrend(gtx, view)
 	p.pollCatalogDraft()
 	if p.catalog.draft != nil {
 		return p.layoutCatalogDraft(gtx, view)
@@ -278,16 +293,20 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			if p.id != "" {
 				return layout.Dimensions{}
 			}
-			return p.catalogTabs(gtx, view)
+			return p.layoutPortfolioTabs(gtx, view)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" || p.current == nil {
 				return layout.Dimensions{}
 			}
-			if p.catalog.active {
+			switch p.tabs.active {
+			case portfolioInstruments:
 				return p.catalogControls(gtx, view)
+			case portfolioAllocationTab:
+				return layout.Dimensions{}
+			default:
+				return p.holdingsControls(gtx, view)
 			}
-			return p.holdingsControls(gtx, view)
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if p.current == nil {
@@ -302,7 +321,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 }
 
 func (p *portfolioPage) canImportPosition() bool {
-	return p.id == "" && !p.catalog.active && p.investment != nil && p.investment.onPosted != nil && p.current != nil && len(p.current.importAccounts) != 0
+	return p.id == "" && p.tabs.active == portfolioHoldingsTab && p.investment != nil && p.investment.onPosted != nil && p.current != nil && len(p.current.importAccounts) != 0
 }
 
 func (p *portfolioPage) rows(view ui.View) []layout.Widget {
@@ -346,10 +365,14 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			})
 		})
 	}
-	if p.catalog.active {
+	switch p.tabs.active {
+	case portfolioInstruments:
 		return append(rows, p.catalogRows(view)...)
+	case portfolioAllocationTab:
+		return append(rows, p.allocationRows(view, summary)...)
+	default:
+		return append(rows, p.holdingsRows(view)...)
 	}
-	return append(rows, p.holdingsRows(view)...)
 }
 
 func portfolioButton[ID comparable](buttons map[ID]*widget.Clickable, id ID) *widget.Clickable {

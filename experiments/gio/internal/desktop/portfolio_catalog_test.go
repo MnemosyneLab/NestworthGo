@@ -135,7 +135,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	settle()
 	click("Investment assets")
 	click("Instruments")
-	if port.current.catalog == nil || port.current.groups != nil || !port.catalog.active {
+	if port.current.catalog == nil || port.current.groups != nil || port.tabs.active != portfolioInstruments {
 		t.Fatal("the instrument tab did not load the catalog")
 	}
 	setBankField(h, "Search instruments", &port.catalog.search.Field, "qa-bond")
@@ -150,7 +150,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 		t.Fatal("unheld instrument did not open restored instrument details")
 	}
 	click("Back")
-	if !port.catalog.active || port.catalog.search.Field.Text() != "qa-bond" {
+	if port.tabs.active != portfolioInstruments || port.catalog.search.Field.Text() != "qa-bond" {
 		t.Fatal("Back did not restore the instrument list and query")
 	}
 	h.focused(&port.catalog.links[instrument.ID].open)

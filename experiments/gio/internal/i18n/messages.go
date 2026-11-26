@@ -1430,6 +1430,16 @@ const (
 	SettingsPending
 	PickerNoMatches
 	PortfolioLoading
+	PortfolioAllocationTab
+	PortfolioAllocationEmpty
+	PortfolioAllocationAccounts
+	PortfolioValuedHoldings
+	PortfolioTrendBasis
+	PortfolioTrendDay
+	PortfolioTrendFailed
+	PortfolioTrendRetained
+	PortfolioTrendEmpty
+	PortfolioTrendVerified
 	PortfolioReadFailed
 	PortfolioSearch
 	PortfolioSearchHint

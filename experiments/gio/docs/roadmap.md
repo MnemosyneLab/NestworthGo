@@ -1252,7 +1252,7 @@ the prior visit, including search, scroll and available source focus.
 | Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
 | Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. Allocation and performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
+| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. See [Allocation and portfolio trend](#allocation-and-portfolio-trend) for the composition and historical value. Performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
 
 #### My holdings groups
 
@@ -1270,14 +1270,33 @@ Instrument, account and managed-product links use their existing destinations.
 The row actions open the existing Ledger activity, Return Analysis and Asset
 Changes with instrument and optional account scope. Back restores the search,
 disclosures, position and source focus. The shared money formatter supplies
-the currency symbol once. Table-column sorting and the other Investment Assets
-tabs remain open.
+the currency symbol once. Column sorting applies within the current instrument
+or account view.
 
 | Check | Evidence |
 | --- | --- |
 | Paired macOS 27.2.1 ARM64 | The same synthetic holdings showed USD 232.95 known value in both apps. Stocks had independent EUR 78.625 cost, 101.875 value and +23.25 gain, and GBP 133 cost, 82 value and −51 loss. The five EUR units expanded into two accounts with gains of EUR 10.5 and 12.75. [Wails groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/wails-holdings.jpg) · [Gio groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings.jpg) |
 | Native coverage and navigation | JPY 360 cost remained available with market value and gain missing. A separate pre-History fixture showed S$57.00 market value with unavailable cost and gain. Search, collapse and expand, account detail and Back worked. The Ledger link kept the account and instrument. At 700 × 480, Tab and Return opened the holding actions and scoped Return Analysis to the selected instrument. [Narrow JPY holding](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-narrow.jpg) · [SGD missing cost](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-missing-cost.jpg) |
 | Automated workflow | Compact frame tests compare the exact Go projection and Wails adapter, including zero, mixed currencies, independent cost and value availability, account-scoped detail, all three analysis actions and Back focus. VoiceOver, native IME and Wayland acceptance remain open. |
+
+#### Allocation and portfolio trend
+
+**Investment assets → Allocation & trend** shows instrument types and shares,
+portfolio value over time, and the accounts that contribute to the portfolio.
+The allocation and account rows use the shared portfolio read. The trend uses
+its own shared read, with the last month by default and the earliest day set by
+History. The date shortcuts and adjacent range buttons use ledger civil dates.
+Cash stays outside the portfolio. Incomplete valuations leave gaps in the line
+and show any known subtotal separately in the data table. The included accounts
+open exact Accounts records and Back restores the active tab, range, chart
+table and focus. The trend loads only when its tab is active and the portfolio
+has holdings. [Wails Allocation & trend](../../../frontend/src/features/portfolio/PortfolioPage.tsx)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic ledgers agreed on USD 108.4442 of known holdings, instrument-type amounts and shares, and the current trend row's partial coverage. The ledgers also held USD 100 of cash. |
+| Gio shell test | Exercises the Singapore ledger-day boundary, last day and neighboring periods, retry, separate partial and zero values in the chart and table, and Back from an included account. |
+| Open evidence | Native Wails and Gio window acceptance remains open for this slice. |
 
 #### First recorded security buy
 
