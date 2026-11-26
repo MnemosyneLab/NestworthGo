@@ -135,7 +135,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	h.click("Back to ledger activity", false)
 	finish()
 
-	pick("Account filter", "Reserve", "Cash Reserve · Archived")
+	pick("Account", "Reserve", "Cash Reserve · Archived")
 	reserveID := reserve.String()
 	compare(query(historyapi.ActivityQueryRequest{AccountID: &reserveID}).Activities)
 	if page.model.Filters().Account != reserve || page.list.Position.First != 0 {
@@ -150,7 +150,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	}
 	h.click("Back to ledger activity", false)
 	finish()
-	h.click("Activity type", true)
+	h.click("Kind", true)
 	h.click("Currency conversion", false)
 	finish()
 	label("No activity matches these filters.")
@@ -175,7 +175,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	h.click("Clear filters", false)
 	finish()
 
-	h.click("Activity type", true)
+	h.click("Kind", true)
 	h.click("Cash transfer", false)
 	finish()
 	compare(query(historyapi.ActivityQueryRequest{Kinds: []string{"cash_transfer"}}).Activities)
@@ -193,8 +193,8 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	h.click("Clear filters", false)
 	finish()
 
-	pick("Instrument filter", "BOND", instrument.SelectionLabel())
-	for _, field := range []string{"From date", "Through date"} {
+	pick("Instrument", "BOND", instrument.SelectionLabel())
+	for _, field := range []string{"From date", "To date"} {
 		h.click(field, true)
 		h.press(key.NameLeftArrow)
 		h.press(key.NameReturn)
@@ -252,7 +252,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	label("External inflow")
 	h.click("Back to ledger activity", false)
 	finish()
-	label("Could not load activity history.")
+	label("Activity could not be loaded.")
 	h.click("Retry", false)
 	finish()
 	if page.model.Filters().Instrument != instrument.ID || len(page.model.Rows()) != 1 || page.model.Rows()[0].ID != tradeID ||

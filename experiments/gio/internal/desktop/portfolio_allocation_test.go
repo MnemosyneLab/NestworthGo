@@ -178,7 +178,7 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 	}
 	h.focused(portfolioButton(page.accounts, ids.account))
 	reads := len(probe.requests())
-	click("Instruments")
+	click("All instruments")
 	if len(probe.requests()) != reads {
 		t.Fatal("the catalog read the allocation trend")
 	}

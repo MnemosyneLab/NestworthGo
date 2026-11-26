@@ -97,7 +97,7 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 	label("Cash dividend · US$12.50 · AAPL · Sample Brokerage")
 	label("Cash dividend · US$12.35 (12.3456 USD) · AAPL · Sample Brokerage")
 
-	pickAccountReference(h, "Account filter", "AUD Cash", "AUD Cash")
+	pickAccountReference(h, "Account", "AUD Cash", "AUD Cash")
 	settle()
 	assertRange := func(from, to string) {
 		t.Helper()

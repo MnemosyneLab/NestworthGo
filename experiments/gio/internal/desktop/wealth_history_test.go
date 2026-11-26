@@ -464,7 +464,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatalf("Gio and Wails endpoint captures disagree: %v", page.accounts.err)
 	}
 	assertPageLabel(t, &h.router, "A · 2026-08-01 · Partial coverage")
-	assertPageLabel(t, &h.router, "B · 2026-08-02 · Complete coverage")
+	assertPageLabel(t, &h.router, "B · 2026-08-02 · Coverage verified")
 	h.click("Category comparison", false)
 	assertPageLabel(t, &h.router, "A · Missing valuation")
 	assertPageLabel(t, &h.router, "B · A$123.51")
@@ -532,7 +532,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	h.click("Capture accounts", false)
 	page.workers.Wait()
 	h.frame()
-	assertPageLabel(t, &h.router, "A · 2026-08-02 · Complete coverage")
+	assertPageLabel(t, &h.router, "A · 2026-08-02 · Coverage verified")
 	assertPageLabel(t, &h.router, "B · 2026-08-01 · Partial coverage")
 	h.click("Swap dates", false)
 	h.click("Compare with current", false)

@@ -290,7 +290,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	click("Confirm Starting Point")
 	label("Could not verify the Starting Point. Retry checks the saved state.")
 	click("Retry")
-	label("No changes have been recorded yet.")
+	label("No activity yet")
 	if start.writes.Load() != 2 {
 		t.Fatal("Starting Point verification issued another write")
 	}

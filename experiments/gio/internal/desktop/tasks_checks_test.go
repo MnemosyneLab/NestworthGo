@@ -253,7 +253,7 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 		t.Fatal("Forward lost the exact statement session")
 	}
 	click("Back")
-	click("Upcoming")
+	click("Upcoming actions")
 	label("Upcoming actions")
 	click("All actions")
 	label("Receipt schedule incomplete")

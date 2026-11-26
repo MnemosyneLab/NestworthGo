@@ -136,7 +136,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	}
 
 	click("Ledger activity")
-	h.click("Activity type", true)
+	h.click("Kind", true)
 	click("Money removed")
 	wantFilter := history.Filters{Kind: domain.ActivityCashOut}
 	timelineID := h.shell.trail.current().id

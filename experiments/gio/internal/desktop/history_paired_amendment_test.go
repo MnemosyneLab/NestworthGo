@@ -130,7 +130,7 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 		Sent: changed.Amount, SentCurrency: "USD", Received: changed.Received, ReceivedCurrency: "EUR", Fee: changed.Fee, FeeCurrency: "USD"}
 	h.frame()
 	click("Ledger activity")
-	h.click("Activity type", true)
+	h.click("Kind", true)
 	click("Cash transfer")
 	click("View")
 	if page.reads.detail.id != ids[1] {

@@ -1495,6 +1495,7 @@ const (
 	PortfolioInstrumentHistory
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
+	PortfolioAllInstruments
 	PortfolioInstrumentHoldings
 	PortfolioInstrumentPerformance
 	PortfolioInstrumentData

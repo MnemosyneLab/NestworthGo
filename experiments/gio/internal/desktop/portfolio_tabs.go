@@ -17,7 +17,7 @@ const (
 	portfolioAllocationTab
 )
 
-var portfolioTabLabels = [...]i18n.MessageID{i18n.PortfolioMyHoldings, i18n.MarketInstruments, i18n.PortfolioAllocationTab}
+var portfolioTabLabels = [...]i18n.MessageID{i18n.PortfolioMyHoldings, i18n.PortfolioAllInstruments, i18n.PortfolioAllocationTab}
 
 type portfolioTabs struct {
 	active    portfolioTab

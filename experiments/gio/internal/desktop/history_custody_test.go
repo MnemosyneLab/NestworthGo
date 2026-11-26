@@ -292,7 +292,7 @@ func TestLedgerCollapsedCustodyNamesAndExactQuantity(t *testing.T) {
 	h.click("Ledger activity", false)
 	wait()
 	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY")
-	assertPageLabel(t, &h.router, "Account filter")
+	assertPageLabel(t, &h.router, "Account")
 
 	h.click("Reload", false)
 	wait()

@@ -124,7 +124,7 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 	}
 	filter := func(title string) {
 		t.Helper()
-		h.click("Activity type", true)
+		h.click("Kind", true)
 		click(title)
 	}
 

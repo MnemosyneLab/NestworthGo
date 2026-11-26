@@ -47,7 +47,7 @@ func TestPortfolioCatalogCreateFromProviderPopulatesAndPreservesIdentity(t *test
 	}
 	settle()
 	click("Investment assets")
-	click("Instruments")
+	click("All instruments")
 	click("Add instrument")
 	d := port.catalog.draft
 	if d == nil || d.config.currency != port.current.summary.Currency || d.config.source != domain.QuoteSourceProvider {
@@ -134,7 +134,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	}
 	settle()
 	click("Investment assets")
-	click("Instruments")
+	click("All instruments")
 	if port.current.catalog == nil || port.current.groups != nil || port.tabs.active != portfolioInstruments {
 		t.Fatal("the instrument tab did not load the catalog")
 	}

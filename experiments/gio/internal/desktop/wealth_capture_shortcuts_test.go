@@ -118,7 +118,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	assertCapture("2026-10-31", "")
 	date := assertPageLabel(t, &h.router, "Closed dates · 2026-10-20 – 2026-11-05 · Asia/Singapore")
 	total := assertPageLabel(t, &h.router, "US$103.33")
-	coverage := assertPageLabel(t, &h.router, "2026-10-31 · Complete coverage")
+	coverage := assertPageLabel(t, &h.router, "2026-10-31 · Coverage verified")
 	if date.Min.Y >= total.Min.Y || total.Min.Y >= coverage.Min.Y {
 		t.Fatalf("expected capture dates, headline totals and coverage in that order: %v, %v, %v", date, total, coverage)
 	}

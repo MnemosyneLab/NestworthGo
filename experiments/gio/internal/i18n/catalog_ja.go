@@ -1523,6 +1523,7 @@ var japaneseCatalog = catalog{
 	PortfolioOpenInstrument:        "銘柄を開く · %s",
 
 	PortfolioMyHoldings:               "保有銘柄",
+	PortfolioAllInstruments:           "すべての銘柄",
 	PortfolioInstrumentHoldings:       "保有状況",
 	PortfolioInstrumentPerformance:    "パフォーマンス",
 	PortfolioInstrumentData:           "データ",
