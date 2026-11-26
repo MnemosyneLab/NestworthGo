@@ -39,7 +39,7 @@ func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
 	frame()
 	h.click("Investment assets", false)
 	frame()
-	h.click("Instruments", false)
+	h.click("All instruments", false)
 	frame()
 
 	older := added
