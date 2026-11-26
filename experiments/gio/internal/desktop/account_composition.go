@@ -82,7 +82,7 @@ func (p *accountsPage) accountComposition(view ui.View, composition *domain.Acco
 				rows = append(rows, ui.Rigid(labeledRow(view, row.Label+" · "+row.Value, row.Label, row.Value, view.Colors.Ink)))
 			}
 		}
-		rows = append(rows, ui.Rigid(view.Message(donut.Summary, view.Colors.SecondaryInk)),
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AccountCompositionHint), view.Colors.SecondaryInk)),
 			ui.Rigid(d.chart.table.layout(view, len(composition.Details), func() charts.Table {
 				return accountCompositionTable(view, composition, d.chart.selected)
 			})))
@@ -104,7 +104,7 @@ func (p *accountsPage) accountComposition(view ui.View, composition *domain.Acco
 func accountCompositionSpec(view ui.View, c *domain.AccountComposition, detail, expanded bool) (charts.DonutSpec, bool) {
 	l := view.Language
 	spec := charts.DonutSpec{
-		Compact: true, Label: l.Text(i18n.AccountCompositionTitle), Summary: l.Text(i18n.AccountCompositionHint),
+		Compact: true, Label: l.Text(i18n.AccountCompositionTitle),
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: accountCompositionMoney(view, c.TotalExact, c.Currency),
 		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), ZeroTotal: l.Text(i18n.AccountCompositionEmpty),
 		Messages: charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.AccountCompositionUnavailable)},
