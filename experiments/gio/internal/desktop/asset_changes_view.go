@@ -125,6 +125,9 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		}))
 		switch {
 		case result.drivers != nil:
+			if result.drivers.Available && result.drivers.Status == domain.CompletenessPartial && p.openHealth != nil {
+				rows = append(rows, ui.Rigid(p.assetCoverageLink(view, result.query)))
+			}
 			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query.Valuation)...)
 		case result.trend != nil:
 			rows = append(rows, p.assetTrendRows(view, *result.trend, result.query)...)
@@ -133,6 +136,17 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		}
 	}
 	return (ui.Column{Gap: 10, MinFill: 300}).Layout(gtx, rows...)
+}
+
+func (p *assetChangesPage) assetCoverageLink(view ui.View, query domain.AnalysisQuery) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		ready := p.request == nil && p.err == nil
+		if p.coverage.Clicked(gtx) && ready {
+			p.openHealth(healthFindingFocus{from: query.From, to: query.To}, &p.coverage)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, &p.coverage, i18n.OverviewTrendGaps, nil, ready)(gtx)
+	}
 }
 
 func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetChangeResult, valuation domain.Valuation) []ui.ColumnChild {

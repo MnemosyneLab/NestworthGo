@@ -227,7 +227,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.routes[item.id] = item
 		}
 	}
-	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil) {
+	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil || s.assets != nil) {
 		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
 		s.routes[dataHealthRoute] = &item
 		openHealth := func(scope healthFindingFocus, focus event.Tag) {
@@ -258,6 +258,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.overviewPage != nil {
 			s.overviewPage.openHealth = openHealth
+		}
+		if s.assets != nil {
+			s.assets.openHealth = openHealth
 		}
 		s.dataHealth.clearFocus = func(focus event.Tag) {
 			openHealth(healthFindingFocus{}, focus)

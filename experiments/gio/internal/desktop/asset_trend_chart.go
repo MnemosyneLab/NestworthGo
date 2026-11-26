@@ -196,6 +196,9 @@ func (p *assetChangesPage) assetTrendRows(view ui.View, data application.AssetTr
 	spec, missing := assetTrendLine(view, data, query, metric, p.trendInterval())
 	if missing > 0 {
 		rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AssetTrendMissingPeriods), missing), view.Colors.SecondaryInk)))
+		if metric != application.TrendReturnRate && p.openHealth != nil {
+			rows = append(rows, ui.Rigid(p.assetCoverageLink(view, query)))
+		}
 	}
 	rows = append(rows, ui.Rigid(analysisLineCard(view, &p.trendChart, spec, &p.trendSelected, &p.trendTable, chartTableLabels(l, i18n.ChartCoverage))))
 	if data.ValueChange == nil {
