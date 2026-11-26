@@ -142,6 +142,64 @@ func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	}
 }
 
+func TestFrameModalExcludesBackgroundAndRetiresItsActions(t *testing.T) {
+	var bridge frame
+	var router input.Router
+	var ops op.Ops
+	var sidebar, closeButton widget.Clickable
+	var modal, backgroundPressed, closePressed bool
+	render := func(req request) []element {
+		ops.Reset()
+		gtx := bridge.start(layout.Context{Ops: &ops, Source: router.Source(), Constraints: layout.Exact(image.Pt(320, 240))}, req)
+		background := func(gtx layout.Context) layout.Dimensions {
+			backgroundPressed = sidebar.Clicked(gtx)
+			Button(gtx, &sidebar, "Overview", "", false, func(gtx layout.Context) layout.Dimensions {
+				return testLabel(gtx, "Overview")
+			})
+			defer op.Offset(image.Pt(0, 30)).Push(gtx.Ops).Pop()
+			testLabel(gtx, "Ledger balance")
+			return layout.Dimensions{Size: image.Pt(320, 240)}
+		}
+		if modal {
+			Hidden(gtx.Disabled(), background)
+			Modal(gtx, &modal, "Ledger history", func(gtx layout.Context) layout.Dimensions {
+				closePressed = closeButton.Clicked(gtx)
+				return Button(gtx, &closeButton, "Close history", "", false, func(gtx layout.Context) layout.Dimensions {
+					return testLabel(gtx, "Close history")
+				})
+			})
+		} else {
+			background(gtx)
+		}
+		router.Frame(gtx.Ops)
+		bridge.snapshot(gtx)
+		return bridge.last
+	}
+	before := render(request{})
+	if len(before) != 2 || before[0].Name != "Overview" || before[1].Name != "Ledger balance" {
+		t.Fatalf("background was missing before opening the sheet: %+v", before)
+	}
+	modal = true
+	shown := render(request{})
+	if len(shown) != 2 || shown[0].Role != sheet || shown[0].Name != "Ledger history" ||
+		shown[1].Parent != shown[0].ID || !shown[1].Pressable || shown[1].Name != "Close history" {
+		t.Fatalf("expected only the named sheet and its close control, got %+v", shown)
+	}
+	render(request{id: before[0].ID, action: press})
+	if backgroundPressed {
+		t.Fatal("a background element retained its AX action under the sheet")
+	}
+	render(request{id: shown[1].ID, action: press})
+	if !closePressed {
+		t.Fatal("the active sheet's close action did not reach its Gio control")
+	}
+	modal = false
+	restored := render(request{})
+	if len(restored) != 2 || restored[0].Name != "Overview" || !restored[0].Pressable || restored[1].Name != "Ledger balance" {
+		t.Fatalf("the underlying tree did not return when the sheet closed: %+v", restored)
+	}
+}
+
 func testLabel(gtx layout.Context, label string) layout.Dimensions {
 	size := image.Pt(100, 25)
 	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()

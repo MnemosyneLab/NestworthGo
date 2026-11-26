@@ -28,7 +28,7 @@
 // Must match Role and action in frame.go.
 typedef NS_ENUM(NSUInteger, NestworthAXRole) {
 	NestworthAXStaticText = 1, NestworthAXGroup, NestworthAXButton, NestworthAXPopup,
-	NestworthAXTextField, NestworthAXTextArea, NestworthAXList
+	NestworthAXTextField, NestworthAXTextArea, NestworthAXList, NestworthAXSheet
 };
 typedef NS_ENUM(uint8_t, NestworthAXAction) {
 	NestworthAXPress = 1, NestworthAXFocus, NestworthAXSetValue, NestworthAXSetSelection
@@ -46,6 +46,7 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 	case NestworthAXTextField: return NSAccessibilityTextFieldRole;
 	case NestworthAXTextArea: return NSAccessibilityTextAreaRole;
 	case NestworthAXList: return NSAccessibilityListRole;
+	case NestworthAXSheet: return NSAccessibilitySheetRole;
 	default: return NSAccessibilityGroupRole;
 	}
 }
@@ -62,6 +63,7 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 - (BOOL)isAccessibilityEnabled { return axNumber(self.entry, @"Enabled").boolValue; }
 - (BOOL)isAccessibilitySelected { return axNumber(self.entry, @"Selected").boolValue; }
 - (BOOL)isAccessibilityFocused { return self.bridge.focused == self; }
+- (BOOL)isAccessibilityModal { return axNumber(self.entry, @"Role").unsignedIntegerValue == NestworthAXSheet; }
 
 - (id)accessibilityValue {
 	NSString *value = self.entry[@"Value"];
@@ -155,6 +157,9 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 }
 
 - (BOOL)isAccessibilitySelectorAllowed:(SEL)selector {
+	if (selector == @selector(isAccessibilityModal)) {
+		return self.isAccessibilityModal;
+	}
 	if (selector == @selector(accessibilityPerformPress)) {
 		return axNumber(self.entry, @"Pressable").boolValue;
 	}

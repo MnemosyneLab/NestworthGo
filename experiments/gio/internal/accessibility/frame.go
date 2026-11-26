@@ -18,6 +18,7 @@ import (
 
 const frameKey = "nestworth.accessibility"
 const bindingPrefix = "\x00"
+const hiddenDescription = bindingPrefix + "hidden"
 
 // Roles are shared with bridge_darwin.m.
 type role uint8
@@ -30,6 +31,7 @@ const (
 	textField
 	textArea
 	list
+	sheet
 )
 
 type action uint8
@@ -203,6 +205,26 @@ func Row(gtx layout.Context, tag any, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: tag, role: group, enabled: true}, widget)
 }
 
+// Modal exposes a named sheet and its children in the native accessibility tree.
+func Modal(gtx layout.Context, tag any, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: tag, role: sheet, name: name, enabled: true}, widget)
+}
+
+// Hidden keeps a laid-out subtree out of the native accessibility tree.
+// The caller owns the input policy for the underlying widgets.
+func Hidden(gtx layout.Context, widget layout.Widget) layout.Dimensions {
+	if forContext(gtx) == nil {
+		return widget(gtx)
+	}
+	recording := op.Record(gtx.Ops)
+	dims := widget(gtx)
+	content := recording.Stop()
+	defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
+	semantic.DescriptionOp(hiddenDescription).Add(gtx.Ops)
+	content.Add(gtx.Ops)
+	return dims
+}
+
 func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	f.router.Frame(gtx.Ops)
 	f.semantic = f.router.AppendSemantics(f.semantic[:0])
@@ -227,6 +249,9 @@ func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64, viewport image.Rectangle, hideLabels bool) []element {
 	for _, node := range nodes {
 		desc := node.Desc
+		if desc.Description == hiddenDescription {
+			continue
+		}
 		bounds := desc.Bounds.Intersect(viewport)
 		id, tracked := bindingID(desc.Description)
 		if tracked {
@@ -251,7 +276,7 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 				e.SelectionStart, e.SelectionLength = utf16Range(e.Value, b.editor.Selection)
 			}
 			out = append(out, e)
-			if b.role == group || b.role == list {
+			if b.role == group || b.role == list || b.role == sheet {
 				out = f.collect(out, node.Children, e.ID, bounds, false)
 			} else {
 				out = f.collect(out, node.Children, parent, bounds, true)
