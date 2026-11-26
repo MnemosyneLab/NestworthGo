@@ -67,6 +67,7 @@ type portfolioCatalogDraft struct {
 	config                portfolioInstrumentConfig
 	confirming            bool
 	external              bool
+	focusName             bool
 	issue                 i18n.MessageID
 	pending               <-chan historyResult[i18n.MessageID]
 }
@@ -367,6 +368,7 @@ func (p *portfolioPage) pollCatalogDraft() {
 			switch {
 			case issue.Code == domain.ErrValidation:
 				d.issue = catalogInstrumentValidation(issue.Field)
+				d.focusName = d.issue == i18n.PortfolioCatalogNameRequired
 			case issue.Code == domain.ErrConflict && issue.Field == "quantity":
 				d.issue = i18n.PortfolioCatalogNonzero
 			case issue.Code == domain.ErrStalePreview || issue.Code == domain.ErrNotFound:
@@ -407,6 +409,11 @@ func (p *portfolioPage) layoutCatalogDraft(gtx layout.Context, view ui.View) lay
 			p.saveCatalogInstrument(false)
 			gtx.Execute(op.InvalidateCmd{})
 		}
+	}
+	if d.focusName && gtx.Enabled() {
+		d.focusName = false
+		view.RestorePageScroll(0)
+		d.fields[portfolioInstrumentName].Focus(gtx)
 	}
 	gtx, view = view.Measure(gtx, 620)
 	title, action, prompt := i18n.PortfolioCatalogManage, i18n.InstitutionsArchive, i18n.PortfolioCatalogArchive

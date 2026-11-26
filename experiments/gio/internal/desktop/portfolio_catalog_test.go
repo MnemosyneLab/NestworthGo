@@ -66,6 +66,10 @@ func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
 	if draft == nil || !draft.external || draft.instrument.ID != "" || draft.config.currency != portfolio.current.summary.Currency {
 		t.Fatal("opening Add instrument through maintenance lost the shared household default")
 	}
+	h.click("Save", false)
+	frame()
+	assertPageLabel(t, &h.router, "Enter an instrument name.")
+	h.focused(&draft.fields[portfolioInstrumentName].Editor)
 	h.click("Cancel", false)
 	frame()
 	if portfolio.catalog.draft != nil || !slices.Equal(completions, []i18n.MessageID{i18n.PortfolioCatalogSaved, i18n.NoMessage}) {
