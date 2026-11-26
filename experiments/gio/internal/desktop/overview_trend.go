@@ -117,6 +117,9 @@ func (t *overviewTrend) retire() {
 
 func (p *overviewPage) leave() {
 	p.funds.invalidate()
+	if p.upcoming.request != nil || p.upcoming.summary.request != nil {
+		p.upcoming.invalidate()
+	}
 	if p.loading {
 		p.refresh()
 	}

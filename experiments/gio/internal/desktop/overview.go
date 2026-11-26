@@ -58,12 +58,15 @@ type overviewPage struct {
 	breakdowns   overviewBreakdowns
 	trend        overviewTrend
 	funds        overviewFunds
+	upcoming     overviewUpcoming
+	recent       widget.Clickable
 	health       widget.Clickable
 	fixHealth    widget.Clickable
 	accounts     widget.Clickable
 	missingLinks map[string]*widget.Clickable
 	openHealth   func(healthFindingFocus, event.Tag)
 	openHistory  func(bool, event.Tag)
+	openLedger   func(event.Tag)
 	openAccounts func(event.Tag)
 	actions      []layout.Widget
 }
@@ -76,6 +79,7 @@ func newOverviewPage(ctx context.Context, reader overviewReader, clock func() ti
 		missingLinks: make(map[string]*widget.Clickable),
 	}
 	page.trend.reader, _ = reader.(overviewTrendReader)
+	page.upcoming.reader, _ = reader.(upcomingActionsReader)
 	return page
 }
 
@@ -109,6 +113,7 @@ func (p *overviewPage) refresh() {
 	p.needsRefresh = true
 	p.trend.invalidate()
 	p.funds.invalidate()
+	p.upcoming.invalidate()
 }
 
 func (p *overviewPage) update() {
@@ -135,8 +140,10 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.read()
 		p.trend.invalidate()
 		p.funds.invalidate()
+		p.upcoming.invalidate()
 	}
 	p.updateFunds(gtx)
+	p.updateUpcoming()
 	if p.current != nil && p.current.value.AccountCount > 0 {
 		p.allocation.update(view, p.current)
 	}
@@ -277,14 +284,18 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return (ui.Column{Gap: 8}).Layout(gtx, rows...)
 	case row == 1:
 		return p.financialRow(gtx, view)
-	case row == 2 && len(result.MissingInputs) > 0:
+	case row == 2 && p.hasAttentionSection():
 		return p.attention(gtx, view, result.MissingInputs)
+	case p.upcoming.reader != nil && row == p.trendIndex()-1:
+		return p.overviewUpcomingCard(gtx, view)
 	case row == composition-1 && p.hasCompositionSummary():
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
 		return p.overviewTrendCard(gtx, view, result.HistoryStarted)
 	case row == composition:
 		return p.allocation.section(gtx, view, result)
+	case row == p.recentActivityIndex():
+		return p.overviewRecentActivity(gtx, view, result)
 	case row >= p.dimensionsIndex():
 		pair := row - p.dimensionsIndex()
 		if pair == 0 {
@@ -315,6 +326,10 @@ func (p *overviewPage) rowCount() int {
 	if p.current.value.AccountCount == 0 {
 		return 2
 	}
+	return p.recentActivityIndex() + 1
+}
+
+func (p *overviewPage) recentActivityIndex() int {
 	n := p.dimensionsIndex()
 	if p.hasDimensions() {
 		n += 2
@@ -342,10 +357,18 @@ func (p *overviewPage) compositionIndex() int {
 }
 
 func (p *overviewPage) trendIndex() int {
-	if len(p.current.value.MissingInputs) > 0 {
-		return 3
+	index := 2
+	if p.hasAttentionSection() {
+		index++
 	}
-	return 2
+	if p.upcoming.reader != nil {
+		index++
+	}
+	return index
+}
+
+func (p *overviewPage) hasAttentionSection() bool {
+	return len(p.current.value.MissingInputs) > 0 || p.upcoming.checks != nil && p.upcoming.openTasks != nil
 }
 
 func (p *overviewPage) hasCompositionSummary() bool {
@@ -387,8 +410,11 @@ func (p *overviewPage) attention(gtx layout.Context, view ui.View, missing []dom
 			)
 		}))
 	}
-	if p.openHealth != nil {
+	if p.openHealth != nil && len(missing) > 0 {
 		rows = append(rows, ui.Rigid(p.fixInHealth(view, len(missing))))
+	}
+	if p.upcoming.checks != nil && p.upcoming.openTasks != nil {
+		rows = append(rows, ui.Rigid(p.overviewTaskSummary(view)))
 	}
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)

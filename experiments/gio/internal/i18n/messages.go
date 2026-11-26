@@ -469,6 +469,22 @@ const (
 	OverviewTrendEmpty
 	OverviewTrendBasis
 	OverviewTrendCoverage
+	OverviewTaskAttention
+	OverviewTaskReview
+	OverviewTaskSessions
+	OverviewTaskReadFailed
+	OverviewUpcomingTitle
+	OverviewUpcomingCounts
+	OverviewUpcomingEmpty
+	OverviewUpcomingOther
+	OverviewUpcomingAll
+	OverviewUpcomingReadFailed
+	OverviewUpcomingReadStale
+	OverviewUpcomingShortfall
+	OverviewUpcomingUnresolved
+	OverviewRecentTitle
+	OverviewRecentAll
+	OverviewRecentEmpty
 	OverviewTrendGaps
 	OverviewTrendSelectedGap
 	OverviewTrendChange

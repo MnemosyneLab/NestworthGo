@@ -294,6 +294,17 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: route}, focus: focus}
 		}
 	}
+	if s.overviewPage != nil && s.historyPage != nil {
+		s.overviewPage.openLedger = func(focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute}, focus: focus}
+		}
+	}
+	if s.overviewPage != nil && s.tasks != nil {
+		s.overviewPage.upcoming.openTasks = func(tab tasksTab, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: tasksRoute}, tasksTab: tab, focus: focus}
+		}
+		s.overviewPage.upcoming.checks = s.tasks.checks
+	}
 	if s.overviewPage != nil && s.funds != nil {
 		s.overviewPage.funds.reader = s.funds.service
 		s.overviewPage.funds.open = func(day string, focus event.Tag) {
@@ -509,6 +520,13 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.tasks.verify = func(id domain.ProductContractID, name string, from event.Tag) {
 					s.pendingNavigation = &navigationRequest{
 						target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: from, verifyProductReceipt: true,
+					}
+				}
+			}
+			if s.overviewPage != nil {
+				s.overviewPage.upcoming.openProduct = func(id domain.ProductContractID, name string, due bool, focus event.Tag) {
+					s.pendingNavigation = &navigationRequest{
+						target: navigationTarget{route: fundsRoute, product: id}, name: name, focus: focus, verifyProductReceipt: due,
 					}
 				}
 			}

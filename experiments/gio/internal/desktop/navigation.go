@@ -155,6 +155,7 @@ type navigationRequest struct {
 	accountsArchived     bool
 	providerSettings     bool
 	verifyProductReceipt bool
+	tasksTab             tasksTab
 	asset                assetChangesVisit
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
@@ -340,7 +341,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
-			asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+			tasks: tasksVisit{tab: request.tasksTab}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -577,7 +578,8 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 
 func (s *shell) waitingForPageFocus() bool {
 	if s.activeRoute() == overviewRoute && s.overviewPage != nil {
-		return s.overviewPage.loading || s.overviewPage.funds.request != nil
+		return s.overviewPage.loading || s.overviewPage.funds.request != nil ||
+			s.overviewPage.upcoming.request != nil || s.overviewPage.upcoming.summary.request != nil
 	}
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		if r := s.historyPage.reads; r != nil && r.detail != nil {
