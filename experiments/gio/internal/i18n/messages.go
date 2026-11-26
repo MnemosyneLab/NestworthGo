@@ -1795,6 +1795,7 @@ const (
 	ReserveManageAll
 	ReserveEdit
 	ReserveEditRow
+	ReserveLoadLatest
 	ReserveSource
 	ReserveChooseSource
 	ReserveTitle

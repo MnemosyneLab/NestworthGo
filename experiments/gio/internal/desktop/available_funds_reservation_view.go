@@ -263,13 +263,13 @@ func (r *fundsReservationSession) layoutReservationList(gtx layout.Context, view
 				gtx.Execute(key.FocusCmd{Tag: &r.close})
 			}
 		} else {
-			fields = append(fields, r.reservationRowActions(view, row, row.ID == target))
+			fields = append(fields, r.reservationRowActions(view, row, source, row.ID == target))
 		}
 		return layout.Inset{Bottom: 8}.Layout(gtx, fundsCard(view, title, fields...))
 	})
 }
 
-func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain.LiquidityReservation, focus bool) layout.Widget {
+func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain.LiquidityReservation, source string, focus bool) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		buttons := r.actions[row.ID]
 		if buttons == nil {
@@ -291,7 +291,11 @@ func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain
 		}
 		edit := fmt.Sprintf(view.Language.Text(i18n.ReserveEditRow), row.Label)
 		release := fmt.Sprintf(view.Language.Text(i18n.ReserveReleaseRow), row.Label)
-		actions := []layout.Widget{view.Button(&buttons.edit, edit), view.Button(&buttons.release, release)}
+		editName, releaseName := edit, release
+		if r.current.activeLabels[row.Label] > 1 {
+			editName, releaseName = edit+" · "+source, release+" · "+source
+		}
+		actions := []layout.Widget{view.NamedButton(&buttons.edit, edit, editName), view.NamedButton(&buttons.release, release, releaseName)}
 		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(actions), func(gtx layout.Context, i int) layout.Dimensions {
 			return actions[i](gtx)
 		})
@@ -300,6 +304,12 @@ func (r *fundsReservationSession) reservationRowActions(view ui.View, row domain
 
 func (r *fundsReservationSession) layoutReservationDraft(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	latest, changed := r.latestEdit()
+	if changed && latest != nil && latest.Active() && r.loadLatest.Clicked(gtx) {
+		r.startDraft(gtx, latest, r.actionFocus)
+		changed = false
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	source := r.draftSource()
 	var currency domain.CurrencyCode
 	switch {
@@ -308,7 +318,7 @@ func (r *fundsReservationSession) layoutReservationDraft(gtx layout.Context, vie
 	case source != nil:
 		currency = source.NativeCurrency
 	}
-	if r.review.Clicked(gtx) {
+	if !changed && r.review.Clicked(gtx) {
 		r.reviewNew()
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -355,8 +365,13 @@ func (r *fundsReservationSession) layoutReservationDraft(gtx layout.Context, vie
 			return r.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.ReserveAmount}, currency.String())
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			actions := []layout.Widget{view.Button(&r.close, l.Text(i18n.InstitutionsCancel)),
-				view.PrimaryButton(&r.review, l.Text(i18n.ReserveReview))}
+			actions := []layout.Widget{view.Button(&r.close, l.Text(i18n.InstitutionsCancel))}
+			switch {
+			case !changed:
+				actions = append(actions, view.PrimaryButton(&r.review, l.Text(i18n.ReserveReview)))
+			case latest != nil && latest.Active():
+				actions = append(actions, view.PrimaryButton(&r.loadLatest, l.Text(i18n.ReserveLoadLatest)))
+			}
 			return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(actions), func(gtx layout.Context, i int) layout.Dimensions {
 				return actions[i](gtx)
 			})

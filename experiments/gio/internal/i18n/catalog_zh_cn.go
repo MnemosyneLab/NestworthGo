@@ -1832,6 +1832,7 @@ var simplifiedChineseCatalog = catalog{
 	ReserveManageAll:           "管理预留",
 	ReserveEdit:                "编辑预留",
 	ReserveEditRow:             "编辑 · %s",
+	ReserveLoadLatest:          "加载最新预留",
 	ReserveSource:              "资金来源",
 	ReserveChooseSource:        "请选择可预留的资金来源。",
 	ReserveTitle:               "资金预留",

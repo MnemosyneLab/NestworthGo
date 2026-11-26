@@ -469,8 +469,12 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 			details = append(details, view.Message(l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
 		}
 	}
-	if p.reservationLedger != nil && reservableFundsSource(&source) {
-		actions = append(actions, p.reservationButton(view, source.DisplayName, source.Ref))
+	if p.reservationLedger != nil {
+		name := source.DisplayName
+		if source.Ref.Kind != domain.SourceAccountValue {
+			name = reservationSourceName(view, &source, p.current.accounts[source.AccountID].Name)
+		}
+		actions = append(actions, p.reservationButton(view, name, source.Ref))
 	}
 	actions = append(actions, p.sourceNavigationActions(view, source.SourceKey, source.AccountID, instrument, source.DisplayName)...)
 	return func(gtx layout.Context) layout.Dimensions {

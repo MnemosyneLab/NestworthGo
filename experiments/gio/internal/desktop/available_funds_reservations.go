@@ -25,11 +25,12 @@ type fundsReservationLedger interface {
 }
 
 type fundsReservationRead struct {
-	sources  []domain.LiquiditySourceResult
-	accounts map[domain.AccountID]domain.Account
-	horizon  string
-	records  []domain.LiquidityReservation
-	version  string
+	sources      []domain.LiquiditySourceResult
+	accounts     map[domain.AccountID]domain.Account
+	horizon      string
+	records      []domain.LiquidityReservation
+	activeLabels map[string]int
+	version      string
 }
 
 func (r fundsReservationRead) source(ref domain.LiquiditySourceRef) *domain.LiquiditySourceResult {
@@ -69,7 +70,13 @@ func readFundsReservation(ctx context.Context, service fundsReservationLedger, r
 		if ref.Kind != "" {
 			records = slices.DeleteFunc(records, func(row domain.LiquidityReservation) bool { return row.Source.Key() != ref.Key() })
 		}
-		out = fundsReservationRead{accounts: report.accounts, horizon: report.today.HorizonOn, records: records, version: service.MobileDataVersion()}
+		out = fundsReservationRead{accounts: report.accounts, horizon: report.today.HorizonOn, records: records,
+			activeLabels: make(map[string]int), version: service.MobileDataVersion()}
+		for _, record := range records {
+			if record.Active() {
+				out.activeLabels[record.Label]++
+			}
+		}
 		if fundsBucketForHorizon(report.report.Overview.Buckets, state.horizonOn) != nil {
 			out.horizon = state.horizonOn
 		}
@@ -190,6 +197,7 @@ type fundsReservationSession struct {
 	label, amount             ui.TextField
 	list                      widget.List
 	close, add, review, retry widget.Clickable
+	loadLatest                widget.Clickable
 	confirm                   widget.Clickable
 	actions                   map[domain.LiquidityReservationID]*fundsReservationActions
 }
@@ -259,6 +267,12 @@ func (p *availableFundsPage) pollReservations() {
 			r.focusTarget, r.notice, r.restoreFocus = "", i18n.TasksTargetMissing, true
 		}
 		if !r.checking {
+			if r.notice == i18n.HistoryAmendmentStale && r.editRow != nil {
+				if latest, _ := r.latestEdit(); latest == nil || !latest.Active() {
+					r.editing, r.editRow, r.actionFocus, r.restoreFocus = false, nil, &r.close, true
+					r.notice = i18n.TasksTargetMissing
+				}
+			}
 			return
 		}
 		switch r.plan.verify(result.value.records, r.ack) {
@@ -323,7 +337,25 @@ func (r *fundsReservationSession) startDraft(gtx layout.Context, row *domain.Liq
 	}
 }
 
+// Keep the draft tied to the revision it originally reviewed. Loading another
+// revision is an explicit action so a concurrent edit cannot be overwritten.
+func (r *fundsReservationSession) latestEdit() (*domain.LiquidityReservation, bool) {
+	if r.editRow == nil {
+		return nil, false
+	}
+	at := slices.IndexFunc(r.current.records, func(row domain.LiquidityReservation) bool { return row.ID == r.editRow.ID })
+	if at < 0 {
+		return nil, true
+	}
+	latest := &r.current.records[at]
+	return latest, !latest.Active() || latest.Revision != r.editRow.Revision
+}
+
 func (r *fundsReservationSession) reviewNew() {
+	if _, changed := r.latestEdit(); changed {
+		r.notice = i18n.HistoryAmendmentStale
+		return
+	}
 	r.notice = i18n.NoMessage
 	source := r.draftSource()
 	var ref domain.LiquiditySourceRef

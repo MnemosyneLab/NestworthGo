@@ -1832,6 +1832,7 @@ var englishCatalog = catalog{
 	ReserveManageAll:           "Manage reservations",
 	ReserveEdit:                "Edit reservation",
 	ReserveEditRow:             "Edit · %s",
+	ReserveLoadLatest:          "Load latest reservation",
 	ReserveSource:              "Funding source",
 	ReserveChooseSource:        "Choose an eligible funding source.",
 	ReserveTitle:               "Reservations",

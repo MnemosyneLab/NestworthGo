@@ -1831,6 +1831,7 @@ var japaneseCatalog = catalog{
 	ReserveManageAll:           "確保を管理",
 	ReserveEdit:                "確保を編集",
 	ReserveEditRow:             "編集 · %s",
+	ReserveLoadLatest:          "最新の確保を読み込む",
 	ReserveSource:              "資金源",
 	ReserveChooseSource:        "確保できる資金源を選んでください。",
 	ReserveTitle:               "資金の確保",
