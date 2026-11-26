@@ -2,57 +2,35 @@
 
 ## Status and scope
 
-The Gio desktop runs against a verified synthetic profile. It includes
+The Gio desktop uses its own local Nestworth profile. It includes
 household onboarding, live Overview, account browsing and standard bank
 account creation, General settings, Ledger activity, Directory and a
 Component Preview page for the shared controls. Wails remains the
 production desktop. The roadmap records workflow coverage and acceptance
 evidence for each stage. [Preview guide](../README.md) · [Migration roadmap](roadmap.md) · [Shared Wails control contract](../../../docs/development/frontend-controls.md)
 
-## Pilot startup and ledger ownership
+## Startup and ledger ownership
 
-The executable owns profile preparation and verification for direct launches
-and the preview launcher. A directory lock serializes publication of new
-fixtures. A fresh database is seeded under the shared instance lock in a
-private staging directory and published only after verification and close.
+Gio uses a distinct data directory by default and honors the Wails database
+and settings path overrides. The [profile session](../internal/pilot/profile.go)
+takes the shared instance lock, calls `backup.ReconcileOnStartup` with the
+settings store, and opens the database through `sqlite.Open`. The shared
+implementation owns schema checks, migrations and restore recovery. The
+application attaches the settings store and runs the shared bootstrap.
+A fresh database with no household opens setup.
 
-Gio requires a canonical, privately owned profile root and private files
-without symbolic or hard links. It takes the existing per-database Wails
-instance lock before opening the live database with writes enabled. Under
-that lock it checks for a pending restore, validates the presentation
-settings, and reads the schema, household and marker from a private copy of
-the SQLite main file and any journals. An explicit disposable recovery fixture
-can finalize its prepared `replacement-installed` plan under that lock after
-verifying the receipt, both database copies and all input paths. It reloads
-presentation settings before opening the business database. Unsupported
-pending plans block the startup. SQLite can build its WAL index on the
-copy without changing the profile. A legacy profile without a lock file must
-pass this check before Gio creates one, and is checked again under the lock.
-
-An explicit empty onboarding fixture is published with a private random receipt
-and a matching database marker bound to its canonical run path. The pair is
-checked through the same lock and read-only verification path before the live
-database opens. It remains valid after a household is created. The ordinary
-sample fixture still checks its household name and ID marker.
-
-A successful open attaches settings. The window runs the shared application
-bootstrap before rendering the shell. A successful read with no household
-shows setup. A failed read offers Retry. After any submission, another bootstrap
-establishes whether it committed before offering any further write. The window
-stops and joins work before the session checkpoints, closes SQLite and releases
-ownership. A rejected startup
-releases any lock it acquired before displaying the error. The blocked window
-uses system language and appearance. It offers Quit and cannot access the
-ledger. The [Wails entry point](../../../cmd/nestworth/main.go) reconciles restore
-journals and exposes recovery. The Gio preview accepts only the sealed
-disposable recovery layout described above.
+The shell waits for outstanding work before SQLite checks and closes its WAL
+and releases the instance lock. A startup error releases an acquired lock
+before displaying the blocked window. The window shows lock, recovery and
+schema failures with safe localized text. Manual restore selection in the
+blocked window remains on the parity checklist.
 
 ### Transfer and conversion receipts after restart
 
 Before dispatching a confirmed cash transfer or in-account conversion, Gio
 writes the original mutation ID, full request SHA-256 and a ledger binding
-to a private file in the verified profile's `cash-receipts` directory. The
-binding covers the canonical run path, household, and database file identity.
+to a private file in the profile's `cash-receipts` directory. The
+binding covers the profile path, household, and database file identity.
 The pilot owns the instance lock for the entire operation. It flushes the
 identity file and directory before dispatch and refuses linked or nonprivate
 files. The sidecar carries no form, credentials or financial details. The
@@ -76,9 +54,9 @@ transfer and conversion forms. Amendments and other write flows keep their
 existing receipt behavior. [Pilot receipt storage](../internal/pilot/cash_receipts.go) · [Shared read-only lookup](../../../internal/application/change_mutation.go)
 
 The subprocess regression stops each form before its SQLite commit and after
-commit but before the response. It reopens through the verified session and
+commit but before the response. It reopens through the normal session and
 checks the receipt, activity link, balances and a second intentional
-submission. The pilot tests exercise a sealed same-household restore to an
+submission. The pilot tests exercise a same-household restore to an
 older backup, another household and linked files. The backup test also checks
 that a precommit identity is absent from the exported package. Run the focused
 tests with `go -C experiments/gio test -mod=readonly ./internal/desktop ./internal/pilot -run TestCashReceipt`.
@@ -375,6 +353,5 @@ Verify the system accessibility tree after navigating and opening a popup.
 Before migrating forms in bulk, also exercise VoiceOver navigation, control
 activation, value and selection announcements, and validation errors on a
 real Mac. Report that separately from Gio frame and system-tree checks.
-Use `com.nestworth.gio` and its verified synthetic profile for native checks.
-Use a separate fixture root for scenarios that need a clean ledger.
+Use `com.nestworth.gio` with isolated synthetic database and settings paths for native checks.
 [Gio test profiles](../README.md#persistent-test-data)

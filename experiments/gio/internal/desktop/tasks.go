@@ -34,15 +34,22 @@ const (
 var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestmentTab, i18n.TasksReconciliationTab}
 
 type tasksVisit struct {
-	tab           tasksTab
-	position      layout.Position
-	reviewCursors []string
+	tab                          tasksTab
+	position                     layout.Position
+	reviewCursors                []string
+	holdingSession               string
+	holdingReceipt               domain.ActivityID
+	holdingAudit                 []domain.ActivityID
+	holdingAttempts              []string
+	linkedJournal, recentJournal reconciliationJournalVisit
+	journalReceipt               reconciliationReceiptKey
 }
 
 type tasksRead struct {
 	upcoming   *domain.UpcomingActions
 	review     *domain.ReviewAlertPage
 	statements []taskStatement
+	holdings   holdingReconDirectory
 }
 
 type taskLinks struct {
@@ -74,6 +81,8 @@ type tasksPage struct {
 	previous, next widget.Clickable
 	openInstrument func(domain.InstrumentID, string, event.Tag)
 	openStatement  openTaskStatement
+	openActivity   func(domain.ActivityID, event.Tag)
+	holdingRecon   *holdingReconciliation
 }
 
 func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate func()) *tasksPage {
@@ -82,14 +91,67 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), statementLinks: make(map[string]*widget.Clickable)}
 }
 
-func (p *tasksPage) enter(visit tasksVisit) {
+func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 	p.tab, p.list.Position = visit.tab, visit.position
 	p.reviewCursors = slices.Clone(visit.reviewCursors)
 	p.read()
+	if c := p.holdingRecon; c != nil && visit.holdingSession != "" {
+		if c.sessionButtons == nil {
+			c.sessionButtons = make(map[string]*widget.Clickable)
+		}
+		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(c.sessionButtons, visit.holdingSession))
+		// The loading placeholder cannot keep the session's previous offset.
+		// Restore it when the receipt and its preceding evidence are drawn.
+		c.editScroll, c.restoreEditScroll = scroll, scroll != 0
+		for _, id := range visit.holdingAudit {
+			c.audit[id] = &holdingEvidenceDisclosure{open: true}
+		}
+		for _, item := range visit.holdingAttempts {
+			c.itemButtons[item] = &holdingReconItemActions{attempts: holdingEvidenceDisclosure{open: true}}
+		}
+		c.linkedJournal.reconciliationJournalVisit, c.recentJournal.reconciliationJournalVisit = visit.linkedJournal, visit.recentJournal
+		if visit.journalReceipt.operation != "" {
+			c.journalReturn = visit.journalReceipt
+			c.restore = nil
+			return c.journalReceiptButton(visit.journalReceipt)
+		}
+		if visit.holdingReceipt != "" {
+			c.restore = nil
+			return portfolioButton(c.receiptButtons, visit.holdingReceipt)
+		}
+	}
+	return nil
 }
 
-func (p *tasksPage) visit() tasksVisit {
-	return tasksVisit{p.tab, p.list.Position, slices.Clone(p.reviewCursors)}
+func (p *tasksPage) visit(focus event.Tag) tasksVisit {
+	visit := tasksVisit{tab: p.tab, position: p.list.Position, reviewCursors: slices.Clone(p.reviewCursors)}
+	if c := p.holdingRecon; c != nil && c.id != "" {
+		visit.holdingSession = c.id
+		visit.linkedJournal, visit.recentJournal = c.linkedJournal.reconciliationJournalVisit, c.recentJournal.reconciliationJournalVisit
+		for id, button := range c.journalReceipts {
+			if focus == button {
+				visit.journalReceipt = id
+				break
+			}
+		}
+		for id, state := range c.audit {
+			if state.open {
+				visit.holdingAudit = append(visit.holdingAudit, id)
+			}
+		}
+		for id, state := range c.itemButtons {
+			if state.attempts.open {
+				visit.holdingAttempts = append(visit.holdingAttempts, id)
+			}
+		}
+		for id, button := range c.receiptButtons {
+			if focus == button {
+				visit.holdingReceipt = id
+				break
+			}
+		}
+	}
+	return visit
 }
 
 func (p *tasksPage) leave() {
@@ -105,6 +167,7 @@ func (p *tasksPage) read() {
 	ctx, cancel := context.WithCancel(p.ctx)
 	p.cancel = cancel
 	tab := p.tab
+	includeHoldings := p.holdingRecon != nil
 	cursor := ""
 	if len(p.reviewCursors) != 0 {
 		cursor = p.reviewCursors[len(p.reviewCursors)-1]
@@ -115,8 +178,8 @@ func (p *tasksPage) read() {
 			page, err := p.checks.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "pending"}, cursor, 50)
 			return tasksRead{review: &page}, err
 		case tasksReconciliation:
-			sessions, err := readTaskStatements(ctx, p.checks)
-			return tasksRead{statements: sessions}, err
+			sessions, holdings, err := readTaskReconciliation(ctx, p.checks, includeHoldings)
+			return tasksRead{statements: sessions, holdings: holdings}, err
 		default:
 			actions, err := p.service.UpcomingActions(ctx)
 			return tasksRead{upcoming: &actions}, err
@@ -144,6 +207,9 @@ func (p *tasksPage) update() {
 			return
 		}
 		p.review, p.statements = result.value.review, result.value.statements
+		if p.tab == tasksReconciliation && p.holdingRecon != nil {
+			p.holdingRecon.directory = result.value.holdings
+		}
 		actions := result.value.upcoming
 		if actions == nil {
 			return
@@ -165,17 +231,21 @@ func (p *tasksPage) update() {
 
 func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if p.holdingRecon.active() {
+		p.pollHoldingReconciliation()
+		return p.layoutHoldingReconciliation(gtx, view)
+	}
 	if p.checks != nil {
 		for i := range p.tabs {
 			if p.tabs[i].Clicked(gtx) && p.tab != tasksTab(i) {
-				p.enter(tasksVisit{tab: tasksTab(i)})
+				p.enter(tasksVisit{tab: tasksTab(i)}, 0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
-			p.enter(tasksVisit{tab: p.tab})
+			p.enter(tasksVisit{tab: p.tab}, 0)
 		} else {
 			p.read()
 		}
@@ -222,7 +292,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 					rows = p.reviewRows(view)
 				}
 			case tasksReconciliation:
-				rows = p.statementRows(view)
+				rows = append(p.holdingReconciliationRows(view), p.statementRows(view)...)
 			default:
 				if p.current != nil {
 					rows = p.rows(view)

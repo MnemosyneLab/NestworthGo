@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -68,6 +70,161 @@ func reserveTermDeposit(t *testing.T, app *application.Service, id domain.Produc
 	return r
 }
 
+func TestStandaloneEarlyTermDepositReceiptMatchesWails(t *testing.T) {
+	ctx := t.Context()
+	app, storage, paths, fixture := openManagedProductFixture(t)
+	ref, refStorage, refPaths, reference := openManagedProductFixture(t)
+	id, refID := fixture.ids["Winter Deposit"], reference.ids["Winter Deposit"]
+	clock := func() time.Time { return accountTestClock }
+	reserveTermDeposit(t, app, id, "Synthetic deposit reserve")
+	refReserve := reserveTermDeposit(t, ref, refID, "Synthetic deposit reserve")
+	const principal, interest, fee, day, minute = "987.6543", "4.5678", "1.2345", "2026-11-21", "18:15"
+	before, err := app.ListActivities(ctx, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restrict := productReceiptInput{principal: principal, interest: interest, fee: fee, day: day, minute: minute, fromTasks: true}
+	if _, err := reviewProductReceipt(ctx, app, id, restrict, clock); !errors.Is(err, errProductReceiptUnavailable) {
+		t.Fatalf("due-only Tasks receipt accepted an unmatured contract: %v", err)
+	}
+	unsafe := productReceiptInput{principal: principal, interest: interest, fee: fee, day: "2026-11-25", minute: minute}
+	if _, err := reviewProductReceipt(ctx, app, id, unsafe, clock); productReceiptProblem(err) != i18n.ProductReceiptTimeInvalid {
+		t.Fatalf("standalone receipt accepted a future time: %v", err)
+	}
+	defaultTime, err := reviewProductReceipt(ctx, app, id, productReceiptInput{principal: principal}, clock)
+	if err != nil || !defaultTime.review.EffectiveAt.Equal(clock()) {
+		t.Fatalf("standalone receipt did not freeze the default effective time: %+v / %v", defaultTime, err)
+	}
+
+	fault := &standaloneLifecycleFault{Service: app}
+	funds := newAvailableFundsPage(ctx, app, func() {})
+	funds.productPage = newProductDetailPage(ctx, app, func() {})
+	p := funds.productPage
+	p.receipts, p.clock = fault, clock
+	accounts := newAccountsPage(ctx, app, clock, func() {})
+	timeline := newLedgerHistory(ctx, app, clock, func() {})
+	h := newShellHarnessWithPages(t, ledgerPages{funds: funds, accounts: accounts, history: timeline, version: app.MobileDataVersion})
+	h.size = image.Pt(900, 660)
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	settle := func() {
+		for range 4 {
+			h.frame()
+			p.workers.Wait()
+			funds.workers.Wait()
+			accounts.workers.Wait()
+			timeline.model.Wait()
+			timeline.reads.workers.Wait()
+		}
+	}
+	click := func(label string) { t.Helper(); h.click(label, false); settle() }
+	scrollClick := func(label string) { t.Helper(); scrollProductControl(t, h, label); click(label) }
+	settle()
+	click("Available funds")
+	scrollClick("Open product · Winter Deposit")
+	edit := func() *productReceiptDraft {
+		t.Helper()
+		scrollClick("Confirm actual receipt")
+		d := p.receipt
+		if d == nil || d.fromTasks || d.earliest != "" || d.principal.Text() != "1000" || d.interest.Text() != "0" || d.fee.Text() != "0" {
+			t.Fatal("standalone draft has the wrong date bounds or defaults")
+		}
+		setBankField(h, "Returned principal · USD", &d.principal, principal)
+		setBankField(h, "Interest received · USD", &d.interest, interest)
+		d.fee.Editor.SetText(fee)
+		d.day, d.minute = day, minute
+		click("Review receipt")
+		assertPageLabel(t, &h.router, "Account cash after · 2090.9876 USD")
+		return d
+	}
+	d := edit()
+	click("Back to details")
+	h.focused(&d.principal.Editor)
+	if d.day != day || d.minute != minute || d.fee.Text() != fee {
+		t.Fatal("Back discarded the proposed early receipt")
+	}
+	click("Review receipt")
+	click("Cancel")
+	h.focused(&p.startConfirmation)
+	assertNativeTradeCash(t, app, fixture.account, map[domain.CurrencyCode]string{"USD": "1100"})
+	if len(fault.receipts) != 0 || len(managedOperations(t, app, id)) != 1 {
+		t.Fatal("Cancel posted an early receipt")
+	}
+	d = edit()
+	reserveTermDeposit(t, app, id, "Synthetic added reserve")
+	refAdded := reserveTermDeposit(t, ref, refID, "Synthetic added reserve")
+	h.press(key.NameReturn)
+	settle()
+	if d.plan != nil || d.problem != i18n.ProductReceiptStale || d.day != day || len(managedOperations(t, app, id)) != 1 {
+		t.Fatal("stale confirmation wrote or lost the early receipt draft")
+	}
+	click("Review receipt")
+	api := liquidityapi.NewService(ref)
+	request := liquidityapi.ProductCommandRequest{Kind: string(domain.ProductOpSettle), Settle: &application.SettleProductCommand{
+		ProductID: refID.String(), ReturnedPrincipal: productOptional(principal), Interest: productOptional(interest), Fee: productOptional(fee),
+		EffectiveLocalDate: day, EffectiveLocalTime: minute, ReleaseReservationIDs: []string{refReserve.ID.String(), refAdded.ID.String()},
+	}}
+	want, err := api.PreviewProductOperation(ctx, request)
+	got := liquidityapi.FromProductOperationPreview(d.plan.review)
+	if err != nil || got.EffectiveAt != want.EffectiveAt || got.LocalDate != want.LocalDate || !reflect.DeepEqual(got.CashAfter, want.CashAfter) ||
+		!reflect.DeepEqual(got.NetWorthDelta, want.NetWorthDelta) || len(got.ReservationReleaseDetails) != 2 || d.plan.command.ReconciliationLink != nil {
+		t.Fatalf("early receipt preview differs from Wails: %+v / %+v / %v", got, want, err)
+	}
+	refReceipt, err := api.RecordProductOperation(ctx, liquidityapi.RecordProductOperationRequest{Command: request, ReviewedStateHash: want.ReviewedStateHash, MutationID: domain.NewProductOperationID().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	posting := d.plan.mutation
+	h.size = image.Pt(665, 480)
+	settle()
+	fault.loseReceipt = true
+	h.press(key.NameReturn)
+	settle()
+	h.focused(&d.replay)
+	h.press(key.NameReturn)
+	settle()
+	if p.receipt != nil || p.saved != i18n.ProductReceiptSaved || len(fault.receipts) != 3 || !reflect.DeepEqual(fault.receipts[1], fault.receipts[2]) {
+		t.Fatal("early receipt retry did not reuse its exact command")
+	}
+	scrollClick("Open principal receipt")
+	if h.shell.trail.current().target.activity != p.current.settlement[0].ID {
+		t.Fatal("principal link opened the wrong activity")
+	}
+	click("Back")
+	h.focused(p.activities[p.current.settlement[0].ID])
+	for _, close := range []func() error{storage.Close, refStorage.Close} {
+		if err := close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	app, _ = reopenOnboardingProfile(t, paths)
+	ref, _ = reopenOnboardingProfile(t, refPaths)
+	for _, c := range []struct {
+		app     *application.Service
+		id      domain.ProductContractID
+		account domain.AccountID
+		op      domain.ProductOperationID
+	}{{app, id, fixture.account, posting}, {ref, refID, reference.account, domain.ProductOperationID(refReceipt.OperationID)}} {
+		got, err := readProduct(ctx, c.app, c.id)
+		if err != nil || got.detail.Contract.State != domain.ProductStateSettled || *got.detail.Contract.ClosedOperationID != c.op ||
+			got.detail.Contract.Principal.CanonicalAmount() != "1000" || len(got.detail.Reservations) != 0 || len(got.settlement) != 2 {
+			t.Fatalf("early receipt did not reopen: %+v / %v", got, err)
+		}
+		sell, income := got.settlement[0], got.settlement[1]
+		if sell.TradeDetail.Gross.CanonicalAmount() != principal || sell.TradeDetail.Fee.CanonicalAmount() != fee ||
+			sell.EffectiveAt.Format(time.RFC3339) != "2026-11-21T10:15:00Z" || !income.EffectiveAt.Equal(sell.EffectiveAt) ||
+			sell.ProductContext.Purpose != domain.ProductPurposeRedemption || income.ProductContext.Purpose != domain.ProductPurposeInterest ||
+			!reflect.DeepEqual(settlementEffects(income), []string{"external_inflow/added/4.5678 USD"}) {
+			t.Fatalf("incorrect linked principal or interest: %+v / %+v", sell, income)
+		}
+		assertNativeTradeCash(t, c.app, c.account, map[domain.CurrencyCode]string{"USD": "2090.9876"})
+		assertNoStandaloneReconciliation(t, c.app)
+	}
+	after, err := app.ListActivities(ctx, 50)
+	if err != nil || len(after) != len(before)+2 {
+		t.Fatal("early receipt did not add exactly two activities")
+	}
+}
+
 func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	ctx := t.Context()
 	assertCode := func(err error, code domain.ErrorCode) {
@@ -88,7 +245,7 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	refRent := reserveTermDeposit(t, ref, refID, "Rent reserve")
 	refEmergency := reserveTermDeposit(t, ref, refID, "Emergency reserve")
 
-	input := productReceiptInput{principal: "595.125", interest: "4.25", fee: "0.375", day: "2026-11-21", minute: "18:15"}
+	input := productReceiptInput{principal: "595.125", interest: "4.25", fee: "0.375", day: "2026-11-21", minute: "18:15", fromTasks: true}
 	if _, err := reviewProductReceipt(ctx, app, fixture.ids["Winter Deposit"], input, now); !errors.Is(err, errProductReceiptUnavailable) {
 		t.Fatalf("unmatured contract was available: %v", err)
 	}
@@ -107,7 +264,7 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	tooMuch.principal = "600.0001"
 	_, err = reviewProductReceipt(ctx, app, id, tooMuch, now)
 	assertCode(err, domain.ErrValidation)
-	nowPlan, err := reviewProductReceipt(ctx, app, id, productReceiptInput{principal: input.principal}, now)
+	nowPlan, err := reviewProductReceipt(ctx, app, id, productReceiptInput{principal: input.principal, fromTasks: true}, now)
 	if err != nil || nowPlan.command.Settle == nil || nowPlan.command.Settle.EffectiveAt != now().Format(time.RFC3339Nano) ||
 		!nowPlan.review.EffectiveAt.Equal(now()) {
 		t.Fatalf("the default time was not frozen for confirmation: %+v / %v", nowPlan, err)
@@ -122,8 +279,8 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	timeline := newLedgerHistory(ctx, app, now, func() {})
 	accounts := newAccountsPage(ctx, app, now, func() {})
 	h := newShellHarnessWithPages(t, ledgerPages{funds: funds, accounts: accounts, history: timeline, version: app.MobileDataVersion})
-	refresh := p.onReceiptSaved
-	p.onReceiptSaved = func() {
+	refresh := p.onProductSaved
+	p.onProductSaved = func() {
 		fault.failRead.Store(true)
 		refresh()
 	}

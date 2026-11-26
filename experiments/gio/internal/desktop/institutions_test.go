@@ -14,6 +14,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -211,11 +212,13 @@ func newDirectoryFixture(t *testing.T) (context.Context, func() (*application.Se
 	if err := os.Chmod(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", root)
-	t.Setenv("NESTWORTH_DATABASE_PATH", "")
-	t.Setenv("NESTWORTH_SETTINGS_PATH", "")
+	t.Setenv("NESTWORTH_DATABASE_PATH", filepath.Join(root, "data", "nestworth.db"))
+	t.Setenv("NESTWORTH_SETTINGS_PATH", filepath.Join(root, "data", "settings.json"))
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testledger.Seed(ctx, filepath.Join(root, "data", "nestworth.db"), paths.SettingsPath()); err != nil {
 		t.Fatal(err)
 	}
 	open := func() (*application.Service, func()) {

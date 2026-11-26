@@ -18,7 +18,18 @@ type Filters struct {
 	Account    domain.AccountID
 	Instrument domain.InstrumentID
 	Kind       domain.ActivityKind
+	Kinds      []domain.ActivityKind
 	From, To   string
+}
+
+func (f Filters) Equal(other Filters) bool {
+	return f.Account == other.Account && f.Instrument == other.Instrument &&
+		f.Kind == other.Kind && slices.Equal(f.Kinds, other.Kinds) &&
+		f.From == other.From && f.To == other.To
+}
+
+func (f Filters) Empty() bool {
+	return f.Equal(Filters{})
 }
 
 func (f Filters) query(after *domain.ActivityCursor) domain.ActivityQuery {
@@ -29,7 +40,9 @@ func (f Filters) query(after *domain.ActivityCursor) domain.ActivityQuery {
 	if f.Instrument != "" {
 		q.InstrumentID = &f.Instrument
 	}
-	if f.Kind != "" {
+	if len(f.Kinds) != 0 {
+		q.Kinds = slices.Clone(f.Kinds)
+	} else if f.Kind != "" {
 		q.Kinds = []domain.ActivityKind{f.Kind}
 	}
 	return q
@@ -109,10 +122,11 @@ func (p *Model) Restore(visit Visit) {
 }
 
 func (p *Model) SetFilters(filters Filters) {
-	if p.visit.filters == filters {
+	if p.visit.filters.Equal(filters) {
 		return
 	}
 	p.cancel()
+	filters.Kinds = slices.Clone(filters.Kinds)
 	p.visit = Visit{filters: filters}
 	p.Reload()
 }
@@ -176,12 +190,16 @@ func (p *Model) Retry() {
 	}
 }
 
-func (p *Model) Wait()            { p.workers.Wait() }
-func (p *Model) Rows() []Row      { return p.visit.rows }
-func (p *Model) Loading() bool    { return p.pending != nil }
-func (p *Model) HasMore() bool    { return p.visit.next != nil }
-func (p *Model) Err() error       { return p.visit.err }
-func (p *Model) Filters() Filters { return p.visit.filters }
+func (p *Model) Wait()         { p.workers.Wait() }
+func (p *Model) Rows() []Row   { return p.visit.rows }
+func (p *Model) Loading() bool { return p.pending != nil }
+func (p *Model) HasMore() bool { return p.visit.next != nil }
+func (p *Model) Err() error    { return p.visit.err }
+func (p *Model) Filters() Filters {
+	filters := p.visit.filters
+	filters.Kinds = slices.Clone(filters.Kinds)
+	return filters
+}
 
 func (p *Model) cancel() {
 	if p.pending != nil {

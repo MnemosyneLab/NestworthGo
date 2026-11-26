@@ -37,6 +37,19 @@ func (v View) WithScrollAnchors(list *widget.List) View {
 	return v
 }
 
+func (v View) PageScrollOffset() int {
+	if v.anchorScroll == nil {
+		return 0
+	}
+	return v.anchorScroll.Position.Offset
+}
+
+func (v View) RestorePageScroll(offset int) {
+	if v.anchorScroll != nil {
+		v.anchorScroll.Position.Offset = offset
+	}
+}
+
 // Message is a wrapping paragraph in the body style.
 func (v View) Message(text string, fg color.NRGBA) layout.Widget {
 	return v.Body(TextBody, text, fg)

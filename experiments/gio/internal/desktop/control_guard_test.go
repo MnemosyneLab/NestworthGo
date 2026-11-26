@@ -18,8 +18,7 @@ var rawControls = map[string]bool{"Button": true, "IconButton": true, "ButtonLay
 // rawControlExceptions are the deliberate exceptions, each tied to a control
 // the shared kit does not provide yet. Remove an entry when its control moves.
 var rawControlExceptions = map[string]string{
-	"accounts_view.go":          "selectable account row that fills a card",
-	"account_statement_view.go": "completeness checkbox until the shared checkbox lands",
+	"accounts_view.go": "selectable account row that fills a card",
 }
 
 func TestPagesUseSharedControlsInsteadOfRawMaterialWidgets(t *testing.T) {

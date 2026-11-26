@@ -16,6 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
+	quoteapi "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
@@ -33,25 +34,48 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		newGroupsList(ctx, service, window.Invalidate),
 	)
 	timeline := newLedgerHistory(ctx, service, clock, window.Invalidate)
+	timeline.investment = &accountInvestment{service: service}
 	timeline.reads.repeatAPI = historyapi.NewService(service)
 	recovery := &cashReceiptRecovery{ctx: ctx, store: receipts, reader: service, invalidate: window.Invalidate}
 	timeline.cashMovements.recovery = recovery
 	recovery.read()
 	overview := newOverviewPage(ctx, service, clock, window.Invalidate)
+	wealthHistory := newWealthHistoryPage(ctx, service, clock, window.Invalidate)
+	returns := &returnAnalysisPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
+	assets := &assetChangesPage{ctx: ctx, reader: service, clock: clock, invalidate: window.Invalidate}
+	marketData := &marketDataPage{ctx: ctx, reader: service, invalidate: window.Invalidate,
+		manual: marketManualQuotes{service: service, clock: clock}, latest: marketLatest{service: service},
+		quoteHistoryReader: service, quoteHistoryClock: clock, fxSourceWriter: service, instrumentSources: service,
+		agentReader: service, closedDateWriter: quoteapi.NewService(service)}
+	healthRepair := &dataHealthRepair{service: service, latestBusy: func() bool { return marketData.latest.request != nil }}
+	marketData.sync = healthRepair
+	service.SetMarketDataSyncListener(func(string, application.SyncJobSnapshot) {
+		healthRepair.revision.Add(1)
+		window.Invalidate()
+	})
+	dataHealth := &dataHealthPage{ctx: ctx, reader: service, invalidate: window.Invalidate, repair: healthRepair,
+		snapshots: dataHealthSnapshots{service: service}}
 	portfolio := newPortfolioPage(ctx, service, window.Invalidate)
+	portfolio.investment, portfolio.clock = &accountInvestment{service: service}, clock
 	tasks := newTasksPage(ctx, service, window.Invalidate)
+	tasks.holdingRecon = &holdingReconciliation{service: reconciliation.NewService(service), ledger: service, clock: clock}
 	tasks.checks = service
 	funds := newAvailableFundsPage(ctx, service, window.Invalidate)
 	funds.reservationLedger = service
+	funds.productLedger, funds.productClock = service, clock
 	funds.productPage = newProductDetailPage(ctx, service, window.Invalidate)
 	funds.productPage.receipts, funds.productPage.clock = service, clock
+	funds.productPage.valuations = service
+	funds.productPage.termsLedger = service
 	accounts := newAccountsPage(ctx, service, clock, window.Invalidate)
+	accounts.productLedger = service
 	accounts.creation = &balanceAccountCreation{service: service}
 	accounts.maintenance = &accountMaintenance{service: service}
 	accounts.cashBalance = &accountCashBalance{service: service}
 	accounts.investment = &accountInvestment{service: service}
 	accounts.opening = &accountOpeningPosition{service: service}
 	accounts.balanceTarget = &accountBalanceTarget{service: service}
+	accounts.liabilityPosting = &accountLiabilityPosting{service: service}
 	accounts.statement = &accountStatement{service: reconciliation.NewService(service), origin: service}
 	onboarding := newOnboardingPage(ctx, service, clock, window.Invalidate)
 	onboarding.read()
@@ -65,6 +89,13 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		timeline.cashMovements.workers.Wait()
 		recovery.workers.Wait()
 		overview.workers.Wait()
+		wealthHistory.workers.Wait()
+		returns.workers.Wait()
+		assets.workers.Wait()
+		marketData.workers.Wait()
+		dataHealth.workers.Wait()
+		service.CancelMarketDataSyncAndWait()
+		service.SetMarketDataSyncListener(nil)
 		portfolio.workers.Wait()
 		tasks.workers.Wait()
 		funds.workers.Wait()
@@ -72,7 +103,7 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		accounts.workers.Wait()
 		onboarding.workers.Wait()
 	}()
-	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
+	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, wealthHistory: wealthHistory, returns: returns, assets: assets, marketData: marketData, dataHealth: dataHealth, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
 		version: service.MobileDataVersion})
 	shell.onboarding = onboarding
 	return shell.run(window, prefs)

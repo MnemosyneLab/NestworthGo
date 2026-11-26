@@ -103,7 +103,7 @@ func (m AmendableCash) accounts(rows []domain.AccountRecord) (amendmentAccounts,
 	return accounts, ok
 }
 
-func (m AmendableCash) replacement(amounts AmendmentAmounts, accounts amendmentAccounts) (historyapi.ChangeCommandRequest, error) {
+func (m AmendableCash) replacement(amounts AmendmentInput, accounts amendmentAccounts) (historyapi.ChangeCommandRequest, error) {
 	input := CashMovementInput{Movement: m.Movement, Currency: m.Principal.Money.Currency(), Amount: amounts.Amount}
 	if m.Paired() {
 		input.ToCurrency, input.Received, input.Fee = m.Received.Money.Currency(), amounts.Received, amounts.Fee

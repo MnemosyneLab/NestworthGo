@@ -17,6 +17,7 @@ import (
 
 type historyService interface {
 	history.AmendmentLedger
+	history.PositionSourceReader
 	cashMovementService
 	historyStartLedger
 }
@@ -32,6 +33,7 @@ type historyDetailState struct {
 	scroll     layout.Position
 	account    domain.AccountID
 	instrument domain.InstrumentID
+	linked     int
 }
 
 type historyDetailVisit struct {
@@ -45,6 +47,7 @@ type historyDetailVisit struct {
 	retry            widget.Clickable
 	scroll           widget.List
 	amendment        *historyAmendmentDraft
+	amendmentFocus   *widget.Clickable
 	correct, reverse widget.Clickable
 	repeat           widget.Clickable
 	repeatDraft      *historyRepeatDraft
@@ -62,6 +65,12 @@ func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickabl
 
 func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 	state := historyDetailState{scroll: v.scroll.Position}
+	for i := range v.linked {
+		if focus == &v.linked[i] {
+			state.linked = i + 1
+			return state
+		}
+	}
 	for id, button := range v.accounts {
 		if focus == button {
 			state.account = id
@@ -79,26 +88,27 @@ func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 
 type historyReads struct {
 	ctx        context.Context
-	service    history.AmendmentLedger
+	service    historyService
 	repeatAPI  historyRepeatAPI
 	clock      func() time.Time
 	invalidate func()
 	workers    sync.WaitGroup
 
-	references     *history.References
-	refsRead       <-chan historyResult[history.References]
-	refsCancel     context.CancelFunc
-	refsErr        error
-	detail         *historyDetailVisit
-	buttons        map[domain.ActivityID]*widget.Clickable
-	posted         domain.Activity
-	postedNotice   i18n.MessageID
-	open           func(id domain.ActivityID, focus event.Tag)
-	openAccount    func(id domain.AccountID, name string, focus event.Tag)
-	openInstrument func(id domain.InstrumentID, name string, focus event.Tag)
-	openProduct    func(id domain.ProductContractID, name string, focus event.Tag)
-	back           func()
-	rename         func(id domain.ActivityID, name string)
+	references      *history.References
+	refsRead        <-chan historyResult[history.References]
+	refsCancel      context.CancelFunc
+	refsErr         error
+	detail          *historyDetailVisit
+	buttons         map[domain.ActivityID]*widget.Clickable
+	posted          domain.Activity
+	postedNotice    i18n.MessageID
+	open            func(id domain.ActivityID, focus event.Tag)
+	openAccount     func(id domain.AccountID, name string, focus event.Tag)
+	openInstrument  func(id domain.InstrumentID, name string, focus event.Tag)
+	openProduct     func(id domain.ProductContractID, name string, focus event.Tag)
+	back            func()
+	postedBackLabel func() i18n.MessageID
+	rename          func(id domain.ActivityID, name string)
 }
 
 type historyPageReader struct{ service history.AmendmentLedger }
@@ -114,7 +124,7 @@ func (r historyPageReader) ListActivityPage(ctx context.Context, query domain.Ac
 func newLedgerHistory(ctx context.Context, service historyService, clock func() time.Time, invalidate func()) *historyPage {
 	page := newHistoryPage(history.New(ctx, historyPageReader{service}, invalidate))
 	page.cashMovements = newHistoryCashMovements(ctx, service, clock, invalidate)
-	page.startPoint = &historyStart{service: service, balances: widget.List{List: layout.List{Axis: layout.Vertical}}}
+	page.startPoint = newHistoryStart(service)
 	page.reads = &historyReads{
 		ctx: ctx, service: service, clock: clock, invalidate: invalidate,
 		buttons: make(map[domain.ActivityID]*widget.Clickable),
@@ -188,6 +198,9 @@ func (r *historyReads) enterDetail(id domain.ActivityID, state historyDetailStat
 	if state.instrument != "" {
 		return portfolioButton(r.detail.instruments, state.instrument)
 	}
+	if state.linked > 0 {
+		return &r.detail.linked[state.linked-1]
+	}
 	return nil
 }
 
@@ -247,7 +260,7 @@ func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
 	return visit
 }
 
-func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit, instrument domain.InstrumentID) {
+func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimelineVisit, filters history.Filters) {
 	if p.bound == id {
 		return
 	}
@@ -259,11 +272,11 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 			p.model.Refresh()
 		}
 	} else {
-		if p.model.Filters() != (history.Filters{}) {
+		if !p.model.Filters().Empty() {
 			p.model.Restore(history.Visit{})
 		}
-		if instrument != "" {
-			p.model.SetFilters(history.Filters{Instrument: instrument})
+		if !filters.Empty() {
+			p.model.SetFilters(filters)
 		}
 		p.list.Position = layout.Position{}
 	}
@@ -276,7 +289,7 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 // Poll before the shell handles navigation so acknowledgement can open the exact
 // saved ID, even when the active query excludes it.
 func (p *historyPage) pollPosted() {
-	p.pollStartingPoint()
+	p.pollStartingPoint(p.startPoint)
 	if p.reads != nil {
 		p.pollAmendment()
 		p.pollRepeat()
@@ -341,6 +354,12 @@ func (p *historyPage) pruneDetailButtons() {
 }
 
 func historyKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i18n.MessageID {
+	if kind == domain.ActivityCashIn && reason == domain.ReasonCardPurchase {
+		return i18n.LiabilityCardPurchase
+	}
+	if kind == domain.ActivityCashOut && reason == domain.ReasonCardRefund {
+		return i18n.LiabilityCardRefund
+	}
 	if (kind == domain.ActivityCashIn || kind == domain.ActivityCashOut) && reason == domain.ReasonReconciliation {
 		return i18n.HistoryCashReconciled
 	}
@@ -351,4 +370,18 @@ func historyKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i1
 		return label
 	}
 	return i18n.HistoryActivity
+}
+
+func liabilityKindLabel(kind domain.ActivityKind, reason domain.ActivityReason) i18n.MessageID {
+	switch kind {
+	case domain.ActivityCashIn:
+		if reason != domain.ReasonCardPurchase {
+			return i18n.LiabilityDebtIncrease
+		}
+	case domain.ActivityCashOut:
+		if reason != domain.ReasonCardRefund {
+			return i18n.LiabilityDebtDecrease
+		}
+	}
+	return historyKindLabel(kind, reason)
 }

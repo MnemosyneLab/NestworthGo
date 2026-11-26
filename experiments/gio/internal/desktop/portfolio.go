@@ -10,10 +10,12 @@ import (
 
 	"gioui.org/font"
 	"gioui.org/io/event"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -23,6 +25,7 @@ import (
 )
 
 type portfolioReader interface {
+	history.PositionImportAccountReader
 	WithRead(context.Context, func(context.Context) error) error
 	Portfolio(context.Context, domain.AccountFilter) (domain.PortfolioValuation, error)
 	InstrumentHoldings(context.Context) ([]domain.InstrumentHoldingsView, error)
@@ -35,14 +38,15 @@ type portfolioReader interface {
 }
 
 type portfolioRead struct {
-	summary    domain.PortfolioValuation
-	positions  []domain.InstrumentHoldingsView
-	instrument *domain.Instrument
-	price      *domain.InstrumentQuote
-	fx         *domain.FXQuote
-	base       domain.CurrencyCode
-	managed    bool
-	product    *application.ProductDetail
+	importAccounts []domain.Account
+	summary        domain.PortfolioValuation
+	positions      []domain.InstrumentHoldingsView
+	instrument     *domain.Instrument
+	price          *domain.InstrumentQuote
+	fx             *domain.FXQuote
+	base           domain.CurrencyCode
+	managed        bool
+	product        *application.ProductDetail
 }
 
 func readPortfolio(ctx context.Context, service portfolioReader, id domain.InstrumentID) (out portfolioRead, err error) {
@@ -61,6 +65,10 @@ func readPortfolio(ctx context.Context, service portfolioReader, id domain.Instr
 		}
 		if id == "" {
 			out.summary, err = service.Portfolio(ctx, domain.AccountFilter{})
+			if err != nil {
+				return err
+			}
+			out.importAccounts, err = history.PositionImportAccounts(ctx, service)
 			if err != nil {
 				return err
 			}
@@ -118,6 +126,8 @@ type portfolioPage struct {
 	request    <-chan historyResult[portfolioRead]
 	current    *portfolioRead
 	err        error
+	investment *accountInvestment
+	clock      func() time.Time
 
 	search         ui.SearchField
 	list           widget.List
@@ -183,6 +193,20 @@ func (p *portfolioPage) update() {
 
 func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
+	if f := p.investment; f != nil {
+		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
+		f.poll(run)
+		if p.canImportPosition() && f.draft == nil && f.importOpen.Clicked(gtx) {
+			f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
+			f.draft.pickAccount, f.draft.focusAccount = true, true
+			f.draft.accounts = p.current.importAccounts
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return f.layoutForm(gtx, view, run)
+		}
+	}
 	if p.reload.Clicked(gtx) {
 		p.read()
 	}
@@ -197,6 +221,18 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 		status = i18n.OverviewRefreshing
 	}
 	return ui.Column{Gap: 12}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if !p.canImportPosition() {
+				return layout.Dimensions{}
+			}
+			f := p.investment
+			view.Focus.Watch(gtx, &f.importOpen)
+			if f.restore == &f.importOpen && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
+				f.restore = nil
+			}
+			return layout.W.Layout(gtx, view.Button(&f.importOpen, l.Text(i18n.PositionImportPortfolioAction)))
+		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -238,6 +274,10 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	)
 }
 
+func (p *portfolioPage) canImportPosition() bool {
+	return p.id == "" && p.investment != nil && p.investment.onPosted != nil && p.current != nil && len(p.current.importAccounts) != 0
+}
+
 func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 	l := view.Language
 	if p.id != "" {
@@ -254,7 +294,7 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 			overviewAmount(view, i18n.PortfolioValue, summary.DisplayValuation, 25),
 			view.Message(fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency), view.Colors.SecondaryInk),
 			func(gtx layout.Context) layout.Dimensions {
-				return overviewEvidence(gtx, view, summary.DisplayValuation.Quality)
+				return overviewEvidence(gtx, view, summary.DisplayValuation.Quality, i18n.OverviewQuoteDates)
 			})
 	}
 	active := func(row domain.InstrumentHoldingsView) bool { return row.Amounts.Quantity != "0" }
@@ -324,7 +364,7 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		}
 		product := r.product
 		name := productName(*product)
-		fields := []layout.Widget{productState(view, product.DisplayState), fundsAmount(view, i18n.ProductValue, product.CurrentValue)}
+		fields := []layout.Widget{productState(view, product.Contract.Kind, product.DisplayState), fundsAmount(view, i18n.ProductValue, product.CurrentValue)}
 		if p.openProduct != nil {
 			fields = append(fields, productLink(view, product.Contract.ID, name, portfolioButton(p.productButtons, product.Contract.ID), p.openProduct))
 		}

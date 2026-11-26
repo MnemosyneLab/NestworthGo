@@ -10,7 +10,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/statement"
@@ -225,11 +224,10 @@ func (p *accountsPage) layoutStatementEvidence(gtx layout.Context, view ui.View,
 			}),
 		)
 	}), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		view.Focus.Watch(gtx, &f.completeness)
 		if d.previewing != nil {
 			gtx = gtx.Disabled()
 		}
-		return material.CheckBox(view.Theme, &f.completeness, l.Text(i18n.StatementCompleteness)).Layout(gtx)
+		return view.Checkbox(&f.completeness, l.Text(i18n.StatementCompleteness))(gtx)
 	}))
 	children = append(children, d.feedback(view)...)
 	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {

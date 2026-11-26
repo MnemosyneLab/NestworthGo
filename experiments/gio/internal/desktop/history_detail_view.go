@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -30,9 +32,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	}
 	if d.record != nil && d.err == nil && d.pending == nil && d.record.Amendable {
 		if d.correct.Clicked(gtx) {
-			r.startAmendment(history.CorrectCash)
+			r.startAmendment(history.CorrectActivity)
 		} else if d.record.Reversible && d.reverse.Clicked(gtx) {
-			r.startAmendment(history.ReverseCash)
+			r.startAmendment(history.ReverseActivity)
 		}
 		if d.amendment != nil {
 			return p.layoutAmendment(gtx, view)
@@ -50,9 +52,21 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	known := d.record
 	if known != nil {
 		title = historyKindLabel(known.Activity.Kind, known.Activity.Reason)
+		if known.LiabilityAccount != "" {
+			title = liabilityKindLabel(known.Activity.Kind, known.Activity.Reason)
+		}
+		if known.Activity.Kind == domain.ActivityPositionTransfer && known.Activity.Reason == domain.ReasonReconciliation && known.Activity.ProductContext == nil {
+			title = i18n.HistoryPositionAdjustment
+		}
 		r.rename(d.id, l.Text(title)+" · "+historyDay(view, known.Activity.EffectiveLocalDate))
 	} else if d.id == r.posted.ID {
 		title = historyKindLabel(r.posted.Kind, r.posted.Reason)
+	}
+	backLabel := i18n.ContributionBack
+	if r.postedBackLabel != nil {
+		if label := r.postedBackLabel(); label != i18n.NoMessage {
+			backLabel = label
+		}
 	}
 
 	children := []ui.ColumnChild{
@@ -60,7 +74,7 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					view.Focus.Watch(gtx, &d.back)
-					return view.Button(&d.back, l.Text(i18n.ContributionBack))(gtx)
+					return view.Button(&d.back, l.Text(backLabel))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return view.Label(gtx, l.Text(title), 19, font.Medium, view.Colors.Ink)
@@ -92,9 +106,22 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 			}))
 		}
 		if known.Amendable {
-			buttons := []layout.FlexChild{layout.Rigid(view.Button(&d.correct, l.Text(i18n.HistoryCorrectAction)))}
+			correct := i18n.HistoryCorrectAction
+			if _, custody := history.CustodyAmendment(known.Activity); custody {
+				correct = i18n.CustodyAmendmentCorrect
+			}
+			action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
+				return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if d.amendmentFocus == button {
+						gtx.Execute(key.FocusCmd{Tag: button})
+						d.amendmentFocus = nil
+					}
+					return view.Button(button, l.Text(label))(gtx)
+				})
+			}
+			buttons := []layout.FlexChild{action(&d.correct, correct)}
 			if known.Reversible {
-				buttons = append(buttons, layout.Rigid(view.Button(&d.reverse, l.Text(i18n.HistoryReverseAction))))
+				buttons = append(buttons, action(&d.reverse, i18n.HistoryReverseAction))
 			}
 			children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
@@ -169,10 +196,15 @@ func (r *historyReads) accountLinks(view ui.View, detail history.Detail) []layou
 	var links []layout.Widget
 	seen := make(map[domain.AccountID]bool)
 	for _, effect := range detail.Activity.Effects {
-		if effect.AccountID == nil {
+		var id domain.AccountID
+		if effect.AccountID != nil {
+			id = *effect.AccountID
+		} else if effect.HoldingID != nil {
+			id = detail.HoldingAccounts[*effect.HoldingID]
+		}
+		if id == "" {
 			continue
 		}
-		id := *effect.AccountID
 		name := detail.Accounts[id]
 		if name == "" || seen[id] {
 			continue
@@ -208,6 +240,10 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	muted := func(text string) layout.Widget { return view.Message(text, view.Colors.SecondaryInk) }
 	movement, supported := history.CashMovementOf(activity.Kind, activity.Reason)
 	paired := supported && (movement == history.CashTransfer || movement == history.CashConversion)
+	debt := activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment
+	liabilityChange := detail.LiabilityAccount != "" && (activity.Kind == domain.ActivityCashIn ||
+		activity.Kind == domain.ActivityCashOut || activity.Kind == domain.ActivityValueUpdate)
+	var debtAccount domain.AccountID
 	account := func(id *domain.AccountID) string {
 		if id != nil && detail.Accounts[*id] != "" {
 			return detail.Accounts[*id]
@@ -221,7 +257,7 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 		return l.Text(i18n.HistoryInstrumentUnavailable)
 	}
 	timestamp := contributionTimestamp
-	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell {
+	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell || activity.Kind == domain.ActivityPositionTransfer && activity.ProductContext == nil {
 		timestamp = tradeTimestamp
 	}
 	var facts []layout.Widget
@@ -232,6 +268,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	}
 	if activity.Note != nil && *activity.Note != "" {
 		facts = append(facts, ink(*activity.Note))
+	}
+	if liabilityChange && liabilityReasonLabels[activity.Reason] != i18n.NoMessage {
+		facts = append(facts, ink(liabilityReasonFact(l, activity.Reason)))
 	}
 	if detail.Links.Reversal != "" {
 		badge := i18n.HistoryOriginalReversed
@@ -249,15 +288,48 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	} else if dividend := activity.DividendDetail; dividend != nil {
 		facts = append(facts, ink(instrument(dividend.InstrumentID)))
 	}
+	positionReversal := activity.Kind == domain.ActivityReversal && len(detail.HoldingAccounts) > 0
+	positionChange := (activity.Kind == domain.ActivityPositionTransfer || positionReversal) && activity.ProductContext == nil
+	var positionEndpoints map[domain.HoldingID]i18n.MessageID
+	if positionChange {
+		positionEndpoints = make(map[domain.HoldingID]i18n.MessageID, 2)
+	}
 	for _, effect := range activity.Effects {
 		var caption string
-		if detail.LiabilityValueUpdate && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil {
+		switch {
+		case positionChange && effect.HoldingID != nil && effect.Quantity != nil && effect.Target == domain.EffectTargetHoldingQuantity:
+			id := detail.HoldingAccounts[*effect.HoldingID]
+			name := account(&id)
+			if effect.InstrumentID != nil {
+				name += " · " + instrument(*effect.InstrumentID)
+			}
+			change, quantity := i18n.HistoryAdded, i18n.QuantityAdjustAfter
+			if effect.Direction == domain.EffectRemoved {
+				change = i18n.HistoryRemoved
+			}
+			switch effect.Role {
+			case domain.EffectRoleTransferFrom:
+				quantity = i18n.CustodySourceAfter
+			case domain.EffectRoleTransferTo:
+				quantity = i18n.CustodyDestinationAfter
+			}
+			if positionReversal {
+				quantity = i18n.CustodyAmendmentAfterReversal
+			}
+			caption = fmt.Sprintf(l.Text(change), name, portfolioDecimal(view, effect.Quantity.Canonical()))
+			positionEndpoints[*effect.HoldingID] = quantity
+		case (liabilityChange || effect.Role == domain.EffectRoleDebt) && effect.Target == domain.EffectTargetAccountValue && effect.Money != nil:
 			label := i18n.HistoryDebtIncreased
 			if effect.Direction == domain.EffectRemoved {
 				label = i18n.HistoryDebtReduced
 			}
 			caption = fmt.Sprintf(l.Text(label), account(effect.AccountID), movementMoney(effect))
-		} else {
+			if effect.AccountID != nil {
+				debtAccount = *effect.AccountID
+			}
+		case debt && effect.Role == domain.EffectRoleFee && effect.Money != nil:
+			caption = fmt.Sprintf(l.Text(i18n.TransferFeePaid), account(effect.AccountID), movementMoney(effect))
+		default:
 			caption = effectCaption(l, effect, paired, supported, movement, account, instrument)
 		}
 		class := l.Text(effectClasses[effect.Classification])
@@ -278,6 +350,13 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(14)}.Layout(gtx,
 				layout.Flexed(1, ink(caption)), layout.Rigid(muted(class)))
 		})
+		if effect.Target == domain.EffectTargetHoldingQuantity && effect.CostUnitPrice != nil && effect.InstrumentID != nil {
+			cost := portfolioDecimal(view, effect.CostUnitPrice.Canonical())
+			if code := detail.InstrumentCurrencies[*effect.InstrumentID]; code != "" {
+				cost += " " + code.String()
+			}
+			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.HistoryUnitCost), cost)))
+		}
 	}
 	from, to := transferCurrencies(activity.Effects)
 	if paired {
@@ -295,7 +374,14 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	shown := make(map[balanceRow]bool)
 	for _, result := range activity.Resulting {
 		if result.Quantity != "" {
-			if result.Name != "" {
+			if result.HoldingID != nil && positionEndpoints[*result.HoldingID] != i18n.NoMessage {
+				quantity := fmt.Sprintf(l.Text(positionEndpoints[*result.HoldingID]), portfolioDecimal(view, result.Quantity))
+				if positionReversal {
+					id := detail.HoldingAccounts[*result.HoldingID]
+					quantity = account(&id) + " · " + quantity
+				}
+				facts = append(facts, ink(quantity))
+			} else if result.Name != "" {
 				facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.HistoryResultQuantity), result.Name, result.Quantity)))
 			}
 			continue
@@ -312,9 +398,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			shown[row] = true
 		}
 		balance := result.Amount + " " + result.Currency.String()
-		if detail.LiabilityValueUpdate && result.Target == domain.EffectTargetAccountValue {
+		if debtAccount != "" && result.AccountID != nil && *result.AccountID == debtAccount && result.Target == domain.EffectTargetAccountValue {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), balance)))
-		} else if namedBalances {
+		} else if namedBalances || debt {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.TransferAccountBalance), account(result.AccountID), balance)))
 		} else {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.ContributionAfter), balance)))

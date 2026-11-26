@@ -15,10 +15,10 @@ type InvestmentLedger interface {
 	CashMovementLedger
 	WithRead(context.Context, func(context.Context) error) error
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
-	AccountValuations(context.Context, domain.AccountFilter) ([]domain.AccountValuation, error)
 	ListInstruments(context.Context, bool) ([]domain.Instrument, error)
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
 	PreviewExistingTradeCost(context.Context, domain.ChangePreview) (application.ExistingTradeCostPreview, error)
+	ValidateReconciliationCommandLink(context.Context, *domain.ReconciliationLink, any, domain.ChangePreview) error
 }
 
 type InvestmentSources struct {
@@ -43,7 +43,7 @@ func LoadInvestmentSources(ctx context.Context, ledger InvestmentLedger, account
 }
 
 func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.AccountID, kind domain.ActivityKind) (InvestmentSources, error) {
-	if kind != domain.ActivityBuy && kind != domain.ActivitySell && kind != domain.ActivityCashDividend {
+	if kind != domain.ActivityBuy && kind != domain.ActivitySell && kind != domain.ActivityCashDividend && kind != domain.ActivityPositionTransfer {
 		return InvestmentSources{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "side"}
 	}
 	origin, location, err := cashMovementOrigin(ctx, ledger)
@@ -61,19 +61,6 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 	if err != nil {
 		return InvestmentSources{}, err
 	}
-	if kind == domain.ActivityBuy {
-		values, err := ledger.AccountValuations(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
-		if err != nil {
-			return InvestmentSources{}, err
-		}
-		// The pilot uses the account's default-currency sleeve. Historical
-		// spendable cash at the chosen time is checked by the trade command.
-		if len(values) != 1 || !slices.ContainsFunc(values[0].Components, func(row domain.ValuationComponent) bool {
-			return row.InstrumentID == nil && row.NativeCurrency == account.DefaultCurrency && row.NativeAmount != "" && row.NativeAmount != "0"
-		}) {
-			return InvestmentSources{}, &domain.Error{Code: domain.ErrInsufficientBalance, Field: "settlementCash"}
-		}
-	}
 	instruments, err := ledger.ListInstruments(ctx, false)
 	if err != nil {
 		return InvestmentSources{}, err
@@ -88,11 +75,21 @@ func investmentSources(ctx context.Context, ledger InvestmentLedger, id domain.A
 			active[holding.InstrumentID] = holding
 		}
 	}
-	existingOnly := kind != domain.ActivityBuy || len(holdings[id]) != 0
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, owned := managed[i.ID.String()]
 		_, held := active[i.ID]
-		return owned || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency || (existingOnly && !held)
+		if owned || i.ArchivedAt != nil {
+			return true
+		}
+		switch kind {
+		case domain.ActivityPositionTransfer:
+			return held
+		case domain.ActivitySell:
+			return !held
+		case domain.ActivityCashDividend:
+			return !held || i.QuoteCurrency != account.DefaultCurrency
+		}
+		return false
 	})
 	return InvestmentSources{Origin: origin, Location: location, Account: account, Instruments: instruments, Holdings: active}, nil
 }
@@ -102,12 +99,15 @@ type TradeInput struct {
 	Account     domain.AccountID
 	Instrument  domain.InstrumentID
 	Holding     domain.HoldingID
+	Currency    domain.CurrencyCode
 	Quantity    string
 	Gross       string
 	Fee         string
+	Note        string
 	Date        string
 	Time        string
 	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
 }
 
 type ReviewedInvestment struct {
@@ -117,6 +117,7 @@ type ReviewedInvestment struct {
 	Timezone              *time.Location
 	command               any
 	mutation, hash, token string
+	link                  *domain.ReconciliationLink
 }
 
 func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput) (ReviewedInvestment, error) {
@@ -137,24 +138,32 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 			if err != nil {
 				return nil, err
 			}
-			if !slices.ContainsFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument }) {
+			at := slices.IndexFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument })
+			if at < 0 {
 				return nil, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId"}
+			}
+			currency := sources.Instruments[at].QuoteCurrency
+			if currency != input.Currency {
+				return nil, &domain.Error{Code: domain.ErrStalePreview, Field: "grossCurrency"}
 			}
 			holding, held := sources.Holdings[input.Instrument]
 			if holding.ID != input.Holding {
 				return nil, &domain.Error{Code: domain.ErrConflict, Field: "holdingId"}
 			}
 			existing = held
-			request, err := tradeRequest(input, sources.Account.DefaultCurrency, holding.ID)
+			request, err := tradeRequest(input, currency, holding.ID)
 			if err != nil {
 				return nil, err
 			}
-			return review.bind(sources, request)
+			return review.bind(sources.Origin, sources.Location, request)
 		})
 		if err != nil {
 			return err
 		}
 		review.Preview, review.token = preview, token
+		if err := review.validateLink(ctx, ledger); err != nil {
+			return err
+		}
 		if existing {
 			cost, err := ledger.PreviewExistingTradeCost(ctx, preview)
 			if err != nil {
@@ -187,15 +196,19 @@ func ReviewTrade(ctx context.Context, ledger InvestmentLedger, input TradeInput)
 
 // bind freezes the same request identity used by Wails Go. The plan and its
 // token stay together across retries, including a lost response after commit.
-func (r *ReviewedInvestment) bind(sources InvestmentSources, request historyapi.ChangeCommandRequest) (any, error) {
+func (r *ReviewedInvestment) bind(origin domain.HistoryOrigin, location *time.Location, request historyapi.ChangeCommandRequest) (any, error) {
 	request.MutationID = domain.NewMutationID().String()
 	var err error
-	r.command, err = request.ToCommand(sources.Origin.HouseholdID, sources.Origin.Timezone)
+	r.command, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 	if err != nil {
 		return nil, err
 	}
 	r.mutation, r.hash, err = request.MutationEnvelope()
-	r.Timezone = sources.Location
+	if request.ReconciliationLink != nil {
+		link := *request.ReconciliationLink
+		r.link = &link
+	}
+	r.Timezone = location
 	return r.command, err
 }
 
@@ -213,8 +226,11 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 		return request, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 	}
 	request = historyapi.ChangeCommandRequest{
-		Kind: historyapi.ChangeTrade, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
+		Kind: historyapi.ChangeTrade, ReconciliationLink: input.Link, Side: string(input.Side), SettlementAccountID: input.Account.String(), HoldingID: holding.String(),
 		InstrumentID: input.Instrument.String(), Quantity: quantity.Canonical(), Gross: gross.CanonicalAmount(), GrossCurrency: currency.String(),
+	}
+	if note := strings.TrimSpace(input.Note); note != "" {
+		request.Note = &note
 	}
 	if input.EffectiveAt.IsZero() {
 		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
@@ -231,6 +247,13 @@ func tradeRequest(input TradeInput, currency domain.CurrencyCode, holding domain
 	return request, nil
 }
 
+func (r ReviewedInvestment) validateLink(ctx context.Context, ledger InvestmentLedger) error {
+	if r.link == nil {
+		return nil
+	}
+	return ledger.ValidateReconciliationCommandLink(ctx, r.link, r.command, r.Preview)
+}
+
 func (r ReviewedInvestment) Commit(ctx context.Context, ledger InvestmentLedger) (domain.ChangePreview, error) {
-	return ledger.RecordChangeGuarded(ctx, r.command, r.mutation, r.hash, r.token)
+	return ledger.RecordChangeGuarded(domain.WithReconciliationLink(ctx, r.link), r.command, r.mutation, r.hash, r.token)
 }

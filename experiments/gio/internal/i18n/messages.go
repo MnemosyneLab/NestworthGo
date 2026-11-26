@@ -27,7 +27,254 @@ const (
 	NavReturns
 	NavAssetChanges
 	NavDirectory
-	NavDataMaintenance
+	NavMarketData
+	MarketInstruments
+	MarketFX
+	MarketDescription
+	MarketFXDescription
+	MarketFXChangeSource
+	MarketFXSourceTitle
+	MarketFXSaveSource
+	MarketFXProviderRefresh
+	MarketFXSourceFailed
+	MarketFXSourceSaving
+
+	InstrumentBindingOpen
+	InstrumentBindingTitle
+	InstrumentBindingCurrency
+	InstrumentBindingSave
+	InstrumentBindingUnavailable
+	InstrumentBindingProvider
+	InstrumentBindingYahoo
+	InstrumentBindingQuery
+	InstrumentBindingLookup
+	InstrumentBindingLooking
+	InstrumentBindingLookupEmpty
+	InstrumentBindingLookupFailed
+	InstrumentBindingLookupMismatch
+	InstrumentBindingChosen
+	InstrumentBindingSymbol
+	InstrumentBindingMarket
+	InstrumentBindingCountry
+	InstrumentBindingRequired
+	InstrumentBindingRoutingInvalid
+	InstrumentBindingSaveFailed
+	InstrumentBindingMetal
+
+	AgentEvidenceOpen
+	AgentEvidenceTitle
+	AgentEvidenceRecords
+	AgentEvidenceFindings
+	AgentEvidenceNoFindings
+	AgentEvidenceEmpty
+	AgentEvidenceReadFailed
+	AgentEvidenceClosureHelp
+	AgentEvidenceClosedDate
+	AgentEvidenceDeclare
+	AgentEvidenceSaved
+	AgentEvidenceSavedPending
+	AgentEvidenceSaveFailed
+	AgentEvidenceObservation
+	AgentEvidenceCorrection
+	AgentEvidenceWithdrawal
+	AgentEvidenceSuperseded
+	AgentEvidenceClosure
+	AgentEvidenceNoPrice
+	AgentEvidenceSource
+
+	MarketReload
+	MarketSearch
+	MarketSearchHint
+	MarketLoading
+	MarketFailed
+	MarketNoFX
+	MarketNoInstruments
+	MarketNoMatches
+	MarketNoQuote
+	MarketNoSource
+	MarketDelayed
+	MarketStocks
+	MarketETFs
+	MarketFunds
+	MarketCrypto
+	MarketBonds
+	MarketMetals
+	MarketOther
+	MarketManualFX
+	MarketManualPrice
+	MarketManualAdd
+	MarketManualSaveFX
+	MarketManualSavePrice
+	MarketManualBase
+	MarketManualQuote
+	MarketManualRate
+	MarketManualUnitPrice
+	MarketManualDate
+	MarketManualDateHelp
+	MarketManualSourceHelp
+	MarketManualInvalidDate
+	MarketManualInvalidPrice
+	MarketManualInvalidRate
+	MarketManualInvalidPair
+	MarketManualUnavailable
+	MarketManualSaveFailed
+	MarketManualSaved
+	MarketManualDerivedPending
+	MarketUpdateLatest
+	MarketMoreActions
+	MarketCancelLatest
+	MarketRetryLatest
+	MarketLatestDetails
+	MarketSyncDetails
+	MarketRetrySync
+	MarketSyncRepair
+	MarketForceLatest
+	MarketUpdateTarget
+	MarketPreviewTarget
+	MarketStoppingLatest
+	MarketUpdatingLatest
+	MarketLatestCancelled
+	MarketFailedLatest
+	MarketNoTargets
+	MarketLatestSummary
+	MarketStartSync
+	MarketForceHistory
+	MarketSyncPreview
+	MarketWorkPlanned
+	MarketWorkRunning
+	MarketWorkFetched
+	MarketWorkCached
+	MarketWorkSkipped
+	MarketWorkFailed
+	MarketWorkRateLimited
+	MarketWorkCancelled
+
+	QuoteHistoryOpen
+	QuoteHistoryTitle
+	QuoteHistoryTitleList
+	QuoteHistoryAllSources
+	QuoteHistoryFinding
+	QuoteHistoryConfigured
+	QuoteHistoryCurrent
+	QuoteHistoryDirection
+	QuoteHistorySwap
+	QuoteHistoryRate
+	QuoteHistoryEmpty
+	QuoteHistoryRangeEmpty
+	QuoteHistoryShowAll
+	QuoteHistoryCoverage
+	QuoteHistoryOffCurrency
+	QuoteHistoryObservations
+	QuoteHistoryEffective
+	QuoteHistoryQuoted
+	QuoteHistoryPolicyTime
+	QuoteHistoryNAV
+	QuoteHistoryManual
+	QuoteHistoryLatest
+	QuoteHistoryRealtime
+	QuoteHistoryDaily
+	QuoteHistoryClose
+	QuoteHistoryOther
+	QuoteHistoryChart
+	QuoteHistoryChartHelp
+	QuoteHistoryMetalReference
+	QuoteHistoryCoinGecko
+	QuoteHistoryViewTable
+	QuoteHistoryCoinGeckoURL
+	QuoteHistoryCoinGeckoCopied
+	QuoteHistoryPerGram
+	QuoteHistoryPerOunce
+	NavDataHealth
+	HealthOpen
+	HealthDescription
+	HealthLoading
+	HealthFailed
+	HealthHealthy
+	HealthCompleteThrough
+	HealthIncomplete
+	HealthIncompleteSince
+	HealthGapCount
+	HealthSnapshotCount
+	HealthPrerequisiteCount
+	HealthGrouped
+	HealthRecheck
+	HealthFindings
+	HealthFinding
+	HealthExecutable
+	HealthPrerequisites
+	HealthReported
+	HealthInstrumentHistory
+	HealthFXHistory
+	HealthManualPrice
+	HealthManualFX
+	HealthAgentPrice
+	HealthAgentFX
+	HealthProviderKey
+	HealthBinding
+	HealthAnchor
+	HealthUnsupported
+	HealthStaleValue
+	HealthMissingValue
+	HealthIncompleteValuation
+	HealthPending
+	HealthProvisional
+	HealthSnapshotIncomplete
+	HealthSnapshotDependencies
+	HealthSnapshotAffected
+	HealthSnapshotBlocked
+	HealthInspectSnapshot
+	HealthPreviewSnapshot
+	HealthSnapshotRepairTitle
+	HealthSnapshotRepairNote
+	HealthConfirmSnapshot
+	HealthStopSnapshot
+	HealthResumeSnapshot
+	HealthSnapshotWorking
+	HealthSnapshotStopping
+	HealthSnapshotFailed
+	HealthSnapshotPaused
+	HealthSnapshotDone
+	HealthSnapshotRevisions
+	HealthSnapshotMissing
+	HealthSnapshotOutdated
+	HealthSyncFailure
+	HealthHistoryNotStarted
+	HealthBlocking
+	HealthWarning
+	HealthInfo
+	HealthCurrentMissing
+	HealthAgentNeeded
+	HealthInputsReady
+	HealthHoldingOutOfRange
+	HealthRepairAvailable
+	HealthCheckInstrument
+	HealthEnterManual
+	HealthOpenSettings
+	HealthRepairAll
+	HealthRepairPlanning
+	HealthRepairPlanFailed
+	HealthRepairStartFailed
+	HealthRepairConflict
+	HealthRepairCancelFailed
+	HealthRepairTitle
+	HealthRepairDescription
+	HealthRepairConfirm
+	HealthRepairRequestCount
+	HealthRepairTargetCount
+	HealthRepairSnapshotCount
+	HealthRepairBlockedCount
+	HealthRepairNoWork
+	HealthRepairBlocked
+	HealthRepairStarting
+	HealthRepairRunning
+	HealthRepairSucceeded
+	HealthRepairPartial
+	HealthRepairFailed
+	HealthRepairCancelled
+	HealthRepairProgress
+	HealthRepairCancel
+	HealthRepairHistoryRequired
+	HealthRepairLatestCount
 	NavSettings
 	NavComponentPreview
 	GroupActivity
@@ -132,6 +379,9 @@ const (
 	AccountCreateWriteFailed
 	AccountBack
 	AccountClearInstitution
+	AccountClearOverviewFilter
+	AccountOverviewFilter
+	AccountOverviewFilterEmpty
 	AccountLoading
 	AccountLoadError
 	AccountUnavailable
@@ -175,6 +425,54 @@ const (
 	OverviewCurrentEstimate
 	OverviewIncomplete
 	OverviewKnownSubtotal
+	OverviewAllocationTitle
+	OverviewAssetsComposition
+	OverviewLiabilitiesComposition
+	OverviewCompositionMissing
+	OverviewOpenBreakdowns
+	OverviewBreakdownHint
+	OverviewByInstitution
+	OverviewByAccountType
+	OverviewByMember
+	OverviewByGroup
+	OverviewAccountTypeHint
+	OverviewAllocationScope
+	OverviewAllocationTotal
+	OverviewAllocationPositive
+	OverviewAllocationNegative
+	OverviewAllocationClass
+	OverviewAllocationAccount
+	OverviewAllocationDetails
+	OverviewAllocationBack
+	OverviewAllocationHelp
+	OverviewAllocationMissing
+	OverviewAllocationZero
+	OverviewAllocationEmpty
+	OverviewAllocationUnavailable
+	OverviewAllocationUnassigned
+	OverviewAllocationUnknownAccount
+	OverviewAllocationOrdinal
+	OverviewAllocationDate
+	OverviewAllocationQuoteDates
+	OverviewAllocationCarriedDate
+	OverviewOpenAccounts
+	OverviewOpenWealthHistory
+	OverviewNetWorthTrend
+	OverviewTrendMonth
+	OverviewTrendYTD
+	OverviewTrendYear
+	OverviewTrendAll
+	OverviewTrendEmpty
+	OverviewTrendBasis
+	OverviewTrendCoverage
+	OverviewTrendGaps
+	OverviewTrendSelectedGap
+	OverviewTrendChange
+	OverviewTrendEstimate
+	OverviewTrendData
+	HealthFocused
+	HealthShowAll
+	HealthFocusedEmpty
 	OverviewKnownNet
 	OverviewNoValue
 	OverviewQuoteDates
@@ -185,6 +483,299 @@ const (
 	OverviewMissingInstrument
 	OverviewMissingFX
 	OverviewMissingAccount
+	WealthHistoryNoOrigin
+	WealthHistoryNoClosedDays
+	WealthHistoryLoading
+	WealthHistoryFailed
+	WealthHistoryBudget
+	WealthHistoryRetained
+	WealthHistoryRangeHint
+	WealthHistoryLoad
+	WealthHistoryCapture
+	WealthHistoryTable
+	WealthHistoryEmpty
+	WealthHistorySkippedDate
+	WealthHistoryProvisional
+	WealthHistoryCoverage
+	WealthHistoryMissing
+	WealthHistoryQuoteAge
+	WealthHistoryScopeChanged
+	WealthHistoryBasisChanged
+	WealthHistoryFundingGap
+	WealthTrendChart
+	WealthTrendSelectedDate
+	WealthTrendSelectA
+	WealthTrendSelectB
+	WealthTrendOpenDay
+	WealthChangeTab
+	WealthChangeTitle
+	WealthChangeBasis
+	WealthChangeCount
+	WealthChangeShowAll
+	WealthChangeTopTen
+	WealthChangeEmpty
+	WealthChangeSeparate
+	WealthChangeStatus
+	WealthChangeOffsetting
+	WealthRowDetails
+	WealthRowSourceDate
+	WealthRowComponents
+	WealthRowOtherComponents
+	WealthHistoryClosedLink
+	WealthBridgeTitle
+	WealthBridgeEvidence
+	WealthBridgeSupported
+	WealthBridgeResidual
+	WealthBridgeReconciled
+	WealthBridgePartial
+	WealthBridgeUnavailable
+	WealthBridgeIdentity
+	WealthBridgeBasis
+	WealthBridgeComponentIdentity
+	WealthBridgePrincipal
+	WealthBridgeOpenQty
+	WealthBridgeActivityQty
+	WealthBridgeCloseQty
+	WealthBridgeResidualQty
+	WealthBridgeRecords
+	WealthBridgeNoRecords
+	WealthBridgeSpending
+	WealthBridgeExternalFlow
+	WealthBridgeIncome
+	WealthBridgeDividend
+	WealthBridgeFee
+	WealthBridgeAdjustment
+	WealthBridgeDebt
+	WealthBridgePrice
+	WealthBridgeFX
+	WealthBridgeCurrent
+	WealthBridgeIncomplete
+	WealthBridgeQuantityMismatch
+	WealthBridgeUnpaired
+	WealthBridgeExposure
+	WealthBridgeUnexplained
+	WealthBridgeTransfer
+	WealthAllocationTab
+	WealthAllocationCompare
+	WealthAllocationCapture
+	WealthAllocationFilter
+	WealthAllocationBack
+	WealthAllocationClasses
+	WealthAllocationCurrencies
+	WealthAllocationBasis
+	WealthAllocationPartial
+	WealthAllocationMissing
+	WealthAllocationEmpty
+	WealthAllocationChartHelp
+	WealthAllocationNotDrawn
+	WealthAllocationTable
+	WealthAllocationUnclassified
+	WealthAllocationZero
+	WealthAllocationNoCategories
+	WealthAllocationCurrencyChanged
+	WealthAllocationKnownShare
+	WealthAllocationPoints
+	WealthAllocationShareChange
+	WealthAllocationExistenceChanged
+	WealthAllocationScopeChanged
+	WealthAllocationMembershipChanged
+	WealthAllocationShareUnavailable
+	WealthAccountTabName
+	WealthTrendTab
+	WealthAccountSingle
+	WealthAccountCompareDate
+	WealthAccountCompareCurrent
+	WealthAccountCurrent
+	WealthAccountCapture
+	WealthAccountDateA
+	WealthAccountDateB
+	WealthAccountSideA
+	WealthAccountSideB
+	WealthAccountNetChange
+	WealthAccountChanges
+	WealthAccountEmpty
+	WealthAccountBalance
+	WealthAccountComponents
+	WealthAccountDelta
+	WealthAccountAbsent
+	WealthAccountExcluded
+	WealthAccountLoading
+	WealthAccountFailed
+	WealthAccountSwap
+	WealthAccountIncomparable
+	WealthAccountRate
+	WealthQuoteAppliedPrice
+	WealthQuoteAppliedFX
+	WealthQuoteCarried
+	WealthQuoteStale
+	WealthQuoteMarketDate
+	WealthQuoteEffectiveAt
+	WealthQuoteRetrievedAt
+	WealthQuoteMultiply
+	WealthQuoteDivide
+	ReturnCalendar
+	ReturnToday
+	ReturnMonth
+	ReturnYear
+	ReturnPreviousYear
+	ReturnNextYear
+	ReturnYearLayout
+	ReturnMonthLayout
+	ReturnLoading
+	ReturnFailed
+	ReturnNoOrigin
+	ReturnNoClosedDays
+	ReturnNoInvestments
+	ReturnInsufficient
+	ReturnSummaryRange
+	ReturnAmount
+	ReturnRate
+	ReturnBeginning
+	ReturnEnding
+	ReturnDayOpen
+	ReturnNoData
+	ReturnComposition
+	ReturnContributors
+	ReturnPrice
+	ReturnFX
+	ReturnFXSpread
+	ReturnIncome
+	ReturnFee
+	ReturnCoverage
+	ReturnMissingValuation
+	ReturnAmountOnly
+	ReturnTrend
+	ReturnContribution
+	ReturnCumulative
+	ReturnLinked
+	ReturnPeriodAmount
+	ReturnTrendTable
+	ReturnTrendChartSummary
+	ReturnTrendBaseline
+	ReturnTrendValuationGap
+	ReturnTrendRateGap
+	ReturnTrendGap
+	ReturnTrendReset
+	ChartSelected
+	ReturnDisplay
+	ReturnTotal
+	ReturnRealized
+	ReturnUnrealized
+	ReturnSortLargest
+	ReturnSortSmallest
+	ReturnSortName
+	RankingTotal
+	RankingPositive
+	RankingNegative
+	RankingLargest
+	RankingMain
+	RankingChartSummary
+	RankingDetails
+	RankingSearch
+	RankingNoMatches
+	RankingShowCount
+	RankingAll
+	RankingVisible
+	RankingRateDesc
+	RankingRateAsc
+	ReturnMetric
+	ReturnGroupBy
+	ReturnSort
+	AnalysisPortfolio
+	AnalysisAccount
+	AnalysisInstrument
+	AnalysisBase
+	AnalysisNative
+	AnalysisScope
+	AnalysisValuation
+	AnalysisIncludeCash
+	AnalysisMoreFilters
+	AnalysisReset
+	AnalysisAllCurrencies
+	AnalysisAccountFilter
+	AnalysisCurrency
+	AnalysisScopeRequired
+	AnalysisInvalidRange
+	AnalysisAssetClass
+	AnalysisMember
+	AnalysisInstrumentFilter
+	AnalysisAllClasses
+	AnalysisAllMembers
+	AnalysisAllInstruments
+	AnalysisCash
+	AnalysisCashIncluded
+	AnalysisCashExcluded
+	AnalysisClearAdditional
+	AnalysisDayShort
+	AnalysisWeekShort
+	AnalysisMonthShort
+	AnalysisQuarterShort
+	AnalysisHalfYearShort
+	AnalysisYearShort
+	AnalysisAllDates
+	AnalysisLastDay
+	AnalysisLastWeek
+	AnalysisLastMonth
+	AnalysisLastQuarter
+	AnalysisLastHalfYear
+	AnalysisLastYear
+	AnalysisWholeHistory
+	AnalysisPreviousRange
+	AnalysisNextRange
+	AnalysisRemoveFilter
+	ContributionHistoryMember
+	AnalysisBaseFallback
+	AssetTrend
+	AssetTrendMetric
+	AssetTrendInvestmentReturn
+	AssetTrendChartHelp
+	AssetTrendMissingValue
+	AssetTrendMissingPeriods
+	AssetTrendTable
+	AssetTrendPeriodValue
+	AssetDrivers
+	AssetCategories
+	AssetCategoryType
+	AssetDaily
+	AssetWeekly
+	AssetMonthly
+	AssetInterval
+	AssetLoading
+	AssetFailed
+	AssetNoOrigin
+	AssetNoData
+	AssetBeginning
+	AssetEnding
+	AssetNetChange
+	AssetChangeRate
+	AssetCategoryTotal
+	AssetCategoryComponents
+	AssetCategoryRecords
+	AssetCategoryNoRecords
+	AssetIncome
+	AssetSpending
+	AssetFees
+	AssetCashFlows
+	AssetMarketMoves
+	AssetOther
+	AssetExternalFlow
+	AssetLiabilityImpact
+	AssetAdjustment
+	AssetResidual
+	AssetAttribution
+	AssetDriverChart
+	AssetDriverChartHelp
+	AssetDriverMismatch
+	AssetDriverTotal
+	AssetDriverComponentDays
+	AssetDriverByInstrument
+	AssetDriverByAccount
+	AssetNoDriverDetail
+	AssetOpenDay
+	AssetOpenReturn
+	ContributionOpenHistory
+	ContributionHistoryWider
+	ContributionHistoryUnavailable
 	NetWorth
 	Assets
 	Liabilities
@@ -272,6 +863,9 @@ const (
 	StartupInUse
 	StartupRecoveryPending
 	StartupUnavailable
+	StartupUpgradeRequired
+	StartupNewerDatabase
+	StartupIntegrityFailed
 	StartupQuit
 	DirectoryView
 	DirectoryViewName
@@ -279,7 +873,6 @@ const (
 	DirectoryObjectLoading
 	DirectoryObjectLoadError
 	DirectoryObjectActive
-	InstitutionsSynthetic
 	InstitutionsSearchHint
 	InstitutionsRefresh
 	InstitutionsRetry
@@ -489,6 +1082,7 @@ const (
 	HistoryCashTransfer
 	HistoryFXConversion
 	HistoryPositionTransfer
+	HistoryPositionAdjustment
 	HistoryCostAdjustment
 	HistoryBuy
 	HistorySell
@@ -566,6 +1160,7 @@ const (
 	HistoryStartConfirm
 	HistoryStartEdit
 	HistoryStartScope
+	HistoryStartHousehold
 	HistoryStartCaptureNow
 	HistoryStartBaseline
 	HistoryStartEmpty
@@ -604,6 +1199,34 @@ const (
 	AccountBankBalanceSaved
 	AccountBankBalanceUnverified
 	AccountCardBalanceAction
+	LiabilityRecord
+	LiabilityRecordDebt
+	LiabilityDebtIncrease
+	LiabilityDebtDecrease
+	LiabilityBalanceCorrection
+	LiabilityChooseDebt
+	LiabilityDebtRequired
+	LiabilityNoDebt
+	LiabilityReasonRequired
+	LiabilityReasonReconciliation
+	LiabilityBackToAccount
+	LiabilityCardPurchase
+	LiabilityCardRefund
+	LiabilityChooseCash
+	LiabilityCashRequired
+	LiabilityNoCash
+	LiabilityInterest
+	LiabilityInvalidInterest
+	LiabilityUseNow
+	LiabilityPreview
+	LiabilityConfirm
+	LiabilityPosted
+	LiabilityPreviewFailed
+	LiabilityStalePreview
+	LiabilityCurrencyMatch
+	LiabilityAmountFact
+	LiabilityInterestFact
+	LiabilityBalanceReview
 	AccountCardBalanceReview
 	AccountCardBalanceConfirm
 	AccountCardBalanceTarget
@@ -803,6 +1426,8 @@ const (
 	BuyCostBasis
 	BuyCashDelta
 	BuySourcesFailed
+	TradeForeignSettlement
+	TradeCurrencyChanged
 	BuyScopeUnavailable
 	BuyHistoryRequired
 	BuyCashRequired
@@ -863,6 +1488,62 @@ const (
 	OpeningPositionLoadFailed
 	OpeningPositionNoSave
 	OpeningPositionReadFailed
+	PositionImportHistoryRequired
+	PositionImportHelp
+	PositionImportCostFact
+	PositionImportNoCash
+	PositionImportInvalidCost
+	PositionImportReviewFailed
+	PositionImportStale
+	PositionImportPosted
+	PositionImportAccount
+	PositionImportPortfolioAction
+	PositionImportBackPortfolio
+	CustodyOpen
+	CustodyReview
+	CustodyConfirm
+	CustodyPosted
+	CustodyUnavailable
+	CustodyStartRequired
+	CustodyEmpty
+	CustodyPreviewFailed
+	CustodyStale
+	CustodyFromHolding
+	CustodyToAccount
+	CustodyQuantity
+	CustodyFromFact
+	CustodyToFact
+	CustodySourceAfter
+	CustodyDestinationAfter
+	CustodyNoCash
+	CustodySend
+	CustodyReceive
+	CustodyLockedHolding
+	CustodyHoldingAction
+	CustodyAmendmentBeforeAfter
+	CustodyAmendmentAfterReversal
+	CustodyAmendmentInvalidQuantity
+	CustodyAmendmentBack
+	CustodyAmendmentCorrect
+	QuantityAdjustOpen
+	QuantityAdjustReview
+	QuantityAdjustConfirm
+	QuantityAdjustPosted
+	QuantityAdjustStart
+	QuantityAdjustEmpty
+	QuantityAdjustFailed
+	QuantityAdjustStale
+	QuantityAdjustNeedsCost
+	QuantityAdjustHolding
+	QuantityAdjustAdd
+	QuantityAdjustRemove
+	QuantityAdjustQuantity
+	QuantityAdjustCost
+	QuantityAdjustAdded
+	QuantityAdjustRemoved
+	QuantityAdjustAfter
+	QuantityAdjustLocked
+	QuantityAdjustHoldingAction
 	HistoryStartOriginalCost
 	HistoryStartOriginalCostHelp
 	HistoryStartReviewedCost
@@ -925,6 +1606,7 @@ const (
 	ReserveInvalidAmount
 	ReserveCurrentAvailability
 	ManagedProducts
+	ManagedProductsEmpty
 	ProductTermDeposit
 	ProductOpen
 	ProductPrincipal
@@ -950,6 +1632,15 @@ const (
 	ProductReceiveInterest
 	PortfolioManagedOnly
 	ProductForecastInterest
+	ProductValuationAmount
+	ProductValuationHelp
+	ProductValuationInvalid
+	ProductValuationUnavailable
+	ProductValuationSaved
+	ProductRedemptionHelp
+	ProductRedemptionTimeInvalid
+	ProductRedemptionAmountsInvalid
+	ProductRedemptionHistory
 	ProductReceiptAction
 	ProductReceiptHelp
 	ProductReturnedPrincipal
@@ -966,7 +1657,6 @@ const (
 	ProductReceiptRecorded
 	ProductReceiptHistory
 	ProductInterestHistory
-	ProductReceiptNotDue
 	ProductPrincipalFact
 	ProductInterestFact
 	ProductNoInterestPosted
@@ -993,9 +1683,239 @@ const (
 	TasksAwaiting
 	TasksPartialEstimate
 	TasksWeekdays
+	HoldingReconRecordCash
+	HoldingReconShowAudit
+	HoldingReconHideAudit
+	HoldingReconReviewedBefore
+	HoldingReconRecordedAt
+	HoldingReconAmountAdded
+	HoldingReconAmountRemoved
+	HoldingReconLinkedResult
+	HoldingReconShowAttempts
+	HoldingReconHideAttempts
+	HoldingReconRemoved
+	HoldingReconProductOpen
+	HoldingReconInterestNone
+	HoldingReconInterestManual
+	HoldingReconInterest365
+	HoldingReconInterest360
+	HoldingReconAnnualRate
+	HoldingReconMaturityInterest
+	HoldingReconPaidThrough
+	HoldingReconRecentJournal
+	HoldingReconLinkedJournal
+	HoldingReconJournalRange
+	HoldingReconJournalEntry
+	HoldingReconFirstBaseline
+	HoldingReconOriginalInterval
+	HoldingReconAfterCompletion
+	HoldingReconJournalReadFailed
+	HoldingReconRecentEmpty
+	HoldingReconLinkedEmpty
+	HoldingReconMoreReceipts
+	HoldingReconProductValuation
+	HoldingReconProductInterest
+	HoldingReconRemainingInterest
+	HoldingReconRemainingInterestFact
+	HoldingReconProductInterestSaved
+	HoldingReconProductInterestFailed
+	HoldingReconProductSettlementFailed
+	HoldingReconProductSettlementSaved
+	HoldingReconGrossProceeds
+	HoldingReconGrossProceedsFact
+	HoldingReconValuationSaved
+	HoldingReconValuationFailed
+	HoldingReconObservedValue
+	HoldingReconValuationImpact
+	ProductHistoryHeading
+	ProductHistoryLoading
+	ProductHistoryFailed
+	ProductHistoryChanged
+	ProductHistoryEmpty
+	ProductHistoryComplete
+	ProductHistoryCount
+	ProductHistoryRefresh
+	ProductHistoryOlder
+	ProductHistoryRetryOlder
+	ProductHistoryOpened
+	ProductHistoryRecorded
+	ProductHistoryInterest
+	ProductHistorySettled
+	ProductHistoryRenewed
+	ProductHistoryUndo
+	ProductHistoryValuation
+	ProductHistoryReversed
+	ProductStandaloneInterestSaved
+	ProductStandaloneInterestHelp
+	ProductStandaloneInterestInvalid
+	ProductStandaloneInterestUnavailable
+	ProductStandaloneInterestHistory
+	ProductStandaloneTermsSaved
+	ProductStandaloneTermsStale
+	ProductStandaloneTermsRetry
+	ProductStandaloneTermsInvalid
+	ProductTermsLoadLatest
+	ProductTermsShortName
+	ProductTermsShortNameHelp
+	ProductEditTerms
+	ProductEditTermsHeading
+	ProductEditName
+	ProductEditStart
+	ProductEditMaturity
+	ProductEditNote
+	ProductEditPolicy
+	ProductEditAccess
+	ProductEditOnRequest
+	ProductEditOnDate
+	ProductEditUnknownAccess
+	ProductEditExcluded
+	ProductEditUnlock
+	ProductEditDays
+	ProductEditDayBasis
+	ProductEditCalendar
+	ProductEditWeekdays
+	ProductEditReceipt
+	ProductEditExitFee
+	ProductEditMissingPolicy
+	ProductEditEarly
+	ProductEditEarlyNo
+	ProductEditEarlyYes
+	ProductEditEarlyUnknown
+	ProductEditEarlyDays
+	ProductEditEarlyBasis
+	ProductEditEarlyFee
+	ProductEditEarlyMode
+	ProductEditEarlyCurrent
+	ProductEditEarlyGross
+	ProductEditWeekdayHelp
+	ProductEditClosed
+	ProductEditReviewFailed
+	ProductEditSaved
+	ProductEditValidDays
+	ProductEditAfter
+
+	ProductRenewAction
+	ProductRenewPrincipal
+	ProductRenewOpeningFee
+	ProductRenewSuccessor
+	ProductRenewSaved
+	ProductRenewFailed
+	ProductRenewPrincipalFact
+	ProductRenewOpeningFeeFact
+
+	ProductAddAction
+	ProductChooseAccount
+	ProductSetupSaved
+	ProductSetupInvalid
+	ProductAddCurrency
+	ProductAddMethod
+	ProductAddOpen
+	ProductAddRecordExisting
+	ProductAddOpenHelp
+	ProductAddExistingHelp
+	ProductAddKind
+	ProductAddDeposit
+	ProductAddLocked
+	ProductAddPrincipal
+	ProductAddCurrent
+	ProductAddCost
+	ProductAddExcludeCash
+	ProductAddConfirmCash
+	ProductDepositInterest
+	ProductDepositNone
+	ProductDepositAnnualRate
+	ProductDepositMaturityInterest
+	ProductDepositPaidThrough
+	ProductDepositYearBasis
+	ProductAddFailed
+	ProductAddSaved
+	ProductAddCash
+	ProductAddCostFact
+	ProductAddValueFact
+
 	TasksUpcomingTab
 	TasksInvestmentTab
 	TasksReconciliationTab
+	HoldingReconTitle
+	ReconciliationAllFilters
+	ReconciliationClearFilters
+	ReconciliationSelectVisible
+	ReconciliationDeselectVisible
+	ReconciliationDeselectAll
+	ReconciliationNoMatches
+	ReconciliationSelectionSummary
+	ReconciliationOverlap
+	ReconciliationInstitution
+	ReconciliationOwner
+	ReconciliationScopeRefresh
+	ReconciliationShowScope
+	ReconciliationHideScope
+	ReconciliationStart
+	ReconciliationSessions
+	ReconciliationOpen
+	ReconciliationNewValue
+	ReconciliationCurrentValue
+	ReconciliationValueUnchanged
+	HoldingReconOpen
+	HoldingReconBack
+	HoldingReconCorrect
+	HoldingReconTotal
+	HoldingReconBasis
+	HoldingReconNewBasis
+	HoldingReconReviewedTotal
+	HoldingReconReview
+	HoldingReconResume
+	HoldingReconConfirm
+	HoldingReconSaved
+	HoldingReconChanged
+	HoldingReconInvalidTotal
+	HoldingReconUnchanged
+	HoldingReconFailed
+	HoldingReconRetry
+	HoldingReconEmpty
+	HoldingReconRecordChange
+	HoldingReconDatedSaved
+	HoldingReconViewActivity
+	HoldingReconViewDatedActivity
+	HoldingReconCheck
+	HoldingReconCheckTitle
+	HoldingReconCheckAccount
+	HoldingReconCheckAccountHelp
+	HoldingReconScopeReviewed
+	HoldingReconCheckAccountExceptions
+	HoldingReconAccountChecked
+	HoldingReconScopeHelp
+	HoldingReconPause
+	HoldingReconFinish
+	HoldingReconFinishHelp
+	HoldingReconPartial
+	HoldingReconClosingNote
+	HoldingReconOutcome
+	HoldingReconSourceReference
+	HoldingReconSourceDate
+	HoldingReconSourceTime
+	HoldingReconSourceZone
+	HoldingReconSourceValue
+	HoldingReconComparable
+	HoldingReconComparisonHelp
+	HoldingReconEvidenceDate
+	HoldingReconEvidenceValue
+	HoldingReconCheckSaved
+	HoldingReconPartialRequired
+	HoldingReconMismatch
+	HoldingReconHistoricalSource
+	HoldingReconSourceInvalid
+	HoldingReconCheckNoteRequired
+	HoldingReconCheckUnavailable
+	HoldingReconAdjustQuantity
+	HoldingReconTargetQuantity
+	HoldingReconAcquisitionCost
+	HoldingReconOptionalTotal
+	HoldingReconAcquisitionCostValue
+	HoldingReconQuantitySaved
+	HoldingReconQuantityUnchanged
+	HoldingReconQuantityInvalid
+	HoldingReconAcquisitionCostInvalid
 	TasksChecksLoading
 	TasksChecksReadFailed
 	TasksReviewPublished
@@ -1011,6 +1931,31 @@ const (
 	TasksOpenStatement
 	TasksPrevious
 	TasksNext
+	ChartPreviewTitle
+	ChartPreviewHelp
+	ChartPreviewHint
+	ChartTitleLine
+	ChartTitleBars
+	ChartTitleWaterfall
+	ChartTitleDonut
+	ChartTitleSankey
+	ChartExampleStandard
+	ChartExampleEdge
+	ChartExampleDense
+	ChartSampleChecking
+	ChartSampleSavings
+	ChartSampleRetirement
+	ChartSampleGrowth
+	ChartSampleLongName
+	ChartSampleMortgage
+	ChartSampleMoneyMarket
+	ChartSampleZeroNote
+	ChartSampleEstimated
+	ChartSampleAmountsUnknown
+	ChartSampleDifference
+	ChartNotInRing
+	ChartNothingToDraw
+	PreviewTabControls
 	messageCount
 )
 

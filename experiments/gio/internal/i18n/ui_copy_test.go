@@ -37,6 +37,12 @@ func TestPresentationCopyUsesCatalog(t *testing.T) {
 				if name == "internal/snapshot" {
 					return fs.SkipDir
 				}
+				// The developer-only chart gallery renders synthetic English
+				// sample data to check shared chart components. It is not part
+				// of the household UI and never ships in the application.
+				if name == "tools/chartgallery" {
+					return fs.SkipDir
+				}
 				if _, err := fs.Stat(tree, path.Join(name, "go.mod")); err == nil {
 					return fs.SkipDir
 				} else if !errors.Is(err, fs.ErrNotExist) {
@@ -127,6 +133,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "font") && typ.Sel.Name == "Typeface" {
 			return true
 		}
+		if typ, ok := n.Type.(*ast.SelectorExpr); ok && named(typ.X, "charts") && typ.Sel.Name == "ID" {
+			return machineID.MatchString(value)
+		}
 		return named(n.Type, "routeID") && machineID.MatchString(value)
 	case *ast.KeyValueExpr:
 		if named(n.Key, "ID") && machineID.MatchString(value) {
@@ -166,6 +175,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 			return false
 		}
 		switch {
+		case callee.Sel.Name == "HistoricalOverview":
+			// The third argument accepts the HistoricalOverview comparison sentinel.
+			return len(n.Args) == 3 && n.Args[2] == lit && value == "current"
 		case named(callee.X, "app") && callee.Sel.Name == "Title":
 			return value == "Nestworth" || value == "Nestworth Gio"
 		case named(callee.X, "format") && callee.Sel.Name == "Money":

@@ -26,6 +26,7 @@ type historyPage struct {
 	reloadButton, retryButton, moreButton widget.Clickable
 	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
+	investment                            *accountInvestment
 	startPoint                            *historyStart
 	reads                                 *historyReads
 	bound, revision                       uint64
@@ -78,15 +79,30 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return p.layoutDetail(gtx, view)
 		}
 	}
+	if f := p.investment; f != nil {
+		run := p.investmentRuntime()
+		f.poll(run)
+		if f.draft == nil && p.positionActionsAvailable() && f.custodyOpen.Clicked(gtx) {
+			f.startCustody(run, positionScope{})
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft == nil && p.positionActionsAvailable() && f.adjustmentOpen.Clicked(gtx) {
+			f.startAdjustment(run, positionScope{})
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return f.layoutForm(gtx, view, run)
+		}
+	}
 	if c := p.cashMovements; c != nil {
 		if s := p.startPoint; s != nil && c.draft == nil {
 			if p.noHistory() && s.start.Clicked(gtx) {
-				s.open = true
-				s.cost = ui.NewTextField(true)
-				p.loadStartingPointHolding()
+				p.beginStartingPoint(s)
 			}
 			if s.open {
-				return p.layoutStartingPoint(gtx, view)
+				return p.layoutStartingPoint(gtx, view, s)
 			}
 		}
 		if c.draft == nil {
@@ -126,7 +142,20 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.Vie
 			if p.cashMovements == nil {
 				return layout.Dimensions{}
 			}
-			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(p.cashMovements.actions), func(gtx layout.Context, i int) layout.Dimensions {
+			cashActions := len(p.cashMovements.actions)
+			count := cashActions
+			if p.positionActionsAvailable() {
+				count += 2
+			}
+			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
+				if i == cashActions {
+					f := p.investment
+					return f.accountPositionAction(gtx, view, &f.custodyOpen, view.Language.Text(i18n.CustodyOpen))
+				}
+				if i == cashActions+1 {
+					f := p.investment
+					return f.accountPositionAction(gtx, view, &f.adjustmentOpen, view.Language.Text(i18n.QuantityAdjustOpen))
+				}
 				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
 			})
 			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
@@ -197,7 +226,7 @@ func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions
 		color = view.Colors.ErrorInk
 		text = view.Language.Text(i18n.HistoryLoadError)
 	case len(p.model.Rows()) == 0:
-		if p.model.Filters() != (history.Filters{}) {
+		if !p.model.Filters().Empty() {
 			text = view.Language.Text(i18n.HistoryNoMatches)
 		} else {
 			text = view.Language.Text(i18n.HistoryEmpty)

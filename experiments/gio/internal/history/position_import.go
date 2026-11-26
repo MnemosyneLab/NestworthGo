@@ -1,0 +1,108 @@
+package history
+
+import (
+	"context"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
+)
+
+type PositionImportAccountReader interface {
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
+	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
+}
+
+func PositionImportAccounts(ctx context.Context, reader PositionImportAccountReader) ([]domain.Account, error) {
+	origin, err := reader.HistoryOrigin(ctx)
+	if err != nil || origin == nil {
+		return nil, err
+	}
+	rows, err := reader.ListAccounts(ctx, domain.AccountFilter{})
+	if err != nil {
+		return nil, err
+	}
+	var accounts []domain.Account
+	for _, row := range rows {
+		if TradeAccount(row.Account) {
+			accounts = append(accounts, row.Account)
+		}
+	}
+	return accounts, nil
+}
+
+type PositionImportInput struct {
+	Account     domain.AccountID
+	Instrument  domain.InstrumentID
+	Currency    domain.CurrencyCode
+	Quantity    string
+	UnitCost    string
+	Note        string
+	Date        string
+	Time        string
+	EffectiveAt time.Time
+	Link        *domain.ReconciliationLink
+}
+
+func ReviewPositionImport(ctx context.Context, ledger InvestmentLedger, input PositionImportInput) (ReviewedInvestment, error) {
+	var review ReviewedInvestment
+	err := ledger.WithRead(ctx, func(ctx context.Context) error {
+		preview, token, err := ledger.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
+			sources, err := investmentSources(ctx, ledger, input.Account, domain.ActivityPositionTransfer)
+			if err != nil {
+				return nil, err
+			}
+			at := slices.IndexFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument })
+			if at < 0 {
+				return nil, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId"}
+			}
+			if sources.Instruments[at].QuoteCurrency != input.Currency {
+				return nil, &domain.Error{Code: domain.ErrStalePreview, Field: "currency"}
+			}
+			request, err := positionImportRequest(input)
+			if err != nil {
+				return nil, err
+			}
+			return review.bind(sources.Origin, sources.Location, request)
+		})
+		review.Preview, review.token = preview, token
+		return err
+	})
+	if err != nil {
+		return ReviewedInvestment{}, err
+	}
+	if err := review.validateLink(ctx, ledger); err != nil {
+		return ReviewedInvestment{}, err
+	}
+	return review, nil
+}
+
+func positionImportRequest(input PositionImportInput) (historyapi.ChangeCommandRequest, error) {
+	var request historyapi.ChangeCommandRequest
+	quantity, err := domain.ParseQuantity(strings.TrimSpace(input.Quantity))
+	if err != nil || quantity.IsZero() {
+		return request, &domain.Error{Code: domain.ErrValidation, Field: "quantity"}
+	}
+	cost, err := domain.ParseUnitPrice(strings.TrimSpace(input.UnitCost))
+	if err != nil {
+		return request, &domain.Error{Code: domain.ErrValidation, Field: "unitCost"}
+	}
+	if input.EffectiveAt.IsZero() && (input.Date == "" || input.Time == "") {
+		return request, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
+	}
+	request = historyapi.ChangeCommandRequest{
+		Kind: historyapi.ChangePositionImport, ReconciliationLink: input.Link, AccountID: input.Account.String(), InstrumentID: input.Instrument.String(),
+		Quantity: quantity.Canonical(), UnitCost: cost.Canonical(), Currency: input.Currency.String(),
+	}
+	if note := strings.TrimSpace(input.Note); note != "" {
+		request.Note = &note
+	}
+	if input.EffectiveAt.IsZero() {
+		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
+	} else {
+		request.EffectiveAt = input.EffectiveAt.UTC().Format(time.RFC3339Nano)
+	}
+	return request, nil
+}

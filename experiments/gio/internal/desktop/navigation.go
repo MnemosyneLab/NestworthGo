@@ -10,6 +10,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
@@ -27,6 +28,8 @@ type navigationTarget struct {
 	instrument  domain.InstrumentID
 	product     domain.ProductContractID
 	statement   string
+	health      healthFindingFocus
+	accountList accountListScope
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -41,10 +44,16 @@ type navigationEntry struct {
 	scroll           layout.Position
 	directory        directoryVisit
 	history          historyTimelineVisit
+	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
 	portfolioSearch  string
 	tasks            tasksVisit
+	asset            assetChangesVisit
+	returns          *returnAnalysisVisit
+	marketData       marketDataVisit
+	quoteHistory     *marketQuoteHistoryVisit
+	healthScroll     layout.Position
 	settingsSection  settingsSection
 	visited          bool
 }
@@ -100,6 +109,19 @@ func sameRecentDestination(a, b navigationEntry) bool {
 	if a.target.route == tasksRoute {
 		return a.tasks.tab == b.tasks.tab
 	}
+	if a.target.route == assetChangesRoute {
+		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
+	}
+	if a.target.route == returnAnalysisRoute && a.returns != nil && b.returns != nil {
+		return a.returns.tab == b.returns.tab && a.returns.selection == b.returns.selection &&
+			a.returns.month.Equal(b.returns.month) && a.returns.year == b.returns.year && a.returns.metric == b.returns.metric
+	}
+	if a.target.route == marketDataRoute {
+		return a.marketData.tab == b.marketData.tab && strings.EqualFold(strings.TrimSpace(a.marketData.search), strings.TrimSpace(b.marketData.search))
+	}
+	if a.target.route == historyRoute && a.target.activity == "" {
+		return a.historyFilters.Equal(b.historyFilters)
+	}
 	if a.target.route != directoryRoute || a.target.hasObject() {
 		return true
 	}
@@ -125,7 +147,11 @@ type navigationRequest struct {
 	step                 int
 	recent               *navigationEntry
 	accountsArchived     bool
+	providerSettings     bool
 	verifyProductReceipt bool
+	asset                assetChangesVisit
+	returns              *returnAnalysisVisit
+	historyFilters       history.Filters
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
@@ -134,13 +160,29 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
 		return
 	}
-	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startingPointUnresolved()) {
+	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.statementUnresolved() || s.accounts.investmentUnresolved() || s.accounts.openingPositionUnresolved()) {
+	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
 		return
 	}
-	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.productPage.receiptUnresolved()) {
+	if request.step == -1 && s.accounts != nil && s.activeRoute() == accountsRoute && s.accounts.productSetup != nil {
+		if d := s.accounts.productSetup; d.plan != nil {
+			d.plan, d.focus = nil, true
+		} else {
+			s.accounts.cancelProductSetup()
+		}
+		s.stage.Position = layout.Position{}
+		gtx.Execute(op.InvalidateCmd{})
+		return
+	}
+	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
+		return
+	}
+	if s.portfolio != nil && s.portfolio.investment.unresolved() {
+		return
+	}
+	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved()) {
 		return
 	}
 	entry := s.trail.current()
@@ -156,7 +198,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if request.target.object != (directoryRef{}) && (request.target.route != directoryRoute || s.directory == nil) {
 			return
 		}
-		if (request.target.account != "" || request.target.institution != "") && (request.target.route != accountsRoute || s.accounts == nil) {
+		if (request.target.account != "" || request.target.institution != "" || request.target.accountList.active()) &&
+			(request.target.route != accountsRoute || s.accounts == nil) {
+			return
+		}
+		if request.target.accountList.active() && !validAccountTarget(request.target) {
 			return
 		}
 		if request.target.statement != "" && (request.target.route != accountsRoute || request.target.account == "" || s.accounts.statement == nil) {
@@ -190,8 +236,12 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == historyRoute && entry.target.activity != "" {
 		s.historyPage.reads.leaveDetail()
 	}
+	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.investment != nil {
+		s.historyPage.investment.draft, s.historyPage.investment.restore = nil, nil
+	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
+		s.accounts.productSetup = nil
 		s.accounts.creation.discard()
 		if cash := s.accounts.cashBalance; cash != nil {
 			cash.draft = nil
@@ -199,11 +249,16 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if balance := s.accounts.balanceTarget; balance != nil {
 			balance.draft = nil
 		}
+		if posting := s.accounts.liabilityPosting; posting != nil {
+			posting.draft = nil
+			posting.restore = false
+		}
 		if opening := s.accounts.opening; opening != nil {
 			opening.draft = nil
 		}
 		if investment := s.accounts.investment; investment != nil {
 			investment.draft = nil
+			investment.restore = nil
 		}
 		if statement := s.accounts.statement; statement != nil {
 			statement.screen = nil
@@ -216,19 +271,46 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == fundsRoute {
-		s.funds.reservation = nil
+		s.funds.reservation, s.funds.setup = nil, nil
 		if entry.target.product == "" {
 			s.funds.leave()
 		} else {
 			s.funds.productPage.leave()
-			s.funds.productPage.receipt = nil
+			s.funds.productPage.receipt, s.funds.productPage.valuation = nil, nil
 		}
 	}
 	if entry.target.route == tasksRoute {
+		s.tasks.holdingRecon.discard()
 		s.tasks.leave()
 	}
 	if entry.target.route == portfolioRoute {
+		if f := s.portfolio.investment; f != nil {
+			f.draft, f.restore = nil, nil
+		}
 		s.portfolio.leave()
+	}
+	if entry.target.route == overviewRoute && s.overviewPage != nil {
+		s.overviewPage.leave()
+	}
+	if entry.target.route == wealthHistoryRoute {
+		s.wealthHistory.leave()
+	}
+	if entry.target.route == returnAnalysisRoute {
+		s.returns.leave()
+	}
+	if entry.target.route == assetChangesRoute {
+		s.assets.leave()
+	}
+	if entry.target.route == marketDataRoute {
+		s.marketData.closeMarketOperation()
+		s.marketData.leave()
+	}
+	if entry.target.route == dataHealthRoute {
+		s.dataHealth.leave()
+		s.dataHealth.snapshots.restore = nil
+		if repair := s.dataHealth.repair; repair != nil {
+			repair.retirePreview()
+		}
 	}
 	if entry.target.route == settingsRoute {
 		s.settingsPage.credential.clearInput()
@@ -240,7 +322,8 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.trail.push(*request.recent)
 		s.restoreVisit(s.trail.current())
 	} else {
-		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived})
+		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
+			asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -252,6 +335,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.directory.object.enter(ref, list)
 	}
 	if entry.target.route == accountsRoute {
+		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 	}
 	if entry.target.route == fundsRoute {
@@ -262,16 +346,47 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == tasksRoute {
-		s.tasks.enter(entry.tasks)
+		if focus := s.tasks.enter(entry.tasks, entry.scroll.Offset); focus != nil {
+			entry.focus = focus
+		}
 	}
 	if entry.target.route == portfolioRoute {
 		s.portfolio.enter(entry.target.instrument, entry.portfolioSearch, entry.scroll)
+	}
+	if entry.target.route == wealthHistoryRoute {
+		s.wealthHistory.enter()
+	}
+	if entry.target.route == returnAnalysisRoute {
+		if entry.returns != nil {
+			s.returns.restore(*entry.returns)
+		}
+		s.returns.enter()
+	}
+	if entry.target.route == assetChangesRoute {
+		s.assets.enter(entry.asset)
+	}
+	if entry.target.route == marketDataRoute {
+		s.marketData.enter(entry.marketData)
+		if entry.quoteHistory != nil {
+			s.marketData.openQuoteHistory(*entry.quoteHistory)
+			entry.quoteHistory = nil
+		}
+	}
+	if entry.target.route == dataHealthRoute {
+		s.dataHealth.enter(entry.healthScroll, entry.target.health)
+	}
+	if entry.target.route == settingsRoute && request.providerSettings {
+		s.settingsPage.active = settingsMarket
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
 		} else {
-			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, entry.target.instrument)
+			filters := entry.historyFilters
+			if entry.target.instrument != "" {
+				filters.Instrument = entry.target.instrument
+			}
+			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, filters)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
 				entry.focus = s.historyPage.detailButton(entry.history.focused)
 			}
@@ -327,7 +442,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 			entry.scroll = s.funds.productPage.list.Position
 		}
 	case tasksRoute:
-		entry.tasks = s.tasks.visit()
+		entry.tasks, entry.scroll = s.tasks.visit(entry.focus), s.stage.Position
 	case portfolioRoute:
 		entry.portfolioSearch = s.portfolio.search.Field.Text()
 		entry.scroll = s.portfolio.list.Position
@@ -342,6 +457,23 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case settingsRoute:
 		entry.scroll = s.stage.Position
 		entry.settingsSection = s.settingsPage.active
+	case wealthHistoryRoute:
+		entry.scroll = s.stage.Position
+	case returnAnalysisRoute:
+		entry.scroll = s.stage.Position
+		if s.returns != nil {
+			visit := s.returns.visit()
+			entry.returns = &visit
+		}
+	case assetChangesRoute:
+		entry.scroll = s.stage.Position
+		entry.asset = s.assets.visit()
+	case marketDataRoute:
+		entry.scroll = s.stage.Position
+		entry.marketData = s.marketData.visit()
+	case dataHealthRoute:
+		entry.scroll = s.stage.Position
+		entry.healthScroll = s.dataHealth.list.Position
 	case historyRoute:
 		if s.historyPage != nil {
 			if entry.target.activity == "" {
@@ -393,6 +525,14 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 	}
 	target := focus.Target
 	if !focus.TargetDrawn {
+		if s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.canImportPosition() {
+			if fallback := s.accounts.investment.holdingActionFallback(target); fallback != nil {
+				entry.focus = fallback
+				s.accounts.list.Position = layout.Position{}
+				gtx.Execute(op.InvalidateCmd{})
+				return
+			}
+		}
 		target = &s.headingFocus
 	}
 	gtx.Execute(key.FocusCmd{Tag: target})
@@ -422,7 +562,22 @@ func (s *shell) waitingForPageFocus() bool {
 		return s.portfolio.request != nil
 	}
 	if s.activeRoute() == tasksRoute && s.tasks != nil {
-		return s.tasks.request != nil
+		return s.tasks.request != nil || s.tasks.holdingRecon != nil && s.tasks.holdingRecon.loading != nil
+	}
+	if s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil {
+		return s.wealthHistory.originRead != nil || s.wealthHistory.seriesRead != nil || s.wealthHistory.accounts.request != nil
+	}
+	if s.activeRoute() == returnAnalysisRoute && s.returns != nil {
+		return s.returns.refsRead != nil || s.returns.request != nil
+	}
+	if s.activeRoute() == assetChangesRoute && s.assets != nil {
+		return s.assets.refsRead != nil || s.assets.request != nil
+	}
+	if s.activeRoute() == marketDataRoute && s.marketData != nil {
+		return s.marketData.request != nil
+	}
+	if s.activeRoute() == dataHealthRoute && s.dataHealth != nil {
+		return s.dataHealth.request != nil
 	}
 	if s.activeRoute() != directoryRoute || s.directory == nil {
 		return false

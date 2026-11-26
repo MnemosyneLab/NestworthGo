@@ -25,7 +25,7 @@ const onboardingDefaultCurrency domain.CurrencyCode = "CNY"
 
 type onboardingResult struct {
 	wrote     bool
-	household bool
+	household *domain.Household
 	err       error
 }
 
@@ -45,6 +45,7 @@ type onboardingPage struct {
 	reading, writing, readFailed, form, opened bool
 	attempted, confirmed                       bool
 	problem                                    i18n.MessageID
+	householdName                              string
 
 	name                           ui.TextField
 	members                        []*onboardingMember
@@ -75,7 +76,7 @@ func (p *onboardingPage) read() {
 	p.reading, p.readFailed, p.form = true, false, false
 	p.workers.Go(func() {
 		core, err := p.service.Bootstrap(p.ctx)
-		p.results <- onboardingResult{household: core.Household != nil, err: err}
+		p.results <- onboardingResult{household: core.Household, err: err}
 		p.invalidate()
 	})
 }
@@ -92,9 +93,12 @@ func (p *onboardingPage) update() {
 			return
 		}
 		p.reading = false
-		p.readFailed = result.err != nil || (p.confirmed && !result.household)
+		p.readFailed = result.err != nil || (p.confirmed && result.household == nil)
 		if !p.readFailed {
-			p.opened, p.form = result.household, !result.household
+			p.opened, p.form = result.household != nil, result.household == nil
+			if p.opened {
+				p.householdName = result.household.Name
+			}
 		}
 	default:
 	}

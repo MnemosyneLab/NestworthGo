@@ -148,6 +148,26 @@ func TestVisualSnapshots(t *testing.T) {
 			}
 		}
 	})
+	t.Run("preview-charts", func(t *testing.T) {
+		// Each chart type is captured on its own, because the whole section is
+		// taller than the GPU texture limit at Retina density.
+		for _, size := range []image.Point{{1120, 1100}, {430, 1900}} {
+			for _, mode := range modes {
+				for g := range newPreviewChartGroups() {
+					h := newPreviewHarness(t)
+					h.size = size
+					h.shell.prefs.saved.Appearance = mode.appearance
+					group := &h.preview.chartGroups[g]
+					h.shell.routes[componentPreviewRoute].body = func(gtx layout.Context, view ui.View) layout.Dimensions {
+						return ui.Place(gtx, view, image.Point{}, gtx.Constraints.Max.X, func(gtx layout.Context, view ui.View) layout.Dimensions {
+							return h.preview.chartCard(gtx, view, group)
+						})
+					}
+					h.snapshot(t, dir, fmt.Sprintf("preview-charts-%d-%s-%dx%d", g, mode.name, size.X, size.Y))
+				}
+			}
+		}
+	})
 	t.Run("gallery", func(t *testing.T) {
 		for _, accent := range []struct {
 			name  string

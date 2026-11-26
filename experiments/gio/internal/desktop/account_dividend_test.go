@@ -174,7 +174,7 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	release()
 	settle()
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
-	if len(fault.attempts) != 2 || !accounts.investmentUnresolved() {
+	if len(fault.attempts) != 2 || !accounts.investment.unresolved() {
 		t.Fatal("double-click started another write or discarded the pending confirmation")
 	}
 	click("Retry same submission")

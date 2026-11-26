@@ -45,6 +45,7 @@ type accountsResult struct {
 	products      []application.ProductDetail
 	unavailable   bool
 	beforeHistory bool
+	historyZone   *time.Location
 	readAt        time.Time
 	err           error
 }
@@ -58,6 +59,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		filter.AccountIDs = []domain.AccountID{target.account}
 	} else if target.institution != "" {
 		filter.InstitutionID = &target.institution
+	} else if !target.accountList.filter(&filter) {
+		result.unavailable = true
+		return
 	}
 	institutions, err := service.ListInstitutions(ctx, true)
 	if err != nil {
@@ -80,6 +84,12 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 	if target.account != "" {
 		records = slices.DeleteFunc(records, func(r domain.AccountRecord) bool { return r.Account.ID != target.account })
 		result.unavailable = len(records) == 0
+	}
+	if target.accountList.unassigned() {
+		records = slices.DeleteFunc(records, func(r domain.AccountRecord) bool { return !target.accountList.includes(r) })
+		for _, record := range records {
+			filter.AccountIDs = append(filter.AccountIDs, record.Account.ID)
+		}
 	}
 	if len(records) == 0 {
 		return
@@ -130,6 +140,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			return
 		}
 		result.beforeHistory = origin == nil
+		if origin != nil {
+			result.historyZone, _ = time.LoadLocation(origin.Timezone)
+		}
 		holdings, err := service.HoldingsByAccounts(ctx, filter.AccountIDs)
 		if err != nil {
 			result.err = err
@@ -145,11 +158,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			return
 		}
 		result.managed = make(map[domain.InstrumentID]bool, len(products))
+		result.products = products
 		for _, product := range products {
 			result.managed[product.Contract.InstrumentID] = true
-			if product.Contract.Kind == domain.ProductTermDeposit {
-				result.products = append(result.products, product)
-			}
 		}
 	}
 	return
@@ -238,13 +249,14 @@ func accountRank(row accountRow) decimal.Decimal {
 }
 
 type accountsPage struct {
-	ctx        context.Context
-	service    accountsReader
-	clock      func() time.Time
-	invalidate func()
-	workers    sync.WaitGroup
-	request    <-chan accountsResult
-	cancel     context.CancelFunc
+	filterLabel string
+	ctx         context.Context
+	service     accountsReader
+	clock       func() time.Time
+	invalidate  func()
+	workers     sync.WaitGroup
+	request     <-chan accountsResult
+	cancel      context.CancelFunc
 
 	target                             navigationTarget
 	archived                           bool
@@ -262,6 +274,10 @@ type accountsPage struct {
 	openInstrument                     func(domain.InstrumentID, string, event.Tag)
 	openProduct                        func(domain.ProductContractID, string, event.Tag)
 	productButtons                     map[domain.ProductContractID]*widget.Clickable
+	productLedger                      fundsProductLedger
+	productSetup                       *fundsProductSetup
+	addProduct                         widget.Clickable
+	restoreProductFocus, productSaved  bool
 	backToList                         func()
 	creation                           *balanceAccountCreation
 	createBank, createLiability        widget.Clickable
@@ -273,6 +289,7 @@ type accountsPage struct {
 	investment                         *accountInvestment
 	opening                            *accountOpeningPosition
 	balanceTarget                      *accountBalanceTarget
+	liabilityPosting                   *accountLiabilityPosting
 	statement                          *accountStatement
 }
 
@@ -287,11 +304,15 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.target, p.archived, p.position = target, archived, position
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
+	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }
 
 func validAccountTarget(target navigationTarget) bool {
+	if target.accountList.active() {
+		return target.account == "" && target.institution == "" && target.accountList.filter(&domain.AccountFilter{})
+	}
 	if target.account != "" {
 		_, err := domain.ParseAccountID(target.account.String())
 		return err == nil && target.institution == ""
@@ -367,6 +388,9 @@ func (p *accountsPage) update(lang i18n.Language) bool {
 }
 
 func (p *accountsPage) name() string {
+	if p.target.accountList.active() {
+		return p.target.accountList.name(p.locale, p.filterLabel)
+	}
 	if p.current == nil || p.current.unavailable {
 		return ""
 	}

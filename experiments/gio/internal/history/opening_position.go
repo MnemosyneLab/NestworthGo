@@ -51,22 +51,9 @@ func openingPositionSources(ctx context.Context, ledger OpeningPositionLedger, i
 		return OpeningPositionSources{}, &domain.Error{Code: domain.ErrValidation, Field: "accountId"}
 	}
 	account := accounts[at].Account
-	var accountIDs []domain.AccountID
-	for _, row := range accounts {
-		if row.Account.TrackingMode == domain.TrackingHoldings {
-			accountIDs = append(accountIDs, row.Account.ID)
-		}
-	}
-	holdings, err := ledger.HoldingsByAccounts(ctx, accountIDs)
+	holdings, err := ledger.HoldingsByAccounts(ctx, []domain.AccountID{id})
 	if err != nil {
 		return OpeningPositionSources{}, err
-	}
-	// The Starting Point slice can capture one positive opening position.
-	// Keep this entry from creating a second one it could not capture.
-	for _, positions := range holdings {
-		if slices.ContainsFunc(positions, func(h domain.Holding) bool { return !h.Quantity.IsZero() }) {
-			return OpeningPositionSources{}, &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
-		}
 	}
 	instruments, err := ledger.ListInstruments(ctx, false)
 	if err != nil {
@@ -78,7 +65,7 @@ func openingPositionSources(ctx context.Context, ledger OpeningPositionLedger, i
 	}
 	instruments = slices.DeleteFunc(instruments, func(i domain.Instrument) bool {
 		_, product := managed[i.ID.String()]
-		return product || i.ArchivedAt != nil || i.QuoteCurrency != account.DefaultCurrency ||
+		return product || i.ArchivedAt != nil ||
 			slices.ContainsFunc(holdings[id], func(h domain.Holding) bool {
 				return h.ArchivedAt == nil && h.InstrumentID == i.ID
 			})
@@ -165,45 +152,53 @@ type OpeningHoldingReader interface {
 	InstrumentProductOwnership(context.Context) (map[string]string, error)
 }
 
-// EligibleStartingPointHolding narrows the Wails draft to the single ordinary,
-// same-currency holding that the Gio review form can describe.
-func EligibleStartingPointHolding(ctx context.Context, ledger OpeningHoldingReader) (*domain.StartingPointHoldingView, error) {
+type StartingPointHolding struct {
+	domain.StartingPointHoldingView
+	AccountName string
+}
+
+// LoadStartingPointHoldings adds the account context to Wails' cost draft.
+// Each opening cost uses the instrument's currency, including foreign positions.
+func LoadStartingPointHoldings(ctx context.Context, ledger OpeningHoldingReader) ([]StartingPointHolding, error) {
 	draft, err := ledger.StartingPointDraft(ctx)
 	if err != nil || len(draft) == 0 {
 		return nil, err
 	}
 	unsupported := &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
-	if len(draft) != 1 {
-		return nil, unsupported
-	}
-	row := draft[0]
 	products, err := ledger.InstrumentProductOwnership(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if _, managed := products[row.InstrumentID.String()]; managed {
-		return nil, unsupported
-	}
-	accounts, err := ledger.ListAccounts(ctx, domain.AccountFilter{})
+	accounts, err := ledger.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return nil, err
 	}
-	var ids []domain.AccountID
+	ids := make([]domain.AccountID, 0, len(accounts))
+	accountNames := make(map[domain.AccountID]string, len(accounts))
 	for _, account := range accounts {
-		if TradeAccount(account.Account) && account.Account.DefaultCurrency == row.Currency {
+		if account.Account.TrackingMode == domain.TrackingHoldings {
 			ids = append(ids, account.Account.ID)
+			accountNames[account.Account.ID] = account.Account.Name
 		}
 	}
 	holdings, err := ledger.HoldingsByAccounts(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	for _, positions := range holdings {
+	byHolding := make(map[domain.HoldingID]domain.AccountID)
+	for account, positions := range holdings {
 		for _, holding := range positions {
-			if holding.ID == row.HoldingID {
-				return &row, nil
+			if holding.ArchivedAt == nil {
+				byHolding[holding.ID] = account
 			}
 		}
 	}
-	return nil, unsupported
+	rows := make([]StartingPointHolding, 0, len(draft))
+	for _, row := range draft {
+		if _, managed := products[row.InstrumentID.String()]; managed || byHolding[row.HoldingID] == "" {
+			return nil, unsupported
+		}
+		rows = append(rows, StartingPointHolding{StartingPointHoldingView: row, AccountName: accountNames[byHolding[row.HoldingID]]})
+	}
+	return rows, nil
 }

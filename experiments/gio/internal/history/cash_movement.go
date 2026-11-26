@@ -13,6 +13,7 @@ import (
 // the cash movement form and its authoritative activity detail.
 type CashMovementLedger interface {
 	cashMovementReader
+	ValidateReconciliationCommandLink(context.Context, *domain.ReconciliationLink, any, domain.ChangePreview) error
 	PreviewChangeGuardedWith(context.Context, func(context.Context) (any, error)) (domain.ChangePreview, string, error)
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
 }
@@ -35,7 +36,14 @@ const (
 	CashWithdrawal
 	CashTransfer
 	CashConversion
+	CashDebtDraw
+	CashDebtPayment
+	CashValueUpdate
 )
+
+func (m CashMovement) Debt() bool {
+	return m == CashDebtDraw || m == CashDebtPayment
+}
 
 func CanTransferTo(from, to domain.Account) bool {
 	return from.ID != "" && to.ID != "" && from.ID != to.ID
@@ -46,6 +54,33 @@ func acceptsHoldingsCash(account domain.Account) bool {
 }
 
 func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
+	return loadCashMovementSources(ctx, ledger, movement, acceptsCashMovement)
+}
+
+func LoadCheckpointMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement) (CashMovementSources, error) {
+	return loadCashMovementSources(ctx, ledger, movement, checkpointMovementAccounts(movement))
+}
+
+func checkpointMovementAccounts(movement CashMovement) func(domain.AccountRecord) bool {
+	return func(row domain.AccountRecord) bool {
+		a := row.Account
+		if a.ArchivedAt != nil {
+			return false
+		}
+		switch movement {
+		case CashTransfer:
+			return acceptsLinkedCashTransfer(row)
+		case CashDebtDraw, CashDebtPayment:
+			return LiabilityPostingAccount(a)
+		case CashValueUpdate:
+			return a.TrackingMode == domain.TrackingBalance || a.TrackingMode == domain.TrackingManualValue
+		default:
+			return true
+		}
+	}
+}
+
+func loadCashMovementSources(ctx context.Context, ledger cashMovementReader, movement CashMovement, accepts func(domain.AccountRecord) bool) (CashMovementSources, error) {
 	origin, location, err := cashMovementOrigin(ctx, ledger)
 	if err != nil {
 		return CashMovementSources{}, err
@@ -56,7 +91,7 @@ func LoadCashMovementSources(ctx context.Context, ledger cashMovementReader, mov
 	}
 	sources := CashMovementSources{Origin: origin, Location: location}
 	for _, row := range rows {
-		if acceptsCashMovement(row) && (movement != CashConversion || acceptsHoldingsCash(row.Account)) {
+		if accepts(row) && (movement != CashConversion || acceptsHoldingsCash(row.Account)) {
 			sources.Accounts = append(sources.Accounts, row.Account)
 		}
 	}
@@ -79,6 +114,12 @@ func acceptsCashMovement(row domain.AccountRecord) bool {
 	return row.Account.ArchivedAt == nil && supportsCashMovement(row)
 }
 
+func acceptsLinkedCashTransfer(row domain.AccountRecord) bool {
+	// The Wails checkpoint form offers active non-liability endpoints,
+	// including manual-value accounts. The shared preview validates their balance.
+	return row.Account.ArchivedAt == nil && !row.Account.IsLiability()
+}
+
 func supportsCashMovement(row domain.AccountRecord) bool {
 	a := row.Account
 	if a.BalanceSheetRole == domain.RoleAsset && a.TrackingMode == domain.TrackingHoldings {
@@ -99,6 +140,10 @@ type CashMovementInput struct {
 	Fee         string
 	Date        string
 	Time        string
+	EffectiveAt time.Time
+	Reason      domain.ActivityReason
+	Note        string
+	Link        *domain.ReconciliationLink
 }
 
 type ReviewedCashMovement struct {
@@ -108,6 +153,7 @@ type ReviewedCashMovement struct {
 	mutation string
 	hash     string
 	token    string
+	link     *domain.ReconciliationLink
 }
 
 // ReceiptIdentity returns the original mutation identity of the frozen command.
@@ -125,16 +171,27 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		if err != nil {
 			return nil, err
 		}
-		account, err := cashMovementAccount(ctx, ledger, input.Account, "accountId")
+		accepts := acceptsCashMovement
+		if input.Link != nil {
+			accepts = checkpointMovementAccounts(input.Movement)
+		} else if input.Movement.Debt() || input.Movement == CashValueUpdate {
+			return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "kind"}
+		}
+		account, err := cashMovementAccountMatching(ctx, ledger, input.Account, "accountId", accepts)
 		if err != nil {
 			return nil, err
 		}
-		if input.Date == "" || input.Time == "" {
+		if input.EffectiveAt.IsZero() && (input.Date == "" || input.Time == "") {
 			return nil, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime"}
 		}
 		var destination domain.Account
 		if input.Movement == CashTransfer {
-			destination, err = cashMovementAccount(ctx, ledger, input.Destination, "toAccountId")
+			destination, err = cashMovementAccountMatching(ctx, ledger, input.Destination, "toAccountId", accepts)
+			if err != nil {
+				return nil, err
+			}
+		} else if input.Movement.Debt() {
+			destination, err = cashMovementAccountMatching(ctx, ledger, input.Destination, "counterparty", accepts)
 			if err != nil {
 				return nil, err
 			}
@@ -150,22 +207,35 @@ func ReviewCashMovement(ctx context.Context, ledger CashMovementLedger, input Ca
 		}
 		review.mutation, review.hash, err = request.MutationEnvelope()
 		review.Timezone = location
+		if request.ReconciliationLink != nil {
+			link := *request.ReconciliationLink
+			review.link = &link
+		}
 		return review.command, err
 	})
 	if err != nil {
 		return ReviewedCashMovement{}, err
 	}
 	review.Preview, review.token = preview, token
+	if review.link != nil {
+		if err := ledger.ValidateReconciliationCommandLink(ctx, review.link, review.command, preview); err != nil {
+			return ReviewedCashMovement{}, err
+		}
+	}
 	return review, nil
 }
 
 func cashMovementAccount(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string) (domain.Account, error) {
+	return cashMovementAccountMatching(ctx, ledger, id, field, acceptsCashMovement)
+}
+
+func cashMovementAccountMatching(ctx context.Context, ledger CashMovementLedger, id domain.AccountID, field string, accepts func(domain.AccountRecord) bool) (domain.Account, error) {
 	if id != "" {
 		rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{id}})
 		if err != nil {
 			return domain.Account{}, err
 		}
-		if len(rows) == 1 && rows[0].Account.ID == id && acceptsCashMovement(rows[0]) {
+		if len(rows) == 1 && rows[0].Account.ID == id && accepts(rows[0]) {
 			return rows[0].Account, nil
 		}
 	}
@@ -176,24 +246,44 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 	if input.Movement == CashConversion && account.TrackingMode != domain.TrackingHoldings {
 		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "accountId"}
 	}
+	request := historyapi.ChangeCommandRequest{ReconciliationLink: input.Link}
+	if input.EffectiveAt.IsZero() {
+		request.EffectiveLocalDate, request.EffectiveLocalTime = input.Date, input.Time
+	} else {
+		request.EffectiveAt = input.EffectiveAt.UTC().Format(time.RFC3339Nano)
+	}
+	if note := strings.TrimSpace(input.Note); note != "" {
+		request.Note = &note
+	}
+	if input.Movement.Debt() {
+		return checkpointDebtRequest(request, input, account, destination), nil
+	}
 	currency, err := movementCurrency(account, input.Currency, "currency")
 	if err != nil {
 		return historyapi.ChangeCommandRequest{}, err
 	}
 	amount, err := domain.ParseMoney(strings.TrimSpace(input.Amount), currency)
-	if err != nil || amount.IsZero() {
-		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: "amount"}
-	}
-	request := historyapi.ChangeCommandRequest{
-		EffectiveLocalDate: input.Date, EffectiveLocalTime: input.Time,
+	if err != nil || amount.IsZero() && input.Movement != CashValueUpdate {
+		field := "amount"
+		if input.Movement == CashValueUpdate {
+			field = "newValue"
+		}
+		return historyapi.ChangeCommandRequest{}, &domain.Error{Code: domain.ErrValidation, Field: field}
 	}
 	switch input.Movement {
+	case CashValueUpdate:
+		request.Kind, request.AccountID = historyapi.ChangeValueUpdate, account.ID.String()
+		request.NewValue, request.NewValueCurrency = amount.CanonicalAmount(), currency.String()
+		request.Reason = string(input.Reason)
 	case CashContribution, CashWithdrawal:
 		request.Kind, request.Reason = historyapi.ChangeMoneyAdded, string(domain.ReasonContribution)
 		if input.Movement == CashWithdrawal {
 			// Wails has no dedicated withdrawal reason. Other records a
 			// general external outflow without labeling it as an expense.
 			request.Kind, request.Reason = historyapi.ChangeMoneyRemoved, string(domain.ReasonOther)
+		}
+		if input.Reason != "" {
+			request.Reason = string(input.Reason)
 		}
 		request.AccountID, request.Amount, request.Currency = account.ID.String(), amount.CanonicalAmount(), currency.String()
 	case CashTransfer, CashConversion:
@@ -240,6 +330,21 @@ func cashMovementRequest(input CashMovementInput, account, destination domain.Ac
 	return request, nil
 }
 
+func checkpointDebtRequest(request historyapi.ChangeCommandRequest, input CashMovementInput, account, peer domain.Account) historyapi.ChangeCommandRequest {
+	cash, debt := account, peer
+	if account.IsLiability() {
+		cash, debt = peer, account
+	}
+	request.Kind = historyapi.ChangeDebtDraw
+	request.CashAccountID, request.DebtAccountID = cash.ID.String(), debt.ID.String()
+	request.Principal, request.PrincipalCurrency = strings.TrimSpace(input.Amount), cash.DefaultCurrency.String()
+	if input.Movement == CashDebtPayment {
+		request.Kind = historyapi.ChangeDebtPayment
+		request.InterestOrFee, request.InterestOrFeeCurrency = strings.TrimSpace(input.Fee), request.PrincipalCurrency
+	}
+	return request
+}
+
 func movementCurrency(account domain.Account, selected domain.CurrencyCode, field string) (domain.CurrencyCode, error) {
 	if account.TrackingMode == domain.TrackingHoldings || selected != "" {
 		code, err := domain.ParseSupportedCurrency(selected.String())
@@ -254,7 +359,7 @@ func movementCurrency(account domain.Account, selected domain.CurrencyCode, fiel
 // Commit and its retries use the frozen envelope. The guarded application
 // path consults the durable mutation record before checking a stale token.
 func (r ReviewedCashMovement) Commit(ctx context.Context, ledger CashMovementLedger) (domain.ChangePreview, error) {
-	return ledger.RecordChangeGuarded(ctx, r.command, r.mutation, r.hash, r.token)
+	return ledger.RecordChangeGuarded(domain.WithReconciliationLink(ctx, r.link), r.command, r.mutation, r.hash, r.token)
 }
 
 func CashMovementOf(kind domain.ActivityKind, reason domain.ActivityReason) (CashMovement, bool) {

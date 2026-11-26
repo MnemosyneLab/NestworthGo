@@ -33,6 +33,10 @@ type componentPreview struct {
 	submissions        int
 	submittedName      string
 	submittedNotes     string
+	chartGroups        []previewChartGroup
+	// showCharts selects the chart examples instead of the form controls.
+	showCharts             bool
+	controlsTab, chartsTab widget.Clickable
 }
 
 func newComponentPreview() *componentPreview {
@@ -43,6 +47,8 @@ func newComponentPreview() *componentPreview {
 		disabled: ui.NewTextField(true),
 		search:   ui.SearchField{Field: ui.NewTextField(true)},
 		scroll:   widget.List{List: layout.List{Axis: layout.Vertical}},
+
+		chartGroups: newPreviewChartGroups(),
 	}
 }
 
@@ -72,6 +78,16 @@ func (p *componentPreview) page(gtx layout.Context, view ui.View) layout.Dimensi
 	width := gtx.Constraints.Max.X
 	gap := gtx.Dp(ui.Space16)
 	y := 0
+	tabs := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.tabs(gtx, view)
+	})
+	y += tabs.Size.Y + gap
+	if p.showCharts {
+		section := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
+			return p.chartsSection(gtx, view)
+		})
+		return layout.Dimensions{Size: image.Pt(width, y+section.Size.Y)}
+	}
 	body := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return p.content(gtx, view)
 	})
@@ -89,6 +105,25 @@ func (p *componentPreview) page(gtx layout.Context, view ui.View) layout.Dimensi
 		return p.footer(gtx, view)
 	})
 	return layout.Dimensions{Size: image.Pt(width, y+actions.Size.Y)}
+}
+
+// tabs switches between the form controls and the chart examples.
+func (p *componentPreview) tabs(gtx layout.Context, view ui.View) layout.Dimensions {
+	l := view.Language
+	if p.controlsTab.Clicked(gtx) && p.showCharts {
+		p.showCharts = false
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	if p.chartsTab.Clicked(gtx) && !p.showCharts {
+		p.showCharts = true
+		gtx.Execute(op.InvalidateCmd{})
+	}
+	return ui.Wrap{Gap: ui.Space8}.Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+		if i == 0 {
+			return view.TabButton(&p.controlsTab, l.Text(i18n.PreviewTabControls), !p.showCharts)(gtx)
+		}
+		return view.TabButton(&p.chartsTab, l.Text(i18n.ChartPreviewTitle), p.showCharts)(gtx)
+	})
 }
 
 func setPreviewExample(field *ui.TextField, text string) {

@@ -26,6 +26,7 @@ type balanceTargetTestService struct {
 	appends        int
 	records        []string
 	lostAppend     bool
+	keepReads      bool
 	failedRead     atomic.Bool
 	started, allow chan struct{}
 }
@@ -50,7 +51,7 @@ func (s *balanceTargetTestService) RecordChangeGuarded(ctx context.Context, cmd 
 	if err == nil && attempt == 2 {
 		return domain.ChangePreview{}, errors.New("test: lost keyed balance response")
 	}
-	if err == nil && attempt == 3 {
+	if err == nil && attempt == 3 && !s.keepReads {
 		s.failedRead.Store(true)
 	}
 	return result, err

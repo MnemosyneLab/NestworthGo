@@ -50,16 +50,46 @@ var cashMovementLabels = [...]movementLabels{
 	},
 }
 
+func (p *historyCashMovements) formLabels() movementLabels {
+	movement := p.draft.movement
+	if p.linked == nil || movement == history.CashConversion {
+		return cashMovementLabels[movement]
+	}
+	var action i18n.MessageID
+	for _, entry := range p.linked.modes {
+		if entry.kind == movement {
+			action = entry.label
+			break
+		}
+	}
+	amount := i18n.HistoryRepeatAmount
+	switch movement {
+	case history.CashTransfer:
+		amount = i18n.TransferSentAmount
+	case history.CashDebtDraw, history.CashDebtPayment:
+		amount = i18n.HistoryDebtPrincipal
+	case history.CashValueUpdate:
+		amount = i18n.ReconciliationNewValue
+		if p.linked.liability {
+			amount = i18n.AccountCardBalanceTarget
+		}
+	}
+	return movementLabels{action: action, amount: amount, review: action, preview: i18n.LiabilityPreview,
+		confirm: i18n.LiabilityConfirm, delta: i18n.CashMovementDelta, previewFailed: i18n.CashMovementPreviewFailed, stale: i18n.CashMovementStale}
+}
+
 func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layout.Dimensions {
 	d, l := p.draft, view.Language
-	labels := cashMovementLabels[d.movement]
+	labels := p.formLabels()
 	gtx, view = view.Measure(gtx, 640)
 	if d.review != nil {
 		return p.layoutReview(gtx, view)
 	}
 	if d.cancel.Clicked(gtx) {
 		p.discard()
-		gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
+		if p.linked == nil {
+			gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
+		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -71,6 +101,9 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 	})}
 	busy := d.loading != nil || d.previewing != nil
 	ready := d.sources != nil && d.sourceError == i18n.NoMessage && len(d.sources.Accounts) > 0
+	if ready && p.linked != nil {
+		_, ready = d.accountByID(p.linked.account)
+	}
 	if ready {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if busy {
@@ -78,6 +111,11 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 			}
 			return p.layoutMovementFields(gtx, view, origin, p.clock())
 		}))
+		if p.linked != nil {
+			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return d.note.Layout(gtx, view, ui.FieldOptions{Label: i18n.PreviewNotes, Hint: i18n.PreviewNotesHint, Disabled: busy})
+			}))
+		}
 	} else if !busy && d.sourceError == i18n.NoMessage {
 		message := i18n.ContributionNoAccounts
 		if d.movement == history.CashConversion {
@@ -100,7 +138,15 @@ func (p *historyCashMovements) layoutForm(gtx layout.Context, view ui.View) layo
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			buttons = append(buttons, layout.Rigid(view.Button(&d.retrySources, l.Text(i18n.HistoryRetry))))
-		case ready && !busy:
+		case ready && !busy && (p.linked == nil || p.linked.link() != nil):
+			if p.linked != nil && (p.valueUnchanged() ||
+				(d.movement.Debt() || d.movement == history.CashValueUpdate) && d.amount.Text() == "" ||
+				d.movement.Debt() && d.destination == "") {
+				buttons = append(buttons, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return view.PrimaryButton(&d.preview, l.Text(labels.preview))(gtx.Disabled())
+				}))
+				break
+			}
 			if d.preview.Clicked(gtx) {
 				p.preview()
 				gtx.Execute(op.InvalidateCmd{})
@@ -124,51 +170,71 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 	account, found := d.accountByID(d.account)
 	destination, hasDestination := d.accountByID(d.destination)
 	transfer, conversion := d.movement == history.CashTransfer, d.movement == history.CashConversion
+	debt := d.movement.Debt()
+	linkedTransfer := transfer && p.linked != nil
 	crossCurrency := transfer && found && hasDestination && d.currency != d.toCurrency
-	sourceEditable := found && account.TrackingMode == domain.TrackingHoldings
-	targetEditable := conversion || (transfer && hasDestination && destination.TrackingMode == domain.TrackingHoldings)
-	labels := cashMovementLabels[d.movement]
+	sourceEditable := !debt && !linkedTransfer && found && account.TrackingMode == domain.TrackingHoldings && (p.linked == nil || p.linked.currency == "" || conversion)
+	targetEditable := conversion || (transfer && !linkedTransfer && hasDestination && destination.TrackingMode == domain.TrackingHoldings)
+	labels := p.formLabels()
 	return layout.Flex{Gap: gap}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
 			at := origin
-			var items, destinations []ui.Choice
-			for _, item := range d.sources.Accounts {
-				name := item.Name
-				if item.TrackingMode != domain.TrackingHoldings {
-					name += " · " + item.DefaultCurrency.String()
+			var children []layout.FlexChild
+			var destinations []ui.Choice
+			if linkedTransfer {
+				children = p.layoutCheckpointTransferFields(view, &at)
+			} else {
+				var items []ui.Choice
+				for _, item := range d.sources.Accounts {
+					name := item.Name
+					if item.TrackingMode != domain.TrackingHoldings {
+						name += " · " + item.DefaultCurrency.String()
+					}
+					choice := ui.Choice{ID: item.ID.String(), Label: name, SearchText: item.Name}
+					items = append(items, choice)
+					if transfer && history.CanTransferTo(account, item) {
+						destinations = append(destinations, choice)
+					}
 				}
-				choice := ui.Choice{ID: item.ID.String(), Label: name, SearchText: item.Name}
-				items = append(items, choice)
-				if transfer && history.CanTransferTo(account, item) {
-					destinations = append(destinations, choice)
+				next := any(&d.amount.Editor)
+				if transfer && len(destinations) > 0 {
+					next = &d.destinationPicker.Trigger
 				}
-			}
-			next := any(&d.amount.Editor)
-			if transfer && len(destinations) > 0 {
-				next = &d.destinationPicker.Trigger
-			}
-			children := []layout.FlexChild{
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
-						field := ui.PickerField{Label: labels.account, Origin: at, Disabled: !gtx.Enabled(), Next: next}
-						d.accountPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.account.String(), func(value string) {
-							d.chooseSource(domain.AccountID(value))
+				children = []layout.FlexChild{
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
+							if p.linked != nil {
+								return view.Message(account.Name, view.Colors.Ink)(gtx)
+							}
+							field := ui.PickerField{Label: labels.account, Origin: at, Disabled: !gtx.Enabled(), Next: next}
+							d.accountPicker.Layout(gtx, view, field, ui.SelectOptions{Items: items, Searchable: true}, d.account.String(), func(value string) {
+								d.chooseSource(domain.AccountID(value))
+							})
+							return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
 						})
-						return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
-					})
-				}),
+					}),
+				}
+				if transfer {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
+							field := ui.PickerField{Label: i18n.TransferTo, Origin: at, Disabled: !gtx.Enabled() || len(destinations) == 0, Next: &d.amount.Editor, Previous: &d.accountPicker.Trigger}
+							d.destinationPicker.Layout(gtx, view, field, ui.SelectOptions{Items: destinations, Searchable: true}, d.destination.String(), func(value string) {
+								d.chooseDestination(domain.AccountID(value))
+							})
+							return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
+						})
+					}))
+				}
 			}
-			if transfer {
+			if debt {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
-						field := ui.PickerField{Label: i18n.TransferTo, Origin: at, Disabled: !gtx.Enabled() || len(destinations) == 0, Next: &d.amount.Editor, Previous: &d.accountPicker.Trigger}
-						d.destinationPicker.Layout(gtx, view, field, ui.SelectOptions{Items: destinations, Searchable: true}, d.destination.String(), func(value string) {
-							d.chooseDestination(domain.AccountID(value))
-						})
-						return layout.Dimensions{Size: image.Pt(width, gtx.Dp(pickerHeight))}
-					})
+					return fieldPosition(gtx, &at, p.checkpointDebtPeer(view, at, account))
 				}))
+			}
+			currency := d.currency
+			if debt && account.IsLiability() && hasDestination {
+				currency = destination.DefaultCurrency
 			}
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &at, func(gtx layout.Context) layout.Dimensions {
@@ -190,13 +256,48 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 						return layoutCashCurrencyAmount(gtx, view, at, &d.amount, label, &d.currencyPicker, currencyLabel, d.currency, "", d.chooseCurrency)
 					}
 					options := ui.FieldOptions{Label: label, Hint: i18n.AccountCreateAmountHint}
-					if crossCurrency {
-						return d.amount.LayoutCurrency(gtx, view, options, d.currency.String())
+					if crossCurrency || p.linked != nil {
+						return d.amount.LayoutCurrency(gtx, view, options, currency.String())
 					}
 					return d.amount.Layout(gtx, view, options)
 				})
 			}))
+			if d.movement == history.CashDebtPayment {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return d.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.LiabilityInterest}, currency.String())
+				}))
+			}
+			if d.movement == history.CashValueUpdate {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					value := p.linked.value()
+					if value == "" {
+						return layout.Dimensions{}
+					}
+					current := portfolioDecimal(view, value) + " " + currency.String()
+					return view.Message(fmt.Sprintf(l.Text(i18n.ReconciliationCurrentValue), current), view.Colors.SecondaryInk)(gtx)
+				}), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if !p.valueUnchanged() {
+						return layout.Dimensions{}
+					}
+					return view.Message(l.Text(i18n.ReconciliationValueUnchanged), view.Colors.SecondaryInk)(gtx)
+				}))
+			}
+			if p.linked != nil && !conversion && !transfer && !debt {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return p.layoutCheckpointReason(gtx, view, at)
+				}))
+			}
 			switch {
+			case linkedTransfer && found && hasDestination && !crossCurrency:
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					value := d.amount.Text()
+					if value == "" {
+						value = l.Text(i18n.OverviewNoValue)
+					} else {
+						value += " " + d.toCurrency.String()
+					}
+					return view.Message(l.Text(i18n.TransferReceivedAmount)+" · "+value, view.Colors.SecondaryInk)(gtx)
+				}))
 			case found && (conversion || crossCurrency || targetEditable):
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					label, currencyLabel := i18n.TransferReceivedAmount, i18n.TransferReceivedCurrency
@@ -213,9 +314,9 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 					}
 					return d.received.LayoutCurrency(gtx, view, ui.FieldOptions{Label: label}, d.toCurrency.String())
 				}))
-			case transfer && found && len(destinations) == 0:
+			case transfer && found && !linkedTransfer && len(destinations) == 0:
 				children = append(children, layout.Rigid(view.Message(l.Text(i18n.TransferNoDestination), view.Colors.SecondaryInk)))
-			case found && !sourceEditable:
+			case found && !sourceEditable && p.linked == nil:
 				children = append(children, layout.Rigid(view.Message(d.currency.String(), view.Colors.SecondaryInk)))
 			}
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
@@ -233,13 +334,22 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 			if transfer || conversion {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					options := ui.FieldOptions{Label: i18n.TransferFeeInput}
-					if found && (crossCurrency || sourceEditable) {
+					if found && (crossCurrency || sourceEditable || linkedTransfer) {
 						return d.fee.LayoutCurrency(gtx, view, options, d.currency.String())
 					}
 					return d.fee.Layout(gtx, view, options)
 				}))
 			}
 			children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionTimezone), zone), view.Colors.SecondaryInk)))
+			if p.linked != nil {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if d.useNow.Clicked(gtx) {
+						d.captureCurrentTime(now)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					return view.Button(&d.useNow, l.Text(i18n.LiabilityUseNow))(gtx)
+				}))
+			}
 			if withQuote {
 				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					return p.layoutTransferQuote(gtx, view)
@@ -248,6 +358,39 @@ func (p *historyCashMovements) layoutMovementFields(gtx layout.Context, view ui.
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 		}),
 	)
+}
+
+func checkpointCashReasonLabel(reason domain.ActivityReason) i18n.MessageID {
+	if label, found := liabilityReasonLabels[reason]; found {
+		return label
+	}
+	return repeatReasonLabels[reason]
+}
+
+func (p *historyCashMovements) layoutCheckpointReason(gtx layout.Context, view ui.View, at image.Point) layout.Dimensions {
+	d := p.draft
+	reasons := domain.MoneyOutReasons()
+	switch {
+	case d.movement == history.CashValueUpdate && p.linked.liability:
+		return view.Message(liabilityReasonFact(view.Language, domain.ReasonReconciliation), view.Colors.Ink)(gtx)
+	case d.movement == history.CashValueUpdate:
+		reasons = domain.ValueUpdateReasons()
+	case p.linked.liability && d.movement == history.CashContribution:
+		reasons = domain.LiabilityIncreaseReasons()
+	case p.linked.liability:
+		reasons = domain.LiabilityDecreaseReasons()
+	case d.movement == history.CashContribution:
+		reasons = domain.MoneyInReasons()
+	}
+	options := make([]ui.Choice, 0, len(reasons))
+	for _, reason := range reasons {
+		options = append(options, ui.Choice{ID: string(reason), Label: view.Language.Text(checkpointCashReasonLabel(reason))})
+	}
+	d.reasonPicker.Layout(gtx, view, ui.PickerField{Label: i18n.HistoryRepeatReason, Origin: at, Disabled: !gtx.Enabled(), Next: &d.datePicker.Trigger},
+		ui.SelectOptions{Items: options}, string(d.reason), func(id string) {
+			d.reason, d.problem = domain.ActivityReason(id), i18n.NoMessage
+		})
+	return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 }
 
 func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View, origin image.Point, now time.Time, sideBySide bool) layout.Dimensions {
@@ -261,6 +404,8 @@ func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View,
 	next := any(&d.preview)
 	if d.movement == history.CashTransfer || d.movement == history.CashConversion {
 		next = &d.fee.Editor
+	} else if !d.defaultTime.IsZero() {
+		next = &d.useNow
 	}
 	drawDay := func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: origin, Disabled: !gtx.Enabled(), Next: &d.timePicker.Trigger}
@@ -276,9 +421,12 @@ func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View,
 	}
 	drawTime := func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.PreviewEffectiveTime, Origin: origin, Disabled: !gtx.Enabled(), Previous: &d.datePicker.Trigger, Next: next}
-		d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, func(clock string) {
-			d.time, d.problem = clock, i18n.NoMessage
-		})
+		setTime := func(clock string) { d.time, d.problem = clock, i18n.NoMessage }
+		if d.defaultTime.IsZero() {
+			d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, setTime)
+		} else {
+			d.timePicker.LayoutSeconds(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, setTime)
+		}
 		return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 	}
 	if sideBySide {
@@ -332,7 +480,7 @@ func contributionTimestamp(view ui.View, instant time.Time, zone *time.Location)
 
 func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) layout.Dimensions {
 	d, l := p.draft, view.Language
-	labels := cashMovementLabels[d.movement]
+	labels := p.formLabels()
 	review := d.review
 	if !d.uncertain && d.posting == nil && d.edit.Clicked(gtx) {
 		d.review, d.focusAmount = nil, true
@@ -341,7 +489,9 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 	}
 	if !d.uncertain && d.posting == nil && d.cancel.Clicked(gtx) {
 		p.discard()
-		gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
+		if p.linked == nil {
+			gtx.Execute(key.FocusCmd{Tag: &p.actions[d.movement]})
+		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -349,11 +499,27 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 		p.post()
 		gtx.Execute(op.InvalidateCmd{})
 	}
+	stamp := contributionTimestamp(view, review.Preview.Activity.EffectiveAt, review.Timezone)
+	if p.linked != nil {
+		stamp = tradeTimestamp(view, review.Preview.Activity.EffectiveAt, review.Timezone)
+	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if d.focusReview && gtx.Enabled() {
+				gtx.Execute(key.FocusCmd{Tag: &d.post})
+				d.focusReview = false
+			}
 			return view.Label(gtx, l.Text(labels.review), 19, font.Medium, view.Colors.Ink)
 		}),
-		layout.Rigid(view.Message(contributionTimestamp(view, review.Preview.Activity.EffectiveAt, review.Timezone), view.Colors.SecondaryInk)),
+		layout.Rigid(view.Message(stamp, view.Colors.SecondaryInk)),
+	}
+	if p.linked != nil {
+		if d.movement == history.CashContribution || d.movement == history.CashWithdrawal || d.movement == history.CashValueUpdate {
+			children = append(children, layout.Rigid(view.Message(l.Text(checkpointCashReasonLabel(review.Preview.Activity.Reason)), view.Colors.Ink)))
+		}
+		if note := review.Preview.Activity.Note; note != nil && *note != "" {
+			children = append(children, layout.Rigid(view.Message(*note, view.Colors.Ink)))
+		}
 	}
 	var endpoints []layout.FlexChild
 	for i, item := range review.Preview.Review {
@@ -402,6 +568,16 @@ func (p *historyCashMovements) layoutReview(gtx layout.Context, view ui.View) la
 		}
 		if rate := transferRateLabel(view, review.Preview.DerivedRate, from, to); rate != "" {
 			children = append(children, layout.Rigid(view.Message(rate, view.Colors.Ink)))
+		}
+	}
+	if d.movement.Debt() {
+		for _, effect := range review.Preview.Effects {
+			switch effect.Role {
+			case domain.EffectRolePrincipal:
+				children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.LiabilityAmountFact), movementMoney(effect)), view.Colors.Ink)))
+			case domain.EffectRoleFee:
+				children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.LiabilityInterestFact), movementMoney(effect)), view.Colors.Ink)))
+			}
 		}
 	}
 	if d.uncertain {

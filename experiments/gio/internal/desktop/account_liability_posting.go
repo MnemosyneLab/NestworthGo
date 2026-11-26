@@ -1,0 +1,249 @@
+package desktop
+
+import (
+	"errors"
+	"time"
+
+	"gioui.org/io/event"
+	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
+)
+
+type accountLiabilityPosting struct {
+	service  history.CashMovementLedger
+	history  *historyPage
+	onPosted func(domain.Activity, i18n.MessageID, event.Tag)
+	open     widget.Clickable
+	restore  bool
+	draft    *liabilityPostingDraft
+}
+
+type liabilityPostingDraft struct {
+	account                             domain.Account
+	starting                            *historyStart
+	startingSaved                       bool
+	kind                                historyapi.ChangeCommandKind
+	counterparty                        domain.AccountID
+	reason                              domain.ActivityReason
+	currency                            domain.CurrencyCode
+	amount, fee, note                   ui.TextField
+	kinds                               [5]widget.Clickable
+	accountPicker, currencyPicker       ui.Select
+	reasonPicker                        ui.Select
+	datePicker                          ui.DatePicker
+	timePicker                          ui.TimePicker
+	cancel, useNow, retry, preview      widget.Clickable
+	edit, confirm, retryConfirm         widget.Clickable
+	date, time                          string
+	exactTime                           time.Time
+	sourceProblem, problem              i18n.MessageID
+	sources                             *history.LiabilitySources
+	loading                             <-chan historyResult[history.LiabilitySources]
+	previewing                          <-chan historyResult[history.LiabilityReview]
+	review                              *history.LiabilityReview
+	posting                             <-chan historyResult[domain.ChangePreview]
+	uncertain, focusAmount, focusReview bool
+}
+
+func (p *accountsPage) canPostLiability() bool {
+	row := p.freshDetail()
+	return p.liabilityPosting != nil && p.liabilityPosting.onPosted != nil && row != nil && history.LiabilityPostingAccount(row.record.Account)
+}
+
+func (p *accountsPage) startLiabilityPosting() {
+	a := p.freshDetail().record.Account
+	d := &liabilityPostingDraft{account: a, kind: historyapi.ChangeDebtDraw, currency: a.DefaultCurrency,
+		amount: ui.NewTextField(true), fee: ui.NewTextField(true), note: ui.NewTextField(false), focusAmount: true}
+	if a.AccountType == domain.TypeCreditCard {
+		d.kind, d.reason = historyapi.ChangeMoneyAdded, domain.ReasonCardPurchase
+	}
+	p.liabilityPosting.draft = d
+	p.loadLiabilityPosting()
+}
+
+func liabilityEntryLabel(account domain.Account) i18n.MessageID {
+	if account.IsLiability() {
+		return i18n.LiabilityRecord
+	}
+	return i18n.LiabilityRecordDebt
+}
+
+func (d *liabilityPostingDraft) selectKind(kind historyapi.ChangeCommandKind) {
+	if d.kind == kind {
+		return
+	}
+	d.kind, d.problem, d.reason, d.currency = kind, i18n.NoMessage, domain.ReasonOther, d.account.DefaultCurrency
+	d.amount.Editor.SetText("")
+	d.fee.Editor.SetText("")
+	switch kind {
+	case historyapi.ChangeMoneyAdded:
+		if d.account.AccountType == domain.TypeCreditCard {
+			d.reason = domain.ReasonCardPurchase
+		}
+	case historyapi.ChangeMoneyRemoved:
+		if d.account.AccountType == domain.TypeCreditCard {
+			d.reason = domain.ReasonCardRefund
+		}
+	case historyapi.ChangeValueUpdate:
+		d.reason = domain.ReasonReconciliation
+	}
+}
+
+func (p *accountsPage) loadLiabilityPosting() {
+	f, d := p.liabilityPosting, p.liabilityPosting.draft
+	d.sourceProblem = i18n.NoMessage
+	id := d.account.ID
+	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.LiabilitySources, error) {
+		return history.LoadLiabilitySources(p.ctx, f.service, id)
+	})
+}
+
+func (d *liabilityPostingDraft) debt() bool {
+	return d.kind == historyapi.ChangeDebtDraw || d.kind == historyapi.ChangeDebtPayment
+}
+
+func (d *liabilityPostingDraft) captureTime(now time.Time) {
+	d.exactTime = now.In(d.sources.Location)
+	d.date, d.time = d.exactTime.Format(time.DateOnly), d.exactTime.Format("15:04")
+}
+
+func (p *accountsPage) previewLiabilityPosting() {
+	f, d := p.liabilityPosting, p.liabilityPosting.draft
+	in := history.LiabilityInput{
+		Kind: d.kind, Account: d.account.ID, Counterparty: d.counterparty, Reason: d.reason, Currency: d.currency,
+		Amount: d.amount.Text(), Fee: d.fee.Text(), Note: d.note.Text(),
+		Date: d.date, Time: d.time, ExactTime: d.exactTime,
+	}
+	d.problem = i18n.NoMessage
+	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.LiabilityReview, error) {
+		return history.ReviewLiability(p.ctx, f.service, in)
+	})
+}
+
+func (p *accountsPage) confirmLiabilityPosting() {
+	f, d := p.liabilityPosting, p.liabilityPosting.draft
+	review := *d.review
+	d.posting = runHistoryRead(&p.workers, p.invalidate, func() (domain.ChangePreview, error) {
+		return review.Commit(p.ctx, f.service)
+	})
+}
+
+func (p *accountsPage) liabilityPostingUnresolved() bool {
+	f := p.liabilityPosting
+	return f != nil && f.draft != nil && (f.draft.posting != nil || f.draft.uncertain || f.draft.starting.unresolved())
+}
+
+func (p *accountsPage) pollLiabilityPosting() {
+	f := p.liabilityPosting
+	if f == nil || f.draft == nil {
+		return
+	}
+	d := f.draft
+	if d.starting != nil {
+		f.history.pollStartingPoint(d.starting)
+		if d.starting.open {
+			return
+		}
+		if !d.starting.ready {
+			f.draft, f.restore = nil, true
+			return
+		}
+		d.starting, d.startingSaved, d.focusAmount = nil, true, true
+		p.loadLiabilityPosting()
+	}
+	select {
+	case result := <-d.loading:
+		d.loading = nil
+		if result.err != nil {
+			d.sources = nil
+			d.sourceProblem = liabilityPostingProblem(result.err, i18n.AccountLoadError)
+			if d.sourceProblem == i18n.CashMovementHistoryRequired && f.history != nil && f.history.startPoint != nil && !d.startingSaved {
+				start := newHistoryStart(f.history.startPoint.service)
+				start.accountName, start.focusDate = d.account.Name, true
+				d.starting = start
+				f.history.beginStartingPoint(start)
+				return
+			}
+		} else {
+			d.sources, d.account = &result.value, result.value.Account
+			if d.date == "" {
+				d.captureTime(p.clock())
+			}
+		}
+	default:
+	}
+	select {
+	case result := <-d.previewing:
+		d.previewing = nil
+		if result.err != nil {
+			d.problem = liabilityPostingProblem(result.err, i18n.LiabilityPreviewFailed)
+			if d.problem == i18n.AccountUnavailable || d.problem == i18n.LiabilityDebtRequired || d.problem == i18n.LiabilityCashRequired {
+				d.focusAmount = true
+				p.loadLiabilityPosting()
+			}
+		} else {
+			d.review, d.focusReview = &result.value, true
+		}
+	default:
+	}
+	select {
+	case result := <-d.posting:
+		d.posting = nil
+		var issue *domain.Error
+		if result.err == nil && result.value.Activity.ID != "" {
+			f.draft = nil
+			f.onPosted(result.value.Activity, i18n.LiabilityPosted, &f.open)
+		} else if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
+			// A committed mutation is replayed before checking the token.
+			d.review, d.uncertain, d.focusAmount = nil, false, true
+			d.problem = i18n.LiabilityStalePreview
+			p.loadLiabilityPosting()
+		} else {
+			d.uncertain, d.focusReview = true, true
+		}
+	default:
+	}
+}
+
+func liabilityPostingProblem(err error, fallback i18n.MessageID) i18n.MessageID {
+	var issue *domain.Error
+	if !errors.As(err, &issue) {
+		return fallback
+	}
+	switch issue.Code {
+	case domain.ErrHistoryNotStarted:
+		return i18n.CashMovementHistoryRequired
+	case domain.ErrInvalidChangeTime:
+		return i18n.ContributionInvalidTime
+	case domain.ErrInsufficientBalance:
+		return i18n.CashMovementInsufficient
+	case domain.ErrTransferMismatch:
+		return i18n.LiabilityCurrencyMatch
+	case domain.ErrNoChange:
+		return i18n.AccountCardBalanceNoChange
+	}
+	switch issue.Field {
+	case "amount", "principal":
+		return i18n.ContributionInvalidAmount
+	case "newValue":
+		return i18n.AccountCardBalanceInvalidTarget
+	case "interestOrFee":
+		return i18n.LiabilityInvalidInterest
+	case "note":
+		return i18n.HistoryRepeatNoteTooLong
+	case "accountId":
+		return i18n.AccountUnavailable
+	case "debtAccountId":
+		return i18n.LiabilityDebtRequired
+	case "cashAccountId":
+		return i18n.LiabilityCashRequired
+	case "reason":
+		return i18n.LiabilityReasonRequired
+	}
+	return fallback
+}

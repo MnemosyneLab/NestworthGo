@@ -24,6 +24,15 @@ import (
 
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
+	if d := p.productSetup; d != nil {
+		if !d.poll() {
+			return d.layout(gtx, view, p.productSetupCalendar(), p.cancelProductSetup)
+		}
+		p.cancelProductSetup()
+		p.productSaved = true
+		p.refresh()
+		view.RestorePageScroll(0)
+	}
 	if f := p.statement; f != nil {
 		row := p.freshDetail()
 		if f.screen == nil && row != nil && (p.target.statement != "" || f.open.Clicked(gtx)) {
@@ -60,6 +69,16 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	}
 	if p.maintenance != nil && p.maintenance.draft != nil {
 		return p.layoutAccountSettings(gtx, view)
+	}
+	if f := p.liabilityPosting; f != nil {
+		if f.draft == nil && p.canPostLiability() && f.open.Clicked(gtx) {
+			p.startLiabilityPosting()
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		if f.draft != nil {
+			return p.layoutLiabilityPosting(gtx, view)
+		}
 	}
 	if f := p.cashBalance; f != nil {
 		if f.draft == nil && p.canSetCashBalance() && f.open.Clicked(gtx) {
@@ -101,19 +120,31 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if f := p.investment; f != nil {
 		if f.draft == nil {
 			switch {
-			case (p.canFirstBuy() || p.hasInvestmentHolding(domain.ActivityBuy)) && f.buy.Clicked(gtx):
+			case p.canTradeAccount() && f.buy.Clicked(gtx):
 				p.startInvestment(domain.ActivityBuy)
 				gtx.Execute(op.InvalidateCmd{})
 			case p.canSell() && f.sell.Clicked(gtx):
 				p.startInvestment(domain.ActivitySell)
 				gtx.Execute(op.InvalidateCmd{})
-			case p.hasInvestmentHolding(domain.ActivityCashDividend) && f.dividend.Clicked(gtx):
+			case p.canRecordDividend() && f.dividend.Clicked(gtx):
 				p.startInvestment(domain.ActivityCashDividend)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.canImportPosition() && f.importOpen.Clicked(gtx):
+				p.startInvestment(domain.ActivityPositionTransfer)
+				view.RestorePageScroll(0)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.canImportPosition() && f.custodyOpen.Clicked(gtx):
+				f.startCustody(p.investmentRuntime(), positionScope{account: p.freshDetail().record.Account})
+				view.RestorePageScroll(0)
+				gtx.Execute(op.InvalidateCmd{})
+			case p.canImportPosition() && f.adjustmentOpen.Clicked(gtx):
+				f.startAdjustment(p.investmentRuntime(), positionScope{account: p.freshDetail().record.Account})
+				view.RestorePageScroll(0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 		if f.draft != nil {
-			return p.layoutInvestment(gtx, view)
+			return f.layoutForm(gtx, view, p.investmentRuntime())
 		}
 	}
 	detail := p.target.account != ""
@@ -121,7 +152,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.backToList()
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.clear.Clicked(gtx) && p.target.institution != "" {
+	if p.clear.Clicked(gtx) && (p.target.institution != "" || p.target.accountList.active()) {
 		p.open(navigationTarget{route: accountsRoute}, "", &p.clear)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -164,6 +195,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			if p.target.institution != "" {
 				controls = append(controls, layout.Rigid(view.Button(&p.clear, l.Text(i18n.AccountClearInstitution))))
+			} else if p.target.accountList.active() {
+				controls = append(controls, layout.Rigid(returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false)))
 			}
 			if p.canCreateBankAccount() {
 				controls = append(controls, layout.Rigid(view.PrimaryButton(&p.createBank, l.Text(i18n.AccountCreateAdd))))
@@ -189,6 +222,21 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			}
 			toolbar := func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, controls...)
+			}
+			if p.canPostLiability() {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx,
+					layout.Rigid(toolbar),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						f := p.liabilityPosting
+						view.Focus.Watch(gtx, &f.open)
+						if f.restore && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: &f.open})
+							f.restore = false
+						}
+						action := liabilityEntryLabel(p.freshDetail().record.Account)
+						return layout.W.Layout(gtx, view.PrimaryButton(&f.open, l.Text(action)))
+					}),
+				)
 			}
 			if !p.canCreateBankAccount() && !p.canCreateUnscoped() {
 				return toolbar(gtx)
@@ -236,8 +284,15 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 		id = i18n.AccountUnavailable
 	case p.current != nil && len(p.current.rows) == 0:
 		id = i18n.OverviewEmpty
+		if p.target.accountList.active() {
+			id = i18n.AccountOverviewFilterEmpty
+		}
 	}
 	var lines []layout.FlexChild
+	if p.target.accountList.active() {
+		label := p.target.accountList.name(l, p.filterLabel)
+		lines = append(lines, layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountOverviewFilter), label), view.Colors.Ink)))
+	}
 	if p.createdID != "" && p.target.account == p.createdID {
 		lines = append(lines, layout.Rigid(view.Message(l.Text(p.createdMessage), view.Colors.Ink)))
 	}
@@ -519,8 +574,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			})
 		})
 	})
-	firstBuy, existingBuy, sell := p.canFirstBuy(), p.hasInvestmentHolding(domain.ActivityBuy), p.canSell()
-	dividend := p.hasInvestmentHolding(domain.ActivityCashDividend)
+	buy, sell, dividend := p.canTradeAccount(), p.canSell(), p.canRecordDividend()
 	opening := p.canOpenPosition()
 	if p.opening != nil && p.opening.saved == a.ID {
 		rows = append(rows, view.Message(l.Text(i18n.OpeningPositionSaved), view.Colors.Ink))
@@ -530,24 +584,45 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			return layout.W.Layout(gtx, view.Button(&p.opening.open, l.Text(i18n.OpeningPositionOpen)))
 		})
 	}
-	if firstBuy || existingBuy || sell || dividend {
+	if buy || sell || dividend {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Top: 8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				var actions []layout.FlexChild
-				if firstBuy || existingBuy {
+				f := p.investment
+				action := func(button *widget.Clickable, label i18n.MessageID) layout.FlexChild {
+					return layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						view.Focus.Watch(gtx, button)
+						if f.restore == button && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: button})
+							f.restore = nil
+						}
+						return view.Button(button, l.Text(label))(gtx)
+					})
+				}
+				if buy {
 					label := i18n.BuyOpen
-					if existingBuy {
+					if !p.canFirstBuy() {
 						label = i18n.BuyExistingOpen
 					}
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.buy, l.Text(label))))
+					actions = append(actions, action(&f.buy, label))
 				}
 				if sell {
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.sell, l.Text(i18n.SellOpen))))
+					actions = append(actions, action(&f.sell, i18n.SellOpen))
 				}
 				if dividend {
-					actions = append(actions, layout.Rigid(view.Button(&p.investment.dividend, l.Text(i18n.DividendOpen))))
+					actions = append(actions, action(&f.dividend, i18n.DividendOpen))
 				}
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, actions...)
+			})
+		})
+	}
+	if p.canImportPosition() {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			f := p.investment
+			buttons := []*widget.Clickable{&f.importOpen, &f.custodyOpen, &f.adjustmentOpen}
+			labels := []i18n.MessageID{i18n.OpeningPositionOpen, i18n.CustodyOpen, i18n.QuantityAdjustOpen}
+			return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions {
+				return f.accountPositionAction(gtx, view, buttons[i], l.Text(labels[i]))
 			})
 		})
 	}
@@ -564,7 +639,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		}
 	}
 	if row.value == nil {
-		return p.appendProducts(rows, view)
+		return p.appendProducts(rows, view, a)
 	}
 	value := row.value
 	issues := make(map[string]bool)
@@ -617,6 +692,15 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 					return layout.W.Layout(gtx, view.Button(button, label))
 				})
 			}
+			if p.canImportPosition() && component.HoldingID != nil {
+				if holding, ok := p.current.holdings[*component.HoldingID]; ok && holding.ArchivedAt == nil && !holding.Quantity.IsZero() {
+					label := instrumentName
+					if label == "" {
+						label = l.Text(i18n.OverviewMissingInstrument)
+					}
+					investments = append(investments, p.holdingPositionActions(view, a, holding, label))
+				}
+			}
 		}
 		rows = append(rows, accountLine(view, l.Text(i18n.AccountCash)))
 		if len(cash) == 0 {
@@ -631,18 +715,92 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			rows = append(rows, investments...)
 		}
 	}
-	return p.appendProducts(rows, view)
+	return p.appendProducts(rows, view, a)
 }
 
-func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View) []layout.Widget {
-	if len(p.current.products) == 0 {
+func (f *accountInvestment) accountPositionAction(gtx layout.Context, view ui.View, button *widget.Clickable, label string) layout.Dimensions {
+	view.Focus.Watch(gtx, button)
+	if f.restore == button && gtx.Enabled() {
+		gtx.Execute(key.FocusCmd{Tag: button})
+		f.restore = nil
+	}
+	return view.Button(button, label)(gtx)
+}
+
+func (p *accountsPage) holdingPositionActions(view ui.View, account domain.Account, holding domain.Holding, name string) layout.Widget {
+	f := p.investment
+	if f.custodyHoldings == nil {
+		f.custodyHoldings = make(map[domain.HoldingID]*widget.Clickable)
+	}
+	if f.adjustmentHoldings == nil {
+		f.adjustmentHoldings = make(map[domain.HoldingID]*widget.Clickable)
+	}
+	custody := portfolioButton(f.custodyHoldings, holding.ID)
+	adjust := portfolioButton(f.adjustmentHoldings, holding.ID)
+	return func(gtx layout.Context) layout.Dimensions {
+		scope := positionScope{account: account, holding: holding}
+		if custody.Clicked(gtx) {
+			scope.action = custody
+			f.startCustody(p.investmentRuntime(), scope)
+		} else if adjust.Clicked(gtx) {
+			scope.action = adjust
+			f.startAdjustment(p.investmentRuntime(), scope)
+		}
+		if scope.action != nil {
+			view.RestorePageScroll(0)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return ui.Wrap{Gap: ui.Space8}.Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+			button, label := custody, i18n.CustodyHoldingAction
+			if i == 1 {
+				button, label = adjust, i18n.QuantityAdjustHoldingAction
+			}
+			return f.accountPositionAction(gtx, view, button, fmt.Sprintf(view.Language.Text(label), name))
+		})
+	}
+}
+
+func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, account domain.Account) []layout.Widget {
+	canAdd := p.productLedger != nil && domain.ProductAccountEligible(account) == nil
+	if len(p.current.products) == 0 && !canAdd {
 		return rows
 	}
-	rows = append(rows, accountLine(view, view.Language.Text(i18n.ManagedProducts)))
+	l := view.Language
+	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+			layout.Flexed(1, accountLine(view, l.Text(i18n.ManagedProducts))),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !canAdd {
+					return layout.Dimensions{}
+				}
+				if p.request != nil || p.err != nil {
+					gtx = gtx.Disabled()
+				} else {
+					if p.restoreProductFocus {
+						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
+						p.restoreProductFocus = false
+					}
+					if p.addProduct.Clicked(gtx) {
+						p.startProductSetup(account, l.Text(i18n.ProductAddDeposit))
+						view.RestorePageScroll(0)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+				}
+				view.Focus.Watch(gtx, &p.addProduct)
+				return view.Button(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
+			}))
+	})
+	if p.productSaved {
+		rows = append(rows, accountLine(view, l.Text(i18n.ProductSetupSaved)))
+	}
+	if len(p.current.products) == 0 {
+		rows = append(rows, accountLine(view, l.Text(i18n.ManagedProductsEmpty)))
+	}
 	for _, product := range p.current.products {
 		name, id := productName(product), product.Contract.ID
 		fields := []layout.Widget{
-			productState(view, product.DisplayState),
+			productState(view, product.Contract.Kind, product.DisplayState),
+			fundsAmount(view, i18n.ProductPrincipal, &product.Contract.Principal),
 			fundsAmount(view, i18n.ProductValue, product.CurrentValue),
 			productMaturity(view, product.Contract.MaturityOn),
 		}

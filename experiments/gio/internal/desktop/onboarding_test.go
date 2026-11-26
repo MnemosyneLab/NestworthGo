@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -52,14 +53,11 @@ var onboardingTestTime = time.Date(2026, time.November, 21, 17, 0, 0, 0, time.UT
 
 func prepareOnboardingProfile(t *testing.T) pilot.Paths {
 	t.Helper()
-	t.Setenv("NESTWORTH_GIO_RUN_DIR", createFixtureRoot(t))
-	t.Setenv("NESTWORTH_DATABASE_PATH", "")
-	t.Setenv("NESTWORTH_SETTINGS_PATH", "")
+	root := createFixtureRoot(t)
+	t.Setenv("NESTWORTH_DATABASE_PATH", filepath.Join(root, "data", "nestworth.db"))
+	t.Setenv("NESTWORTH_SETTINGS_PATH", filepath.Join(root, "data", "settings.json"))
 	paths, err := pilot.PathsFromEnv()
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := pilot.PrepareOnboarding(t.Context(), paths); err != nil {
 		t.Fatal(err)
 	}
 	return paths
@@ -249,6 +247,18 @@ func TestOnboardingWindowMatchesWailsAndRetriesReadsAfterCommit(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(afterOrigin, gotOrigin) {
 		t.Fatalf("history origin changed on reopen: %+v, %v", afterOrigin, err)
 	}
+	directory := newDirectoryPage(newMembersList(ctx, reopened, func() {}))
+	reopenedShell := newShellHarnessWithPages(t, ledgerPages{directory: directory})
+	reopenedShell.shell.prefs.saved.Language = settings.LanguageEnglish
+	reopenedShell.shell.onboarding = newOnboardingPage(ctx, reopened, clock, func() {})
+	reopenedShell.shell.onboarding.read()
+	reopenedShell.shell.onboarding.workers.Wait()
+	reopenedShell.frame()
+	reopenedShell.click("Directory", false)
+	directory.wait()
+	reopenedShell.frame()
+	assertPageLabel(t, &reopenedShell.router, want.Household.Name)
+	assertPageLabel(t, &reopenedShell.router, "Mei Sample")
 }
 
 func assertEquivalentHousehold(t *testing.T, got application.Bootstrap, want household.BootstrapResult) {

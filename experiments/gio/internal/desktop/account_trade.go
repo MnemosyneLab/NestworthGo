@@ -1,8 +1,10 @@
 package desktop
 
 import (
+	"context"
 	"errors"
 	"slices"
+	"sync"
 	"time"
 
 	"gioui.org/io/event"
@@ -15,32 +17,58 @@ import (
 )
 
 type accountInvestment struct {
-	service             history.InvestmentLedger
-	buy, sell, dividend widget.Clickable
-	draft               *accountInvestmentDraft
-	onPosted            func(domain.Activity, i18n.MessageID, event.Tag)
+	service                                                      history.InvestmentLedger
+	buy, sell, dividend, importOpen, custodyOpen, adjustmentOpen widget.Clickable
+	custodyHoldings, adjustmentHoldings                          map[domain.HoldingID]*widget.Clickable
+	restore                                                      *widget.Clickable
+	draft                                                        *accountInvestmentDraft
+	linked                                                       *holdingLinkedActivity
+	onPosted                                                     func(domain.Activity, i18n.MessageID, event.Tag)
+}
+
+type investmentRuntime struct {
+	ctx         context.Context
+	workers     *sync.WaitGroup
+	clock       func() time.Time
+	invalidate  func()
+	refreshLink func()
+}
+
+func (p *accountsPage) investmentRuntime() investmentRuntime {
+	return investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 }
 
 type accountInvestmentDraft struct {
-	kind                         domain.ActivityKind
-	existing                     bool
-	account                      domain.Account
-	instrument                   domain.InstrumentID
-	quantity, gross, fee         ui.TextField
-	day, time                    string
-	defaultTime                  time.Time
-	selectInstrument             ui.Select
-	datePicker                   ui.DatePicker
-	timePicker                   ui.TimePicker
-	cancel, retry, preview, edit widget.Clickable
-	confirm, retryConfirm        widget.Clickable
-	sourceProblem, problem       i18n.MessageID
-	sources                      *history.InvestmentSources
-	loading                      <-chan historyResult[history.InvestmentSources]
-	previewing                   <-chan historyResult[history.ReviewedInvestment]
-	review                       *history.ReviewedInvestment
-	posting                      <-chan historyResult[domain.ChangePreview]
-	uncertain                    bool
+	kind                                 domain.ActivityKind
+	link                                 func() *domain.ReconciliationLink
+	lockedHolding                        domain.Holding
+	dividendCurrency                     domain.CurrencyCode
+	selectDividendCurrency               ui.Select
+	custody                              *custodyTransferDraft
+	adjustment                           *quantityAdjustmentDraft
+	existing                             bool
+	account                              domain.Account
+	instrument                           domain.InstrumentID
+	currency                             domain.CurrencyCode
+	quantity, gross, fee, unitCost, note ui.TextField
+	day, time                            string
+	defaultTime                          time.Time
+	selectInstrument                     ui.Select
+	selectAccount                        ui.Select
+	accounts                             []domain.Account
+	pickAccount, focusAccount            bool
+	datePicker                           ui.DatePicker
+	timePicker                           ui.TimePicker
+	cancel, retry, preview, edit         widget.Clickable
+	confirm, retryConfirm                widget.Clickable
+	useNow                               widget.Clickable
+	sourceProblem, problem               i18n.MessageID
+	sources                              *history.InvestmentSources
+	loading                              <-chan historyResult[history.InvestmentSources]
+	previewing                           <-chan historyResult[history.ReviewedInvestment]
+	review                               *history.ReviewedInvestment
+	posting                              <-chan historyResult[domain.ChangePreview]
+	uncertain, focusReview, focusInput   bool
 }
 
 func (p *accountsPage) canFirstBuy() bool {
@@ -48,10 +76,18 @@ func (p *accountsPage) canFirstBuy() bool {
 }
 
 func (p *accountsPage) canSell() bool {
-	return p.hasInvestmentHolding(domain.ActivitySell)
+	if !p.canTradeAccount() {
+		return false
+	}
+	for _, holding := range p.current.holdings {
+		if holding.ArchivedAt == nil && !holding.Quantity.IsZero() && !p.current.managed[holding.InstrumentID] {
+			return true
+		}
+	}
+	return false
 }
 
-func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
+func (p *accountsPage) canRecordDividend() bool {
 	if !p.canTradeAccount() {
 		return false
 	}
@@ -67,7 +103,7 @@ func (p *accountsPage) hasInvestmentHolding(kind domain.ActivityKind) bool {
 			return false
 		}
 		h, ok := p.current.holdings[*component.HoldingID]
-		return ok && h.ArchivedAt == nil && (kind != domain.ActivitySell || !h.Quantity.IsZero())
+		return ok && h.ArchivedAt == nil
 	})
 }
 
@@ -76,12 +112,47 @@ func (p *accountsPage) canTradeAccount() bool {
 	return p.investment != nil && p.investment.onPosted != nil && row != nil && history.TradeAccount(row.record.Account)
 }
 
-func (f *accountInvestment) action(kind domain.ActivityKind) *widget.Clickable {
-	switch kind {
+func (p *accountsPage) canImportPosition() bool {
+	return p.canTradeAccount() && !p.current.beforeHistory
+}
+
+func (f *accountInvestment) holdingActionFallback(tag event.Tag) *widget.Clickable {
+	for _, button := range f.custodyHoldings {
+		if tag == button {
+			return &f.custodyOpen
+		}
+	}
+	for _, button := range f.adjustmentHoldings {
+		if tag == button {
+			return &f.adjustmentOpen
+		}
+	}
+	return nil
+}
+
+func (f *accountInvestment) action(d *accountInvestmentDraft) *widget.Clickable {
+	if f.linked != nil {
+		return f.linked.scope.action
+	}
+	if d.custody != nil {
+		if d.custody.scope.action != nil {
+			return d.custody.scope.action
+		}
+		return &f.custodyOpen
+	}
+	if d.adjustment != nil {
+		if d.adjustment.scope.action != nil {
+			return d.adjustment.scope.action
+		}
+		return &f.adjustmentOpen
+	}
+	switch d.kind {
 	case domain.ActivitySell:
 		return &f.sell
 	case domain.ActivityCashDividend:
 		return &f.dividend
+	case domain.ActivityPositionTransfer:
+		return &f.importOpen
 	default:
 		return &f.buy
 	}
@@ -114,12 +185,26 @@ var dividendLabels = tradeLabels{
 	previewFailed: i18n.DividendPreviewFailed, stale: i18n.DividendStale,
 }
 
+var positionImportLabels = tradeLabels{
+	action: i18n.OpeningPositionOpen, review: i18n.OpeningPositionReview, confirm: i18n.OpeningPositionConfirm, posted: i18n.PositionImportPosted,
+	quantity: i18n.OpeningPositionQuantity, scope: i18n.OpeningPositionUnavailable, history: i18n.PositionImportHistoryRequired, empty: i18n.OpeningPositionEmpty,
+	previewFailed: i18n.PositionImportReviewFailed, stale: i18n.PositionImportStale,
+}
+
 func (d *accountInvestmentDraft) labels() tradeLabels {
+	if d.custody != nil {
+		return custodyTransferLabels
+	}
+	if d.adjustment != nil {
+		return quantityAdjustmentLabels
+	}
 	switch d.kind {
 	case domain.ActivitySell:
 		return sellLabels
 	case domain.ActivityCashDividend:
 		return dividendLabels
+	case domain.ActivityPositionTransfer:
+		return positionImportLabels
 	}
 	labels := buyLabels
 	if d.existing {
@@ -131,31 +216,87 @@ func (d *accountInvestmentDraft) labels() tradeLabels {
 
 func (p *accountsPage) startInvestment(kind domain.ActivityKind) {
 	f := p.investment
-	f.draft = &accountInvestmentDraft{kind: kind, existing: !p.canFirstBuy(), account: p.freshDetail().record.Account,
-		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true)}
-	p.loadInvestmentSources()
+	f.draft = newAccountInvestmentDraft(kind, p.freshDetail().record.Account)
+	f.draft.existing = !p.canFirstBuy()
+	f.loadSources(p.investmentRuntime())
+}
+
+func newAccountInvestmentDraft(kind domain.ActivityKind, account domain.Account) *accountInvestmentDraft {
+	return &accountInvestmentDraft{kind: kind, account: account, focusInput: true,
+		quantity: ui.NewTextField(true), gross: ui.NewTextField(true), fee: ui.NewTextField(true), unitCost: ui.NewTextField(true), note: ui.NewTextField(true)}
 }
 
 func (d *accountInvestmentDraft) chooseInstrument(id domain.InstrumentID) {
-	if d.instrument != id {
-		d.instrument, d.problem = id, i18n.NoMessage
+	var currency domain.CurrencyCode
+	if d.sources != nil {
+		for _, instrument := range d.sources.Instruments {
+			if instrument.ID == id {
+				currency = instrument.QuoteCurrency
+				break
+			}
+		}
+	}
+	if d.instrument != id || d.currency != currency {
+		d.instrument, d.currency, d.problem = id, currency, i18n.NoMessage
 		d.quantity.Editor.SetText("")
 		d.gross.Editor.SetText("")
 		d.fee.Editor.SetText("")
+		d.unitCost.Editor.SetText("")
 	}
 }
 
-func (p *accountsPage) loadInvestmentSources() {
-	f, d := p.investment, p.investment.draft
+func (d *accountInvestmentDraft) captureTime(now time.Time) {
+	now = now.In(d.sources.Location)
+	d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
+	if d.kind != domain.ActivityCashDividend || d.link != nil {
+		d.time, d.defaultTime = now.Format(time.TimeOnly), now
+	}
+}
+
+func (d *accountInvestmentDraft) effectiveAt() time.Time {
+	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
+		return d.defaultTime
+	}
+	return time.Time{}
+}
+
+func (f *accountInvestment) loadSources(run investmentRuntime) {
+	d := f.draft
 	d.sources, d.sourceProblem = nil, i18n.NoMessage
+	if d.custody != nil {
+		f.loadCustodySources(run)
+		return
+	}
+	if d.adjustment != nil {
+		f.loadAdjustmentSources(run)
+		return
+	}
 	id, kind := d.account.ID, d.kind
-	d.loading = runHistoryRead(&p.workers, p.invalidate, func() (history.InvestmentSources, error) {
-		return history.LoadInvestmentSources(p.ctx, f.service, id, kind)
+	if kind == domain.ActivityCashDividend && d.link != nil {
+		kind = domain.ActivityBuy
+	}
+	d.loading = runHistoryRead(run.workers, run.invalidate, func() (history.InvestmentSources, error) {
+		return history.LoadInvestmentSources(run.ctx, f.service, id, kind)
 	})
 }
 
-func (p *accountsPage) previewInvestment() {
-	f, d := p.investment, p.investment.draft
+func (f *accountInvestment) preview(run investmentRuntime) {
+	d := f.draft
+	var link *domain.ReconciliationLink
+	if d.link != nil {
+		link = d.link()
+		if link == nil {
+			return
+		}
+	}
+	if d.custody != nil {
+		f.previewCustody(run, link)
+		return
+	}
+	if d.adjustment != nil {
+		f.previewAdjustment(run, link)
+		return
+	}
 	if d.previewing != nil || d.sources == nil || d.instrument == "" {
 		return
 	}
@@ -165,69 +306,88 @@ func (p *accountsPage) previewInvestment() {
 		side = domain.TradeSell
 	}
 	input := history.TradeInput{Side: side, Account: d.account.ID, Instrument: d.instrument,
-		Holding: d.sources.Holdings[d.instrument].ID, Quantity: d.quantity.Text(),
-		Gross: d.gross.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time}
+		Holding: d.sources.Holdings[d.instrument].ID, Currency: d.currency, Quantity: d.quantity.Text(),
+		Gross: d.gross.Text(), Fee: d.fee.Text(), Note: d.note.Text(), Date: d.day, Time: d.time, Link: link}
 	// Keep the actual default instant, including its sub-second position
 	// after History Origin. Edited wall times resolve in the Origin timezone.
-	if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
-		input.EffectiveAt = d.defaultTime
-	}
+	input.EffectiveAt = d.effectiveAt()
+	unitCost, dividendCurrency := d.unitCost.Text(), d.dividendCurrency
 	d.problem = i18n.NoMessage
-	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedInvestment, error) {
-		if kind == domain.ActivityCashDividend {
-			return history.ReviewDividend(p.ctx, f.service, history.DividendInput{
+	d.previewing = runHistoryRead(run.workers, run.invalidate, func() (history.ReviewedInvestment, error) {
+		switch kind {
+		case domain.ActivityCashDividend:
+			return history.ReviewDividend(run.ctx, f.service, history.DividendInput{
 				Account: input.Account, Instrument: input.Instrument, Holding: input.Holding,
-				Amount: input.Gross, Date: input.Date, Time: input.Time,
+				Amount: input.Gross, Date: input.Date, Time: input.Time, Note: input.Note,
+				Currency: dividendCurrency, EffectiveAt: input.EffectiveAt, Link: input.Link,
+			})
+		case domain.ActivityPositionTransfer:
+			return history.ReviewPositionImport(run.ctx, f.service, history.PositionImportInput{
+				Account: input.Account, Instrument: input.Instrument, Currency: input.Currency, Quantity: input.Quantity,
+				UnitCost: unitCost, Note: input.Note, Date: input.Date, Time: input.Time, EffectiveAt: input.EffectiveAt, Link: input.Link,
 			})
 		}
-		return history.ReviewTrade(p.ctx, f.service, input)
+		return history.ReviewTrade(run.ctx, f.service, input)
 	})
 }
 
-func (p *accountsPage) postInvestment() {
-	f, d := p.investment, p.investment.draft
-	if d.review == nil || d.posting != nil || p.ctx.Err() != nil {
+func (f *accountInvestment) post(run investmentRuntime) {
+	d := f.draft
+	if d.review == nil || d.posting != nil || run.ctx.Err() != nil {
 		return
 	}
 	plan := *d.review
-	d.posting = runHistoryRead(&p.workers, p.invalidate, func() (domain.ChangePreview, error) {
-		return plan.Commit(p.ctx, f.service)
+	d.posting = runHistoryRead(run.workers, run.invalidate, func() (domain.ChangePreview, error) {
+		return plan.Commit(run.ctx, f.service)
 	})
 }
 
-func (p *accountsPage) investmentUnresolved() bool {
-	return p.investment != nil && p.investment.draft != nil && (p.investment.draft.posting != nil || p.investment.draft.uncertain)
+func (f *accountInvestment) unresolved() bool {
+	return f != nil && f.draft != nil && (f.draft.posting != nil || f.draft.uncertain)
 }
 
-func (p *accountsPage) pollInvestment() {
-	f := p.investment
+func (f *accountInvestment) poll(run investmentRuntime) {
 	if f == nil || f.draft == nil {
 		return
 	}
 	d := f.draft
 	labels := d.labels()
+	f.pollCustodySources(run)
+	f.pollAdjustmentSources(run)
 	select {
 	case result := <-d.loading:
 		d.loading = nil
 		if result.err != nil {
 			d.sourceProblem = tradeProblem(result.err, labels, i18n.BuySourcesFailed)
 		} else {
+			if locked := d.lockedHolding; locked.ID != "" {
+				op := &result.value
+				op.Instruments = slices.DeleteFunc(op.Instruments, func(i domain.Instrument) bool {
+					return i.ID != locked.InstrumentID || op.Holdings[i.ID].ID != locked.ID
+				})
+			}
 			d.sources = &result.value
 			d.account = result.value.Account
 			d.existing = len(result.value.Holdings) > 0
 			if d.day == "" {
-				now := p.clock().In(result.value.Location)
-				d.day, d.time = now.Format(time.DateOnly), now.Format("15:04")
-				if d.kind != domain.ActivityCashDividend {
-					d.time, d.defaultTime = now.Format(time.TimeOnly), now
-				}
+				d.captureTime(run.clock())
 			}
 			if d.instrument != "" && !slices.ContainsFunc(result.value.Instruments, func(i domain.Instrument) bool { return i.ID == d.instrument }) {
 				d.chooseInstrument("")
 				d.problem = i18n.BuyInstrumentUnavailable
 			}
+			if d.instrument != "" {
+				old := d.currency
+				d.chooseInstrument(d.instrument)
+				if d.currency != old {
+					d.problem = i18n.TradeCurrencyChanged
+				}
+			}
 			if len(result.value.Instruments) == 1 && d.instrument == "" {
 				d.chooseInstrument(result.value.Instruments[0].ID)
+			}
+			if d.kind == domain.ActivityCashDividend && d.link != nil && d.dividendCurrency == "" {
+				d.dividendCurrency = d.currency
 			}
 		}
 	default:
@@ -237,11 +397,14 @@ func (p *accountsPage) pollInvestment() {
 		d.previewing = nil
 		if result.err != nil {
 			d.problem = tradeProblem(result.err, labels, labels.previewFailed)
-			if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable {
-				p.loadInvestmentSources()
+			if run.refreshLink != nil && staleReconciliationLink(result.err) {
+				d.problem = i18n.HoldingReconChanged
+				run.refreshLink()
+			} else if d.problem == labels.scope || d.problem == i18n.BuyInstrumentUnavailable || d.problem == i18n.TradeCurrencyChanged {
+				f.loadSources(run)
 			}
 		} else {
-			d.review = &result.value
+			d.review, d.focusReview = &result.value, true
 		}
 	default:
 	}
@@ -250,20 +413,41 @@ func (p *accountsPage) pollInvestment() {
 		d.posting = nil
 		if result.err == nil && result.value.Activity.ID != "" {
 			f.draft = nil
-			f.onPosted(result.value.Activity, labels.posted, f.action(d.kind))
+			f.onPosted(result.value.Activity, labels.posted, f.action(d))
 			return
 		}
 		var issue *domain.Error
-		if errors.As(result.err, &issue) && issue.Code == domain.ErrStalePreview {
+		if errors.As(result.err, &issue) && (issue.Code == domain.ErrStalePreview || run.refreshLink != nil && staleReconciliationLink(result.err)) {
 			// The shared service checks committed receipts before the
 			// guard, so this mutation can be discarded on a stale token.
 			d.review, d.uncertain, d.problem = nil, false, labels.stale
-			p.loadInvestmentSources()
+			d.focusInput = true
+			f.loadSources(run)
+			if run.refreshLink != nil {
+				run.refreshLink()
+			}
 		} else {
-			d.uncertain = true
+			d.uncertain, d.focusReview = true, true
 		}
 	default:
 	}
+}
+
+func staleReconciliationLink(err error) bool {
+	var issue *domain.Error
+	if !errors.As(err, &issue) {
+		return false
+	}
+	if issue.Code == domain.ErrStalePreview {
+		return true
+	}
+	if issue.Code == domain.ErrConflict {
+		switch issue.Field {
+		case "reconciliationLink", "financialRevision", "expectedRevision":
+			return true
+		}
+	}
+	return false
 }
 
 func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.MessageID {
@@ -271,10 +455,13 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 	if !errors.As(err, &issue) {
 		return fallback
 	}
+	if issue.Code == domain.ErrCostBasisRequired && labels.action == i18n.QuantityAdjustOpen {
+		return i18n.QuantityAdjustNeedsCost
+	}
 	switch issue.Field {
-	case "settlementCash":
-		return i18n.BuyCashRequired
-	case "settlementAccountId", "holdings", "holdingId":
+	case "grossCurrency", "currency":
+		return i18n.TradeCurrencyChanged
+	case "settlementAccountId", "holdings", "holdingId", "fromHoldingId", "toHoldingId", "toAccountId":
 		return labels.scope
 	case "saleSequence":
 		return i18n.SellDateSequence
@@ -298,6 +485,10 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.BuyInvalidGross
 	case "fee":
 		return i18n.BuyInvalidFee
+	case "unitCost":
+		return i18n.PositionImportInvalidCost
+	case "note":
+		return i18n.HistoryRepeatNoteTooLong
 	case "instrumentId":
 		return i18n.BuyInstrumentUnavailable
 	case "amount":

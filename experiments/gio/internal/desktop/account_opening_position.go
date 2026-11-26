@@ -157,8 +157,6 @@ func openingPositionProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 			return i18n.HistoryAmendmentStale
 		case issue.Field == "historyOrigin":
 			return i18n.HistoryStartExists
-		case issue.Field == "openingHoldings":
-			return i18n.HistoryStartHoldingCost
 		case issue.Field == "quantity":
 			return i18n.BuyInvalidQuantity
 		case issue.Field == "instrumentId" || issue.Field == "holdingId":

@@ -459,6 +459,33 @@ describe("ReturnAnalysisPage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("opens a filtered calendar day and its Asset Changes handoff with the keyboard", async () => {
+    const user = userEvent.setup();
+    const onOpenAssetChanges = vi.fn();
+    const moreFilters = { accountId: "a1", currency: "EUR" };
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    useAnalysisStore.getState().setFilters({ scope: "instrument", scopeId: "i1", valuation: "native", includeCash: false, moreFilters });
+    renderPage(onOpenAssetChanges);
+
+    const day = within(await screen.findByTestId("return-day-2026-09-01")).getByRole("button");
+    day.focus();
+    await user.keyboard("{Enter}");
+    const details = await screen.findByRole("dialog");
+    const handoff = await within(details).findByRole("button", { name: "View asset changes for this day" });
+    expect(returnDay).toHaveBeenCalledWith(expect.objectContaining({
+      scopeKind: "instrument", scopeId: "i1", valuation: "native", includeCash: false, accountId: "a1", currency: "EUR",
+    }), "2026-09-01");
+    handoff.focus();
+    await user.keyboard("{Enter}");
+
+    expect(onOpenAssetChanges).toHaveBeenCalledWith({
+      scope: "instrument", scopeId: "i1", valuation: "native", includeCash: false, moreFilters,
+      from: "2026-09-01", to: "2026-09-01",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(useAnalysisStore.getState()).toMatchObject({ returnCursor: "2026-09", moreFilters });
+  });
+
   it("shows six largest absolute day contributors and sums the remainder", async () => {
     const user = userEvent.setup();
     const amounts = [

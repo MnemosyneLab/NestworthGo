@@ -17,9 +17,11 @@ import (
 	"gioui.org/widget/material"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -30,9 +32,14 @@ const (
 	accountsRoute         routeID = "accounts"
 	fundsRoute            routeID = "available-funds"
 	portfolioRoute        routeID = "portfolio"
+	wealthHistoryRoute    routeID = "historical-overview"
+	returnAnalysisRoute   routeID = "returns"
+	assetChangesRoute     routeID = "asset-changes"
 	tasksRoute            routeID = "tasks"
 	historyRoute          routeID = "history"
 	directoryRoute        routeID = "directory"
+	marketDataRoute       routeID = "market-data"
+	dataHealthRoute       routeID = "data-health"
 	settingsRoute         routeID = "settings"
 	componentPreviewRoute routeID = "component-preview"
 )
@@ -46,15 +53,20 @@ const (
 type pageLayout func(layout.Context, ui.View) layout.Dimensions
 
 type ledgerPages struct {
-	prefs     *preferenceState
-	directory *directoryPage
-	history   *historyPage
-	overview  *overviewPage
-	funds     *availableFundsPage
-	tasks     *tasksPage
-	accounts  *accountsPage
-	portfolio *portfolioPage
-	version   func() string
+	prefs         *preferenceState
+	directory     *directoryPage
+	history       *historyPage
+	overview      *overviewPage
+	funds         *availableFundsPage
+	tasks         *tasksPage
+	accounts      *accountsPage
+	portfolio     *portfolioPage
+	wealthHistory *wealthHistoryPage
+	returns       *returnAnalysisPage
+	assets        *assetChangesPage
+	marketData    *marketDataPage
+	dataHealth    *dataHealthPage
+	version       func() string
 }
 
 type navigationItem struct {
@@ -93,6 +105,11 @@ type shell struct {
 	tasks                                 *tasksPage
 	accounts                              *accountsPage
 	portfolio                             *portfolioPage
+	wealthHistory                         *wealthHistoryPage
+	returns                               *returnAnalysisPage
+	assets                                *assetChangesPage
+	marketData                            *marketDataPage
+	dataHealth                            *dataHealthPage
 	componentPreview                      *componentPreview
 	preferences                           sessionPreferences
 	theme                                 *material.Theme
@@ -122,6 +139,7 @@ type shell struct {
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	preview := newComponentPreview()
 	var directoryLayout, historyLayout, overviewLayout, accountsLayout, portfolioLayout, fundsLayout, tasksLayout pageLayout
+	var wealthHistoryLayout, returnAnalysisLayout, assetChangesLayout, marketDataLayout pageLayout
 	if pages.directory != nil {
 		directoryLayout = pages.directory.layout
 	}
@@ -143,6 +161,18 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	if pages.portfolio != nil {
 		portfolioLayout = pages.portfolio.layout
 	}
+	if pages.wealthHistory != nil {
+		wealthHistoryLayout = pages.wealthHistory.layout
+	}
+	if pages.returns != nil {
+		returnAnalysisLayout = pages.returns.layout
+	}
+	if pages.assets != nil {
+		assetChangesLayout = pages.assets.layout
+	}
+	if pages.marketData != nil {
+		marketDataLayout = pages.marketData.layout
+	}
 	s := &shell{
 		prefs:            pages.prefs,
 		settingsPage:     newSettingsPage(pages.prefs),
@@ -153,6 +183,11 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		tasks:            pages.tasks,
 		accounts:         pages.accounts,
 		portfolio:        pages.portfolio,
+		wealthHistory:    pages.wealthHistory,
+		returns:          pages.returns,
+		assets:           pages.assets,
+		marketData:       pages.marketData,
+		dataHealth:       pages.dataHealth,
 		componentPreview: preview,
 		preferences:      sessionPreferences{language: i18n.SimplifiedChinese},
 		theme:            ui.NewTheme(),
@@ -174,13 +209,13 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			newItem(historyRoute, i18n.NavHistory, lucide.ReceiptText, historyLayout),
 		}},
 		{label: i18n.GroupInsights, items: []navigationItem{
-			newItem("historical-overview", i18n.NavHistoricalOverview, lucide.CalendarClock, nil),
-			newItem("returns", i18n.NavReturns, lucide.ChartLine, nil),
-			newItem("asset-changes", i18n.NavAssetChanges, lucide.GitCompareArrows, nil),
+			newItem(wealthHistoryRoute, i18n.NavHistoricalOverview, lucide.CalendarClock, wealthHistoryLayout),
+			newItem(returnAnalysisRoute, i18n.NavReturns, lucide.ChartLine, returnAnalysisLayout),
+			newItem(assetChangesRoute, i18n.NavAssetChanges, lucide.GitCompareArrows, assetChangesLayout),
 		}},
 		{label: i18n.GroupManage, items: []navigationItem{
 			newItem(directoryRoute, i18n.NavDirectory, lucide.Users, directoryLayout),
-			newItem("data-maintenance", i18n.NavDataMaintenance, lucide.RefreshCw, nil),
+			newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout),
 			newItem(settingsRoute, i18n.NavSettings, lucide.Settings, s.settingsPage.layout),
 			newItem(componentPreviewRoute, i18n.NavComponentPreview, lucide.Wrench, preview.layout),
 		}},
@@ -190,6 +225,102 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		for i := range group.items {
 			item := &group.items[i]
 			s.routes[item.id] = item
+		}
+	}
+	if s.dataHealth != nil && (s.marketData != nil || s.overviewPage != nil) {
+		item := newItem(dataHealthRoute, i18n.NavDataHealth, nil, s.dataHealth.layout)
+		s.routes[dataHealthRoute] = &item
+		openHealth := func(scope healthFindingFocus, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: scope}, focus: focus}
+		}
+		if s.marketData != nil {
+			s.marketData.openHealth = func(focus *widget.Clickable) { openHealth(healthFindingFocus{}, focus) }
+			if s.marketData.manual.service != nil {
+				s.dataHealth.openManual = s.marketData.openManualQuote
+			}
+			if s.marketData.instrumentSources != nil {
+				s.dataHealth.openInstrumentSource = s.marketData.openInstrumentSource
+			}
+			if s.marketData.agentReader != nil {
+				s.dataHealth.openAgentEvidence = s.marketData.openAgentEvidence
+			}
+			if s.marketData.quoteHistoryReader != nil {
+				s.dataHealth.quoteHistory = s.marketData.quoteHistoryAction
+			}
+			if s.marketData.sync != nil && s.dataHealth.repair == s.marketData.sync {
+				s.dataHealth.previewQuoteRepair = func(scope application.SyncRequest, from event.Tag) {
+					s.marketData.previewMarketSyncFrom(dataHealthRoute, scope, from)
+				}
+				s.dataHealth.openRepairDetails = func(from event.Tag) {
+					s.marketData.openMarketOperation(dataHealthRoute, marketSyncDetails, from)
+				}
+			}
+		}
+		if s.overviewPage != nil {
+			s.overviewPage.openHealth = openHealth
+		}
+		s.dataHealth.clearFocus = func(focus event.Tag) {
+			openHealth(healthFindingFocus{}, focus)
+		}
+		s.dataHealth.inspect = openHealth
+		s.dataHealth.snapshots.rebuilt = func() {
+			if s.overviewPage != nil {
+				s.overviewPage.trend.invalidate()
+			}
+		}
+		s.dataHealth.openSettings = func(focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: focus, providerSettings: true}
+		}
+		if s.accounts != nil {
+			s.dataHealth.openAccount = func(id domain.AccountID, name string, focus *widget.Clickable) {
+				s.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, account: id}, name: name, focus: focus}
+			}
+		}
+	}
+	if s.marketData != nil {
+		s.marketData.openProviderSettings = func(from event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: settingsRoute}, focus: from, providerSettings: true}
+		}
+	}
+	if s.overviewPage != nil && s.wealthHistory != nil && s.historyPage != nil {
+		s.overviewPage.openHistory = func(started bool, focus event.Tag) {
+			route := historyRoute
+			if started {
+				route = wealthHistoryRoute
+			}
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: route}, focus: focus}
+		}
+	}
+	if s.returns != nil && s.assets != nil {
+		s.returns.openAssets = func(selection analysisSelection, focus *widget.Clickable) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: assetChangesRoute},
+				focus: focus, asset: assetChangesVisit{selection: selection, tab: assetDriversTab}}
+		}
+		s.assets.openReturns = func(selection analysisSelection, expanded bool, metric application.ContributionReturnType, focus event.Tag) {
+			visit := s.returns.visit()
+			visit.selection, visit.expanded, visit.tab, visit.metric = selection, expanded, returnContributionTab, metric
+			visit.preset, visit.presetAt = 0, analysisDateWindow{}
+			visit.list, visit.rankingList, visit.selectedKey = layout.Position{}, layout.Position{}, ""
+			visit.rankingDirection, visit.rankingLimit, visit.rankingSearch = contributionLargest, 0, ""
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: returnAnalysisRoute}, focus: focus, returns: &visit}
+		}
+	}
+	if s.returns != nil && s.historyPage != nil && s.historyPage.reads != nil {
+		s.returns.openHistory = func(filters history.Filters, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+				focus: focus, historyFilters: filters}
+		}
+	}
+	if s.assets != nil && s.historyPage != nil && s.historyPage.reads != nil {
+		s.assets.openHistory = func(filters history.Filters, activity domain.ActivityID, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: activity},
+				focus: focus, historyFilters: filters}
+		}
+	}
+	if s.wealthHistory != nil && s.historyPage != nil && s.historyPage.reads != nil {
+		s.wealthHistory.openHistory = func(filters history.Filters, focus event.Tag) {
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute},
+				focus: focus, historyFilters: filters}
 		}
 	}
 	if s.directory != nil {
@@ -206,6 +337,15 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.accounts.open = func(target navigationTarget, name string, from event.Tag) {
 			keepArchiveFilter := s.activeRoute() == accountsRoute && target.account == "" && s.accounts.archived
 			s.pendingNavigation = &navigationRequest{target: target, name: name, focus: from, accountsArchived: keepArchiveFilter}
+		}
+		if s.overviewPage != nil {
+			s.overviewPage.breakdowns.open = s.accounts.open
+			s.overviewPage.openAccounts = func(focus event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute}, "", focus)
+			}
+			s.overviewPage.allocation.openAccount = func(id domain.AccountID, name string, from event.Tag) {
+				s.accounts.open(navigationTarget{route: accountsRoute, account: id}, name, from)
+			}
 		}
 		s.accounts.backToList = func() {
 			if previous := s.trail.adjacent(-1); previous != nil && previous.target.route == accountsRoute && !previous.target.hasObject() {
@@ -231,8 +371,14 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		s.historyPage.onPosted = s.refreshLedgerReads
 	}
 	if s.historyPage != nil && s.historyPage.reads != nil {
+		if s.historyPage.investment != nil {
+			s.historyPage.investment.onPosted = s.historyPage.showPosted
+		}
 		s.historyPage.reads.open = func(id domain.ActivityID, focus event.Tag) {
 			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: historyRoute, activity: id}, focus: focus}
+		}
+		if s.tasks != nil {
+			s.tasks.openActivity = s.historyPage.reads.open
 		}
 		if s.accounts != nil && s.accounts.cashBalance != nil {
 			s.accounts.cashBalance.openActivity = s.historyPage.reads.open
@@ -240,10 +386,15 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		if s.accounts != nil && s.accounts.balanceTarget != nil {
 			s.accounts.balanceTarget.openActivity = s.historyPage.reads.open
 		}
+		if s.accounts != nil && s.accounts.liabilityPosting != nil {
+			s.accounts.liabilityPosting.onPosted = s.historyPage.showPosted
+			s.accounts.liabilityPosting.history = s.historyPage
+		}
 		if s.accounts != nil && s.accounts.investment != nil {
-			s.accounts.investment.onPosted = func(activity domain.Activity, notice i18n.MessageID, from event.Tag) {
-				s.historyPage.showPosted(activity, notice, from)
-			}
+			s.accounts.investment.onPosted = s.historyPage.showPosted
+		}
+		if s.portfolio != nil && s.portfolio.investment != nil {
+			s.portfolio.investment.onPosted = s.historyPage.showPosted
 		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
@@ -257,8 +408,47 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.trail.rename(target, name)
 			}
 		}
+		s.historyPage.reads.postedBackLabel = func() i18n.MessageID {
+			source := s.trail.adjacent(-1)
+			if source == nil {
+				return i18n.NoMessage
+			}
+			if source.target.route == tasksRoute && source.tasks.holdingSession != "" {
+				id := s.trail.current().target.activity
+				if source.tasks.holdingReceipt == id || source.tasks.journalReceipt.operation == id.String() {
+					return i18n.HoldingReconBack
+				}
+			}
+			if source.target.route == historyRoute && source.target.activity != "" &&
+				source.historyDetail.linked >= 3 && s.trail.current().target.activity == s.historyPage.reads.posted.ID {
+				return i18n.CustodyAmendmentBack
+			}
+			if source.target.route == portfolioRoute && s.portfolio != nil && s.portfolio.investment != nil && source.focus == &s.portfolio.investment.importOpen {
+				return i18n.PositionImportBackPortfolio
+			}
+			if source.target.route != accountsRoute || s.accounts == nil {
+				return i18n.NoMessage
+			}
+			if f := s.accounts.liabilityPosting; f != nil && source.focus == &f.open {
+				return i18n.LiabilityBackToAccount
+			}
+			if f := s.accounts.investment; f != nil && (source.focus == &f.buy || source.focus == &f.sell || source.focus == &f.dividend || source.focus == &f.importOpen ||
+				source.focus == &f.custodyOpen || source.focus == &f.adjustmentOpen || f.holdingActionFallback(source.focus) != nil) {
+				return i18n.LiabilityBackToAccount
+			}
+			return i18n.NoMessage
+		}
 		s.historyPage.reads.back = func() {
+			if s.historyPage.reads.postedBackLabel() != i18n.NoMessage {
+				s.pendingNavigation = &navigationRequest{step: -1}
+				return
+			}
 			request := navigationRequest{target: navigationTarget{route: historyRoute}}
+			if filters := s.trail.current().historyFilters; !filters.Equal(history.Filters{}) {
+				request.historyFilters = filters
+				s.pendingNavigation = &request
+				return
+			}
 			for i := s.trail.cursor - 1; i >= 0; i-- {
 				if target := s.trail.entries[i].target; target.route == historyRoute && target.activity == "" {
 					request.step = i - s.trail.cursor
@@ -320,7 +510,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if p.productPage != nil {
 			p.productPage.openAccount = p.openAccount
-			p.productPage.onReceiptSaved = s.refreshLedgerReads
+			p.productPage.onProductSaved = s.refreshLedgerReads
 			if s.historyPage != nil && s.historyPage.reads != nil {
 				p.productPage.openActivity = s.historyPage.reads.open
 				s.historyPage.reads.openProduct = p.openProduct
@@ -342,6 +532,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		p.update()
 		if p.opened {
 			s.onboarding = nil
+			if s.directory != nil {
+				s.directory.householdName = p.householdName
+			}
 			if p.attempted && s.accounts != nil {
 				s.trail = newNavigationTrail(accountsRoute)
 				s.accounts.enter(s.trail.current().target, false, layout.Position{})
@@ -350,7 +543,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
-		s.accounts.pollInvestment()
+		s.accounts.pollLiabilityPosting()
+		s.accounts.investment.poll(s.accounts.investmentRuntime())
 		s.accounts.pollOpeningPosition()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {
 			for _, list := range s.directory.lists {
@@ -392,7 +586,18 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	windowContext := gtx
-	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
+	if s.marketData != nil && s.marketData.updateLatest() {
+		s.refreshLedgerReads()
+		switch s.activeRoute() {
+		case marketDataRoute:
+			s.marketData.read()
+		case dataHealthRoute:
+			if s.dataHealth != nil {
+				s.dataHealth.read()
+			}
+		}
+	}
+	if s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -449,8 +654,136 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.accounts.layoutAccountCreationReview(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
+	} else if s.returnDetailOpen() {
+		if s.returns.day != nil {
+			s.returns.layoutDay(windowContext, view)
+		} else {
+			s.returns.layoutContributionSheet(windowContext, view)
+		}
+	} else if s.assetDetailOpen() {
+		if s.assets.categoryDetail != nil {
+			s.assets.layoutCategorySheet(windowContext, view)
+		} else {
+			s.assets.layoutDriverSheet(windowContext, view)
+		}
+	} else if s.wealthDetailOpen() {
+		s.wealthHistory.layoutWealthDetail(windowContext, view)
+	} else if s.healthRepairOpen() {
+		s.dataHealth.layoutRepair(windowContext, view)
+	} else if s.snapshotRepairOpen() {
+		s.dataHealth.layoutSnapshotRebuild(windowContext, view)
+	} else if s.quoteHistoryOpen() {
+		if source, health := s.marketData.layoutQuoteHistory(windowContext, view, s.dataHealth != nil && s.activeRoute() == marketDataRoute); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		} else if health != nil {
+			d := s.marketData.quoteHistory
+			visit := d.visit
+			visit.scroll = d.sheet.list.Position
+			s.trail.current().quoteHistory = &visit
+			s.marketData.closeQuoteHistory()
+			s.pendingNavigation = &navigationRequest{target: navigationTarget{route: dataHealthRoute, health: *health}, focus: visit.source}
+		}
+	} else if s.marketOperationOpen() {
+		if source := s.marketData.layoutMarketOperation(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		}
+	} else if s.fxSourceOpen() {
+		if source, preference := s.marketData.layoutFXSource(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+			if preference != nil {
+				s.refreshLedgerReads()
+				s.marketData.read()
+				if preference.SourceKind == domain.QuoteSourceProvider {
+					s.marketData.startLatest(marketLatestTarget{})
+				}
+			}
+		}
+	} else if s.instrumentSourceOpen() {
+		if source, saved := s.marketData.layoutInstrumentSource(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+			if saved {
+				s.refreshLedgerReads()
+				if s.activeRoute() == dataHealthRoute {
+					s.dataHealth.read()
+				} else {
+					s.marketData.read()
+				}
+			}
+		}
+	} else if s.agentEvidenceOpen() {
+		source, saved := s.marketData.layoutAgentEvidence(windowContext, view)
+		if source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+		}
+		if saved {
+			s.refreshLedgerReads()
+			if s.activeRoute() == dataHealthRoute {
+				s.dataHealth.read()
+			} else {
+				s.marketData.read()
+			}
+		}
+	} else if s.manualQuoteOpen() {
+		if source, receipt := s.marketData.layoutManualQuote(windowContext, view); source != nil {
+			s.trail.current().focus, s.restoreFocus = source, true
+			if receipt.saved() {
+				s.marketData.manual.latest = receipt
+				s.refreshLedgerReads()
+				if s.activeRoute() == dataHealthRoute {
+					s.dataHealth.manualSaved = receipt
+					s.dataHealth.read()
+				} else {
+					s.marketData.read()
+				}
+			}
+		}
 	}
 	return dims
+}
+
+func (s *shell) wealthDetailOpen() bool {
+	return s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil && s.wealthHistory.detail != nil
+}
+
+func (s *shell) assetDetailOpen() bool {
+	return s.activeRoute() == assetChangesRoute && s.assets != nil && (s.assets.driver != nil || s.assets.categoryDetail != nil)
+}
+
+func (s *shell) returnDetailOpen() bool {
+	return s.activeRoute() == returnAnalysisRoute && s.returns != nil && (s.returns.day != nil || s.returns.item != nil)
+}
+
+func (s *shell) healthRepairOpen() bool {
+	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.repair != nil &&
+		s.dataHealth.repair.owner == dataHealthRoute && s.dataHealth.repair.plan != nil && !s.marketOperationOpen()
+}
+
+func (s *shell) snapshotRepairOpen() bool {
+	return s.activeRoute() == dataHealthRoute && s.dataHealth != nil && s.dataHealth.snapshots.active != nil
+}
+
+func (s *shell) manualQuoteOpen() bool {
+	return s.marketData != nil && s.marketData.manual.draft != nil
+}
+
+func (s *shell) quoteHistoryOpen() bool {
+	return s.marketData != nil && s.marketData.quoteHistory != nil
+}
+
+func (s *shell) fxSourceOpen() bool {
+	return s.activeRoute() == marketDataRoute && s.marketData != nil && s.marketData.fxSourceDraft != nil
+}
+
+func (s *shell) instrumentSourceOpen() bool {
+	return s.marketData != nil && s.marketData.instrumentSource != nil
+}
+
+func (s *shell) agentEvidenceOpen() bool {
+	return s.marketData != nil && s.marketData.agentEvidence != nil
+}
+
+func (s *shell) marketOperationOpen() bool {
+	return s.marketData != nil && s.marketData.operation != nil && s.marketData.operation.route == s.activeRoute()
 }
 
 func (s *shell) confirmingAccountCreation() bool {
@@ -601,7 +934,8 @@ func (item *navigationItem) layoutButton(gtx layout.Context, s *shell, view ui.V
 	content := func(gtx layout.Context) layout.Dimensions {
 		semantic.Button.Add(gtx.Ops)
 		pointer.CursorPointer.Add(gtx.Ops)
-		selected := s.activeRoute() == item.id
+		active := s.activeRoute()
+		selected := active == item.id || active == dataHealthRoute && item.id == marketDataRoute
 		semantic.SelectedOp(selected).Add(gtx.Ops)
 		bounds := image.Rectangle{Max: size}
 		enabled := gtx.Enabled()
@@ -742,11 +1076,22 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 	if body == nil {
 		return layout.Dimensions{Size: gtx.Constraints.Min}
 	}
-	if entry := s.trail.current(); entry != s.stageEntry {
-		s.stageEntry = entry
+	entry := s.trail.current()
+	// A returning calendar briefly lays out a shorter loading view. Wait
+	// for the grid so the stage does not clamp the saved offset to it.
+	deferReturnScroll := entry != s.stageEntry && entry.visited && entry.target.route == returnAnalysisRoute &&
+		entry.scroll.Offset != 0 && s.returns != nil && s.returns.current == nil &&
+		(s.returns.request != nil || s.returns.refsRead != nil)
+	if entry != s.stageEntry {
+		if !deferReturnScroll {
+			s.stageEntry = entry
+		}
 		s.stage.Position = layout.Position{}
-		if entry.visited && entry.target.route == settingsRoute {
-			s.stage.Position = entry.scroll
+		if entry.visited && !deferReturnScroll {
+			switch entry.target.route {
+			case settingsRoute, wealthHistoryRoute, returnAnalysisRoute, assetChangesRoute, marketDataRoute, dataHealthRoute, tasksRoute:
+				s.stage.Position = entry.scroll
+			}
 		}
 	}
 	inset := pageInset
@@ -763,6 +1108,9 @@ func (s *shell) pageBody(gtx layout.Context, view ui.View, body pageLayout) layo
 		})
 	})
 	view.Overlay.OffsetScrollAnchor(&s.stage, bounds)
+	if deferReturnScroll && (s.returns.current != nil || s.returns.err != nil) {
+		gtx.Execute(op.InvalidateCmd{})
+	}
 	return dims
 }
 

@@ -60,7 +60,7 @@ type Service struct {
 }
 
 // Open attaches the same SQLite configuration used by the Wails desktop.
-// Callers supply the already verified pilot database and its settings path.
+// Callers supply the open database and the corresponding settings path.
 func Open(path string, db *sqlite.DB, app *application.Service) (*Service, error) {
 	store := settings.NewStore(path)
 	if err := store.Attach(sqlite.NewConfigurationRepository(db)); err != nil {
@@ -77,7 +77,10 @@ func (s *Service) ConfigureValuation() error {
 		return err
 	}
 	if err := s.setFXProvider(current.FXProvider); err != nil {
-		return err
+		slog.Warn("configured FX provider is not available; falling back to the default for this session")
+		if err := s.setFXProvider(settings.DefaultFXProvider); err != nil {
+			slog.Error("default FX provider rejected at startup")
+		}
 	}
 	s.app.SetQuoteCacheTTL(current.QuoteCacheTTLDuration())
 	return nil

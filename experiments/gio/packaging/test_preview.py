@@ -42,14 +42,14 @@ class PreviewTests(unittest.TestCase):
             self.assertEqual((target / "version").read_text(), "two")
             self.assertEqual((staged / "version").read_text(), "one")
 
-    def test_finder_reopens_the_default_app_and_keeps_explicit_fixtures_isolated(self):
+    def test_finder_reopens_the_default_app_and_passes_wails_path_overrides(self):
         package = Path("/test/Nestworth Gio.app")
-        root = "/test/gio data"
+        database, settings = "/test/gio data/nestworth.db", "/test/gio data/settings.json"
         for env, expected in [
             ({}, ["open", package]),
-            ({"NESTWORTH_GIO_RUN_DIR": root}, ["open", "-n", "-a", package, "--env", "NESTWORTH_GIO_RUN_DIR=" + root]),
-            ({"NESTWORTH_GIO_RUN_DIR": root, "NESTWORTH_DATABASE_PATH": "/outside.db"},
-             ["open", "-n", "-a", package, "--env", "NESTWORTH_GIO_RUN_DIR=" + root, "--env", "NESTWORTH_DATABASE_PATH=/outside.db"]),
+            ({"NESTWORTH_DATABASE_PATH": database}, ["open", "-n", "-a", package, "--env", "NESTWORTH_DATABASE_PATH=" + database]),
+            ({"NESTWORTH_DATABASE_PATH": database, "NESTWORTH_SETTINGS_PATH": settings},
+             ["open", "-n", "-a", package, "--env", "NESTWORTH_DATABASE_PATH=" + database, "--env", "NESTWORTH_SETTINGS_PATH=" + settings]),
         ]:
             with self.subTest(env=env), patch.dict(os.environ, env, clear=True), \
                     patch.object(preview, "MAC", True), \

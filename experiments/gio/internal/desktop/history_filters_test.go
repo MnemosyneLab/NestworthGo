@@ -162,14 +162,14 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	}
 	h.click("Ledger activity", false)
 	finish()
-	if page.model.Filters() != (history.Filters{}) {
+	if !page.model.Filters().Empty() {
 		t.Fatal("a new timeline visit inherited the previous filter")
 	}
 	h.click("Back", false)
 	h.click("Back", false)
 	finish()
 	label("No activity matches these filters.")
-	if page.model.Filters() != (history.Filters{Account: reserve, Kind: domain.ActivityFXConversion}) {
+	if !page.model.Filters().Equal(history.Filters{Account: reserve, Kind: domain.ActivityFXConversion}) {
 		t.Fatal("Back did not restore the original filtered visit")
 	}
 	h.click("Clear filters", false)

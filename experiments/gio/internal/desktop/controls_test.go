@@ -167,22 +167,45 @@ func TestPreviewTextSearchAndExplicitSubmission(t *testing.T) {
 
 func TestPreviewPopoverFollowsAnchorAndRestoresFocus(t *testing.T) {
 	h := newPreviewHarness(t)
+	// The responsive form puts its footer too low at the default height for
+	// the full popover to fit below it. Give the starting window room for it.
+	h.size.Y = 1000
+	h.frame()
 	host := &h.shell.overlay
 	anchor := &h.preview.info
+	assertAnchor := func() {
+		t.Helper()
+		button := semanticBounds(t, &h.router, "About this form", false)
+		if host.Trigger != anchor || host.Anchor != button {
+			t.Fatalf("popover anchor %v does not follow the footer button %v", host.Anchor, button)
+		}
+	}
 	h.click("About this form", false)
 	h.focused(&host.Dismiss)
+	assertAnchor()
 	initial := host.Panel
 	if initial.Empty() || initial.Min.Y <= host.Anchor.Max.Y {
 		t.Fatalf("popover should open below the footer trigger in the tall window: panel %v, trigger %v", initial, host.Anchor)
 	}
 
+	h.size.Y = 840
+	h.frame()
+	assertAnchor()
+	h.focused(&host.Dismiss)
+	if host.Panel.Empty() || host.Panel.Max.Y >= host.Anchor.Min.Y {
+		t.Fatalf("popover should flip above the footer when it no longer fits below: panel %v, trigger %v", host.Panel, host.Anchor)
+	}
+	above := host.Panel
+
 	// The picker and action rows scroll with the page, so keep them in view.
 	h.size = image.Pt(700, 460)
 	h.preview.scroll.ScrollToEnd = true
 	h.frame()
+	assertAnchor()
+	h.focused(&host.Dismiss)
 	window := image.Rectangle{Max: h.size}
-	if host.Panel.Empty() || !host.Panel.In(window) || host.Panel == initial || host.Panel.Max.Y >= host.Anchor.Min.Y {
-		t.Fatalf("popover should follow its trigger and flip above it in the short window: panel %v, trigger %v", host.Panel, host.Anchor)
+	if host.Panel.Empty() || !host.Panel.In(window) || host.Panel == above || host.Panel.Max.Y >= host.Anchor.Min.Y {
+		t.Fatalf("popover should follow its scrolled trigger in the short window: panel %v, trigger %v", host.Panel, host.Anchor)
 	}
 	h.clickAt(host.Panel.Min.Add(image.Pt(18, 14)))
 	if host.Trigger != anchor {

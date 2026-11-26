@@ -157,8 +157,16 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	click("Harbor Brokerage")
 	click("Record existing position")
 	d := accounts.opening.draft
-	if len(d.sources) != 1 || d.instrument != ids.security {
-		t.Fatalf("position picker did not isolate the unused same-currency security: %+v", d.sources)
+	if len(d.sources) != 2 || d.instrument != "" {
+		t.Fatalf("position picker did not show both ordinary currencies: %+v", d.sources)
+	}
+	h.click("Instrument", true)
+	settle()
+	for _, item := range d.sources {
+		if item.ID == ids.security {
+			click(item.SelectionLabel())
+			break
+		}
 	}
 	setBankField(h, "Existing quantity", &d.quantity, "-1")
 	click("Review existing position")
@@ -214,8 +222,9 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 		t.Fatalf("unexpected position observation: %+v / %v", held, err)
 	}
 	holdingID := held[ids.account][0].ID
-	if _, err := history.LoadOpeningPositionSources(ctx, service, ids.account); err == nil {
-		t.Fatal("the single-position workflow offered another opening observation")
+	if sources, err := history.LoadOpeningPositionSources(ctx, service, ids.account); err != nil ||
+		slices.ContainsFunc(sources.Instruments, func(item domain.Instrument) bool { return item.ID == ids.security }) {
+		t.Fatalf("the existing instrument was offered again: %+v / %v", sources, err)
 	}
 	// Cost is absent at this point even when Wails sends the optional UnitCost.
 	for _, side := range []struct {
@@ -245,22 +254,23 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	}
 	click("Ledger activity")
 	click("Start recording history")
-	if page.startPoint.cost.Text() != "" || page.startPoint.holding == nil || page.startPoint.holding.UnitCost != quoteDefault {
+	if len(page.startPoint.holdings) != 1 || page.startPoint.holdings[0].cost.Text() != "" || page.startPoint.holdings[0].UnitCost != quoteDefault {
 		t.Fatal("market quote was used to fill original cost, or quote fixture was unavailable")
 	}
-	if plan, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", holdingID, ""); err == nil {
+	cost := &page.startPoint.holdings[0].cost
+	if plan, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", map[domain.HoldingID]string{holdingID: ""}); err == nil {
 		t.Fatalf("blank cost received a plan: %+v", plan)
 	}
-	if _, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", holdingID, "0"); err != nil {
+	if _, err := service.PreviewHistoryStart(ctx, "Asia/Singapore", "2026-11-22", map[domain.HoldingID]string{holdingID: "0"}); err != nil {
 		t.Fatalf("a known zero acquisition cost should be valid: %v", err)
 	}
-	setBankField(h, "Original cost per unit · USD", &page.startPoint.cost, "-4")
+	setBankField(h, "Original cost per unit · USD", cost, "-4")
 	click("Review Starting Point")
 	label("Enter zero or a positive unit cost with up to eight decimal places.")
 	if _, err := refHistory.StartHistoryOnDate(ctx, "Asia/Singapore", "2026-11-22", map[string]string{refSaved.ID: "-4"}); err == nil {
 		t.Fatal("Wails accepted a negative original cost")
 	}
-	setBankField(h, "Original cost per unit · USD", &page.startPoint.cost, "12.3456")
+	setBankField(h, "Original cost per unit · USD", cost, "12.3456")
 	click("Review Starting Point")
 	label("Opening cost per unit · 12.3456 USD")
 	label("Harbor Brokerage · 205 USD")
@@ -300,8 +310,17 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	}
 	click("Accounts")
 	click("Harbor Brokerage")
-	if findPageLabel(&h.router, "Record existing position") != nil {
+	if accounts.canOpenPosition() {
 		t.Fatal("the opening observation remained available after History started")
+	}
+	writes := opening.writes.Load()
+	click("Record existing position")
+	if accounts.opening.draft != nil || accounts.investment.draft == nil || accounts.investment.draft.kind != domain.ActivityPositionTransfer {
+		t.Fatal("the action did not switch to dated import after History started")
+	}
+	click("Cancel")
+	if opening.writes.Load() != writes {
+		t.Fatal("opening or canceling dated import attempted to write an opening position")
 	}
 
 	now = now.Add(2 * time.Minute)

@@ -14,10 +14,10 @@ import (
 func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 	_, paths := testPaths(t)
 	ctx := context.Background()
-	if err := Prepare(ctx, paths); err != nil {
+	if err := seedTestLedger(ctx, paths); err != nil {
 		t.Fatal(err)
 	}
-	// Each request uses a newly verified handle; the keyset continuation must
+	// Each request uses a newly opened handle; the keyset continuation must
 	// remain valid after closing the previous handle to the fixture.
 	read := func(query domain.ActivityQuery) domain.ActivityPage {
 		t.Helper()
@@ -88,15 +88,8 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	service := application.NewService(sqlite.NewRepository(db))
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
-		HouseholdName: householdName, BaseCurrency: "USD", MemberNames: []string{"Sample member"},
+		HouseholdName: "Ordinary household", BaseCurrency: "USD", MemberNames: []string{"Sample member"},
 	}); err != nil {
-		t.Fatal(err)
-	}
-	household, err := service.Household(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := sqlite.NewConfigurationRepository(db).SaveConfiguration(markerKey, []byte(household.ID.String())); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

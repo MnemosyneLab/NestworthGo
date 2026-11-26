@@ -14,12 +14,11 @@ type HistoryStartReview struct {
 	Components     []domain.HistoryOriginComponent
 	CaptureCurrent bool
 	zone, day      string
-	holding        domain.HoldingID
-	cost           string
+	costs          map[domain.HoldingID]string
 	token          string
 }
 
-func (s *Service) PreviewHistoryStart(ctx context.Context, zone, day string, holding domain.HoldingID, cost string) (HistoryStartReview, error) {
+func (s *Service) PreviewHistoryStart(ctx context.Context, zone, day string, costs map[domain.HoldingID]string) (HistoryStartReview, error) {
 	var review HistoryStartReview
 	err := s.WithRead(ctx, func(ctx context.Context) error {
 		origin, err := s.HistoryOrigin(ctx)
@@ -29,7 +28,16 @@ func (s *Service) PreviewHistoryStart(ctx context.Context, zone, day string, hol
 		if origin != nil {
 			return &domain.Error{Code: domain.ErrConflict, Field: "historyOrigin"}
 		}
-		input := HistoryStartReview{zone: zone, day: day, holding: holding, cost: cost}
+		// Collect the canonical values into a new map. Later edits to the
+		// caller's form must never change the reviewed inputs.
+		input := HistoryStartReview{zone: zone, day: day, costs: make(map[domain.HoldingID]string, len(costs))}
+		for holding, raw := range costs {
+			price, err := domain.ParseUnitPrice(strings.TrimSpace(raw))
+			if err != nil {
+				return err
+			}
+			input.costs[holding] = price.Canonical()
+		}
 		data, err := s.prepareReviewedHistoryStart(ctx, input)
 		if err != nil {
 			return err
@@ -77,32 +85,23 @@ func (s *Service) prepareReviewedHistoryStart(ctx context.Context, review Histor
 	if strings.TrimSpace(review.day) == "" {
 		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrValidation, Field: "startDate"}
 	}
-	costs := make(map[domain.HoldingID]string, 1)
-	if review.holding != "" {
-		price, err := domain.ParseUnitPrice(strings.TrimSpace(review.cost))
-		if err != nil {
-			return domain.HistoryOriginData{}, err
-		}
-		costs[review.holding] = price.Canonical()
-	}
-	data, err := s.prepareHistoryStart(ctx, review.zone, review.day, costs)
+	data, err := s.prepareHistoryStart(ctx, review.zone, review.day, review.costs)
 	if err != nil {
 		return domain.HistoryOriginData{}, err
 	}
-	found := false
+	count := 0
 	for _, part := range data.Components {
 		if part.Quantity == nil || part.Quantity.IsZero() {
 			continue
 		}
-		// Require an explicit reviewed price for every opening holding. Gio's
-		// current form can review one position; the planner's quote fallback
-		// must never silently set the cost of an omitted position.
-		if part.HoldingID == nil || *part.HoldingID != review.holding {
+		// The planner supports quote fallback for other entry points. An
+		// interactive review must name every positive holding explicitly.
+		if part.HoldingID == nil || review.costs[*part.HoldingID] == "" {
 			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
 		}
-		found = true
+		count++
 	}
-	if found != (review.holding != "") {
+	if count != len(review.costs) {
 		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "openingHoldings"}
 	}
 	return data, nil

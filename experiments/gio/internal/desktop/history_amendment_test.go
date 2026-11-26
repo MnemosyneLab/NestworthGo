@@ -273,13 +273,13 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 	if got := readBankRecord(t, reference, bank).LatestValue.Amount.CanonicalAmount(); got != "1770.13" {
 		t.Fatalf("Wails balance = %s, want 1770.13", got)
 	}
-	_, err = history.ReviewAmendment(ctx, service, history.CorrectCash, deposit, history.AmendmentAmounts{Amount: "75"}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.CorrectActivity, deposit, history.AmendmentInput{Amount: "75"}, accountTestClock)
 	isCode(err, domain.ErrCannotFixChange)
-	_, err = history.ReviewAmendment(ctx, service, history.ReverseCash, withdrawal, history.AmendmentAmounts{}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.ReverseActivity, withdrawal, history.AmendmentInput{}, accountTestClock)
 	isCode(err, domain.ErrAlreadyUndone)
-	_, err = history.ReviewAmendment(ctx, service, history.CorrectCash, undoneID, history.AmendmentAmounts{Amount: "5"}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.CorrectActivity, undoneID, history.AmendmentInput{Amount: "5"}, accountTestClock)
 	isCode(err, domain.ErrInvalidChange)
-	_, err = history.ReviewAmendment(ctx, service, history.ReverseCash, domain.NewActivityID(), history.AmendmentAmounts{}, accountTestClock)
+	_, err = history.ReviewAmendment(ctx, service, history.ReverseActivity, domain.NewActivityID(), history.AmendmentInput{}, accountTestClock)
 	isCode(err, domain.ErrNotFound)
 	if len(openingActivity(t, service, bank)) != 12 {
 		t.Fatal("the correction and reversal did not append exactly three records")

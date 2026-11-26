@@ -1,0 +1,571 @@
+package desktop
+
+import (
+	"context"
+	"errors"
+	"slices"
+	"strings"
+	"time"
+
+	"gioui.org/widget"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/statement"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/liquidity"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
+)
+
+type holdingReconcileAPI interface {
+	Get(context.Context, string) (domain.ReconciliationSession, error)
+	Links(context.Context, string) ([]domain.ReconciliationLinkedChange, error)
+	Changes(context.Context, string, string) ([]domain.ReconciliationFinancialChange, error)
+	PreviewProductTerms(context.Context, liquidity.UpdateProductTermsRequest) (reconciliation.ProductPreview, error)
+	PreviewProductValuation(context.Context, domain.ReconciliationLink, string, string, string) (reconciliation.ProductPreview, error)
+	PreviewProductOperation(context.Context, liquidity.ProductCommandRequest) (reconciliation.ProductPreview, error)
+	CommitProduct(context.Context, string) error
+	Preview(context.Context, application.ReconciliationAction) (reconciliation.SessionPreview, error)
+	Commit(context.Context, string) (domain.ReconciliationSession, error)
+	PreviewAdjustment(context.Context, reconciliation.AdjustmentRequest) (reconciliation.AdjustmentPreview, error)
+	CommitAdjustment(context.Context, string) ([]wire.ChangePreviewDTO, error)
+}
+
+type holdingReconDirectory struct {
+	sessions     []domain.ReconciliationSession
+	accounts     []domain.AccountRecord
+	members      []domain.Member
+	ownersFailed bool
+}
+
+func (d holdingReconDirectory) account(id string) (domain.Account, bool) {
+	i := slices.IndexFunc(d.accounts, func(row domain.AccountRecord) bool { return row.Account.ID.String() == id })
+	if i < 0 {
+		return domain.Account{}, false
+	}
+	return d.accounts[i].Account, true
+}
+
+type reconciliationActivityLedger interface {
+	history.InvestmentLedger
+	cashMovementService
+	Product(context.Context, domain.ProductContractID) (application.ProductDetail, error)
+}
+
+type holdingReconciliation struct {
+	service                                    holdingReconcileAPI
+	ledger                                     reconciliationActivityLedger
+	clock                                      func() time.Time
+	zone                                       *time.Location
+	links                                      []domain.ReconciliationLinkedChange
+	activityLinks                              map[checkpointReceiptGroup][]domain.ReconciliationLinkedChange
+	changes                                    []domain.ReconciliationFinancialChange
+	accountRoles                               map[string]domain.BalanceSheetRole
+	linksFailed, changesFailed                 bool
+	linkedJournal, recentJournal               reconciliationJournal
+	journalReceipts                            map[reconciliationReceiptKey]*widget.Clickable
+	journalReturn                              reconciliationReceiptKey
+	receiptButtons                             map[domain.ActivityID]*widget.Clickable
+	audit                                      map[domain.ActivityID]*holdingEvidenceDisclosure
+	dated                                      *accountInvestment
+	cashDated                                  *historyCashMovements
+	directory                                  holdingReconDirectory
+	start, back, reload, resume, pause, finish widget.Clickable
+	sessionButtons                             map[string]*widget.Clickable
+	itemButtons                                map[string]*holdingReconItemActions
+	restore, sessionEntry                      *widget.Clickable
+	editScroll                                 int
+	restoreEditScroll                          bool
+	id                                         string
+	session                                    *domain.ReconciliationSession
+	loading                                    <-chan historyResult[holdingReconRead]
+	readFailed                                 bool
+	saved                                      i18n.MessageID
+	draft                                      *holdingReconDraft
+}
+
+type holdingReconDraft struct {
+	// A holding item identifies an adjustment. Otherwise action is start or resume.
+	itemID, accountID                    string
+	action                               statement.Action
+	entry                                *widget.Clickable
+	selection                            *reconciliationSelection
+	total, note                          ui.TextField
+	target                               *holdingReconQuantity
+	product                              *holdingProductDraft
+	check                                *holdingCheckpointDraft
+	partial                              widget.Bool
+	cancel, preview, edit, confirm       widget.Clickable
+	reading                              <-chan historyResult[holdingReconReview]
+	writing                              <-chan historyResult[string]
+	review                               *holdingReconReview
+	problem                              i18n.MessageID
+	initialFocus, reviewFocus, uncertain bool
+}
+
+type holdingReconItemActions struct {
+	cost, quantity, record, check, cash, importPosition, valuation, interest, settle widget.Clickable
+	terms, renew                                                                     widget.Clickable
+	addProduct                                                                       widget.Clickable
+	checkAccount                                                                     widget.Clickable
+	attempts                                                                         holdingEvidenceDisclosure
+}
+
+type holdingReconQuantity struct {
+	quantity, unitCost ui.TextField
+}
+
+type holdingReconRead struct {
+	session                    domain.ReconciliationSession
+	links                      []domain.ReconciliationLinkedChange
+	changes                    []domain.ReconciliationFinancialChange
+	accountRoles               map[string]domain.BalanceSheetRole
+	linksFailed, changesFailed bool
+	zone                       *time.Location
+}
+
+type holdingReconReview struct {
+	planID    string
+	terms     *reconciliation.ProductPreview
+	valuation *liquidity.ProductValuationPreviewDTO
+	operation *liquidity.ProductOperationPreviewDTO
+	session   *domain.ReconciliationSession
+	changes   []wire.ChangePreviewDTO
+}
+
+func (c *holdingReconciliation) active() bool {
+	return c != nil && (c.id != "" || c.draft != nil)
+}
+
+func (c *holdingReconciliation) unresolved() bool {
+	return c != nil && (c.draft != nil && (c.draft.writing != nil || c.draft.uncertain) || c.dated.unresolved() || c.cashDated != nil && c.cashDated.draft != nil && (c.cashDated.writing() || c.cashDated.draft.uncertain))
+}
+
+func (c *holdingReconciliation) discard() {
+	if c != nil {
+		c.id, c.session, c.loading, c.draft = "", nil, nil, nil
+		c.saved, c.readFailed, c.restore, c.sessionEntry = i18n.NoMessage, false, nil, nil
+		c.itemButtons, c.receiptButtons, c.dated, c.links, c.zone = nil, nil, nil, nil, nil
+		c.audit, c.cashDated = nil, nil
+		c.changes, c.accountRoles, c.journalReceipts, c.activityLinks = nil, nil, nil, nil
+		c.linksFailed, c.changesFailed = false, false
+		c.linkedJournal, c.recentJournal, c.journalReturn = reconciliationJournal{}, reconciliationJournal{}, reconciliationReceiptKey{}
+		c.editScroll, c.restoreEditScroll = 0, false
+	}
+}
+
+func newHoldingReconDraft(entry *widget.Clickable) *holdingReconDraft {
+	return &holdingReconDraft{entry: entry, total: ui.NewTextField(true), note: ui.NewTextField(true), initialFocus: true}
+}
+
+func (p *tasksPage) openHoldingReconciliation(id string, entry *widget.Clickable) {
+	c := p.holdingRecon
+	c.id, c.sessionEntry, c.saved, c.draft = id, entry, i18n.NoMessage, nil
+	c.itemButtons = make(map[string]*holdingReconItemActions)
+	c.receiptButtons = make(map[domain.ActivityID]*widget.Clickable)
+	c.audit = make(map[domain.ActivityID]*holdingEvidenceDisclosure)
+	c.journalReceipts = make(map[reconciliationReceiptKey]*widget.Clickable)
+	c.linkedJournal, c.recentJournal, c.journalReturn = reconciliationJournal{}, reconciliationJournal{}, reconciliationReceiptKey{}
+	c.restore = &c.back
+	p.readHoldingReconciliation()
+}
+
+func (p *tasksPage) readHoldingReconciliation() {
+	c := p.holdingRecon
+	c.session, c.readFailed = nil, false
+	id := c.id
+	c.loading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconRead, error) {
+		var out holdingReconRead
+		if c.ledger == nil {
+			session, err := c.service.Get(p.ctx, id)
+			out.session = session
+			return out, err
+		}
+		err := c.ledger.WithRead(p.ctx, func(ctx context.Context) error {
+			var err error
+			if out.session, err = c.service.Get(ctx, id); err != nil {
+				return err
+			}
+			out.links, err = c.service.Links(ctx, id)
+			out.linksFailed = err != nil
+			out.changes, err = c.service.Changes(ctx, id, "")
+			out.changesFailed = err != nil
+			if len(out.links) != 0 {
+				out.accountRoles = reconciliationAccountRoles(ctx, c.ledger)
+			}
+			origin, err := c.ledger.HistoryOrigin(ctx)
+			if err == nil && origin != nil {
+				out.zone, err = time.LoadLocation(origin.Timezone)
+			}
+			return err
+		})
+		return out, err
+	})
+}
+
+func (c *holdingReconciliation) item(d *holdingReconDraft) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
+	return c.checkpoint(d.accountID, d.itemID, true)
+}
+
+func (c *holdingReconciliation) checkpoint(accountID, itemID string, holdingOnly bool) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
+	return checkpointInSession(c.session, accountID, itemID, holdingOnly)
+}
+
+func checkpointInSession(session *domain.ReconciliationSession, accountID, itemID string, holdingOnly bool) (domain.ReconciliationAccount, domain.ReconciliationItem, bool) {
+	if session != nil {
+		for _, a := range session.Accounts {
+			if a.AccountID != accountID {
+				continue
+			}
+			for _, item := range a.Items {
+				if item.ID == itemID && (!holdingOnly || item.Kind == "holding" && item.HoldingID != "") {
+					return a, item, true
+				}
+			}
+		}
+	}
+	return domain.ReconciliationAccount{}, domain.ReconciliationItem{}, false
+}
+
+func (c *holdingReconciliation) canReview(d *holdingReconDraft) bool {
+	if f := d.product; f != nil {
+		if f.add != nil {
+			return f.link() != nil && strings.TrimSpace(f.add.principal.Text()) != ""
+		}
+		if f.terms != nil {
+			return f.loading == nil && !f.loadFailed && f.link() != nil && f.terms.current != nil
+		}
+		if f.renewal != nil && (f.renewal.terms.current == nil || strings.TrimSpace(f.renewal.principal.Text()) == "") {
+			return false
+		}
+		return f.loading == nil && !f.loadFailed && f.link() != nil && strings.TrimSpace(d.total.Text()) != ""
+	}
+	if d.check != nil {
+		_, item, ok := c.checkpoint(d.accountID, d.itemID, false)
+		return ok && c.session.Status == "in_progress" && holdingCheckable(item) &&
+			(d.action != statement.Check || d.check.scopeReviewed.Value) &&
+			(d.check.outcome != statement.Confirmed || d.check.daySet || c.zone != nil) &&
+			len(d.note.Text()) <= 2000 && len(d.check.reference.Text()) <= 512 && len(d.check.value.Text()) <= 256
+	}
+	if d.itemID != "" {
+		_, item, ok := c.item(d)
+		return ok && c.session.Status == "in_progress" && item.ProductID == "" &&
+			!item.ArchivedNonzero && d.targetReady()
+	}
+	if d.action == statement.Start {
+		return len(d.selection.chosen(c.directory.accounts)) != 0
+	}
+	if c.session == nil {
+		return false
+	}
+	switch d.action {
+	case statement.Resume:
+		return c.session.Status == "paused"
+	case statement.Pause:
+		return c.session.Status == "in_progress"
+	case statement.Finish:
+		return c.session.Status != "completed" && len(d.note.Text()) <= 2000
+	}
+	return false
+}
+
+func (d *holdingReconDraft) targetReady() bool {
+	if d.target != nil {
+		return strings.TrimSpace(d.target.quantity.Text()) != ""
+	}
+	return strings.TrimSpace(d.total.Text()) != ""
+}
+
+func (p *tasksPage) previewHoldingReconciliation() {
+	c, d := p.holdingRecon, p.holdingRecon.draft
+	if d.reading != nil || c.loading != nil || c.readFailed {
+		return
+	}
+	d.problem = i18n.NoMessage
+	if d.product != nil {
+		p.previewHoldingProduct(d)
+		return
+	}
+	if d.itemID != "" && d.check == nil {
+		a, item, found := c.item(d)
+		if !found {
+			d.problem = i18n.HoldingReconChanged
+			return
+		}
+		request := reconciliation.AdjustmentRequest{
+			Link: domain.ReconciliationLink{SessionID: c.id, AccountID: a.AccountID, ItemID: item.ID,
+				ExpectedRevision: c.session.Revision, FinancialRevision: a.FinancialRevision},
+			HoldingID: item.HoldingID, Currency: item.Currency, TotalCost: strings.TrimSpace(d.total.Text()), Note: d.note.Text(),
+		}
+		// A cost-only request leaves quantity to the shared service. An explicit
+		// target uses the checkpoint's currency and the reviewed revision.
+		if d.target != nil {
+			request.Quantity = strings.TrimSpace(d.target.quantity.Text())
+			request.UnitCost = strings.TrimSpace(d.target.unitCost.Text())
+		}
+		d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
+			preview, err := c.service.PreviewAdjustment(p.ctx, request)
+			return holdingReconReview{planID: preview.PlanID, changes: preview.Changes}, err
+		})
+		return
+	}
+	action := application.ReconciliationAction{Action: string(d.action), Note: d.note.Text()}
+	if d.action == statement.Start {
+		action.AccountIDs = d.selection.chosen(c.directory.accounts)
+		if len(action.AccountIDs) == 0 {
+			return
+		}
+		d.selection.freeze(action.AccountIDs)
+	} else if c.session != nil {
+		action.SessionID, action.ExpectedRevision = c.id, c.session.Revision
+	} else {
+		return
+	}
+	if d.action == statement.Finish {
+		action.AllowPartial = d.partial.Value
+	}
+	if f := d.check; f != nil {
+		a, item, found := c.checkpoint(d.accountID, d.itemID, false)
+		if !found {
+			d.problem = i18n.HoldingReconChanged
+			return
+		}
+		day, _ := c.checkDate(f)
+		action.AccountID, action.ItemID, action.FinancialRevision = a.AccountID, item.ID, a.FinancialRevision
+		action.Outcome = f.outcome
+		action.Source = domain.ReconciliationSource{Reference: f.reference.Text(), AsOfDate: day, AsOfTime: f.time}
+		if d.action == statement.Check {
+			action.ItemID, action.ScopeReviewed = "", f.scopeReviewed.Value
+		} else if holdingCheckComparable(item) {
+			action.ReferenceComparable, action.ReferenceValue = f.comparable.Value, f.value.Text()
+		}
+	}
+	d.reading = runHistoryRead(&p.workers, p.invalidate, func() (holdingReconReview, error) {
+		preview, err := c.service.Preview(p.ctx, action)
+		return holdingReconReview{planID: preview.PlanID, session: &preview.Result}, err
+	})
+}
+
+func (p *tasksPage) confirmHoldingReconciliation() {
+	c, d := p.holdingRecon, p.holdingRecon.draft
+	if d.writing != nil || d.review == nil {
+		return
+	}
+	id, adjustment, sessionID := d.review.planID, d.itemID != "" && d.check == nil, c.id
+	product := d.product != nil
+	d.writing = runHistoryRead(&p.workers, p.invalidate, func() (string, error) {
+		if product {
+			return sessionID, c.service.CommitProduct(p.ctx, id)
+		}
+		if adjustment {
+			results, err := c.service.CommitAdjustment(p.ctx, id)
+			if err != nil || len(results) == 0 {
+				return "", err
+			}
+			return sessionID, nil
+		}
+		session, err := c.service.Commit(p.ctx, id)
+		return session.ID, err
+	})
+}
+
+func (p *tasksPage) pollHoldingReconciliation() {
+	c := p.holdingRecon
+	select {
+	case result := <-c.loading:
+		c.loading = nil
+		c.readFailed = result.err != nil
+		if result.err == nil {
+			c.session, c.links, c.zone = &result.value.session, result.value.links, result.value.zone
+			c.changes, c.accountRoles = result.value.changes, result.value.accountRoles
+			c.linksFailed, c.changesFailed = result.value.linksFailed, result.value.changesFailed
+			c.activityLinks = groupReconciliationActivityLinks(c.links)
+			c.restoreJournalReceipt()
+		}
+	default:
+	}
+	if c.cashDated != nil {
+		f := c.cashDated
+		posted := f.update()
+		if f.draft == nil {
+			c.cashDated = nil
+			p.finishDatedCheckpoint(f.linked.entry, posted != nil)
+		}
+	}
+	if c.dated != nil {
+		c.dated.poll(p.holdingChangeRuntime())
+		if c.dated.draft == nil {
+			if c.dated.restore != nil {
+				c.restore = c.dated.restore
+			}
+			c.restoreEditScroll = true
+			c.dated = nil
+		}
+	}
+	d := c.draft
+	if d == nil {
+		return
+	}
+	if f := d.product; f != nil {
+		select {
+		case result := <-f.loading:
+			f.loading = nil
+			f.current, f.loadFailed = result.value.CurrentValue, result.err != nil
+			if f.terms != nil && result.err == nil {
+				f.terms.receive(result.value)
+			}
+			if f.renewal != nil && result.err == nil {
+				f.renewal.terms.receive(result.value)
+			}
+			if f.interest != nil {
+				f.interest.manualMaturityInterest = result.value.Contract.InterestMode == domain.InterestManualMaturityAmount
+				f.interest.simple = depositSimple(string(result.value.Contract.InterestMode))
+			}
+		default:
+		}
+	}
+	select {
+	case result := <-d.reading:
+		d.reading = nil
+		switch {
+		case result.err == nil && result.value.planID != "":
+			d.review, d.reviewFocus = &result.value, true
+		case d.action == statement.Start && reconciliationStartAccountsChanged(result.err):
+			d.problem = i18n.ReconciliationScopeRefresh
+			p.read()
+		case holdingReconStale(result.err) && c.id != "":
+			d.problem = i18n.HoldingReconChanged
+			if d.product != nil && d.product.terms != nil {
+				p.loadHoldingProduct(d.product)
+			}
+			p.readHoldingReconciliation()
+		default:
+			if d.product != nil && d.product.terms != nil {
+				d.problem = i18n.ProductEditReviewFailed
+			} else if d.product != nil && d.product.add != nil {
+				d.problem = i18n.ProductAddFailed
+				var issue *apierror.WireError
+				if errors.As(result.err, &issue) && issue.Field == "cashExcludesProduct" {
+					d.problem = i18n.ProductAddConfirmCash
+				}
+			} else if d.product != nil && d.product.renewal != nil {
+				d.problem = i18n.ProductRenewFailed
+			} else if d.product != nil && d.product.settlement != nil {
+				d.problem = i18n.HoldingReconProductSettlementFailed
+			} else if d.product != nil && d.product.interest != nil {
+				d.problem = i18n.HoldingReconProductInterestFailed
+			} else if d.product != nil {
+				d.problem = i18n.HoldingReconValuationFailed
+			} else if d.check != nil || d.action == statement.Finish {
+				d.problem = holdingCheckProblem(result.err, d.action == statement.Check)
+			} else {
+				d.problem = holdingReconIssue(result.err, d.target != nil)
+			}
+		}
+	default:
+	}
+	select {
+	case result := <-d.writing:
+		d.writing = nil
+		if result.err == nil && result.value != "" {
+			if c.id != result.value {
+				p.openHoldingReconciliation(result.value, d.entry)
+			} else {
+				c.draft, c.restore, c.saved = nil, d.entry, i18n.NoMessage
+				switch {
+				case d.product != nil && d.product.add != nil:
+					c.saved = i18n.ProductAddSaved
+				case d.product != nil && d.product.terms != nil:
+					c.saved = i18n.ProductEditSaved
+				case d.product != nil && d.product.renewal != nil:
+					c.saved, c.restore, c.editScroll = i18n.ProductRenewSaved, &c.back, 0
+				case d.product != nil && d.product.settlement != nil:
+					c.saved, c.restore, c.editScroll = i18n.HoldingReconProductSettlementSaved, &c.back, 0
+				case d.product != nil && d.product.interest != nil:
+					c.saved = i18n.HoldingReconProductInterestSaved
+				case d.product != nil:
+					c.saved = i18n.HoldingReconValuationSaved
+				case d.action == statement.Check:
+					c.saved, c.restore, c.editScroll = i18n.HoldingReconAccountChecked, &c.back, 0
+				case d.check != nil:
+					c.saved = i18n.HoldingReconCheckSaved
+				case d.target != nil:
+					c.saved = i18n.HoldingReconQuantitySaved
+				case d.itemID != "":
+					c.saved = i18n.HoldingReconSaved
+				}
+				switch d.action {
+				case statement.Resume, statement.Pause, statement.Finish:
+					c.restore = &c.back
+				default:
+					c.restoreEditScroll = true
+				}
+				p.readHoldingReconciliation()
+			}
+			p.read()
+			return
+		}
+		if holdingReconStale(result.err) || d.action == statement.Start && reconciliationStartAccountsChanged(result.err) {
+			d.review, d.uncertain, d.problem, d.initialFocus = nil, false, i18n.HoldingReconChanged, true
+			if d.product != nil && d.product.add == nil {
+				p.loadHoldingProduct(d.product)
+			}
+			if c.id != "" {
+				p.readHoldingReconciliation()
+			} else if d.action == statement.Start {
+				p.read()
+			}
+		} else {
+			d.uncertain, d.reviewFocus = true, true
+		}
+	default:
+	}
+}
+
+func reconciliationStartAccountsChanged(err error) bool {
+	var issue *apierror.WireError
+	return errors.As(err, &issue) && issue.Field == "accountIds" && issue.Code == string(domain.ErrValidation)
+}
+
+func holdingReconStale(err error) bool {
+	var issue *apierror.WireError
+	if !errors.As(err, &issue) {
+		return false
+	}
+	if issue.Code == string(domain.ErrStalePreview) || issue.Code == string(domain.ErrRevisionConflict) {
+		return true
+	}
+	if issue.Code == string(domain.ErrConflict) {
+		switch issue.Field {
+		case "financialRevision", "expectedRevision", "revision", "reconciliationLink", "preview":
+			return true
+		}
+	}
+	return false
+}
+
+func holdingReconIssue(err error, quantity bool) i18n.MessageID {
+	var issue *apierror.WireError
+	if errors.As(err, &issue) {
+		if issue.Code == string(domain.ErrNoChange) {
+			if quantity {
+				return i18n.HoldingReconQuantityUnchanged
+			}
+			return i18n.HoldingReconUnchanged
+		}
+		field := issue.Field[strings.LastIndexByte(issue.Field, '.')+1:]
+		switch field {
+		case "totalCost":
+			return i18n.HoldingReconInvalidTotal
+		case "quantity", "targetQuantity":
+			return i18n.HoldingReconQuantityInvalid
+		case "unitCost":
+			return i18n.HoldingReconAcquisitionCostInvalid
+		}
+	}
+	return i18n.HoldingReconFailed
+}

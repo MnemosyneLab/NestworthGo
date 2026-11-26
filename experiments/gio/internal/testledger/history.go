@@ -1,4 +1,4 @@
-package pilot
+package testledger
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func historyStart() time.Time {
+func HistoryStart() time.Time {
 	return time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
 }
 

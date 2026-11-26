@@ -18,6 +18,7 @@ type DetailReader interface {
 	Reader
 	ReferenceReader
 	Activity(context.Context, domain.ActivityID) (domain.Activity, error)
+	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	RepeatEligibleActivities(context.Context, []domain.Activity) (map[domain.ActivityID]bool, error)
 }
 
@@ -56,13 +57,15 @@ func historyClock(ctx context.Context, service ReferenceReader) (*domain.History
 type Detail struct {
 	Activity             domain.Activity
 	Accounts             map[domain.AccountID]string
+	HoldingAccounts      map[domain.HoldingID]domain.AccountID
 	Instruments          map[domain.InstrumentID]string
+	InstrumentCurrencies map[domain.InstrumentID]domain.CurrencyCode
 	Location             *time.Location
 	Links                AmendmentLinks
 	Amendable            bool
 	Reversible           bool
 	Repeatable           bool
-	LiabilityValueUpdate bool
+	LiabilityAccount     domain.AccountID
 }
 
 var ErrActivityUnavailable = errors.New("activity unavailable")
@@ -117,9 +120,8 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		}
 		for _, account := range accounts {
 			detail.Accounts[account.Account.ID] = account.Account.Name
-			if len(ids) == 1 && record.Kind == domain.ActivityValueUpdate &&
-				record.Reason == domain.ReasonReconciliation && account.Account.IsLiability() {
-				detail.LiabilityValueUpdate = true
+			if len(ids) == 1 && account.Account.IsLiability() {
+				detail.LiabilityAccount = account.Account.ID
 			}
 		}
 		if movement, eligible := CashAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
@@ -134,9 +136,53 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 			return Detail{}, err
 		}
 		detail.Instruments = make(map[domain.InstrumentID]string, len(instruments))
+		detail.InstrumentCurrencies = make(map[domain.InstrumentID]domain.CurrencyCode, len(instruments))
 		for _, instrument := range instruments {
 			detail.Instruments[instrument.ID] = instrument.DisplayLabel()
+			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
+		}
+	}
+	if _, custody := CustodyAmendment(record); custody && zone != nil && detail.Links.Reversal == "" {
+		detail.Amendable, detail.Reversible = true, true
+	}
+	if (record.Kind == domain.ActivityPositionTransfer || record.Kind == domain.ActivityReversal) && record.ProductContext == nil {
+		if err := readPositionAccounts(ctx, service, &detail); err != nil {
+			return Detail{}, err
 		}
 	}
 	return detail, nil
+}
+
+func readPositionAccounts(ctx context.Context, service DetailReader, detail *Detail) error {
+	detail.HoldingAccounts = make(map[domain.HoldingID]domain.AccountID)
+	for _, effect := range detail.Activity.Effects {
+		if effect.HoldingID != nil && effect.Target == domain.EffectTargetHoldingQuantity {
+			detail.HoldingAccounts[*effect.HoldingID] = ""
+		}
+	}
+	if len(detail.HoldingAccounts) == 0 {
+		return nil
+	}
+	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return err
+	}
+	ids := make([]domain.AccountID, 0, len(accounts))
+	for _, row := range accounts {
+		if row.Account.TrackingMode == domain.TrackingHoldings {
+			ids = append(ids, row.Account.ID)
+		}
+	}
+	holdings, err := service.HoldingsByAccounts(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, row := range accounts {
+		for _, holding := range holdings[row.Account.ID] {
+			if _, needed := detail.HoldingAccounts[holding.ID]; needed {
+				detail.HoldingAccounts[holding.ID], detail.Accounts[row.Account.ID] = row.Account.ID, row.Account.Name
+			}
+		}
+	}
+	return nil
 }

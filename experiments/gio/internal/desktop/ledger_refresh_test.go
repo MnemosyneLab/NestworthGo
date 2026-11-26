@@ -98,7 +98,9 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	previousID := domain.ActivityID(withdrawal.Activity.ID)
 	probe := &ledgerRefreshProbe{Service: app, staleRead: make(chan struct{}), releaseStale: make(chan struct{}), versions: make(map[string]string)}
 	clock := func() time.Time { return accountTestClock }
-	overview := newOverviewPage(ctx, probe, clock, func() {})
+	// Exercise the live valuation read in this refresh test. The optional trend
+	// read can independently publish derived snapshots and advance the version.
+	overview := newOverviewPage(ctx, overviewReaderFunc(probe.Overview), clock, func() {})
 	accounts := newAccountsPage(ctx, probe, clock, func() {})
 	ledger := newLedgerHistory(ctx, probe, clock, func() {})
 	release := sync.OnceFunc(func() { close(probe.releaseStale) })
@@ -147,7 +149,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	click("Confirm contribution")
 	written := ledger.reads.posted.ID
 	version := app.MobileDataVersion()
-	if version == initialVersion || written == "" || ledger.reads.detail.id != written || ledger.model.Filters() != wantFilter {
+	if version == initialVersion || written == "" || ledger.reads.detail.id != written || !ledger.model.Filters().Equal(wantFilter) {
 		t.Fatal("posting did not open the exact Activity independently of its active filter")
 	}
 	label("Contribution posted.")
@@ -199,7 +201,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	}
 	h.focused(ledger.reads.detail.accountButton(bank))
 	click("Back to ledger activity")
-	if h.shell.trail.current().id != timelineID || ledger.model.Filters() != wantFilter || len(ledger.model.Rows()) != 1 ||
+	if h.shell.trail.current().id != timelineID || !ledger.model.Filters().Equal(wantFilter) || len(ledger.model.Rows()) != 1 ||
 		ledger.model.Rows()[0].ID != previousID {
 		t.Fatal("History return discarded the visit, filter, or matching row")
 	}
@@ -225,7 +227,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	ledger.reads.open(written, nil)
 	settle()
 	click("Back to ledger activity")
-	if h.shell.trail.current().id != timelineID || ledger.model.Filters() != wantFilter {
+	if h.shell.trail.current().id != timelineID || !ledger.model.Filters().Equal(wantFilter) {
 		t.Fatal("the detail's return action did not find the filtered visit across the detour")
 	}
 	h.focused(ledger.detailButton(previousID))

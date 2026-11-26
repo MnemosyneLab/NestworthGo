@@ -17,19 +17,14 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func main() {
-	if len(os.Args) > 1 {
-		if err := pilotCommand(os.Args[1:]); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		return
-	}
 	go func() {
 		if started, err := run(time.Now); err != nil {
 			fmt.Fprintln(os.Stderr, pilot.DisplayName+":", err)
@@ -45,46 +40,25 @@ func main() {
 	app.Main()
 }
 
-func pilotCommand(args []string) error {
-	if len(args) != 1 {
-		return errors.New("expected one pilot command")
-	}
-	paths, err := pilot.PathsFromEnv()
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
-	switch args[0] {
-	case "--print-pilot-root":
-		fmt.Println(paths.RootPath())
-	case "--prepare-pilot-fixture":
-		return pilot.Prepare(ctx, paths)
-	case "--prepare-onboarding-fixture":
-		return pilot.PrepareOnboarding(ctx, paths)
-	case "--prepare-recovery-fixture":
-		return pilot.PrepareRecovery(ctx, paths)
-	case "--ensure-pilot-fixture":
-		return pilot.Ensure(ctx, paths)
-	case "--verify-pilot-fixture":
-		if err := pilot.Verify(ctx, paths); err != nil {
-			return err
-		}
-		fmt.Println("Verified the isolated Gio synthetic fixture.")
-	default:
-		return fmt.Errorf("unknown pilot command %q", args[0])
-	}
-	return nil
-}
-
 func startupMessage(err error) i18n.MessageID {
 	switch {
 	case errors.Is(err, backup.ErrAlreadyRunning):
 		return i18n.StartupInUse
-	case errors.Is(err, pilot.ErrRecoveryPending):
+	case errors.Is(err, pilot.ErrStartupRecovery):
 		return i18n.StartupRecoveryPending
-	default:
-		return i18n.StartupUnavailable
 	}
+	var bootstrap *sqlite.BootstrapError
+	if errors.As(err, &bootstrap) {
+		switch bootstrap.SafeError().Code {
+		case domain.ErrDatabaseUpgradeRequired:
+			return i18n.StartupUpgradeRequired
+		case domain.ErrDatabaseFromNewerVersion:
+			return i18n.StartupNewerDatabase
+		case domain.ErrDatabaseIntegrityFailed:
+			return i18n.StartupIntegrityFailed
+		}
+	}
+	return i18n.StartupUnavailable
 }
 
 func run(clock func() time.Time) (started bool, result error) {
@@ -106,7 +80,11 @@ func run(clock func() time.Time) (started bool, result error) {
 		return false, err
 	}
 	defer func() { result = errors.Join(result, session.Close()) }()
-	service := application.NewService(sqlite.NewRepository(session.DB))
+	repo := sqlite.NewRepository(session.DB).WithDefaultReviewOptimizations()
+	service := application.NewService(repo)
+	appports.Wire(service)
+	appports.AttachSQLiteHistory(service, repo)
+	service.SetLiveDatabasePath(session.DB.Path)
 	service.SetClock(clock)
 	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, service)
 	if err != nil {
@@ -128,6 +106,9 @@ func run(clock func() time.Time) (started bool, result error) {
 		marketdata.NewFrankfurterProvider(nil), marketdata.NewYahooChartProvider(), marketdata.NewCoinGeckoProvider(prefs.CoinGeckoKey, nil),
 	))
 	if err := prefs.ConfigureValuation(); err != nil {
+		return false, err
+	}
+	if _, err := service.Bootstrap(ctx); err != nil {
 		return false, err
 	}
 	slog.Info("Gio application starting")
