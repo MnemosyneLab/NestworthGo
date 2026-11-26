@@ -21,15 +21,16 @@ import (
 // proportional and old-style. Where none of these exist, Gio uses its bundled
 // default, which also has tabular figures.
 const (
-	sansTypeface  font.Typeface = "Avenir Next, Helvetica Neue"
-	serifTypeface font.Typeface = "Iowan Old Style, Charter"
+	sansTypeface   font.Typeface = "Avenir Next, Helvetica Neue"
+	serifTypeface  font.Typeface = "Iowan Old Style, Charter"
+	darwinFallback font.Typeface = ", Hiragino Sans GB, Apple Color Emoji"
 )
 
 func systemTypeface(base font.Typeface) font.Typeface {
 	if runtime.GOOS == "darwin" {
 		// Automatic fallback can miss Han at medium and bold weights and
 		// omit emoji even at regular weight on macOS.
-		return base + ", Hiragino Sans GB, Apple Color Emoji"
+		return base + darwinFallback
 	}
 	return base
 }
