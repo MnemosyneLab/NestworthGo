@@ -138,6 +138,13 @@ run_copy() (
   from the global manager and check that the unresolved item disappears.
   Compare the values after quitting and reopening each app. Keep the original
   screenshots of the manager, edit form, and source balances for each app.
+- Run `run_copy funds-product gio` and `run_copy funds-product wails`.
+  Open Synthetic locked product from Available Funds. Record a receipt of
+  132.1234 USD with a fee of 1.2222 USD and keep the product detail open.
+  Open Grouped undo, compare the cash preview, cancel and verify the receipt
+  is still listed. Reopen and confirm the undo. The original operation is
+  marked reversed, the contract reopens and the USD cash balance returns to
+  156. Check these values after reopening each ledger and keep the screenshots.
 - Run `run_copy snapshots gio` and `run_copy snapshots wails` one at a time.
   Open Data Health from Overview. Inspect the outdated snapshot and open
   the one-day rebuild sheet. Check its date against the exporter output.

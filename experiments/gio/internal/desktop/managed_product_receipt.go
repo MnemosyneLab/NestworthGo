@@ -156,6 +156,7 @@ type productReceiptDraft struct {
 	problem                              i18n.MessageID
 	uncertain, focusEditor, focusConfirm bool
 	received                             *productInterestFields
+	undo                                 *domain.ProductOperation
 }
 
 type productInterestFields struct {
@@ -185,6 +186,9 @@ func (p *productDetailPage) startInterest() {
 }
 
 func (p *productDetailPage) receiptAction() *widget.Clickable {
+	if p.receipt.undo != nil {
+		return &p.startGroupedUndo
+	}
 	if p.receipt.received != nil {
 		return &p.startInterestReceipt
 	}
@@ -214,11 +218,18 @@ func (p *productDetailPage) startReceipt(fromTasks bool) {
 
 func (p *productDetailPage) reviewReceipt() {
 	d := p.receipt
-	if d.reviewing != nil || strings.TrimSpace(d.principal.Text()) == "" {
+	if d.reviewing != nil || d.undo == nil && strings.TrimSpace(d.principal.Text()) == "" {
 		return
 	}
 	d.problem = i18n.NoMessage
 	id := p.id
+	if d.undo != nil {
+		target := d.undo.ID
+		d.reviewing = runHistoryRead(&p.workers, p.invalidate, func() (productReceiptPlan, error) {
+			return reviewProductUndo(p.ctx, p.receipts, id, target)
+		})
+		return
+	}
 	if d.received != nil {
 		input := productInterestInput{amount: strings.TrimSpace(d.principal.Text()), day: d.day, minute: d.minute}
 		switch d.received.mode {
@@ -276,10 +287,14 @@ func (p *productDetailPage) pollReceipt() {
 	select {
 	case result := <-d.posting:
 		d.posting = nil
-		if result.err == nil && result.value.OperationID == d.plan.mutation && len(result.value.ActivityIDs) != 0 {
+		if result.err == nil && result.value.OperationID == d.plan.mutation && result.value.Kind == d.plan.command.Kind &&
+			(d.undo != nil || len(result.value.ActivityIDs) != 0) {
 			message := i18n.ProductReceiptSaved
 			if d.received != nil {
 				message = i18n.ProductStandaloneInterestSaved
+			}
+			if d.undo != nil {
+				message = i18n.ProductUndoSaved
 			}
 			p.receipt = nil
 			p.refreshAfterProductWrite(message)
@@ -288,10 +303,14 @@ func (p *productDetailPage) pollReceipt() {
 		problem := productReceiptProblem(result.err)
 		switch {
 		case problem == i18n.ProductReceiptChanged || problem == i18n.ProductReceiptTimeInvalid || problem == i18n.ProductReceiptStale,
+			d.undo != nil && undoRejected(result.err),
 			d.received != nil && problem == i18n.ProductReceiptAmountsInvalid:
 			// Receipt lookup precedes validation in the shared service.
 			// These rejections establish that this plan did not post.
 			d.problem = productReceiptProblem(result.err)
+			if d.undo != nil && undoRejected(result.err) {
+				d.problem = i18n.ProductUndoUnavailable
+			}
 			d.plan, d.uncertain, d.focusEditor = nil, false, true
 			p.read()
 		default:

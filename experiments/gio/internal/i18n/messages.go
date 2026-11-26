@@ -1852,6 +1852,22 @@ const (
 	ProductHistoryHeading
 	ProductHistoryLoading
 	ProductHistoryFailed
+	ProductGroupedUndo
+	ProductUndoPreview
+	ProductUndoPost
+	ProductUndoTarget
+	ProductUndoHelp
+	ProductUndoSaved
+	ProductUndoNetWorth
+	ProductUndoValuation
+	ProductUndoLaterOperation
+	ProductUndoContract
+	ProductUndoActiveReservation
+	ProductUndoChangedReservation
+	ProductUndoArchived
+	ProductUndoBalance
+	ProductUndoQuantity
+	ProductUndoUnavailable
 	ProductHistoryChanged
 	ProductHistoryEmpty
 	ProductHistoryComplete

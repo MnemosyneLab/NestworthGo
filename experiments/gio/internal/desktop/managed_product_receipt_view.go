@@ -18,7 +18,7 @@ import (
 
 func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layout.Dimensions {
 	d := p.receipt
-	if d.focusEditor {
+	if d.focusEditor && d.undo == nil {
 		d.principal.Focus(gtx)
 		d.focusEditor = false
 	}
@@ -30,6 +30,9 @@ func (p *productDetailPage) layoutReceipt(gtx layout.Context, view ui.View) layo
 	gtx, view = view.Measure(gtx, 720)
 	if d.plan != nil {
 		return p.layoutReceiptReview(gtx, view)
+	}
+	if d.undo != nil {
+		return p.layoutUndo(gtx, view)
 	}
 
 	l := view.Language
@@ -191,8 +194,12 @@ func (p *productDetailPage) layoutReceiptReview(gtx layout.Context, view ui.View
 	if confirm.Clicked(gtx) {
 		p.postReceipt()
 	}
+	title, post := i18n.ProductReceiptReview, i18n.ProductReceiptPost
+	if d.undo != nil {
+		title, post = i18n.ProductGroupedUndo, i18n.ProductUndoPost
+	}
 	return ui.Column{Gap: 8}.Layout(gtx,
-		ui.Rigid(tradeTitle(view, i18n.ProductReceiptReview)),
+		ui.Rigid(tradeTitle(view, title)),
 		ui.Rigid(view.Message(d.name+" · "+d.currency, view.Colors.Ink)),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			rows := d.reviewRows(view)
@@ -218,7 +225,7 @@ func (p *productDetailPage) layoutReceiptReview(gtx layout.Context, view ui.View
 					view.Focus.Watch(gtx, &d.edit)
 				}
 			}
-			return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, i18n.ProductReceiptPost)
+			return layoutTargetBalanceConfirmation(gtx, view, d.posting != nil, d.uncertain, &d.cancel, &d.edit, confirm, post)
 		}))
 }
 
@@ -230,6 +237,11 @@ func (d *productReceiptDraft) reviewRows(view ui.View) []layout.Widget {
 		zone = time.UTC
 	}
 	rows := []layout.Widget{view.Message(contributionTimestamp(view, review.EffectiveAt, zone), view.Colors.SecondaryInk)}
+	if d.undo != nil {
+		target := fmt.Sprintf(l.Text(i18n.ProductUndoTarget), l.Text(productHistoryKind(d.undo.Kind)), tradeTimestamp(view, d.undo.EffectiveAt, zone))
+		rows = append(rows, view.Message(target, view.Colors.Ink))
+		return append(rows, productUndoReviewRows(view, review)...)
+	}
 	amount := func(label i18n.MessageID, values []domain.Money) layout.Widget {
 		if len(values) == 1 {
 			return fundsAmount(view, label, &values[0])
