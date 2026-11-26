@@ -1457,6 +1457,8 @@ var traditionalChineseCatalog = catalog{
 	PortfolioOpenInstrument:        "開啟證券 · %s",
 
 	PortfolioMyHoldings:             "我的持倉",
+	PortfolioSortAscending:          "升序",
+	PortfolioSortDescending:         "降序",
 	PortfolioByInstrument:           "按標的",
 	PortfolioByAccount:              "帳戶明細",
 	PortfolioShowZero:               "顯示零持倉",

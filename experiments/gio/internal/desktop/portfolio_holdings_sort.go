@@ -1,0 +1,151 @@
+package desktop
+
+import (
+	"slices"
+	"strings"
+
+	"gioui.org/layout"
+	"github.com/shopspring/decimal"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
+
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
+
+type holdingSortKey uint8
+
+const (
+	holdingSortName holdingSortKey = iota
+	holdingSortQuantity
+	holdingSortCost
+	holdingSortValue
+	holdingSortGain
+	holdingSortCount
+)
+
+var holdingSortLabels = [holdingSortCount]i18n.MessageID{
+	i18n.AnalysisInstrument, i18n.AccountQuantity, i18n.PortfolioCost,
+	i18n.PortfolioNativeValue, i18n.PortfolioUnrealized,
+}
+
+type holdingSort struct {
+	key        holdingSortKey
+	descending bool
+}
+
+type portfolioHoldingRow struct {
+	instrument *domain.InstrumentHoldingsView
+	member     *domain.InstrumentHoldingMember
+}
+
+type sortableHoldingRow struct {
+	row             portfolioHoldingRow
+	label, unit, id string
+	value           decimal.Decimal
+	hasValue        bool
+}
+
+// Sorting reorders displayed rows only. Quantities of unlike units and
+// amounts in unlike currencies keep their own ordered groups in either
+// direction. Incomplete values come last within their currency.
+func sortPortfolioHoldingRows(rows []portfolioHoldingRow, sort holdingSort, locale i18n.Language) {
+	col := collate.New(language.Make(string(locale)))
+	items := make([]sortableHoldingRow, 0, len(rows))
+	for _, row := range rows {
+		item := sortableHoldingRow{row: row, label: holdingInstrumentName(*row.instrument), id: row.instrument.InstrumentID.String()}
+		amounts := row.instrument.Amounts
+		if row.member != nil {
+			item.id = row.member.HoldingID.String()
+			amounts = row.member.Amounts
+		}
+		unit, amount := holdingSortMeasure(*row.instrument, amounts, sort.key)
+		item.unit = unit
+		if amount != "" {
+			value, err := decimal.NewFromString(amount)
+			item.value, item.hasValue = value, err == nil
+		}
+		items = append(items, item)
+	}
+	slices.SortStableFunc(items, func(a, b sortableHoldingRow) int {
+		if order := strings.Compare(a.unit, b.unit); order != 0 {
+			return order
+		}
+		order := 0
+		switch {
+		case sort.key == holdingSortName:
+			order = col.CompareString(a.label, b.label)
+		case a.hasValue && b.hasValue:
+			order = a.value.Cmp(b.value)
+		case a.hasValue:
+			return -1
+		case b.hasValue:
+			return 1
+		}
+		if order != 0 {
+			if sort.descending {
+				return -order
+			}
+			return order
+		}
+		if order := col.CompareString(a.label, b.label); order != 0 {
+			return order
+		}
+		if order := col.CompareString(a.row.instrument.Name, b.row.instrument.Name); order != 0 {
+			return order
+		}
+		return strings.Compare(a.id, b.id)
+	})
+	for i, item := range items {
+		rows[i] = item.row
+	}
+}
+
+func holdingSortMeasure(row domain.InstrumentHoldingsView, amount domain.HoldingAmounts, key holdingSortKey) (unit, value string) {
+	if key == holdingSortName {
+		return "", ""
+	}
+	if key == holdingSortQuantity {
+		return row.QuantityUnit, amount.Quantity
+	}
+	switch key {
+	case holdingSortCost:
+		if amount.TotalCost != nil {
+			value = amount.TotalCost.Amount
+		}
+	case holdingSortValue:
+		if amount.CurrentValue != nil {
+			value = amount.CurrentValue.Amount
+		}
+	case holdingSortGain:
+		if amount.UnrealizedGain != nil {
+			value = amount.UnrealizedGain.Amount
+		}
+	}
+	return row.QuoteCurrency.String(), value
+}
+
+func (p *portfolioPage) holdingSortControls(gtx layout.Context, view ui.View, reset func()) layout.Dimensions {
+	h, l := &p.holdings, view.Language
+	return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(holdingSortLabels), func(gtx layout.Context, i int) layout.Dimensions {
+		key := holdingSortKey(i)
+		button := &h.sortButtons[key]
+		if button.Clicked(gtx) {
+			h.visit.sort = holdingSort{key: key, descending: h.visit.sort.key == key && !h.visit.sort.descending}
+			reset()
+		}
+		label := holdingMetricLabel(l, holdingSortLabels[key])
+		name, title := label, label
+		selected := h.visit.sort.key == key
+		if selected {
+			direction, arrow := i18n.PortfolioSortAscending, " ↑"
+			if h.visit.sort.descending {
+				direction, arrow = i18n.PortfolioSortDescending, " ↓"
+			}
+			title += arrow
+			name += " · " + l.Text(direction)
+		}
+		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: title, Name: name, Selected: selected})(gtx)
+	})
+}

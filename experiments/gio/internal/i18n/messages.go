@@ -1431,6 +1431,8 @@ const (
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
 	PortfolioByInstrument
+	PortfolioSortAscending
+	PortfolioSortDescending
 	PortfolioByAccount
 	PortfolioShowZero
 	PortfolioZeroOnly

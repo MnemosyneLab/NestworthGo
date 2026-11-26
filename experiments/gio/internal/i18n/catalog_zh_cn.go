@@ -1457,6 +1457,8 @@ var simplifiedChineseCatalog = catalog{
 	PortfolioOpenInstrument:        "打开证券 · %s",
 
 	PortfolioMyHoldings:             "我的持仓",
+	PortfolioSortAscending:          "升序",
+	PortfolioSortDescending:         "降序",
 	PortfolioByInstrument:           "按标的",
 	PortfolioByAccount:              "账户明细",
 	PortfolioShowZero:               "显示零持仓",

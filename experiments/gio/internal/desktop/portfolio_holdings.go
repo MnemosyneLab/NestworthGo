@@ -20,6 +20,7 @@ import (
 type portfolioHoldingsVisit struct {
 	byAccount bool
 	showZero  bool
+	sort      holdingSort
 	collapsed map[domain.HoldingGroupKey]bool
 	expanded  map[domain.InstrumentID]bool
 }
@@ -39,6 +40,7 @@ type portfolioHoldings struct {
 	byAccount    widget.Clickable
 	showZero     widget.Bool
 	toggleGroups widget.Clickable
+	sortButtons  [holdingSortCount]widget.Clickable
 	groups       map[domain.HoldingGroupKey]*widget.Clickable
 	disclosures  map[domain.InstrumentID]*widget.Clickable
 	actions      map[portfolioHoldingKey]*portfolioHoldingActions
@@ -47,10 +49,14 @@ type portfolioHoldings struct {
 }
 
 type holdingsProjection struct {
-	read     *portfolioRead
-	query    string
-	showZero bool
-	groups   []domain.InstrumentHoldingGroupView
+	read        *portfolioRead
+	query       string
+	showZero    bool
+	byAccount   bool
+	sort        holdingSort
+	locale      i18n.Language
+	groups      []domain.InstrumentHoldingGroupView
+	accountRows map[domain.HoldingGroupKey][]portfolioHoldingRow
 }
 
 func (p *portfolioPage) holdingsVisit() portfolioHoldingsVisit {
@@ -62,7 +68,7 @@ func (p *portfolioPage) holdingsVisit() portfolioHoldingsVisit {
 
 func (p *portfolioPage) restoreHoldingsVisit(visit portfolioHoldingsVisit) {
 	p.holdings.visit = portfolioHoldingsVisit{
-		byAccount: visit.byAccount, showZero: visit.showZero,
+		byAccount: visit.byAccount, showZero: visit.showZero, sort: visit.sort,
 		collapsed: maps.Clone(visit.collapsed), expanded: maps.Clone(visit.expanded),
 	}
 	p.holdings.showZero.Value = visit.showZero
@@ -99,7 +105,7 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 		},
 		view.Checkbox(&h.showZero, l.Text(i18n.PortfolioShowZero)),
 	}
-	visible := p.visibleHoldingGroups()
+	visible := p.visibleHoldingGroups(l)
 	if len(visible) > 1 {
 		hasOpen := slices.ContainsFunc(visible, func(group domain.InstrumentHoldingGroupView) bool {
 			return !h.visit.collapsed[group.Key]
@@ -131,6 +137,12 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return p.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.PortfolioSearch, i18n.PortfolioSearchHint, func(string) { reset() })
 		}),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if len(visible) == 0 {
+				return layout.Dimensions{}
+			}
+			return p.holdingSortControls(gtx, view, reset)
+		}),
 	)
 }
 
@@ -140,14 +152,19 @@ func holdingInstrumentName(row domain.InstrumentHoldingsView) string {
 
 // Filtering and ordering only affect displayed rows. The currency subtotals
 // stay attached to the full group returned by the shared application service.
-func (p *portfolioPage) visibleHoldingGroups() []domain.InstrumentHoldingGroupView {
+func (p *portfolioPage) visibleHoldingGroups(locale i18n.Language) []domain.InstrumentHoldingGroupView {
 	query := normalizeDirectoryQuery(p.search.Field.Text())
 	h := &p.holdings
 	previous := h.projection
-	if previous.read == p.current && previous.query == query && previous.showZero == h.visit.showZero {
+	if previous.read == p.current && previous.query == query && previous.showZero == h.visit.showZero &&
+		previous.byAccount == h.visit.byAccount && previous.sort == h.visit.sort && previous.locale == locale {
 		return previous.groups
 	}
-	var visible []domain.InstrumentHoldingGroupView
+	projection := holdingsProjection{read: p.current, query: query, showZero: h.visit.showZero,
+		byAccount: h.visit.byAccount, sort: h.visit.sort, locale: locale}
+	if h.visit.byAccount {
+		projection.accountRows = make(map[domain.HoldingGroupKey][]portfolioHoldingRow)
+	}
 	for _, group := range p.current.groups {
 		filtered := domain.InstrumentHoldingGroupView{Key: group.Key, Subtotals: group.Subtotals}
 		for _, instrument := range group.Instruments {
@@ -163,20 +180,39 @@ func (p *portfolioPage) visibleHoldingGroups() []domain.InstrumentHoldingGroupVi
 				filtered.Instruments = append(filtered.Instruments, instrument)
 			}
 		}
-		if len(filtered.Instruments) > 0 {
-			slices.SortStableFunc(filtered.Instruments, func(a, b domain.InstrumentHoldingsView) int {
-				return strings.Compare(normalizeDirectoryQuery(holdingInstrumentName(a)), normalizeDirectoryQuery(holdingInstrumentName(b)))
-			})
-			visible = append(visible, filtered)
+		if len(filtered.Instruments) == 0 {
+			continue
 		}
+		var rows []portfolioHoldingRow
+		for i := range filtered.Instruments {
+			instrument := &filtered.Instruments[i]
+			if h.visit.byAccount {
+				for j := range instrument.Holdings {
+					rows = append(rows, portfolioHoldingRow{instrument: instrument, member: &instrument.Holdings[j]})
+				}
+			} else {
+				rows = append(rows, portfolioHoldingRow{instrument: instrument})
+			}
+		}
+		sortPortfolioHoldingRows(rows, h.visit.sort, locale)
+		if h.visit.byAccount {
+			projection.accountRows[group.Key] = rows
+		} else {
+			ordered := make([]domain.InstrumentHoldingsView, len(rows))
+			for i, row := range rows {
+				ordered[i] = *row.instrument
+			}
+			filtered.Instruments = ordered
+		}
+		projection.groups = append(projection.groups, filtered)
 	}
-	h.projection = holdingsProjection{read: p.current, query: query, showZero: h.visit.showZero, groups: visible}
-	return visible
+	h.projection = projection
+	return projection.groups
 }
 
 func (p *portfolioPage) holdingsRows(view ui.View) []layout.Widget {
 	l := view.Language
-	groups := p.visibleHoldingGroups()
+	groups := p.visibleHoldingGroups(l)
 	if len(groups) == 0 {
 		label := i18n.PortfolioEmpty
 		if len(p.current.groups) != 0 {
@@ -199,15 +235,19 @@ func (p *portfolioPage) holdingsRows(view ui.View) []layout.Widget {
 		if h.visit.collapsed[group.Key] {
 			continue
 		}
-		for _, instrument := range group.Instruments {
-			if !h.visit.byAccount {
-				rows = append(rows, p.holdingCard(view, instrument, nil, group.Key))
-				if !h.visit.expanded[instrument.InstrumentID] {
-					continue
-				}
+		if h.visit.byAccount {
+			for _, row := range h.projection.accountRows[group.Key] {
+				rows = append(rows, p.holdingCard(view, *row.instrument, row.member, group.Key))
 			}
-			for _, member := range instrument.Holdings {
-				rows = append(rows, p.holdingCard(view, instrument, &member, group.Key))
+			continue
+		}
+		for _, instrument := range group.Instruments {
+			rows = append(rows, p.holdingCard(view, instrument, nil, group.Key))
+			if !h.visit.expanded[instrument.InstrumentID] {
+				continue
+			}
+			for i := range instrument.Holdings {
+				rows = append(rows, p.holdingCard(view, instrument, &instrument.Holdings[i], group.Key))
 			}
 		}
 	}
@@ -437,6 +477,15 @@ type holdingMetric struct {
 	ink           color.NRGBA
 }
 
+func holdingMetricLabel(language i18n.Language, label i18n.MessageID) string {
+	pattern := language.Text(label)
+	const marker = "\x00"
+	if prefix, ok := strings.CutSuffix(fmt.Sprintf(pattern, marker), marker); ok {
+		return strings.TrimRight(prefix, " ·:：")
+	}
+	return pattern
+}
+
 func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, includeQuantity bool) layout.Widget {
 	l, colors := view.Language, view.Colors
 	unavailable := l.Text(i18n.OverviewNoValue)
@@ -471,10 +520,7 @@ func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, in
 	return func(gtx layout.Context) layout.Dimensions {
 		return (ui.Grid{MinColumn: 128, MaxColumns: len(fields), Gap: ui.Space8, Balanced: true}).Layout(gtx, view, len(fields), func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			field := fields[index]
-			pattern := l.Text(field.label)
-			const marker = "\x00"
-			label, _ := strings.CutSuffix(fmt.Sprintf(pattern, marker), marker)
-			label = strings.TrimRight(label, " ·:：")
+			label := holdingMetricLabel(l, field.label)
 			children := []ui.ColumnChild{
 				ui.Rigid(view.Body(ui.TextCaption, label, colors.SecondaryInk)),
 				ui.Rigid(view.Body(ui.TextLabel, field.value, field.ink)),
@@ -482,7 +528,7 @@ func holdingMetrics(view ui.View, amounts domain.HoldingAmounts, unit string, in
 			if field.reason != "" {
 				children = append(children, ui.Rigid(view.Body(ui.TextCaption, l.Text(holdingMissingReason(field.reason)), colors.SecondaryInk)))
 			}
-			return semanticRow(gtx, fmt.Sprintf(pattern, field.value), func(gtx layout.Context) layout.Dimensions {
+			return semanticRow(gtx, fmt.Sprintf(l.Text(field.label), field.value), func(gtx layout.Context) layout.Dimensions {
 				return (ui.Column{Gap: ui.Space4}).Layout(gtx, children...)
 			})
 		})

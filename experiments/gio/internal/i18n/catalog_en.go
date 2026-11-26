@@ -1457,6 +1457,8 @@ var englishCatalog = catalog{
 	PortfolioOpenInstrument:        "Open instrument · %s",
 
 	PortfolioMyHoldings:             "My holdings",
+	PortfolioSortAscending:          "Ascending",
+	PortfolioSortDescending:         "Descending",
 	PortfolioByInstrument:           "By instrument",
 	PortfolioByAccount:              "Account details",
 	PortfolioShowZero:               "Show zero holdings",
