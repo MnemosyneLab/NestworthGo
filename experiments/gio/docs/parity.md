@@ -111,8 +111,20 @@ controls, chart and exact observations table as the Market Data sheet. The FX
 history opens with the instrument currency converted to the household base
 currency and can show the reverse direction. Quote source editing and manual
 price entry reuse the scoped Market Data sheets and return focus to their
-action. Back restores the active tab, history settings and account scope. The
-Wails Performance tab remains open for Gio parity.
+action. Back restores the active tab, history settings and account scope.
+
+### Instrument market performance
+
+Performance shows descriptive price or unit NAV change for the same six
+periods as Wails. The chart and headline use one shared
+`InstrumentQuotePerformanceSeries` read with saved daily observations and
+the backend's actual first and last dates. A price-basis break separates line
+segments. An observation in another currency remains in the exact table.
+Sparse daily history can populate the chart while the matching return remains
+unavailable. A separate `InstrumentQuoteReturns` read shows the available
+fixed periods and their annualized figures. Back keeps the selected period and
+table disclosure along with the instrument and account scope. Managed products
+continue to open their contract details.
 
 ### Account positions
 
@@ -173,8 +185,8 @@ Go adapter. Cancelling a reviewed purchase leaves the original record intact.
 
 ## Remaining Stage 1–6 work
 
-1. Close the remaining account-scope investment gaps, including Market
-   performance in instrument detail.
+1. Verify the remaining account-scope investment flows and multi-account
+   reconciliation sessions.
 2. Verify the remaining provider and coverage recovery flows and the Asset Changes handoffs.
 
 The [Stage 6 exit gates](roadmap.md#stage-6-exit-gates) track acceptance work

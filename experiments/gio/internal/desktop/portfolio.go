@@ -173,7 +173,7 @@ func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.Accou
 func (p *portfolioPage) leave() {
 	p.retireRead()
 	p.allocation.retireTrend()
-	p.detail.retireHistories()
+	p.detail.retireReads()
 }
 
 func (p *portfolioPage) retireRead() {
@@ -406,7 +406,10 @@ func (p *portfolioPage) instrumentRows(view ui.View) []layout.Widget {
 		return []layout.Widget{view.Message(l.Text(i18n.PortfolioInstrumentUnavailable), view.Colors.SecondaryInk)}
 	}
 	name := i.DisplayLabel()
-	if p.detail.visit.section == instrumentDetailData {
+	switch p.detail.visit.section {
+	case instrumentDetailPerformance:
+		return p.instrumentPerformanceRows(view, *i)
+	case instrumentDetailData:
 		return p.instrumentDataRows(view, *i)
 	}
 	var rows []layout.Widget

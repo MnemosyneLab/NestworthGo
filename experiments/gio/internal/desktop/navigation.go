@@ -402,7 +402,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.portfolio.catalog.restore(entry.catalog)
 			s.portfolio.restorePortfolioTabs(entry.portfolioTabs)
 		} else {
-			s.portfolio.detail.visit = entry.instrumentDetail
+			s.portfolio.detail.restoreVisit(entry.instrumentDetail)
 		}
 		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
 	}

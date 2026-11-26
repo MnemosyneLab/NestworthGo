@@ -27,6 +27,7 @@ type instrumentHistoryVisit struct {
 
 func (d *portfolioInstrumentDetail) savedVisit() instrumentDetailVisit {
 	visit := d.visit
+	visit.performance = d.performance.visit()
 	for i, history := range d.histories {
 		if history != nil {
 			visit.histories[i] = instrumentHistoryVisit{window: history.visit.window, filter: history.visit.filter,
@@ -36,7 +37,12 @@ func (d *portfolioInstrumentDetail) savedVisit() instrumentDetailVisit {
 	return visit
 }
 
-func (d *portfolioInstrumentDetail) retireHistories() {
+func (d *portfolioInstrumentDetail) restoreVisit(visit instrumentDetailVisit) {
+	d.visit = visit
+	d.performance.restore(visit.performance)
+}
+
+func (d *portfolioInstrumentDetail) retireReads() {
 	d.visit = d.savedVisit()
 	for i, history := range d.histories {
 		if history != nil {
@@ -44,6 +50,8 @@ func (d *portfolioInstrumentDetail) retireHistories() {
 			d.histories[i] = nil
 		}
 	}
+	d.performance.series.reset()
+	d.performance.returns.reset()
 }
 
 func (p *portfolioPage) instrumentHistoryRows(view ui.View, instrument domain.Instrument) []layout.Widget {

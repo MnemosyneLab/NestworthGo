@@ -1483,7 +1483,17 @@ const (
 	PortfolioOpenInstrument
 	PortfolioMyHoldings
 	PortfolioInstrumentHoldings
+	PortfolioInstrumentPerformance
 	PortfolioInstrumentData
+	PortfolioMarketPerformance
+	PortfolioPerformanceBasis
+	PortfolioPerformanceNoHistory
+	PortfolioPerformanceIncomparable
+	PortfolioPerformanceUnsupported
+	PortfolioPerformanceReturns
+	PortfolioPerformanceDays
+	PortfolioPerformanceAnnualized
+	PortfolioPerformanceReturnsFailed
 	PortfolioPriceHistory
 	PortfolioFXHistory
 	PortfolioByInstrument

@@ -18,16 +18,18 @@ type instrumentDetailSection uint8
 
 const (
 	instrumentDetailHoldings instrumentDetailSection = iota
+	instrumentDetailPerformance
 	instrumentDetailData
 )
 
-var instrumentDetailLabels = [...]i18n.MessageID{i18n.PortfolioInstrumentHoldings, i18n.PortfolioInstrumentData}
+var instrumentDetailLabels = [...]i18n.MessageID{i18n.PortfolioInstrumentHoldings, i18n.PortfolioInstrumentPerformance, i18n.PortfolioInstrumentData}
 
 type instrumentDetailVisit struct {
-	section    instrumentDetailSection
-	positions  [len(instrumentDetailLabels)]layout.Position
-	historyTab instrumentHistoryTab
-	histories  [len(instrumentHistoryLabels)]instrumentHistoryVisit
+	section     instrumentDetailSection
+	positions   [len(instrumentDetailLabels)]layout.Position
+	historyTab  instrumentHistoryTab
+	histories   [len(instrumentHistoryLabels)]instrumentHistoryVisit
+	performance instrumentPerformanceVisit
 }
 
 type portfolioInstrumentDetail struct {
@@ -37,6 +39,7 @@ type portfolioInstrumentDetail struct {
 	histories      [len(instrumentHistoryLabels)]*marketQuoteHistory
 	source, manual widget.Clickable
 	market         *marketDataPage
+	performance    instrumentPerformance
 }
 
 func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui.View) layout.Dimensions {

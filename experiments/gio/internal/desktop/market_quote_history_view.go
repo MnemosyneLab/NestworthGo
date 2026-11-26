@@ -206,14 +206,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 			rows = append(rows, message(l.Text(i18n.QuoteHistoryMetalReference)))
 		}
 		if instrument.ProviderKey != nil && *instrument.ProviderKey == application.CoinGeckoProviderKey {
-			if d.attribution.Clicked(gtx) {
-				gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(l.Text(i18n.QuoteHistoryCoinGeckoURL)))})
-				d.attributionCopied = true
-			}
-			rows = append(rows, ui.Rigid(returnMonthButton(view, &d.attribution, i18n.QuoteHistoryCoinGecko, nil, true)))
-			if d.attributionCopied {
-				rows = append(rows, message(l.Text(i18n.QuoteHistoryCoinGeckoCopied)))
-			}
+			rows = append(rows, ui.Rigid(quoteHistoryAttribution(view, &d.attribution, &d.attributionCopied)))
 		}
 	}
 	if pair.first != "" {
@@ -260,10 +253,29 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 	return (ui.Column{Gap: 7}).Layout(gtx, rows...)
 }
 
+func quoteHistoryAttribution(view ui.View, button *widget.Clickable, copied *bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		l := view.Language
+		if button.Clicked(gtx) {
+			gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(l.Text(i18n.QuoteHistoryCoinGeckoURL)))})
+			*copied = true
+		}
+		rows := []ui.ColumnChild{ui.Rigid(returnMonthButton(view, button, i18n.QuoteHistoryCoinGecko, nil, true))}
+		if *copied {
+			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.QuoteHistoryCoinGeckoCopied), view.Colors.SecondaryInk)))
+		}
+		return (ui.Column{Gap: 7}).Layout(gtx, rows...)
+	}
+}
+
 // quoteHistoryTable lists every saved observation in the range, as the Wails
 // quote chart's data table does: when it was observed, the exact value and its
 // evidence.
 func quoteHistoryTable(view ui.View, data *marketQuoteHistoryRead, pair marketFXPair) charts.Table {
+	return quoteObservationsTable(view, data.series.Observations, pair, data.instrument)
+}
+
+func quoteObservationsTable(view ui.View, observations []domain.QuoteSeriesPoint, pair marketFXPair, instrument *domain.Instrument) charts.Table {
 	l := view.Language
 	value := i18n.ChartPrice
 	if pair.first != "" {
@@ -271,12 +283,12 @@ func quoteHistoryTable(view ui.View, data *marketQuoteHistoryRead, pair marketFX
 	}
 	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartObservedAt)}, {Title: l.Text(value), Numeric: true},
 		{Title: l.Text(i18n.ChartDetails), Wrap: true}}, Selected: charts.NoRow}
-	for _, point := range data.series.Observations {
+	for _, point := range observations {
 		observed := wealthDay(view, point.EffectiveDate)
 		if point.TimestampBasis != "date_label" && !point.QuotedAt.IsZero() {
 			observed = strings.TrimPrefix(portfolioQuoteStamp(view, "", "", point.QuotedAt), " · ")
 		}
-		table.Rows = append(table.Rows, []string{observed, quoteHistoryAmount(view, point, pair, data.instrument),
+		table.Rows = append(table.Rows, []string{observed, quoteHistoryAmount(view, point, pair, instrument),
 			strings.Join(quoteHistoryEvidence(view, point), " · ")})
 	}
 	return table
