@@ -121,9 +121,12 @@ func (p *portfolioPage) layoutCatalogEditor(gtx layout.Context, view ui.View, d 
 	})
 	appendRow(grid(identity(portfolioInstrumentCountry), identity(portfolioInstrumentMarket), identity(portfolioInstrumentSymbol), identity(portfolioInstrumentISIN)))
 	currency := func(gtx layout.Context, view ui.View) layout.Dimensions {
-		return c.currencyField.Layout(gtx, view, ui.FieldOptions{
-			Label: i18n.PortfolioInstrumentCurrency, ReadOnly: true, Help: i18n.PortfolioFormFixedCurrency,
-		})
+		label := l.Text(i18n.PortfolioInstrumentCurrency)
+		value := d.instrument.QuoteCurrency.String()
+		return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+			ui.Rigid(labeledRow(view, label+" · "+value, label, value, view.Colors.Ink)),
+			ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.PortfolioFormFixedCurrency), view.Colors.SecondaryInk)),
+		)
 	}
 	if create {
 		currency = analysisSelect(&c.currencyPicker, i18n.PortfolioInstrumentCurrency, supportedCurrencyChoices, c.currency.String(), true, func(value string) {

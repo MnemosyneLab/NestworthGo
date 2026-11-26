@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"gioui.org/io/event"
+	"gioui.org/io/input"
 	"gioui.org/io/key"
+	"gioui.org/io/semantic"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -140,7 +142,14 @@ func TestPortfolioCatalogSheetPreservesFilteredListAndWritesOnlyOnSave(t *testin
 
 	// A press behind the panel dismisses the sheet without activating navigation.
 	click("Add instrument")
-	assertSheet("Add instrument")
+	add = assertSheet("Add instrument")
+	h.click("Currency", true)
+	h.router.Queue(key.EditEvent{Text: "JPY"})
+	h.frame()
+	click("JPY")
+	if add.config.currency != "JPY" || page.catalog.draft != add {
+		t.Fatal("Add no longer permits selecting a quote currency")
+	}
 	click("Ledger activity")
 	assertDismissed(&page.catalog.add)
 
@@ -150,6 +159,20 @@ func TestPortfolioCatalogSheetPreservesFilteredListAndWritesOnlyOnSave(t *testin
 	h.focused(&draft.archive)
 	if draft.instrument.ID != target.ID || draft.fields[portfolioInstrumentName].Text() != target.Name {
 		t.Fatal("Edit did not display the selected instrument")
+	}
+	currency := findPageLabel(&h.router, "Currency · EUR")
+	if currency == nil || currency.Desc.Class != semantic.Unknown {
+		t.Fatalf("Edit quote currency should be exposed as static text, got %+v", currency)
+	}
+	assertPageLabel(t, &h.router, "Currency is fixed after creation.")
+	var hasCurrencyControl func([]input.SemanticNode) bool
+	hasCurrencyControl = func(nodes []input.SemanticNode) bool {
+		return slices.ContainsFunc(nodes, func(node input.SemanticNode) bool {
+			return node.Desc.Description == "Currency" || hasCurrencyControl(node.Children)
+		})
+	}
+	if hasCurrencyControl(h.router.AppendSemantics(nil)) {
+		t.Fatal("Edit also exposed an interactive currency field")
 	}
 	setBankField(h, "Name", &draft.fields[portfolioInstrumentName], "Synthetic catalog 05 discarded")
 	h.press(key.NameEscape)
