@@ -2,11 +2,8 @@
 
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
-#include <stdint.h>
 #include <math.h>
-
-extern void nestworthTitlebarChanged(uintptr_t token, int active, double right, double bottom,
-                                    double top, double left, double safeRight);
+#import "titlebar_darwin.h"
 
 // All AppKit state belongs to the main queue. No Gio class, delegate, layer
 // subclass, standard-button target/action or private view hierarchy is replaced.
@@ -43,6 +40,29 @@ static NSRect topLeftRect(NSView *view, NSRect rect) {
     return rect;
 }
 
+// Measure actual, visible standard AppKit controls. An object returned by
+// standardWindowButton is not sufficient if Gio or AppKit hides it.
+static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right, CGFloat *bottom) {
+    NSUInteger visible = 0;
+    CGFloat r = 0, b = 0;
+    for (NSButton *button in windowButtons(window)) {
+        if (!button.superview || button.window != window || button.alphaValue <= 0 ||
+            [button isHiddenOrHasHiddenAncestor]) continue;
+        NSRect bounds = topLeftRect(view, [view convertRect:[button convertRect:button.bounds toView:nil] fromView:nil]);
+        if (!(window.styleMask & NSWindowStyleMaskFullScreen) && !NSContainsRect(view.bounds, bounds))
+            continue;
+        bounds = NSIntersectionRect(bounds, view.bounds);
+        if (!NSIsEmptyRect(bounds)) {
+            visible++;
+            r = MAX(r, NSMaxX(bounds));
+            b = MAX(b, NSMaxY(bounds));
+        }
+    }
+    if (right) *right = r;
+    if (bottom) *bottom = b;
+    return visible;
+}
+
 @implementation NestworthTitlebar
 - (void)schedule {
     if (self.scheduled || self.detached) return;
@@ -65,34 +85,46 @@ static NSRect topLeftRect(NSView *view, NSRect rect) {
     if (!(window.styleMask & NSWindowStyleMaskFullScreen)) {
         for (NSButton *button in windowButtons(window)) button.hidden = NO;
     }
+    self.view.layer.frame = self.view.bounds;
     [self.view setNeedsDisplay:YES];
 }
 
 - (void)refresh {
+    if (self.detached) return;
     NSView *view = self.view;
     NSWindow *window = self.window;
     if (!window || view.window != window || window.contentView != view) {
-        nestworthTitlebarChanged(self.token, 0, 0, 0, 0, 0, 0);
+        self.unavailable = YES;
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
         return;
     }
     if (self.transition) return; // AppKit owns the full-screen animation.
     BOOL fullscreen = (window.styleMask & NSWindowStyleMaskFullScreen) != 0;
     NSArray<NSButton *> *buttons = windowButtons(window);
-    if (!self.enabled || self.unavailable || (!fullscreen && buttons.count != 3) ||
-        (!fullscreen && !(window.styleMask & NSWindowStyleMaskTitled))) {
+    if (self.unavailable || (!fullscreen && (buttons.count != 3 ||
+        !(window.styleMask & NSWindowStyleMaskTitled)))) {
+        self.unavailable = YES;
         [self restore];
-        nestworthTitlebarChanged(self.token, 0, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        return;
+    }
+    if (!self.enabled) {
+        [self restore];
+        // Do not touch the initial system titlebar before Gio releases
+        // ownership of its fallback decoration. Go acts on this preflight.
+        nestworthTitlebarChanged(self.token, NestworthTitlebarReady, 0, 0, 0, 0, 0);
         return;
     }
     BOOL firstInstall = !self.installed;
-    NSSize initialContentSize = view.bounds.size;
     if (firstInstall) {
         self.originalAppearance = window.appearance;
         self.originalSeparator = window.titlebarSeparatorStyle;
         self.installed = YES;
     }
-    // Gio v0.10.3 rewrites these properties whenever it configures the window.
-    // Keep Decorated(true); reapply idempotently on configuration/resize/update.
+    // Go has now requested Decorated(false) using Gio's public API. The
+    // backend reports Decorated=false for full-size content regardless of
+    // button visibility, and Configure hides all three buttons. Restore the
+    // REAL AppKit controls here, without requesting Gio's fallback bar.
     BOOL changed = !(window.styleMask & NSWindowStyleMaskFullSizeContentView) ||
         !window.titlebarAppearsTransparent || window.titleVisibility != NSWindowTitleHidden;
     if (!(window.styleMask & NSWindowStyleMaskFullSizeContentView))
@@ -106,43 +138,42 @@ static NSRect topLeftRect(NSView *view, NSRect rect) {
         window.appearance = [NSAppearance appearanceNamed:name];
     buttons = windowButtons(window);
     if (!fullscreen) {
-        for (NSButton *button in buttons) if (button.hidden) button.hidden = NO;
+        for (NSButton *button in buttons) {
+            if (button.hidden) {
+                button.hidden = NO;
+                changed = YES;
+            }
+        }
     }
-    if (firstInstall && !fullscreen && !NSEqualSizes(view.bounds.size, initialContentSize)) {
-        // Gio persists the size of its content, not the outer frame. Keep the
-        // requested content size on first install so repeated launches do not
-        // grow by one titlebar. Do not adjust the frame on subsequent refreshes.
-        [window setContentSize:initialContentSize];
+    if (firstInstall && !fullscreen && !window.isZoomed && self.frameSize.width > 0 &&
+        self.frameSize.height > 0 && !NSEqualSizes(view.bounds.size, self.frameSize)) {
+        // The size is the last Gio frame BEFORE Decorated(false), not the
+        // already-expanded NSView. Preserve that content size across startup
+        // so repeated launches do not grow by one native titlebar height.
+        [window setContentSize:self.frameSize];
+        changed = YES;
     }
-    if (changed) {
-        // Full-size content changes the root view frame. Refresh the public
-        // backing layer just as a resize would, without touching Gio internals.
+    if (changed || firstInstall) {
+        // The style change can move AppKit's titlebar controls. Measure
+        // their actual laid-out frames, not the pre-change geometry.
+        [view.superview layoutSubtreeIfNeeded];
         view.layer.frame = view.bounds;
         [view setNeedsDisplay:YES];
     }
-    // The normal titlebar's safe area includes the titlebar itself; consuming
-    // that vertical inset would recreate the unwanted strip. In full screen,
-    // however, respect the display's safe area and the revealed native controls.
     NSEdgeInsets safe = view.safeAreaInsets;
     CGFloat right = 0, bottom = 0;
-    for (NSButton *button in buttons) {
-        if (!button.superview || button.window != window || [button isHiddenOrHasHiddenAncestor]) continue;
-        NSRect bounds = [view convertRect:[button convertRect:button.bounds toView:nil] fromView:nil];
-        bounds = NSIntersectionRect(topLeftRect(view, bounds), view.bounds);
-        if (!NSIsEmptyRect(bounds)) {
-            right = MAX(right, NSMaxX(bounds));
-            bottom = MAX(bottom, NSMaxY(bounds));
-        }
-    }
-    // If AppKit cannot locate the normal controls, retain the safe decorated
-    // layout rather than putting a Gio control on top of unknown native ones.
-    if (!fullscreen && (right <= 0 || bottom <= 0 || right > NSWidth(view.bounds)/2 || bottom > NSHeight(view.bounds)/4)) {
+    NSUInteger visible = visibleButtons(view, window, &right, &bottom);
+    // Every normal-window native control must really intersect the full
+    // content view. If not, restore native decorations rather than putting
+    // Gio controls on top of unknown button geometry.
+    if (!fullscreen && (visible != 3 || right <= 0 || bottom <= 0 ||
+        right > NSWidth(view.bounds)/2 || bottom > NSHeight(view.bounds)/4)) {
         self.unavailable = YES;
         [self restore];
-        nestworthTitlebarChanged(self.token, 0, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
         return;
     }
-    nestworthTitlebarChanged(self.token, 1, ceil(right), ceil(bottom),
+    nestworthTitlebarChanged(self.token, NestworthTitlebarIntegrated, ceil(right), ceil(bottom),
         fullscreen ? ceil(safe.top) : 0, ceil(safe.left), ceil(safe.right));
 }
 @end
@@ -179,7 +210,10 @@ void nestworthTitlebarAttach(uintptr_t token, uintptr_t viewRef) {
     NSView *view = (__bridge NSView *)(void *)viewRef;
     dispatch_async(dispatch_get_main_queue(), ^{
         NSWindow *window = view.window;
-        if (!window || window.contentView != view) return;
+        if (!window || window.contentView != view) {
+            nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+            return;
+        }
         if (!titlebars) titlebars = [NSMutableDictionary dictionary];
         NestworthTitlebar *state = [NestworthTitlebar new];
         state.token = token;
@@ -230,6 +264,7 @@ void nestworthTitlebarAttach(uintptr_t token, uintptr_t viewRef) {
             else [w performWindowDragWithEvent:event];
             return nil;
         }];
+        [state refresh];
     });
 }
 
@@ -237,12 +272,45 @@ void nestworthTitlebarRefresh(uintptr_t token) {
     dispatch_async(dispatch_get_main_queue(), ^{ [titlebars[@(token)] refresh]; });
 }
 
-void nestworthTitlebarUpdate(uintptr_t token, int enabled, int dark, double width, double height,
+// These two functions must be called through Gio's public Window.Run on the
+// native event thread. No dispatch_sync (which would deadlock during events).
+void nestworthTitlebarSetMode(uintptr_t token, int enabled, int dark, double width, double height) {
+    NestworthTitlebar *s = titlebars[@(token)];
+    if (!s) {
+        nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        return;
+    }
+    s.enabled = enabled != 0;
+    s.dark = dark != 0;
+    s.frameSize = NSMakeSize(width, height);
+    s.dragA = s.dragB = NSZeroRect;
+    [s refresh];
+}
+
+NestworthTitlebarProbe nestworthTitlebarProbe(uintptr_t token) {
+    NestworthTitlebarProbe result = {0};
+    NestworthTitlebar *s = titlebars[@(token)];
+    NSWindow *window = s.window;
+    NSView *view = s.view;
+    if (!window || view.window != window || window.contentView != view) return result;
+    NSSize pixels = [view convertSizeToBacking:view.bounds.size];
+    result.widthPx = (int)llround(pixels.width);
+    result.heightPx = (int)llround(pixels.height);
+    result.outerWidth = NSWidth(window.frame);
+    result.outerHeight = NSHeight(window.frame);
+    result.fullSize = (window.styleMask & NSWindowStyleMaskFullSizeContentView) != 0;
+    result.fullscreen = (window.styleMask & NSWindowStyleMaskFullScreen) != 0;
+    result.transition = s.transition;
+    result.visibleButtons = (int)visibleButtons(view, window, NULL, NULL);
+    return result;
+}
+
+void nestworthTitlebarUpdate(uintptr_t token, int dark, double width, double height,
                              double x1, double y1, double w1, double h1,
                              double x2, double y2, double w2, double h2) {
     dispatch_async(dispatch_get_main_queue(), ^{
         NestworthTitlebar *s = titlebars[@(token)];
-        s.enabled = enabled != 0;
+        if (!s.enabled || s.detached) return;
         s.dark = dark != 0;
         s.frameSize = NSMakeSize(width, height);
         s.dragA = NSMakeRect(x1, y1, w1, h1);

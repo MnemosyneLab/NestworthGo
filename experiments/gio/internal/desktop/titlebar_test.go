@@ -284,3 +284,61 @@ func TestExportIntegratedTitlebarFixture(t *testing.T) {
 	}
 	t.Log("Seeded Harbor Sample Household (synthetic only) in", dir)
 }
+
+// The host negotiation is separate from the portable rendering matrix. These
+// are deterministic policy/geometry checks, not a native window test.
+func TestIntegratedTitlebarHostContract(t *testing.T) {
+	for _, tc := range []struct {
+		name                    string
+		wanted, owned, rejected bool
+		status                  titlebarHostStatus
+		want                    titlebarOwnershipAction
+	}{
+		{"unattached", true, false, false, titlebarHostWaiting, titlebarOwnershipKeep},
+		{"onboarding", false, false, false, titlebarHostReady, titlebarOwnershipKeep},
+		{"ready ledger host", true, false, false, titlebarHostReady, titlebarOwnershipAcquire},
+		{"active host", true, true, false, titlebarHostIntegrated, titlebarOwnershipKeep},
+		{"native refusal", true, true, false, titlebarHostUnavailable, titlebarOwnershipRestore},
+		{"mismatched backing frame", true, true, true, titlebarHostIntegrated, titlebarOwnershipRestore},
+		{"reject for this attachment", true, false, true, titlebarHostReady, titlebarOwnershipKeep},
+		{"leave ledger shell", false, true, false, titlebarHostIntegrated, titlebarOwnershipRestore},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := titlebarOwnership(tc.wanted, tc.owned, tc.rejected, tc.status); got != tc.want {
+				t.Fatalf("ownership = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	for _, scale := range []int{1, 2} {
+		native := image.Pt(1100*scale, 720*scale)
+		p := titlebarHostProbe{viewSize: native, fullSize: true, visibleButtons: 3}
+		if !p.matches(native) {
+			t.Fatal("matching physical AppKit/Gio frame was rejected")
+		}
+		// Gio removes its client-decoration height from FrameEvent.Size. A
+		// superficially integrated layout with that offset is not acceptable.
+		if p.matches(native.Sub(image.Pt(0, 32*scale))) {
+			t.Fatal("Gio client decoration offset was accepted")
+		}
+		p.visibleButtons = 0
+		if p.matches(native) {
+			t.Fatal("hidden native lights were accepted")
+		}
+		p.visibleButtons = 2
+		if p.matches(native) {
+			t.Fatal("partial native buttons were accepted")
+		}
+		p.fullscreen, p.visibleButtons = true, 0
+		if !p.matches(native) {
+			t.Fatal("fullscreen with system-hidden lights was rejected")
+		}
+		p.transition = true
+		if p.matches(native) {
+			t.Fatal("transitional geometry was accepted")
+		}
+		p.transition, p.fullSize = false, false
+		if p.matches(native) {
+			t.Fatal("ordinary titlebar was accepted as full size")
+		}
+	}
+}

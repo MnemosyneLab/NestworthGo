@@ -15,5 +15,8 @@ func newNativeTitlebar(*app.Window) *nativeTitlebar                             
 func (*nativeTitlebar) View(app.ViewEvent)                                               {}
 func (*nativeTitlebar) Close()                                                           {}
 func (*nativeTitlebar) Config()                                                          {}
-func (*nativeTitlebar) Metrics() titlebarMetrics                                         { return titlebarMetrics{} }
+func (*nativeTitlebar) Metrics(image.Point) titlebarMetrics                              { return titlebarMetrics{} }
 func (*nativeTitlebar) Publish(bool, bool, image.Point, unit.Metric, [2]image.Rectangle) {}
+
+func (*nativeTitlebar) AfterFrame()          {}
+func (*nativeTitlebar) FrameSizeValid() bool { return true }

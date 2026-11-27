@@ -169,12 +169,24 @@ zoom/full-screen controls and the underlying `Nestworth Gio` window title.
 `desktop/window.go` receives the public Gio `AppKitViewEvent`; the Darwin-only
 adapter in `desktop/titlebar_darwin.{go,m}` changes the window's full-size-content,
 title visibility, transparent titlebar and appearance on AppKit's main queue.
-It leaves Gio decorated (Gio v0.10.3 hides the three buttons with
-`Decorated(false)`), does not replace the delegate or swizzle Gio classes, and
-reapplies the configuration idempotently after Gio config changes, remounts,
-resize/screen changes and full-screen transitions. The existing accessibility
-bridge is independent. The normal AppKit titlebar is the fallback if the view
-or native button geometry is unavailable. Startup-blocked windows, onboarding
+Gio v0.10.3 reports `Config.Decorated=false` whenever
+`FullSizeContentView` is set; leaving Gio's decoration request enabled creates
+its unwanted client-side material titlebar and offsets the app frame. After
+the native attachment preflight and the first ledger frame, the adapter uses
+the public `Window.Option(app.Decorated(false))` to relinquish that fallback,
+then immediately restores all **three native AppKit buttons** through
+`Window.Run` on the native event thread. The option alone would hide them.
+The adapter does not replace the delegate or swizzle Gio classes; it reconciles
+native style/buttons after Gio config, remounts, resize/screen changes and
+full-screen transitions. The existing accessibility bridge is independent.
+
+The handshake is accepted only when the actual AppKit backing view size
+equals Gio's full FrameEvent size (no client-side decoration offset), full-size
+content is present, and all three standard buttons are visible in the normal
+window. A transient mismatch disables native drag regions; a persistent
+mismatch or unavailable controls rolls back to `Decorated(true)` and the
+ordinary native titlebar. The first integrated frame preserves the previous
+content size rather than adding the native titlebar height. Startup-blocked windows, onboarding
 (before the ledger shell) and other platforms retain ordinary decorations.
 
 The adapter reports native button extent and safe-area insets in AppKit points.
@@ -203,7 +215,7 @@ plus a 640dp 2x narrow window and simulated full-screen safe area.
 
 ```sh
 go -C experiments/gio test -mod=readonly -count=1 \
-  -run '^TestIntegratedTitlebar($|Geometry$)' ./internal/desktop
+  -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)' ./internal/desktop
 shots=$(mktemp -d)
 NESTWORTH_GIO_SNAPSHOT_DIR="$shots" go -C experiments/gio test -mod=readonly -count=1 \
   -run '^TestIntegratedTitlebarSnapshots$' ./internal/desktop
@@ -241,8 +253,18 @@ For Linux launcher QA, substitute `preview-linux.sh` (ordinary platform
 decorations are expected). On macOS, verify all of the following on the
 actual bundle, not a headless snapshot:
 
-- Native lights remain functional, including close, minimize, zoom and
-  full-screen; the original title is not painted but remains in the Window menu.
+- Let Overview settle, then check the synthetic profile's
+  `$gio_run/logs/nestworth.log` for **Gio titlebar native handshake verified**.
+  `gio_frame_px` must equal `appkit_view_px`, `native_buttons=3`,
+  `native_full_size=true` and `gio_decorated_requested=false`; the log also
+  records the actual outer window frame in points. A rejection/unavailable log
+  means ordinary system-titlebar fallback, not integrated acceptance.
+- Native lights remain functional (verify accessibility close/minimize/full
+  screen and actual clicks), including close, minimize, zoom and full-screen;
+  the original title is not painted but remains in the Window menu.
+  No blue-purple Gio client decoration bar or right-side window buttons may
+  appear. Overview/Back/Forward/Recent and Toggle Sidebar must remain visible
+  and interactive at the top.
 - Each of the five themes in light and dark, and live switching (including
   system appearance), has no separate titlebar-colored strip.
 - Collapse/expand at wide and minimum widths; move between Retina and

@@ -167,9 +167,10 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 				window.Invalidate()
 			}
 		case app.FrameEvent:
+			s.titlebar = chrome.Metrics(event.Size)
 			size := image.Pt(int(math.Round(float64(event.Metric.PxToDp(event.Size.X)))),
 				int(math.Round(float64(event.Metric.PxToDp(event.Size.Y)))))
-			if size != lastSize && preferences.ValidWindowSize(size) {
+			if chrome.FrameSizeValid() && size != lastSize && preferences.ValidWindowSize(size) {
 				lastSize = size
 				// Keep the newest resize queued without blocking the render loop.
 				select {
@@ -179,12 +180,12 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 				pending <- size
 			}
 			gtx := ax.Begin(app.NewContext(&ops, event))
-			s.titlebar = chrome.Metrics()
 			s.layout(gtx)
 			// Queue the native hit regions before releasing this frame to AppKit.
 			chrome.Publish(s.onboarding == nil, s.preferences.dark, event.Size, event.Metric, s.titlebarDrags())
 			event.Frame(gtx.Ops)
 			ax.Publish(gtx)
+			chrome.AfterFrame()
 		}
 	}
 }

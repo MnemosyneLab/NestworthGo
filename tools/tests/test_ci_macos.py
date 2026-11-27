@@ -218,7 +218,7 @@ class MacCI(unittest.TestCase):
         self.assertNotIn('sudo ', native)
         self.assertIn('persist-credentials: false', native)
         self.assertIn('sh experiments/gio/preview-macos.sh --build-only', native)
-        self.assertIn("go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$)'", native)
+        self.assertIn("go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)'", native)
         self.assertIn('NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR', native)
         self.assertIn('GOMODCACHE', native)
         self.assertIn('GOCACHE', native)

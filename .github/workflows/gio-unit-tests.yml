@@ -102,4 +102,4 @@ jobs:
       - name: Run synthetic integrated-titlebar layout tests on Darwin
         run: |
           unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR
-          go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$)' ./internal/desktop
+          go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)' ./internal/desktop
