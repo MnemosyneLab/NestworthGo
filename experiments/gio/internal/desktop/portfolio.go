@@ -352,7 +352,13 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			})
 		}),
 	)
-	return (ui.Column{Gap: 12}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
+	columnGap := ui.Space12
+	if p.id == "" && p.current != nil && p.tabs.active == portfolioHoldingsTab {
+		// The holdings page has its own compact filter toolbar directly under
+		// the portfolio tabs. Keep this stack closer to the first group header.
+		columnGap = ui.Space8
+	}
+	return (ui.Column{Gap: columnGap}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
 		if index == len(children)-1 {
 			p.holdings.listOrigin = origin
 		}

@@ -435,7 +435,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	if quote := port.current.catalog.quotes[instrument.ID]; quote == nil || !quote.QuotedAt.Equal(quotedAt) || quote.SourceKind != domain.QuoteSourceManual {
 		t.Fatalf("catalog changed the saved quote provenance: %+v", quote)
 	}
-	click("Details")
+	click(fmt.Sprintf(h.shell.preferences.language.Text(i18n.PortfolioCatalogOpen), instrument.DisplayLabel()))
 	if port.id != instrument.ID || port.current.instrument == nil || len(port.current.positions) != 0 {
 		t.Fatal("unheld instrument did not open restored instrument details")
 	}
