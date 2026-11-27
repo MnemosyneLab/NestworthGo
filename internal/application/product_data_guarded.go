@@ -68,7 +68,7 @@ func (s *Service) termsDetails(ctx context.Context, prepared preparedProductTerm
 	}
 	after := before
 	after.Contract, after.Policy = prepared.contract, prepared.policy
-	origin, err := s.repository.HistoryOrigin(ctx, prepared.contract.HouseholdID)
+	origin, err := s.requireHistoryOrigin(ctx, prepared.contract.HouseholdID)
 	if err != nil {
 		return ProductDetail{}, ProductDetail{}, err
 	}

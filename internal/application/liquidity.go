@@ -26,6 +26,9 @@ func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQ
 	if snapshot.Portfolio.Household == nil {
 		return domain.LiquidityOverview{}, snapshot, nil, onboardingRequired()
 	}
+	if snapshot.Portfolio.Origin == nil {
+		return domain.LiquidityOverview{}, snapshot, nil, missingHistoryOrigin()
+	}
 	valuation := *s.valuation
 	valuation.now = func() time.Time { return asOf }
 	valuation.readContext = ctx
@@ -308,6 +311,9 @@ type productDetailMaterialization struct {
 }
 
 func (s *Service) materializeProductDetails(ctx context.Context, snapshot domain.LiquiditySnapshot, asOf time.Time) (productDetailMaterialization, error) {
+	if snapshot.Portfolio.Origin == nil {
+		return productDetailMaterialization{}, missingHistoryOrigin()
+	}
 	result := productDetailMaterialization{
 		policies:     make(map[string]domain.LiquidityPolicy, len(snapshot.Policies)),
 		reservations: make(map[string][]domain.LiquidityReservation),
