@@ -162,6 +162,10 @@ func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate f
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), accounts: make(map[domain.AccountID]*widget.Clickable), productButtons: make(map[domain.ProductContractID]*widget.Clickable)}
 }
 
+func (p *portfolioPage) investmentRuntime() investmentRuntime {
+	return investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
+}
+
 func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.AccountID, query string, position layout.Position) {
 	p.id, p.current = id, nil
 	p.accountScope = account
@@ -226,7 +230,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	p.update()
 	p.updateAllocationTrend(gtx, view)
 	if f := p.investment; f != nil {
-		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
+		run := p.investmentRuntime()
 		f.poll(run)
 		if f.draft != nil && !f.draft.contextualSheet {
 			return f.layoutForm(gtx, view, run)
