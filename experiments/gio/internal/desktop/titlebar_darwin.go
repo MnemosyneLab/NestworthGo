@@ -153,6 +153,7 @@ func (n *nativeTitlebar) Metrics(size image.Point) titlebarMetrics {
 			slog.Info("Gio titlebar native handshake verified",
 				"gio_frame_px", size, "appkit_view_px", p.viewSize,
 				"outer_frame_pt", image.Pt(int(native.outerWidth+.5), int(native.outerHeight+.5)),
+				"native_button_center_pt", state.metrics.buttonCenter,
 				"native_buttons", p.visibleButtons, "native_full_size", p.fullSize,
 				"gio_decorated_requested", false)
 		}
@@ -239,14 +240,14 @@ func cBool(v bool) C.int {
 }
 
 //export nestworthTitlebarChanged
-func nestworthTitlebarChanged(token C.uintptr_t, status C.int, right, bottom, top, left, safeRight C.double) {
+func nestworthTitlebarChanged(token C.uintptr_t, status C.int, right, bottom, center, top, left, safeRight C.double) {
 	value, ok := titlebarHandles.Load(uintptr(token))
 	if !ok {
 		return
 	}
 	n := value.(*titlebarAttachment)
 	m := titlebarHostState{status: titlebarHostStatus(status), metrics: titlebarMetrics{
-		active: status == C.NestworthTitlebarIntegrated, buttonRight: unit.Dp(right), buttonBottom: unit.Dp(bottom),
+		active: status == C.NestworthTitlebarIntegrated, buttonRight: unit.Dp(right), buttonBottom: unit.Dp(bottom), buttonCenter: unit.Dp(center),
 		safeTop: unit.Dp(top), safeLeft: unit.Dp(left), safeRight: unit.Dp(safeRight)}}
 	if old := n.current.Load(); old == nil || *old != m {
 		n.current.Store(&m)

@@ -5,7 +5,7 @@ import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus, CalendarOff, History, RefreshCw } from "lucide-react";
+import { CalendarOff, History, RefreshCw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -295,7 +295,7 @@ export function InstrumentManagement({
         actions={
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger className={buttonVariants()}>
-              <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addInstrument")}
+              {t("portfolio.addInstrument")}
             </SheetTrigger>
             <SheetContent className="overflow-y-auto overscroll-contain">
               <SheetHeader className="shrink-0">

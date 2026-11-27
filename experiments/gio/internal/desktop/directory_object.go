@@ -143,7 +143,7 @@ func (p *directoryObjectPage) name() string {
 }
 
 func (p *directoryObjectPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
-	if p.result == nil && p.reload.Clicked(gtx) {
+	if p.err != nil && p.result == nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(gtx,
@@ -151,17 +151,13 @@ func (p *directoryObjectPage) layout(gtx layout.Context, view ui.View) layout.Di
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, p.status(view)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.list == nil {
+					if p.list == nil || p.err == nil {
 						return layout.Dimensions{}
-					}
-					label := i18n.InstitutionsRefresh
-					if p.err != nil {
-						label = i18n.InstitutionsRetry
 					}
 					if p.result != nil {
 						gtx = gtx.Disabled()
 					}
-					return view.Button(&p.reload, view.Language.Text(label))(gtx)
+					return view.Button(&p.reload, view.Language.Text(i18n.InstitutionsRetry))(gtx)
 				}),
 			)
 		}),

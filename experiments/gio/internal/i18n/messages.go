@@ -24,6 +24,9 @@ const (
 	NavTasks
 	NavHistory
 	NavHistoricalOverview
+	AccountTitleActions
+	WealthExit
+	TasksRefreshUpcoming
 	NavReturns
 	NavAssetChanges
 	NavDirectory
@@ -84,7 +87,6 @@ const (
 	AgentEvidenceNoPrice
 	AgentEvidenceSource
 
-	MarketReload
 	MarketSearch
 	MarketSearchHint
 	MarketLoading
@@ -514,8 +516,6 @@ const (
 	OverviewAssetsComposition
 	OverviewLiabilitiesComposition
 	OverviewCompositionMissing
-	OverviewOpenBreakdowns
-	OverviewBreakdownHint
 	OverviewByInstitution
 	OverviewByAccountType
 	OverviewByMember
@@ -528,8 +528,7 @@ const (
 	OverviewAllocationClass
 	OverviewAllocationAccount
 	OverviewAllocationDetails
-	OverviewAllocationBack
-	OverviewAllocationHelp
+	OverviewAllocationColumn
 	OverviewAllocationMissing
 	OverviewAllocationZero
 	OverviewAllocationEmpty
@@ -537,9 +536,6 @@ const (
 	OverviewAllocationUnassigned
 	OverviewAllocationUnknownAccount
 	OverviewAllocationOrdinal
-	OverviewAllocationDate
-	OverviewAllocationQuoteDates
-	OverviewAllocationCarriedDate
 	OverviewOpenAccounts
 	OverviewOpenWealthHistory
 	OverviewNetWorthTrend
@@ -557,6 +553,7 @@ const (
 	OverviewTaskSessions
 	OverviewTaskReadFailed
 	OverviewUpcomingTitle
+	OverviewUpcomingWindow
 	OverviewUpcomingCounts
 	OverviewUpcomingEmpty
 	OverviewUpcomingOther
@@ -566,6 +563,20 @@ const (
 	OverviewUpcomingShortfall
 	OverviewUpcomingUnresolved
 	OverviewRecentTitle
+	OverviewRecentAdded
+	OverviewRecentRemoved
+	OverviewRecentCardPurchase
+	OverviewRecentCardRefund
+	OverviewRecentUpdated
+	OverviewRecentWithReason
+	OverviewRecentDividend
+	OverviewRecentBought
+	OverviewRecentSold
+	OverviewRecentTransferred
+	OverviewRecentTransferReceived
+	OverviewRecentConverted
+	OverviewRecentMovedPosition
+	OverviewRecentWithFee
 	OverviewRecentAll
 	OverviewRecentEmpty
 	OverviewTrendGaps
@@ -598,6 +609,7 @@ const (
 	WealthHistoryRetained
 	WealthHistoryRangeHint
 	WealthHistoryLoad
+	WealthHistoryRefreshRange
 	WealthTrendFromDate
 	WealthTrendToDate
 	WealthHistoryCapture
@@ -1066,7 +1078,6 @@ const (
 	DirectoryObjectLoadError
 	DirectoryObjectActive
 	InstitutionsSearchHint
-	InstitutionsRefresh
 	InstitutionsRetry
 	InstitutionsLoading
 	InstitutionsLoadError
@@ -1168,7 +1179,6 @@ const (
 	HistoryCount
 	HistoryLoading
 	HistoryLoadError
-	HistoryRefresh
 	HistoryRetry
 	ContributionAdd
 	ContributionTitle

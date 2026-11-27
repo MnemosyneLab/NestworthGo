@@ -5,6 +5,8 @@ import (
 	"math"
 	"testing"
 
+	"gioui.org/f32"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -164,5 +166,22 @@ func TestDonutChartNoticesForEmptyAndZeroTotal(t *testing.T) {
 		if size.X <= 0 || size.Y <= 0 || len(events) != 0 {
 			t.Fatalf("%s: size %v events %v", name, size, events)
 		}
+	}
+}
+
+func TestDonutCanHighlightWithoutAFooter(t *testing.T) {
+	r := newRig(320, false)
+	var chart DonutChart
+	spec := DonutSpec{Slices: []Slice{{ID: "cash", Label: "Cash", Value: Num(60), Text: "US$60.00", Share: "100%"}}}
+	draw := func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return chart.Layout(gtx, view, spec)
+	}
+	regular, _ := r.frame(draw, Selection{})
+	spec.HideReadout = true
+	compact, _ := r.frame(draw, Selection{})
+	r.router.Queue(pointer.Event{Kind: pointer.Move, Source: pointer.Mouse, Position: f32.Pt(175, 38)})
+	hovered, _ := r.frame(draw, Selection{})
+	if chart.hover.Item != "cash" || compact != hovered || compact.Y >= regular.Y {
+		t.Fatalf("footerless donut hover = %+v, size = %v on hover and %v at rest, regular = %v", chart.hover, hovered, compact, regular)
 	}
 }

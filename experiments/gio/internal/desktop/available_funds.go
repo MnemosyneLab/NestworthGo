@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -176,10 +175,10 @@ func (p *availableFundsPage) update() {
 			// A released unresolved reservation can remove its entry row.
 			// Restore focus to the persistent page control in that case.
 			if p.reservation != nil && p.reservation.entry == &buttons.reserve {
-				p.reservation.entry = &p.reload
+				p.reservation.entry = &p.manageReservations
 			}
 			if p.reservationFocus == &buttons.reserve {
-				p.reservationFocus = &p.reload
+				p.reservationFocus = &p.manageReservations
 			}
 			delete(p.links, key)
 		}
@@ -188,14 +187,13 @@ func (p *availableFundsPage) update() {
 }
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
-	p.update()
 	p.openActionFocus(gtx, view)
 	if d := p.setup; d != nil && d.poll() {
 		p.closeProductSetup()
 		p.productSaved = true
 		p.read()
 	}
-	if p.request == nil && p.reload.Clicked(gtx) {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -203,13 +201,6 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		p.state.focusSources = true
 	}
 	l := view.Language
-	accounts := p.productAccounts()
-	if gtx.Enabled() && p.setup == nil && len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
-		p.productSaved = false
-		run := productSetupRuntime{ctx: p.ctx, ledger: p.productLedger, clock: p.productClock, workers: &p.workers, invalidate: p.invalidate}
-		p.setup = newProductSetup(run, accounts, l.Text(i18n.ProductAddDeposit))
-		gtx.Execute(op.InvalidateCmd{})
-	}
 	if p.current != nil && p.request == nil && p.reservation == nil && p.policy == nil && p.setup == nil {
 		switch {
 		case p.nextRefresh.IsZero():
@@ -222,10 +213,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		}
 	}
 	var status i18n.MessageID
-	action := i18n.HistoryRefresh
 	switch {
 	case p.err != nil:
-		status, action = i18n.FundsReadFailed, i18n.HistoryRetry
+		status = i18n.FundsReadFailed
 	case p.request != nil && p.current == nil:
 		status = i18n.FundsLoading
 	case p.request != nil:
@@ -249,30 +239,11 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					return view.Message(l.Text(status), color)(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if len(accounts) == 0 {
+					if p.err == nil {
 						return layout.Dimensions{}
 					}
-					if p.restoreAddFocus && p.request == nil && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
-						p.restoreAddFocus = false
-					}
-					if p.request != nil {
-						gtx = gtx.Disabled()
-					}
-					view.Focus.Watch(gtx, &p.addProduct)
-					return view.PrimaryButton(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
-					}
-					if p.restoreAddFocus && len(accounts) == 0 && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &p.reload})
-						p.restoreAddFocus = false
-					}
-					p.restoreReservationEntry(gtx, &p.reload)
 					view.Focus.Watch(gtx, &p.reload)
-					return view.Button(&p.reload, l.Text(action))(gtx)
+					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -541,14 +512,16 @@ func (p *availableFundsPage) sourceNavigationActions(view ui.View, key string, a
 }
 
 func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widget {
+	return fundsCardWithHeader(view, view.Body(ui.TextHeading, title, view.Colors.Ink), fields...)
+}
+
+func fundsCardWithHeader(view ui.View, header layout.Widget, fields ...layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 			children := make([]layout.FlexChild, 0, len(fields)+2)
 			children = append(children,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.Body(ui.TextHeading, title, view.Colors.Ink)(gtx)
-				}),
+				layout.Rigid(header),
 				layout.Rigid(view.Hairline),
 			)
 			for _, field := range fields {

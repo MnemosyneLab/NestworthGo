@@ -59,6 +59,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	click("Investment assets")
 	portfolio.search.Field.Editor.SetText("QA-BUY")
 	finish()
+	h.assertTitlebarAction("Record existing holding")
 	click("Record existing holding")
 	d := f.draft
 	h.focused(&d.selectAccount.Trigger)

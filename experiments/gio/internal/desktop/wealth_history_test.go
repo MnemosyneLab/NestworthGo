@@ -341,7 +341,7 @@ func TestWealthHistoryRangeInteractionRetryAndKeyboardTable(t *testing.T) {
 	assertPageLabel(t, &h.router, "2026-11-29 · This date did not occur in the History timezone.")
 	h.press(key.NameHome)
 	assertPageLabel(t, &h.router, "2026-11-09")
-	h.click("Reload", false)
+	h.click("Refresh range", false)
 	expectCall("2026-11-09", "2026-11-30")
 	finish(application.HistoricalOverviewSeriesResult{}, &domain.Error{Code: domain.ErrHistoricalSeriesBudget})
 	assertPageLabel(t, &h.router, "This range exceeded the local replay budget. Try a shorter range.")

@@ -308,7 +308,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	label("Bank account · Archived")
 	label("Institution · Former Sample Bank · Archived")
 	missing("Restore")
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
 	finish()
 	label("A$123.00")
 	h.click("Back", false)
@@ -440,7 +440,7 @@ func TestAccountsDiscardLateReadsAndRetryWithoutLosingTheSelectedObject(t *testi
 		t.Fatal("late result replaced the selected account")
 	}
 	faults.fail.Store(true)
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
 	finish()
 	label("Update failed. Showing the previous result.")
 	label("S$75.00")

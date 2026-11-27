@@ -177,8 +177,7 @@ func (r *historyReads) loadReferences() {
 				return err
 			}
 			refs.References = references
-			// Holding names enrich the timeline. If the optional read fails,
-			// keep the exact quantities and let the normal Reload retry it.
+			// If the optional holding names are unavailable, keep the exact quantities.
 			holdings, err := history.LoadHoldingReferences(ctx, r.service, references.Accounts)
 			if err == nil {
 				refs.holdingAccounts = make(map[domain.HoldingID]domain.AccountID)

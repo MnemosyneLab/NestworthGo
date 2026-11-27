@@ -43,6 +43,9 @@ type DonutSpec struct {
 	// for example the total and its caption. A Compact ring leaves the hole
 	// empty.
 	CenterValue, CenterCaption string
+	// CenterFit lists the totals that should use the same fitted size in
+	// equally sized companion charts.
+	CenterFit []string
 	// NotDrawn is the note on legend entries that have no arc, such as "Not
 	// shown in the ring".
 	NotDrawn string
@@ -54,6 +57,11 @@ type DonutSpec struct {
 	// as the Wails overview does: each entry shows its share as a pill beside
 	// the amount instead of under it.
 	Compact bool
+	// StackLegend gives the chart its own row and scales the ring to the available width.
+	StackLegend bool
+	// HideReadout removes the footer when the interactive legend already
+	// shows the same information.
+	HideReadout bool
 }
 
 // Rows returns the text form of every slice in order, with the share appended
@@ -237,10 +245,12 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 	if spec.Compact {
 		sideBySide, diameterDp, gapDp = donutCompactSideBySide, donutCompactDiameter, ui.Space8
 	}
-	stacked := !ui.WidthAtLeast(gtx, inner, sideBySide)
+	stacked := spec.StackLegend || !ui.WidthAtLeast(gtx, inner, sideBySide)
 	gap := gtx.Dp(gapDp)
 	diameter := min(gtx.Dp(diameterDp), inner)
-	if !stacked {
+	if spec.StackLegend {
+		diameter = min(inner, max(gtx.Dp(200), min(gtx.Dp(300), inner*3/5)))
+	} else if !stacked {
 		diameter = min(diameter, inner*2/5)
 	} else if spec.Compact {
 		diameter = min(gtx.Dp(donutDiameter*2/3), inner)
@@ -296,17 +306,20 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 		c.drawRing(gtx, view, spec, plan, active, image.Rect(0, 0, inner, plan.height))
 		c.drawCenter(gtx, view, spec, plan)
 		c.drawLegend(gtx, view, spec, plan, columns, active, legendMetrics{inset: rowInset, swatch: swatch, pad: rowPad, labelW: labelW, rightW: rightW, compact: compact})
-		y := plan.height + gtx.Dp(ui.Space8)
-		rgtx := gtx
-		rgtx.Constraints.Max.X = inner
-		shown := active
-		if shown.IsZero() {
-			shown = spec.Selected
+		y := plan.height
+		if !spec.HideReadout {
+			y += gtx.Dp(ui.Space8)
+			rgtx := gtx
+			rgtx.Constraints.Max.X = inner
+			shown := active
+			if shown.IsZero() {
+				shown = spec.Selected
+			}
+			offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
+			read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
+			offset.Pop()
+			y += read.Size.Y
 		}
-		offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
-		read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
-		offset.Pop()
-		y += read.Size.Y
 
 		size := image.Pt(width, y+2*pad)
 		func() {
@@ -412,9 +425,10 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	colors := view.Colors
 	avail := max(1, int(plan.inner*2*0.8))
 	value := textBlock{style: ui.TextMoneyMD, content: spec.CenterValue, ink: colors.Ink, maxWidth: avail, maxLines: 1, align: text.Middle}
-	if value.natural(gtx, view) > avail {
-		value.style = ui.TextLabel
+	if spec.CenterValue == spec.Messages.Missing {
+		value.style = ui.TextMetricMD
 	}
+	value.style = donutCenterStyle(gtx, view, value, spec.CenterFit)
 	if value.natural(gtx, view) > avail {
 		// Wrap rather than truncate: the amount is the point of the hole.
 		value.maxLines = 0
@@ -430,6 +444,23 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	left := int(plan.center.X) - avail/2
 	value.draw(gtx, view, image.Pt(left, top))
 	capBlock.draw(gtx, view, image.Pt(left, top+vSize.Y))
+}
+
+func donutCenterStyle(gtx layout.Context, view ui.View, value textBlock, totals []string) ui.TextStyle {
+	width := value.natural(gtx, view)
+	for _, total := range totals {
+		if total != value.content {
+			peer := value
+			peer.content = total
+			width = max(width, peer.natural(gtx, view))
+		}
+	}
+	if width > value.maxWidth {
+		// Keep the money face and weight when there is less room.
+		fitted := math.Floor(float64(value.style.Size) * float64(value.maxWidth) / float64(width))
+		value.style.Size = max(ui.TextLabel.Size, unit.Sp(fitted))
+	}
+	return value.style
 }
 
 // legendMetrics are the measured pixel sizes of the legend columns. A

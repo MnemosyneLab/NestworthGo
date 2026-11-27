@@ -210,7 +210,8 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	late := func() time.Time { return accountTestClock.Add(24 * time.Hour) }
 	app.SetClock(late)
 	ref.SetClock(late)
-	click("Reload")
+	h.shell.refreshLedgerReads()
+	finish()
 	label("The published review is out of date.")
 	checkReview(*tasks.review, wailsReview(ref), "stale")
 

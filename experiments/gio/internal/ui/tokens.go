@@ -66,23 +66,25 @@ type TextStyle struct {
 	Weight font.Weight
 	// LineHeight is a multiple of Size.
 	LineHeight float32
-	// Serif selects the display face. Only page titles and hero figures use it.
+	// Serif selects the display face for page titles and prominent figures.
 	Serif bool
 }
 
-// The type scale follows Wails: sentence case, 14sp body, tabular figures in
-// tables, and a serif only for page titles and the hero figure. Sizes map to
+// The type scale uses sentence case, 14sp body, tabular figures in tables,
+// and a display face for page titles and prominent figures. Sizes map to
 // the Tailwind steps text-xs, text-sm, text-base, text-lg, text-2xl and
 // text-4xl.
 var (
-	TextCaption       = TextStyle{Size: 12, Weight: font.Normal, LineHeight: 1.4}
+	TextCaption       = TextStyle{Size: 12, Weight: font.Medium, LineHeight: 1.4}
 	TextCaptionStrong = TextStyle{Size: 12, Weight: font.Medium, LineHeight: 1.4}
-	TextBody          = TextStyle{Size: 14, Weight: font.Normal, LineHeight: 1.45}
+	TextBody          = TextStyle{Size: 14, Weight: font.Medium, LineHeight: 1.45}
 	TextLabel         = TextStyle{Size: 14, Weight: font.Medium, LineHeight: 1.4}
 	TextHeading       = TextStyle{Size: 16, Weight: font.SemiBold, LineHeight: 1.3}
 	TextPageTitle     = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.3, Serif: true}
-	TextMoneyMD       = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.25}
-	TextMoneyLG       = TextStyle{Size: 24, Weight: font.Bold, LineHeight: 1.2}
+	TextMetricMD      = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.25}
+	TextMetricLG      = TextStyle{Size: 24, Weight: font.Bold, LineHeight: 1.2}
+	TextMoneyMD       = TextStyle{Size: 18, Weight: font.SemiBold, LineHeight: 1.25, Serif: true}
+	TextMoneyLG       = TextStyle{Size: 24, Weight: font.Bold, LineHeight: 1.2, Serif: true}
 	TextHero          = TextStyle{Size: 36, Weight: font.SemiBold, LineHeight: 1.1, Serif: true}
 )
 

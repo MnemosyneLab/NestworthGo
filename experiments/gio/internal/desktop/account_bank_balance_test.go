@@ -100,8 +100,8 @@ func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.
 	if fault.appends != 1 || len(fault.records) != 0 || findPageLabel(&h.router, "Retry same submission") != nil || findPageLabel(&h.router, "Bank balance saved.") != nil {
 		t.Fatal("an uncertain unkeyed append offered a replay or claimed acknowledgement")
 	}
-	click("Reload")
-	if fault.appends != 1 || readBankRecord(t, app, bank).LatestValue.Amount.CanonicalAmount() != "120" {
+	row := p.freshDetail()
+	if fault.appends != 1 || row == nil || row.record.LatestValue == nil || row.record.LatestValue.Amount.CanonicalAmount() != "120" {
 		t.Fatal("read recovery reissued the append or lost the saved value")
 	}
 	want, err := account.NewService(ref).AppendAccountValue(ctx, refBank.String(), "120", "")

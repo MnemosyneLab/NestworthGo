@@ -93,7 +93,8 @@ func TestInstitutionsRouteLoadsFiltersAndRefreshesAfterSave(t *testing.T) {
 	h.click("Retry reload", false)
 	finish()
 	assertPageLabel(t, &h.router, "Nothing here yet")
-	h.click("Reload", false)
+	p.refreshExternal = true
+	h.frame()
 	finish()
 
 	h.click("Search institutions", true)

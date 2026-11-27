@@ -84,7 +84,7 @@ func TestOverviewLinksNetWorthHistoryAndExactCoverageScope(t *testing.T) {
 	h.frame()
 	h.focused(&page.trend.history)
 
-	h.click("View period coverage gaps", false)
+	h.click("Closed days with a valuation · 1 of 2", false)
 	h.frame()
 	health.workers.Wait()
 	h.frame()

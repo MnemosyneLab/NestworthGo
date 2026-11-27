@@ -132,6 +132,7 @@ type productDetailPage struct {
 	terms                *productTermsDraft
 	saved                i18n.MessageID
 	focusAction          *widget.Clickable
+	focusFallback        event.Tag
 	receiptRequested     bool
 	receiptChanged       bool
 	startConfirmation    widget.Clickable
@@ -227,33 +228,37 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	if p.valuation != nil {
 		return p.layoutValuation(gtx, view)
 	}
-	if p.request == nil && p.reload.Clicked(gtx) {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
 	l := view.Language
 	var status i18n.MessageID
-	reload := i18n.HistoryRefresh
 	switch {
 	case p.request != nil:
 		status = i18n.ProductLoading
 	case p.err != nil:
-		status, reload = i18n.ProductReadFailed, i18n.HistoryRetry
+		status = i18n.ProductReadFailed
 	case p.current == nil || p.current.detail == nil:
 		status = i18n.ProductUnavailable
+	}
+	if gtx.Enabled() && p.request == nil && p.focusAction != nil && (status != i18n.NoMessage || !p.actionAvailable(p.focusAction)) {
+		target := p.focusFallback
+		if p.err != nil {
+			target = &p.reload
+		}
+		gtx.Execute(key.FocusCmd{Tag: target})
+		p.focusAction = nil
 	}
 	return ui.Column{Gap: 10}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, view.Message(l.Text(status), view.Colors.SecondaryInk)),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
-					} else if p.focusAction != nil && (status != i18n.NoMessage || !p.actionAvailable(p.focusAction)) {
-						gtx.Execute(key.FocusCmd{Tag: &p.reload})
-						p.focusAction = nil
+					if p.err == nil || p.request != nil {
+						return layout.Dimensions{}
 					}
 					view.Focus.Watch(gtx, &p.reload)
-					return view.Button(&p.reload, l.Text(reload))(gtx)
+					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {

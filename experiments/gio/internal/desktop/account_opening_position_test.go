@@ -315,7 +315,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 		t.Fatal("the opening observation remained available after History started")
 	}
 	writes := opening.writes.Load()
-	scrollToAccountDetailLabel(h, "Record existing position")
+	scrollProductControl(t, h, "Record existing position")
 	click("Record existing position")
 	if accounts.opening.draft != nil || accounts.investment.draft == nil || accounts.investment.draft.kind != domain.ActivityPositionTransfer {
 		t.Fatal("the action did not switch to dated import after History started")

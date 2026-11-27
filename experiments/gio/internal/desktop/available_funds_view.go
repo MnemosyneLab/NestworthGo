@@ -266,8 +266,10 @@ func fundsHorizonButton(gtx layout.Context, view ui.View, button *widget.Clickab
 		}
 	}
 	amount := l.Text(i18n.OverviewFundsUnknownAmount)
+	amountStyle := ui.TextMetricMD
 	if value != nil {
 		amount = fundsAmountText(view, value)
+		amountStyle = ui.TextMoneyMD
 	}
 	date := historyDay(view, bucket.HorizonOn)
 	variant := ui.ButtonOutline
@@ -280,7 +282,7 @@ func fundsHorizonButton(gtx layout.Context, view ui.View, button *widget.Clickab
 			children := []layout.FlexChild{
 				layout.Rigid(view.Body(ui.TextLabel, label, colors.Ink)),
 				layout.Rigid(view.Body(ui.TextCaption, date, colors.SecondaryInk)),
-				layout.Rigid(view.Body(ui.TextMoneyMD, amount, colors.Ink)),
+				layout.Rigid(view.Body(amountStyle, amount, colors.Ink)),
 				layout.Rigid(view.Body(ui.TextCaption, l.Text(hint), colors.SecondaryInk)),
 			}
 			if early {

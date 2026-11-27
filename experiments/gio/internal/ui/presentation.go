@@ -27,7 +27,8 @@ type View struct {
 	Origin image.Point
 	Focus  *PageFocus
 
-	anchorScroll *widget.List
+	textSelection *TextSelection
+	anchorScroll  *widget.List
 	// naturalHeight receives the unstretched height of a stretched Grid cell.
 	naturalHeight *int
 }
@@ -88,7 +89,7 @@ func (v View) Label(gtx layout.Context, text string, size unit.Sp, weight font.W
 	label.Color = fg
 	label.Font.Weight = weight
 	label.MaxLines = 1
-	return label.Layout(gtx)
+	return v.layoutText(gtx, label)
 }
 
 // TabTrack lays count segment buttons on the muted track of a pill tab

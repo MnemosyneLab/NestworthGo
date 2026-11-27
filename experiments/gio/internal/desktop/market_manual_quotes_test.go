@@ -141,6 +141,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 	counts(1, 0)
 	h.click("FX rates", false)
 	marketFrame()
+	h.assertTitlebarAction("Add manual FX quote")
 	h.click("Add manual FX quote", false)
 	marketFrame()
 	d = p.manual.draft
@@ -252,7 +253,7 @@ func TestMarketDataManualQuoteRetryBlocksOverlapAndHonorsCommittedReceipt(t *tes
 	p.workers.Wait()
 	h.frame()
 	// A focused link can outlive an instrument. It must never retarget another one.
-	p.openManualQuote(marketManualTarget{instrumentID: domain.NewInstrumentID()}, &p.reload)
+	p.openManualQuote(marketManualTarget{instrumentID: domain.NewInstrumentID()}, &p.tabs[marketInstruments])
 	p.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "This instrument is unavailable for manual entry.")

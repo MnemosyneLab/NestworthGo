@@ -18,25 +18,26 @@ const (
 	titlebarWideDragPad      unit.Dp = 44
 	titlebarCompactDragPad   unit.Dp = 24
 	titlebarRightPadding     unit.Dp = 16
+	titlebarSidebarNavInset  unit.Dp = 12
+	titlebarNavGap           unit.Dp = 2
 )
 
 // titlebarMetrics is the public-AppKit geometry in view points (Gio dp), not
 // screen pixels. A zero value retains the ordinary platform decorations.
 type titlebarMetrics struct {
-	active                                                  bool
-	buttonRight, buttonBottom, safeTop, safeLeft, safeRight unit.Dp
+	active                                                                bool
+	buttonRight, buttonBottom, buttonCenter, safeTop, safeLeft, safeRight unit.Dp
 }
 
 // titlebarLayout is computed once for the whole shell. The collapsed rail
-// stays narrow below the toolbar; only its top background extends across
-// the native buttons and toggle when necessary.
+// stays narrow below the unified toolbar.
 type titlebarLayout struct {
-	height, top, sidebar, split, rightInset int
-	toggle                                  image.Rectangle
-	drag                                    [2]image.Rectangle
+	height, top, center, sidebar, split, rightInset int
+	toggle, sidebarNav                              image.Rectangle
+	drag                                            [2]image.Rectangle
 }
 
-func calculateTitlebar(gtx layout.Context, metrics titlebarMetrics, sidebar unit.Dp) titlebarLayout {
+func calculateTitlebar(gtx layout.Context, metrics titlebarMetrics, sidebar unit.Dp, expanded bool) titlebarLayout {
 	g := titlebarLayout{height: gtx.Dp(headerHeight), sidebar: gtx.Dp(sidebar)}
 	g.split = g.sidebar
 	if !metrics.active {
@@ -45,17 +46,33 @@ func calculateTitlebar(gtx layout.Context, metrics titlebarMetrics, sidebar unit
 	g.top = gtx.Dp(metrics.safeTop)
 	g.height = max(g.top+gtx.Dp(headerHeight), gtx.Dp(metrics.buttonBottom)+gtx.Dp(8))
 	side := gtx.Dp(30)
-	x := max(gtx.Dp(metrics.safeLeft)+gtx.Dp(12), gtx.Dp(metrics.buttonRight)+gtx.Dp(8))
+	x := max(gtx.Dp(metrics.safeLeft)+gtx.Dp(12), gtx.Dp(metrics.buttonRight)+gtx.Dp(12))
 	// Never split the actual control across independently laid out columns.
 	if x < g.sidebar && x+side+gtx.Dp(8) > g.sidebar {
 		x = g.sidebar + gtx.Dp(8)
 	}
-	y := g.top + (g.height-g.top-side)/2
+	g.center = g.top + (g.height-g.top)/2
+	if metrics.buttonCenter > 0 {
+		halfControl := (gtx.Dp(ui.ControlSmall) + 1) / 2
+		g.center = min(g.height-halfControl, max(g.top+halfControl, gtx.Dp(metrics.buttonCenter)))
+	}
+	y := g.center - side/2
 	g.toggle = image.Rect(x, y, x+side, y+side)
 	g.split = max(g.sidebar, g.toggle.Max.X+gtx.Dp(8))
 	// Only explicitly empty parts of the toolbar are native drag targets.
 	// Do not include the heading (keyboard focus), nav buttons or a popover.
-	g.drag[0] = image.Rect(g.toggle.Max.X+gtx.Dp(4), g.top, max(g.toggle.Max.X+gtx.Dp(4), g.split-1), g.height-1)
+	dragStart, dragEnd := g.toggle.Max.X+gtx.Dp(4), g.split-1
+	if expanded {
+		control := gtx.Dp(ui.ControlSmall)
+		right := g.sidebar - gtx.Dp(titlebarSidebarNavInset)
+		left := right - 2*control - gtx.Dp(titlebarNavGap)
+		if left >= g.toggle.Max.X+gtx.Dp(8) {
+			top := g.center - control/2
+			g.sidebarNav = image.Rect(left, top, right, top+control)
+			dragEnd = left - gtx.Dp(4)
+		}
+	}
+	g.drag[0] = image.Rect(dragStart, g.top, max(dragStart, dragEnd), g.height-1)
 	right := gtx.Constraints.Max.X - gtx.Dp(metrics.safeRight)
 	dragWidth := gtx.Dp(titlebarWideDragPad)
 	if right-g.split < gtx.Dp(titlebarCompactPageWidth) && g.drag[0].Dx() >= gtx.Dp(titlebarWideDragPad) {
@@ -90,12 +107,25 @@ func (s *shell) sidebarTitlebar(gtx layout.Context, view ui.View) layout.Dimensi
 	if s.chrome.toggle.Max.X <= s.chrome.sidebar {
 		s.titlebarToggle(gtx, view, image.Point{})
 	}
+	if s.collapsed() {
+		y := s.chrome.height - 1
+		paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(0, y, s.chrome.sidebar, y+1)).Op())
+	}
+	if nav := s.chrome.sidebarNav; !nav.Empty() {
+		offset := op.Offset(nav.Min).Push(gtx.Ops)
+		gtx.Constraints = layout.Exact(nav.Size())
+		view.Focus = nil
+		layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(titlebarNavGap)}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, -1) }),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.navigationButton(gtx, view, 1) }),
+		)
+		offset.Pop()
+	}
 	return layout.Dimensions{Size: image.Pt(s.chrome.sidebar, s.chrome.height)}
 }
 
-// layoutHeaderChrome draws the extended sidebar segment, if any, then
-// translates only the page toolbar. Body geometry and overlay anchors use
-// absolute window coordinates.
+// layoutHeaderChrome reserves room for the toggle beyond a narrow rail and
+// translates the page toolbar. Overlay anchors use absolute window coordinates.
 func (s *shell) layoutHeaderChrome(gtx layout.Context, view ui.View, body layout.Widget) layout.Dimensions {
 	if !s.titlebar.active {
 		return body(gtx)
@@ -103,14 +133,13 @@ func (s *shell) layoutHeaderChrome(gtx layout.Context, view ui.View, body layout
 	size := gtx.Constraints.Max
 	prefix := s.chrome.split - s.chrome.sidebar
 	if prefix > 0 {
-		paint.FillShape(gtx.Ops, view.Colors.SidebarBackground, clip.Rect(image.Rect(0, 0, prefix, size.Y)).Op())
-		paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(prefix-1, 0, prefix, size.Y)).Op())
-		paint.FillShape(gtx.Ops, view.Colors.Divider, clip.Rect(image.Rect(0, size.Y-1, prefix, size.Y)).Op())
 		s.titlebarToggle(gtx, view, image.Pt(s.chrome.sidebar, 0))
 	}
-	shift := image.Pt(prefix, s.chrome.top)
-	offset := op.Offset(shift).Push(gtx.Ops)
-	gtx.Constraints = layout.Exact(image.Pt(max(0, size.X-prefix-s.chrome.rightInset), max(0, size.Y-shift.Y)))
+	// Center the toolbar row on the AppKit controls.
+	top := max(s.chrome.top, 2*s.chrome.center-size.Y)
+	height := min(size.Y-top, 2*(s.chrome.center-top))
+	offset := op.Offset(image.Pt(prefix, top)).Push(gtx.Ops)
+	gtx.Constraints = layout.Exact(image.Pt(max(0, size.X-prefix-s.chrome.rightInset), max(0, height)))
 	body(gtx)
 	offset.Pop()
 	return layout.Dimensions{Size: size}

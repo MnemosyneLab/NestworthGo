@@ -69,6 +69,26 @@ func TestIconButtonIsSquareAndFillStretches(t *testing.T) {
 	}
 }
 
+func TestFullWidthParentsKeepActionsCompactUnlessFilled(t *testing.T) {
+	view := testView()
+	var ops op.Ops
+	var button widget.Clickable
+	gtx := testContext(&ops, nil, time.Unix(1, 0), 600)
+	spec := ButtonSpec{Title: "View details", Variant: ButtonOutline, Size: ButtonSmall}
+	natural := view.ButtonOf(&button, spec)(gtx)
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	ops.Reset()
+	compact := view.ButtonOf(&button, spec)(gtx)
+	if compact.Size != natural.Size || compact.Size.X >= gtx.Constraints.Max.X {
+		t.Fatalf("action in a full-width column = %v, want its natural size %v", compact.Size, natural.Size)
+	}
+	ops.Reset()
+	spec.Fill = true
+	if filled := view.ButtonOf(&button, spec)(gtx); filled.Size.X != gtx.Constraints.Max.X {
+		t.Fatalf("explicitly filled action = %v, want width %d", filled.Size, gtx.Constraints.Max.X)
+	}
+}
+
 func TestDisabledButtonDoesNotClick(t *testing.T) {
 	view := testView()
 	var click widget.Clickable

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -226,25 +225,18 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	if f := p.investment; f != nil {
 		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 		f.poll(run)
-		if p.canImportPosition() && f.draft == nil && f.importOpen.Clicked(gtx) {
-			f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
-			f.draft.pickAccount, f.draft.focusAccount = true, true
-			f.draft.accounts = p.current.importAccounts
-			view.RestorePageScroll(0)
-			gtx.Execute(op.InvalidateCmd{})
-		}
 		if f.draft != nil {
 			return f.layoutForm(gtx, view, run)
 		}
 	}
-	if p.reload.Clicked(gtx) {
+	if p.err != nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
 	l := view.Language
-	status, reload := i18n.NoMessage, i18n.HistoryRefresh
+	status := i18n.NoMessage
 	switch {
 	case p.err != nil:
-		status, reload = i18n.PortfolioReadFailed, i18n.HistoryRetry
+		status = i18n.PortfolioReadFailed
 	case p.request != nil && p.current == nil:
 		status = i18n.PortfolioLoading
 	case p.request != nil:
@@ -255,6 +247,9 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					// Keep the toolbar at a steady height when a background read
+					// starts between pressing and releasing a control below it.
+					gtx.Constraints.Min.Y = gtx.Sp(ui.TextBody.Size) + gtx.Dp(ui.Space12)
 					if status == i18n.NoMessage {
 						return layout.Dimensions{Size: gtx.Constraints.Min}
 					}
@@ -265,22 +260,13 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 					return view.Message(l.Text(status), color)(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !p.canImportPosition() {
+					if p.err == nil {
 						return layout.Dimensions{}
 					}
-					f := p.investment
-					view.Focus.Watch(gtx, &f.importOpen)
-					if f.restore == &f.importOpen && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
-						f.restore = nil
-					}
-					return view.PrimaryButton(&f.importOpen, l.Text(i18n.PositionImportPortfolioAction))(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
 						gtx = gtx.Disabled()
 					}
-					return view.Button(&p.reload, l.Text(reload))(gtx)
+					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}),
 			)
 		}),
@@ -354,10 +340,14 @@ func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Wi
 	if quality.Availability == "" && summary.ValuedSubtotal != nil {
 		amount = valuationMoney(view, *summary.ValuedSubtotal, false)
 	}
+	amountStyle := ui.TextMoneyLG
+	if amount == l.Text(i18n.OverviewNoValue) {
+		amountStyle = ui.TextMetricLG
+	}
 	value := func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space2}).Layout(gtx,
 			ui.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
-			ui.Rigid(view.Body(ui.TextMoneyLG, amount, view.Colors.Ink)),
+			ui.Rigid(view.Body(amountStyle, amount, view.Colors.Ink)),
 		)
 	}
 	evidence := func(gtx layout.Context) layout.Dimensions {

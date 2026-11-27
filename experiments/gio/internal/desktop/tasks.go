@@ -292,7 +292,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 			}
 		}
 	}
-	if p.request == nil && p.reload.Clicked(gtx) {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.invalidateTaskBadges()
 		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
 			p.enter(tasksVisit{tab: p.tab}, 0)
@@ -302,10 +302,6 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	l := view.Language
-	reload := i18n.HistoryRefresh
-	if p.err != nil {
-		reload = i18n.HistoryRetry
-	}
 	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
@@ -317,7 +313,12 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 						return p.taskTabButton(gtx, view, tasksTab(i))
 					})
 				}),
-				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.err == nil {
+						return layout.Dimensions{}
+					}
+					return taskPagerButton(view, &p.reload, i18n.HistoryRetry, p.request == nil)(gtx)
+				}))
 		}),
 	}
 	if p.tab == tasksInvestment && p.reviewAck.status != i18n.NoMessage {

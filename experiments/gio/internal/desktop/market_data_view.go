@@ -33,7 +33,6 @@ var marketInstrumentTypes = map[domain.InstrumentType]i18n.MessageID{
 }
 
 func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
-	p.update()
 	if p.sync != nil && p.sync.update() {
 		p.read()
 	}
@@ -45,17 +44,13 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if p.reload.Clicked(gtx) && p.request == nil {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if p.openHealth != nil && p.health.Clicked(gtx) {
 		p.openHealth(&p.health)
 		gtx.Execute(op.InvalidateCmd{})
-	}
-	action := i18n.MarketReload
-	if p.err != nil {
-		action = i18n.HistoryRetry
 	}
 	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -74,22 +69,15 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		}),
 	}
 	if p.latest.service != nil || p.sync != nil {
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.marketOperations(gtx, view, action) }))
-	} else {
-		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, action, nil, p.request == nil)))
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.marketOperations(gtx, view) }))
+	} else if p.err != nil {
+		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, p.request == nil)))
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return view.TabTrack(gtx, len(marketTabs), func(gtx layout.Context, index int) layout.Dimensions {
 			return view.TabSegment(&p.tabs[index], l.Text(marketTabs[index]), p.tab == marketTab(index))(gtx)
 		})
 	}))
-	if p.tab == marketFX && p.manual.service != nil {
-		if p.manual.addFX.Clicked(gtx) {
-			p.openManualQuote(marketManualTarget{}, &p.manual.addFX)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		rows = append([]ui.ColumnChild{ui.Rigid(returnMonthButton(view, &p.manual.addFX, i18n.MarketManualFX, nil, true))}, rows...)
-	}
 	if receipt := p.manual.latest; receipt.saved() && (receipt.fx.ID != "") == (p.tab == marketFX) {
 		rows = append(rows, ui.Rigid(manualQuoteNotice(view, receipt)))
 	}
@@ -122,32 +110,11 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 }
 
 func (p *marketDataPage) marketInstrumentControls(view ui.View) layout.Widget {
-	search := func(gtx layout.Context) layout.Dimensions {
+	return func(gtx layout.Context) layout.Dimensions {
 		return p.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
 			p.list[marketInstruments].Position = layout.Position{}
 			gtx.Execute(op.InvalidateCmd{})
 		})
-	}
-	if p.openCatalogEditor == nil || p.focus.active() {
-		return search
-	}
-	return func(gtx layout.Context) layout.Dimensions {
-		ready := p.request == nil && p.err == nil && p.current[marketInstruments] != nil
-		if ready && p.addInstrument.Clicked(gtx) {
-			p.catalogNotice = i18n.NoMessage
-			p.openCatalogEditor(domain.Instrument{}, &p.addInstrument)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		return (ui.Grid{MinColumn: 214, Gap: ui.Space8, MaxColumns: 2}).Layout(gtx, view, 2,
-			func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
-				if index == 0 {
-					return search(gtx)
-				}
-				if !ready {
-					gtx = gtx.Disabled()
-				}
-				return layout.E.Layout(gtx, view.PrimaryButton(&p.addInstrument, view.Language.Text(i18n.PortfolioCatalogAdd)))
-			})
 	}
 }
 

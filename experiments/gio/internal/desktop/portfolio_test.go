@@ -370,7 +370,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	click("Retry")
 	label("Native market value · €90.37")
 	probe.holdPrice.Store(true)
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
 	select {
 	case <-probe.started:
 	case <-time.After(3 * time.Second):
@@ -439,7 +439,7 @@ func TestPortfolioShellShowsEmptyHoldingsWithFundedAccount(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
 	p.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "No current holdings. Enable “Show zero holdings” to see closed positions.")

@@ -164,7 +164,7 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 			fields = append(fields, ui.Rigid(view.Message(l.Text(performanceUnavailable(data.UnavailableReason)), view.Colors.SecondaryInk)))
 		default:
 			value, ink := instrumentPerformancePercent(view, data.Item.PeriodPercent, true)
-			fields = append(fields, ui.Rigid(view.Body(ui.TextMoneyLG, value, ink)))
+			fields = append(fields, ui.Rigid(view.Body(ui.TextMetricLG, value, ink)))
 		}
 		if data != nil && period == perf.period && len(data.Points) == 0 {
 			fields = append(fields,
@@ -279,7 +279,7 @@ func instrumentPerformanceReturns(view ui.View, items []domain.QuotePerformance)
 					value, ink := instrumentPerformancePercent(view, item.PeriodPercent, true)
 					fields := []ui.ColumnChild{
 						ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.PortfolioPerformanceDays), item.WindowDays), view.Colors.SecondaryInk)),
-						ui.Rigid(view.Body(ui.TextMoneyMD, value, ink)),
+						ui.Rigid(view.Body(ui.TextMetricMD, value, ink)),
 						ui.Rigid(view.Body(ui.TextCaption, performanceDateRange(view, item.BaselineOn, item.LatestOn), view.Colors.SecondaryInk)),
 					}
 					if item.AnnualizedPercent != nil {
