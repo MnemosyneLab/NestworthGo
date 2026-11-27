@@ -81,7 +81,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				if p.target.institution != "" {
 					right = append(right, view.ButtonOf(&p.clear, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountClearInstitution)}))
 				} else if p.target.accountList.active() {
-					right = append(right, returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false))
+					right = append(right, view.ButtonOf(&p.clear, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountClearOverviewFilter)}))
 				}
 			} else {
 				left = append(left, view.Message(l.Text(i18n.AccountListDescription), view.Colors.SecondaryInk))
@@ -91,7 +91,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				if p.target.institution != "" {
 					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearInstitution)))
 				} else if p.target.accountList.active() {
-					right = append(right, returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false))
+					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearOverviewFilter)))
 				}
 				if !p.invalid && (p.current == nil || !p.current.unavailable) {
 					right = append(right, func(gtx layout.Context) layout.Dimensions {
