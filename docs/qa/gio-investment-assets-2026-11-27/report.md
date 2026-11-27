@@ -10,6 +10,8 @@ The implementation branch began at PR #299 head `188b4413dabf251df61050d6e670a10
 
 Implementation commit: `9ba8c88540eba7d52d7bf5745c812e1934da141e` (author and committer Walter Wang, `wangweichen1994@gmail.com`).
 
+Stacked PR: [#300](https://github.com/MnemosyneLab/NestworthGo/pull/300), base `feat/gio-account-parity` at `75b8069dac011a5d30ac26720702048d58baf3d8`. The requested reviewer Saul is the `wangweichen1994-saul` bot in the existing `#saul-workgroup`; that name is not a GitHub account, so no GitHub reviewer request was sent. The handoff is through that established Slack workgroup.
+
 ## Checklist results
 
 “PDF baseline” means the status was recorded in the supplied comparison, not rechecked on this branch. “Implemented, UI unverified” means code and a regression assertion were added, but the desktop package could not be built here.
