@@ -182,6 +182,9 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 			return value == "Nestworth" || value == "Nestworth Gio"
 		case named(callee.X, "format") && callee.Sel.Name == "Money":
 			return len(n.Args) > 1 && n.Args[1] == lit && currencyCode.MatchString(value)
+		case named(callee.X, "filepath") && callee.Sel.Name == "Glob":
+			// The Darwin text shaper looks for an installed system font asset.
+			return n.Args[0] == lit && value == "/System/Library/AssetsV2/com_apple_MobileAsset_Font*/*.asset/AssetData/PingFang.ttc"
 		case named(callee.X, "fmt") && callee.Sel.Name == "Sprintf" && n.Args[0] == lit:
 			withoutNumbers := numericFormat.ReplaceAllString(value, "0")
 			if strings.IndexFunc(withoutNumbers, unicode.IsLetter) < 0 {

@@ -174,9 +174,11 @@ with shadows. Motion runs only while a tween is moving, so an idle window
 requests no frames. `ui.SetReducedMotion` turns every tween into a jump.
 
 Fonts are system fonts only (Avenir Next and Helvetica Neue, and Iowan Old
-Style for display titles). The macOS font stack explicitly falls back to
-Hiragino Sans GB for Han and Apple Color Emoji for emoji. Plus Jakarta Sans is
-not bundled. Icons are Lucide. After changing the icon list in
+Style for display titles). On macOS, Gio prefers PingFang SC for Simplified
+Chinese, reading the installed system font asset when available. Hiragino Sans
+GB covers gaps in Han text. If the asset is unavailable, Gio tries Heiti SC
+after PingFang SC. Apple Color Emoji covers emoji. Plus Jakarta Sans is not
+bundled. Icons are Lucide. After changing the icon list in
 `tools/lucidegen`, regenerate the tables from `experiments/gio`:
 
 ```sh
