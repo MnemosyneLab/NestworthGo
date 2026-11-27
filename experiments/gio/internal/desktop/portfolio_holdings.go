@@ -37,7 +37,7 @@ type portfolioHoldingActions struct {
 }
 
 const holdingTableWidth = 736
-const holdingToolbarWideWidth = 780
+const holdingToolbarMinimumSearchWidth = 120
 
 var holdingTableInset = layout.Inset{Left: ui.Space12, Right: ui.Space12}
 
@@ -125,6 +125,7 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 	})
 	visible := p.visibleHoldingGroups(l)
 	var collapse layout.Widget
+	collapseLabel := i18n.NoMessage
 	if len(visible) > 1 {
 		hasOpen := slices.ContainsFunc(visible, func(group domain.InstrumentHoldingGroupView) bool {
 			return !h.visit.collapsed[group.Key]
@@ -144,10 +145,17 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 		if hasOpen {
 			label = i18n.PortfolioCollapseAll
 		}
+		collapseLabel = label
 		collapse = view.ButtonOf(&h.toggleGroups, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(label)})
 	}
+	searchAtWidth := func(width int) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+			return p.search.LayoutCompact(gtx, view, i18n.PortfolioSearch, i18n.PortfolioSearchHint, func(string) { reset() })
+		}
+	}
 	search := func(gtx layout.Context) layout.Dimensions {
-		return p.search.LayoutCompact(ui.LimitWidth(gtx, 220), view, i18n.PortfolioSearch, i18n.PortfolioSearchHint, func(string) { reset() })
+		return searchAtWidth(min(gtx.Dp(220), gtx.Constraints.Max.X))(gtx)
 	}
 	trailing := func(gtx layout.Context) layout.Dimensions {
 		pickers := []layout.Widget{view.Checkbox(&h.showZero, l.Text(i18n.PortfolioShowZero))}
@@ -158,11 +166,12 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 			return pickers[i](gtx)
 		})
 	}
-	if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingToolbarWideWidth) {
+	if width, fits := holdingsToolbarSearchWidth(gtx, view, len(visible), collapseLabel); fits {
 		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 			layout.Rigid(tabs),
-			layout.Rigid(search),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(searchAtWidth(width)),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return layout.E.Layout(gtx, trailing)
 			}),
 		)
@@ -177,6 +186,26 @@ func (p *portfolioPage) holdingsControls(gtx layout.Context, view ui.View) layou
 			return trailing(gtx)
 		}
 	})
+}
+
+func holdingsToolbarSearchWidth(gtx layout.Context, view ui.View, groupCount int, collapseLabel i18n.MessageID) (int, bool) {
+	l := view.Language
+	buttonText := ui.TextCaption
+	// Two segments include one gap and the track's 2dp inset on each side.
+	tabsWidth := 6 * gtx.Dp(ui.Space2)
+	for _, label := range []i18n.MessageID{i18n.PortfolioByInstrument, i18n.PortfolioByAccount} {
+		tabsWidth += marketTextWidth(gtx, view, ui.TextLabel, l.Text(label)) + 2*gtx.Dp(ui.Space12)
+	}
+	checkboxWidth := gtx.Dp(26)*4/3 + gtx.Dp(4) + marketTextWidth(gtx, view, ui.TextBody, l.Text(i18n.PortfolioShowZero))
+	trailingWidth := checkboxWidth
+	if groupCount > 1 && collapseLabel != i18n.NoMessage {
+		trailingWidth += gtx.Dp(ui.Space8) + marketTextWidth(gtx, view, buttonText, l.Text(collapseLabel)) + 2*gtx.Dp(ui.Space12)
+	}
+	searchWidth := gtx.Constraints.Max.X - tabsWidth - trailingWidth - 2*gtx.Dp(ui.Space12)
+	if searchWidth < gtx.Dp(holdingToolbarMinimumSearchWidth) {
+		return 0, false
+	}
+	return min(searchWidth, gtx.Dp(220)), true
 }
 
 func holdingInstrumentName(row domain.InstrumentHoldingsView) string {

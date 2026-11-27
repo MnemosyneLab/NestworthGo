@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"gioui.org/f32"
+	"gioui.org/font"
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/system"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -82,6 +84,9 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	h := newShellHarnessWithPages(t, ledgerPages{portfolio: portfolio, accounts: accounts, history: timeline, returns: returns, assets: assets})
 	h.size = image.Pt(665, 510)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.shell.preferences.language = i18n.English
+	h.shell.theme.Face = font.Typeface("DejaVu Sans")
+	h.locale = system.Locale{Language: "en-US"}
 	settle := func() {
 		for range 3 {
 			h.frame()
@@ -156,7 +161,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	h.size = image.Pt(900, 600)
 	settle()
 	summaryAtNineHundred := assertPageLabel(t, &h.router, "Current investment value · Known subtotal")
-	toolbarTab := semanticBounds(t, &h.router, "My holdings", false)
+	toolbarTab := semanticBounds(t, &h.router, "By instrument", false)
 	groupAtNineHundred := semanticBounds(t, &h.router, "Stocks · 1 holding", false)
 	searchAtNineHundred := semanticBounds(t, &h.router, "Search holdings", true)
 	if summaryAtNineHundred.Min.Y > 130 {
@@ -164,6 +169,9 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	}
 	if searchAtNineHundred.Empty() || findPageLabel(&h.router, "Search holdings") != nil {
 		t.Fatalf("the compact holdings search should retain its accessible name without a visible label row: %v", searchAtNineHundred)
+	}
+	if searchAtNineHundred.Min.Y > toolbarTab.Max.Y || searchAtNineHundred.Max.Y < toolbarTab.Min.Y {
+		t.Fatalf("the search field should share the tabs' toolbar row at 900px: tabs %v, search %v", toolbarTab, searchAtNineHundred)
 	}
 	if groupAtNineHundred.Empty() || groupAtNineHundred.Min.Y > 285 || toolbarTab.Min.Y >= groupAtNineHundred.Min.Y {
 		t.Fatalf("the grouped holdings table should follow the single responsive toolbar near the first viewport: tab %v, group %v",

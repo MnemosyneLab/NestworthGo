@@ -13,6 +13,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/io/semantic"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -31,7 +32,8 @@ type previewHarness struct {
 	size    image.Point
 	drawn   image.Point
 	// scale is the pixel density used by frame; zero means one pixel per dp.
-	scale float32
+	scale  float32
+	locale system.Locale
 }
 
 func newShellHarness(t *testing.T) *previewHarness {
@@ -65,7 +67,7 @@ func (h *previewHarness) frame() {
 	h.now = h.now.Add(time.Second / 60)
 	h.shell.layout(layout.Context{
 		Ops: &h.ops, Source: h.router.Source(), Now: h.now,
-		Metric: h.metric(), Constraints: layout.Exact(h.size),
+		Metric: h.metric(), Locale: h.locale, Constraints: layout.Exact(h.size),
 	})
 	h.router.Frame(&h.ops)
 }

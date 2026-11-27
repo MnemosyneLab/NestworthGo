@@ -314,6 +314,7 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			gtx = gtx.Disabled()
 		}
 		var buttons []layout.Widget
+		var actionLabels []string
 		if p.openInstrument != nil {
 			if actions.open.Clicked(gtx) {
 				p.openInstrument(item.ID, title, &actions.open)
@@ -323,6 +324,7 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			buttons = append(buttons, view.ButtonOf(&actions.open, ui.ButtonSpec{
 				Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: l.Text(i18n.PortfolioCatalogDetails), Name: label,
 			}))
+			actionLabels = append(actionLabels, l.Text(i18n.PortfolioCatalogDetails))
 		}
 		if c.ledger != nil && !managed {
 			if c.focus == &actions.manage && gtx.Enabled() {
@@ -336,9 +338,11 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			buttons = append(buttons, view.ButtonOf(&actions.manage, ui.ButtonSpec{
 				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(i18n.InstitutionsEdit), Name: label,
 			}))
+			actionLabels = append(actionLabels, l.Text(i18n.InstitutionsEdit))
 		}
 		return marketQuoteRow(view, first, last, marketRowSpec{
 			icon: icon, name: title, caption: caption, badges: badges, value: value, evidence: evidence,
+			catalogActions: true, actionLabels: actionLabels,
 		}, buttons)(gtx)
 	}
 }
