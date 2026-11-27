@@ -148,6 +148,8 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 		}
 	}()
 
+	chrome := newNativeTitlebar(window)
+	defer chrome.Close()
 	ax := accessibility.New(window)
 	defer ax.Close()
 	var ops op.Ops
@@ -157,15 +159,18 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 			return event.Err
 		case app.ViewEvent:
 			ax.View(event)
+			chrome.View(event)
 		case app.ConfigEvent:
+			chrome.Config()
 			if !event.Config.Focused && s.overlay.Trigger != nil {
 				s.overlay.Close()
 				window.Invalidate()
 			}
 		case app.FrameEvent:
+			s.titlebar = chrome.Metrics(event.Size)
 			size := image.Pt(int(math.Round(float64(event.Metric.PxToDp(event.Size.X)))),
 				int(math.Round(float64(event.Metric.PxToDp(event.Size.Y)))))
-			if size != lastSize && preferences.ValidWindowSize(size) {
+			if chrome.FrameSizeValid() && size != lastSize && preferences.ValidWindowSize(size) {
 				lastSize = size
 				// Keep the newest resize queued without blocking the render loop.
 				select {
@@ -176,8 +181,11 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 			}
 			gtx := ax.Begin(app.NewContext(&ops, event))
 			s.layout(gtx)
+			// Queue the native hit regions before releasing this frame to AppKit.
+			chrome.Publish(s.onboarding == nil, s.preferences.dark, event.Size, event.Metric, s.titlebarDrags())
 			event.Frame(gtx.Ops)
 			ax.Publish(gtx)
+			chrome.AfterFrame()
 		}
 	}
 }

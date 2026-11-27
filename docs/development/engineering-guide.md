@@ -212,7 +212,9 @@ The independent `gio-unit-tests` job in `.github/workflows/gio-unit-tests.yml`
 runs `go test -mod=readonly -count=1 ./...` from `experiments/gio` on
 GitHub-hosted `ubuntu-latest` for every origin branch push and manual dispatch.
 It includes the Gio translation gate; opt-in visual snapshots and fixture
-exports are not CI tests.
+exports are not CI tests. The same workflow builds and verifies the Gio
+preview bundle on the trusted native Mac runner and runs synthetic titlebar
+layout checks (not native GUI acceptance).
 Race detection and extended functional tooling are not part of regular CI.
 `.github/workflows/perf.yml` runs daily at 21:00 UTC and on
 manual dispatch. A scheduled run skips the perf and race jobs when the

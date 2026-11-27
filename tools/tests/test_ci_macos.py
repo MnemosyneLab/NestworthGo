@@ -200,9 +200,28 @@ class MacCI(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/gio-unit-tests.yml').read_text()
         self.assertIn("on:\n  push:\n    branches: ['**']\n  workflow_dispatch:\n", workflow)
         for forbidden in ('pull_request:', 'pull_request_target:', 'paths:',
-                          'self-hosted', 'container:', 'continue-on-error:', ' -short', ' -run '):
+                          'container:', 'continue-on-error:', ' -short'):
             self.assertNotIn(forbidden, workflow)
-        self.assertIn('runs-on: ubuntu-latest', workflow)
+        # The Linux job remains the full, unfiltered hosted suite. A distinct
+        # trusted-origin Mac job only builds Gio and exercises synthetic
+        # titlebar layout tests, never launching a desktop profile.
+        hosted, native = workflow.split('  gio-darwin-build:\n', 1)
+        self.assertNotIn('self-hosted', hosted)
+        self.assertNotIn(' -run ', hosted)
+        self.assertEqual(hosted.count('runs-on: ubuntu-latest'), 1)
+        self.assertEqual(hosted.count('go test -mod=readonly -count=1 ./...'), 1)
+        guard = ("if: github.repository == 'MnemosyneLab/NestworthGo' && "
+                 "(github.event_name == 'push' || github.event_name == 'workflow_dispatch')")
+        self.assertIn(guard, hosted)
+        self.assertIn(guard, native)
+        self.assertIn('runs-on: [self-hosted, macOS, ARM64]', native)
+        self.assertNotIn('sudo ', native)
+        self.assertIn('persist-credentials: false', native)
+        self.assertIn('sh experiments/gio/preview-macos.sh --build-only', native)
+        self.assertIn("go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)'", native)
+        self.assertIn('NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR', native)
+        self.assertIn('GOMODCACHE', native)
+        self.assertIn('GOCACHE', native)
         self.assertIn('permissions:\n  contents: read\n', workflow)
         self.assertIn('working-directory: experiments/gio', workflow)
         self.assertIn('go-version-file: experiments/gio/go.mod', workflow)
