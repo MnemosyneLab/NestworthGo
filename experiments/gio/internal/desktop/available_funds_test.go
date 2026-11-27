@@ -93,7 +93,7 @@ func seedAvailableFunds(ctx context.Context, app *application.Service, at time.T
 func openFundsFixture(t *testing.T, populated bool) (*application.Service, *pilot.Session, pilot.Paths, fundsFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	app, storage := reopenOnboardingProfile(t, paths)
+	app, storage := reopenBaselineProfile(t, paths)
 	ids, err := seedAvailableFunds(t.Context(), app, accountTestClock, populated)
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +243,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return accountTestClock })
 	report, err := readAvailableFunds(ctx, reopened)
 	if err != nil {

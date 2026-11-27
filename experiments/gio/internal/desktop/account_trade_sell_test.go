@@ -56,7 +56,7 @@ func seedSales(ctx context.Context, service *application.Service, now time.Time)
 func openSaleFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, saleFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	ids, err := seedSales(t.Context(), app, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -271,7 +271,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	assertState(reopened, ids, soldAll, "3", "60", "2", "0", "0", "-8", "0", "192", "192", 2)
 	for _, i := range []int{1, 2} {

@@ -200,7 +200,7 @@ func TestCreditCardStatementMatchesWailsAndKeepsEvidence(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopenedService := reconciliation.NewService(reopened)
 	record, err := reopenedService.LastSuccess(ctx, card.String())
 	if err != nil || record == nil || record.ID != sessionID {

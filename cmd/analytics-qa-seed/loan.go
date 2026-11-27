@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 const (
@@ -95,7 +96,7 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
 	repo := sqlite.NewRepository(database)
-	svc := application.NewService(repo)
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	ctx := context.Background()
 
 	commit, dirty := gitIdentity()
@@ -156,7 +157,7 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	report.IDs["acct_loan"] = string(loan.Account.ID)
 	add(report, "accounts", "PASS", fmt.Sprintf("cash=%s loan=%s initial_cash=%s %s loan_initial=0", cash.Account.ID, loan.Account.ID, loanCashInitial, cfg.Currency))
 
-	origin := must(svc.StartHistory(ctx, cfg.Timezone))
+	origin := must(svc.CaptureSyntheticOrigin(ctx, cfg.Timezone))
 	compCount := countQuery(database.SQL, `SELECT COUNT(*) FROM history_origin_components`)
 	report.IDs["history_origin_id"] = string(origin.ID)
 	var storedTZ string

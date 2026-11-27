@@ -13,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -57,7 +58,7 @@ func TestInspectBackupRejectsInvalidArchive(t *testing.T) {
 }
 
 func TestConfirmRestoreRequiresTypedConfirmation(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	recovery := application.NewRecovery(filepath.Join(t.TempDir(), "nestworth.db"), backup.NewRuntime(), app)
 	t.Cleanup(recovery.Shutdown)
 	service := NewService(recovery, native.NoopDialogs{}, nil, nil)
@@ -167,7 +168,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			app := application.NewService(sqlite.NewRepository(db))
+			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 			appports.Wire(app)
 			if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Existing family", BaseCurrency: "SGD", MemberNames: []string{"Alice"}}); err != nil {
 				t.Fatal(err)
@@ -203,7 +204,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { empty.Close() })
-				fresh = application.NewService(sqlite.NewRepository(empty))
+				fresh = application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(empty)})
 				appports.Wire(fresh)
 				fresh.SetLiveDatabasePath(live)
 			}

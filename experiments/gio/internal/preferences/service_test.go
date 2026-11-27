@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestPreferencesPreserveUneditedValuesOnSaveAndCredentialsOnReset(t *testing.T) {
@@ -21,14 +22,14 @@ func TestPreferencesPreserveUneditedValuesOnSaveAndCredentialsOnReset(t *testing
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(sqlite.NewRepository(db))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	ctx := t.Context()
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Preferences QA", BaseCurrency: "USD", MemberNames: []string{"Member"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "Asia/Tokyo"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Tokyo"); err != nil {
 		t.Fatal(err)
 	}
 	other := settings.Default()
@@ -95,7 +96,7 @@ func TestPreferencesPreserveUneditedValuesOnSaveAndCredentialsOnReset(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err = Open(path, db, application.NewService(sqlite.NewRepository(db)))
+	service, err = Open(path, db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +124,7 @@ func TestPreferencesBeforeOnboarding(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service, err := Open(filepath.Join(dir, "settings.json"), db, application.NewService(sqlite.NewRepository(db)))
+	service, err := Open(filepath.Join(dir, "settings.json"), db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +143,7 @@ func TestMarketCredentialAndDiagnosticLoggingUseProfileStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	service, err := Open(path, db, app)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +205,7 @@ func TestFailedPublicationRestoresDurableTimezone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service, err := Open(path, db, application.NewService(sqlite.NewRepository(db)))
+	service, err := Open(path, db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -65,7 +65,7 @@ func seedStage6ProviderSettings(t *testing.T, start time.Time) ([]byte, domain.I
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := seed.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := seed.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {

@@ -13,7 +13,7 @@ import (
 )
 
 func TestHoldingsReadCancellationAndLiveErrors(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	s := analytics.NewService(app)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

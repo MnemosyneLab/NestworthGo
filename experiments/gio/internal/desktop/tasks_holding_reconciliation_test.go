@@ -207,7 +207,7 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	saved, err := reconciliation.NewService(reopened).Get(ctx, id)
 	if err != nil {
 		t.Fatal(err)
@@ -379,7 +379,7 @@ func TestTasksHoldingReconciliationQuantityTargetsMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	persisted, err := reconciliation.NewService(reopened).Get(ctx, session.ID)
 	if err != nil {
 		t.Fatal(err)

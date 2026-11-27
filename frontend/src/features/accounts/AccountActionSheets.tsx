@@ -1,7 +1,3 @@
-import { signedAccountAmount } from "@/lib/liabilityDisplay";
-import { ordinaryInstrument } from "@/lib/instrumentEligibility";
-import { formatQuotePrice } from "@/lib/money";
-import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { LoadingState, ErrorState } from "@/components/layout/PageState";
@@ -10,26 +6,19 @@ import { hasUnresolvedSheetConfirmation, useSheetConfirmation } from "@/componen
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { usePreviewCashBalance, useConfirmCashBalance, useAppendAccountValue } from "@/queries/accounts";
-import { useCreateHolding, useCreateInstrument, useCurrentInstrumentQuote, useInstruments } from "@/queries/investments";
-import { useRefreshInstrument } from "@/queries/marketdata";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { usePreviewCashBalance, useConfirmCashBalance } from "@/queries/accounts";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
-import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { RecordChangeForm, type RecordChangeLock } from "@/features/history/RecordChangeForm";
 import { PositionImportForm } from "@/features/investments/PositionImportForm";
-import { StartHistoryForm } from "@/features/history/StartHistoryForm";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { formatExactTimestamp } from "@/lib/time";
 import { displayError } from "@/lib/display";
-import { instrumentSelectionLabels } from "@/lib/instrumentDisplay";
 import { toast } from "sonner";
-import { QuoteHint } from "@/features/history/QuoteHint";
-import { compareCanonical, formatAuditMoney, formatAmount, sameCanonicalDecimal } from "@/lib/money";
+import { compareCanonical, formatAuditMoney, formatAmount } from "@/lib/money";
 
 export type AccountAction =
   | "record"
@@ -46,18 +35,11 @@ export type AccountAction =
   | "settings"
   | null;
 
-const HISTORY_ACTIONS: AccountAction[] = ["record", "deposit", "withdraw", "fx", "transfer", "buy", "sell", "dividend"];
-
-export function actionNeedsHistory(action: AccountAction): boolean {
-  return action !== null && HISTORY_ACTIONS.includes(action);
-}
-
 export function AccountActionSheet({
   action,
   holdingId,
   record,
   valuation,
-  historyStarted,
   onClose,
   onRecorded,
   finalFocus,
@@ -66,30 +48,22 @@ export function AccountActionSheet({
   holdingId?: string;
   record: AccountRecordDTO;
   valuation?: import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models").AccountValuationDTO;
-  historyStarted: boolean;
   onClose: () => void;
   onRecorded: () => void;
   finalFocus?: RefObject<HTMLElement> | (() => HTMLElement | null | undefined);
 }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
-  const [startedInSheet, setStartedInSheet] = useState(false);
-  const [startedOrigin, setStartedOrigin] = useState<HistoryOriginDTO>();
-  const needsHistory = actionNeedsHistory(action);
   const account = record.account;
   let recordKind = ChangeCommandKind.ChangeMoneyAdded;
   if (account.trackingMode === "manual_value") recordKind = ChangeCommandKind.ChangeValueUpdate;
   else if (account.balanceSheetRole === "liability" && account.accountType !== "credit_card") recordKind = ChangeCommandKind.ChangeDebtDraw;
   else if (account.trackingMode === "holdings" && account.accountType !== "cash_on_hand") recordKind = ChangeCommandKind.ChangeTrade;
-  const historyReady = historyStarted || Boolean(origin.data) || startedInSheet;
-  const waitingForHistory = needsHistory && !historyReady && !origin.isLoading && !origin.isError && !hasUnresolvedSheetConfirmation();
   const title =
     action === "record"
       ? t("history.recordTitle")
       : action === "cash"
-      ? historyStarted
-        ? t("accounts.reconcileBalance")
-        : t("accounts.addCashBalance")
+      ? t("accounts.reconcileBalance")
       : action === "deposit" || action === "withdraw"
         ? t("accounts.depositOrWithdraw")
         : action === "fx"
@@ -112,25 +86,15 @@ export function AccountActionSheet({
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent size="lg" finalFocus={finalFocus}>
         <SheetHeader>
-          <SheetTitle>{waitingForHistory ? t("accounts.historyRequiredTitle") : title}</SheetTitle>
-          {waitingForHistory && <SheetDescription>{t("accounts.historyRequiredDescription")}</SheetDescription>}
+          <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
         <div>
           {record.account.archivedAt && !hasUnresolvedSheetConfirmation() ? (
             <p className="text-sm text-muted-foreground">{t("accounts.archivedReadOnly")}</p>
-          ) : needsHistory && !historyReady && origin.isLoading ? (
+          ) : !origin.data && origin.isLoading && !hasUnresolvedSheetConfirmation() ? (
             <LoadingState label={t("common.loading")} />
-          ) : needsHistory && !historyReady && origin.isError ? (
+          ) : !origin.data && !hasUnresolvedSheetConfirmation() ? (
             <ErrorState title={t("accounts.loadError")} description={displayError(origin.error, t("accounts.loadError"))} onRetry={() => origin.refetch()} retryLabel={t("common.retryAction")} />
-          ) : waitingForHistory ? (
-            <StartHistoryForm
-              compact
-              onCancel={onClose}
-              onStarted={(nextOrigin) => {
-                setStartedOrigin(nextOrigin);
-                setStartedInSheet(true);
-              }}
-            />
           ) : action === "record" ? (
             <RecordChangeForm
               initial={{
@@ -142,19 +106,16 @@ export function AccountActionSheet({
               }}
               lock={{ accountId: record.account.id }}
               prefill={{ account: record.account }}
-              originOverride={startedOrigin}
               onRecorded={onRecorded}
             />
           ) : action === "cash" ? (
-            <CashBalanceForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
+            <CashBalanceForm record={record} valuation={valuation} onDone={onRecorded} />
           ) : action === "position" ? (
-            historyReady
-              ? <PositionImportForm account={record.account} originOverride={startedOrigin} onRecorded={onRecorded} />
-              : <ExistingPositionForm record={record} onDone={onRecorded} />
+            <PositionImportForm account={record.account} onRecorded={onRecorded} />
           ) : action === "simple" ? (
-            <SimpleValueForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
+            <SimpleValueForm record={record} onDone={onRecorded} />
           ) : (
-            <LockedChangeForm action={action} holdingId={holdingId} record={record} onDone={onRecorded} originOverride={startedOrigin} />
+            <LockedChangeForm action={action} holdingId={holdingId} record={record} onDone={onRecorded} />
           )}
         </div>
       </SheetContent>
@@ -170,12 +131,10 @@ function reviewedCashAmount(amount: string, currency: string, signed = false): s
 function CashBalanceForm({
   record,
   valuation,
-  historyStarted,
   onDone,
 }: {
   record: AccountRecordDTO;
   valuation?: import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models").AccountValuationDTO;
-  historyStarted: boolean;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
@@ -234,8 +193,8 @@ function CashBalanceForm({
   };
 
   return (
-    <div className="flex flex-col gap-4" role="form" aria-label={t("accounts.addCashBalance")}>
-      <p className="text-sm text-muted-foreground">{historyStarted ? t("accounts.cashReconcileHint") : t("accounts.openingCashHint")}</p>
+    <div className="flex flex-col gap-4" role="form" aria-label={t("accounts.reconcileBalance")}>
+      <p className="text-sm text-muted-foreground">{t("accounts.cashReconcileHint")}</p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="cash-currency">{t("accounts.cashCurrency")}</Label>
         <NativeSelect id="cash-currency" value={currency} disabled={confirm.isPending || uncertain} onChange={(event) => { setCurrency(event.target.value); clearPreview(); }}>
@@ -253,7 +212,7 @@ function CashBalanceForm({
         <Label htmlFor="cash-amount">{t("accounts.resultingBalance")}</Label>
         <Input id="cash-amount" inputMode="decimal" value={amount} disabled={confirm.isPending || uncertain} onChange={(event) => { setAmount(event.target.value); clearPreview(); }} autoFocus />
       </div>
-      {historyStarted && <div className="flex flex-col gap-1.5"><Label htmlFor="cash-reason">{t("accounts.adjustmentReason")}</Label><Input id="cash-reason" value={reason} disabled={confirm.isPending || uncertain} onChange={(event) => { setReason(event.target.value); clearPreview(); }} /></div>}
+      {<div className="flex flex-col gap-1.5"><Label htmlFor="cash-reason">{t("accounts.adjustmentReason")}</Label><Input id="cash-reason" value={reason} disabled={confirm.isPending || uncertain} onChange={(event) => { setReason(event.target.value); clearPreview(); }} /></div>}
       {reviewed && <div role="status" className="rounded-xl border border-border bg-muted p-3 text-sm">
         <p>{t("history.previewDescription")}</p>
         <dl>{([ ["accounts.balanceBefore", reviewedCashAmount(reviewed.current, reviewed.currency)], ["accounts.resultingBalance", reviewedCashAmount(reviewed.target, reviewed.currency)], ["accounts.adjustmentDelta", reviewedCashAmount(reviewed.delta, reviewed.currency, true)], ["history.currency", reviewed.currency], ["history.effectiveAt", `${formatExactTimestamp(reviewed.effectiveAt, reviewed.timezone || "UTC")} (${reviewed.timezone || "UTC"})`], ...(reviewed.reason ? [["accounts.adjustmentReason", reviewed.reason]] : []) ]).map(([label, value]) => <div key={label}><dt className="font-medium">{t(label)}</dt><dd>{value}</dd></div>)}</dl>
@@ -272,148 +231,8 @@ function CashBalanceForm({
   );
 }
 
-function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; onDone: () => void }) {
-  const { t } = useTranslation();
-  const instrumentInventory = useInstruments();
-  const instruments = { ...instrumentInventory, data: instrumentInventory.data?.filter(ordinaryInstrument) };
-  const selectionLabels = instrumentSelectionLabels(instruments.data ?? []);
-  const createHolding = useCreateHolding();
-  const createInstrument = useCreateInstrument();
-  const refreshInstrument = useRefreshInstrument();
-  const [instrumentId, setInstrumentId] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unitCost, setUnitCost] = useState("");
-  const unitCostRef = useRef("");
-  const automaticUnitCost = useRef("");
-  const [creatingInstrument, setCreatingInstrument] = useState(false);
-  const [error, setError] = useState<string | undefined>();
-  const selectedInstrument = (instruments.data ?? []).find((instrument) => instrument.id === instrumentId);
-  const quote = useCurrentInstrumentQuote(instrumentId);
-
-  useEffect(() => {
-    if (quote.data && quote.data.instrumentId === instrumentId && (!unitCostRef.current || unitCostRef.current === automaticUnitCost.current)) {
-      // An async market quote is a form default; preserve a user's override.
-      setUnitCost(quote.data.unitPrice);
-      unitCostRef.current = quote.data.unitPrice;
-      automaticUnitCost.current = quote.data.unitPrice;
-    }
-  }, [instrumentId, quote.data]);
-
-  const quantityPositive = (() => {
-    const trimmed = quantity.trim();
-    if (!trimmed) {
-      return false;
-    }
-    return trimmed !== "0" && !/^0(?:\.0+)?$/.test(trimmed) && !trimmed.startsWith("-");
-  })();
-
-  const submit = () => {
-    if (instruments.isLoading || instruments.isError || !instruments.data?.some(item => item.id === instrumentId) || !quantityPositive) {
-      setError(t("accounts.quantityRequired"));
-      return;
-    }
-    setError(undefined);
-    createHolding.mutate(
-      { accountId: record.account.id, instrumentId, quantity: quantity.trim(), unitCost: unitCost.trim() || undefined },
-      {
-        onSuccess: () => {
-          toast.success(t("common.saved"));
-          onDone();
-        },
-        onError: (cause) => setError(displayError(cause, t("accounts.saveError"))),
-      },
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-4" role="form" aria-label={t("accounts.recordPosition")}>
-      {instruments.isError && <div role="alert" className="text-sm text-destructive">{t("portfolio.loadError")} <Button type="button" variant="outline" onClick={() => void instrumentInventory.refetch()}>{t("common.retryAction")}</Button></div>}
-      <p className="text-sm text-muted-foreground">{t("accounts.recordPositionHelp")}</p>
-      {creatingInstrument ? (
-        <InstrumentForm
-          isSubmitting={createInstrument.isPending}
-          submissionCause={createInstrument.isError ? createInstrument.error : undefined}
-                  submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
-          onSubmit={(request) => {
-            createInstrument.mutate(request, {
-              onSuccess: (created) => {
-                setInstrumentId(created.id);
-                setCreatingInstrument(false);
-              },
-            });
-          }}
-        />
-      ) : (
-        <>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position-instrument">{t("history.instrument")}</Label>
-            <NativeSelect id="position-instrument" value={instrumentId} onChange={(event) => { setInstrumentId(event.target.value); unitCostRef.current = ""; automaticUnitCost.current = ""; setUnitCost(""); }}>
-              <option value="">{t("history.selectEmpty")}</option>
-              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => (
-                <option key={instrument.id} value={instrument.id}>
-                  {selectionLabels.get(instrument.id) ?? instrument.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatQuotePrice(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
-          <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>
-            {t("accounts.createInstrument")}
-          </Button>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position-quantity">{t("accounts.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label>
-            <Input id="position-quantity" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position-unit-cost">{t("history.unitCostOptional")} {selectedInstrument?.quoteCurrency}{metalPriceSuffix(selectedInstrument, t)}</Label>
-            <Input id="position-unit-cost" inputMode="decimal" value={unitCost} onChange={(event) => { unitCostRef.current = event.target.value; setUnitCost(event.target.value); }} />
-          </div>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <Button type="button" onClick={submit} disabled={createHolding.isPending}>
-            {createHolding.isPending ? t("common.pending") : t("accounts.recordPosition")}
-          </Button>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SimpleValueForm({
-  record,
-  valuation,
-  historyStarted,
-  onDone,
-}: {
-  record: AccountRecordDTO;
-  valuation?: import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models").AccountValuationDTO;
-  historyStarted: boolean;
-  onDone: () => void;
-}) {
-  const { t } = useTranslation();
-  const appendValue = useAppendAccountValue();
-  const valuationComponent = (valuation?.components ?? []).find((component) => !component.instrumentId && component.nativeAmount.trim() !== "");
-  const currentAmount = record.latestValue?.amount.amount ?? valuationComponent?.nativeAmount;
-  const currentCurrency = record.latestValue?.amount.currency ?? valuationComponent?.nativeCurrency ?? record.account.defaultCurrency;
-  const amountRef = useRef(currentAmount ?? "");
-  const automaticAmount = useRef(currentAmount ?? "");
-  const [amount, setAmount] = useState(currentAmount ?? "");
-  const [error, setError] = useState<string | undefined>();
-
-  useEffect(() => {
-    if (currentAmount !== undefined && (!amountRef.current || amountRef.current === automaticAmount.current)) {
-      // Valuation data arrives asynchronously and supplies the initial form value.
-      setAmount(currentAmount);
-      amountRef.current = currentAmount;
-      automaticAmount.current = currentAmount;
-    }
-  }, [currentAmount]);
-
-  if (historyStarted) {
-    const initial: ChangeCommandRequest = {
+function SimpleValueForm({ record, onDone }: { record: AccountRecordDTO; onDone: () => void }) {
+  const initial: ChangeCommandRequest = {
       ...emptyChangeRequest(ChangeCommandKind.ChangeValueUpdate, record.account.defaultCurrency),
       accountId: record.account.id,
       currency: record.account.defaultCurrency,
@@ -427,63 +246,16 @@ function SimpleValueForm({
     );
   }
 
-  const submit = () => {
-    if (!amount.trim()) {
-      setError(t("error.validation.notEmpty"));
-      return;
-    }
-    setError(undefined);
-    appendValue.mutate(
-      { id: record.account.id, amount: amount.trim() },
-      {
-        onSuccess: () => {
-          toast.success(t("common.saved"));
-          onDone();
-        },
-        onError: (cause) => setError(displayError(cause, t("accounts.saveError"))),
-      },
-    );
-  };
-  const unchanged = Boolean(
-    currentAmount !== undefined &&
-      amount.trim() &&
-      sameCanonicalDecimal(amount.trim(), currentAmount) &&
-      currentCurrency === record.account.defaultCurrency,
-  );
-
-  return (
-    <div className="flex flex-col gap-4" role="form" aria-label={t("accounts.updateValue")}>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="simple-amount">{t("history.newValue")}</Label>
-        <Input id="simple-amount" inputMode="decimal" value={amount} onChange={(event) => { amountRef.current = event.target.value; setAmount(event.target.value); }} autoFocus />
-        <p className="text-xs text-muted-foreground">{record.account.defaultCurrency}</p>
-      </div>
-      {currentAmount !== undefined && <p className="text-xs text-muted-foreground">{t("accounts.currentBalance", { amount: formatAmount(signedAccountAmount(currentAmount, record.account.balanceSheetRole === "liability"), currentCurrency) })}</p>}
-      {unchanged && <p className="text-xs text-muted-foreground">{t("history.differentValueRequired")}</p>}
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <Button type="button" onClick={submit} disabled={appendValue.isPending || unchanged}>
-        {appendValue.isPending ? t("common.pending") : t("common.save")}
-      </Button>
-    </div>
-  );
-}
-
 function LockedChangeForm({
   action,
   holdingId,
   record,
   onDone,
-  originOverride,
 }: {
   action: Exclude<AccountAction, "record" | "cash" | "position" | "simple" | "settings" | null>;
   holdingId?: string;
   record: AccountRecordDTO;
   onDone: () => void;
-  originOverride?: HistoryOriginDTO;
 }) {
   const { t } = useTranslation();
   const confirmation = useSheetConfirmation();
@@ -544,7 +316,7 @@ function LockedChangeForm({
           </label>
         </div>
       )}
-      <RecordChangeForm key={kind} initial={initial} lock={lock} originOverride={originOverride} onRecorded={onDone} />
+      <RecordChangeForm key={kind} initial={initial} lock={lock} onRecorded={onDone} />
     </div>
   );
 }

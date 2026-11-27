@@ -15,7 +15,7 @@ import (
 
 func setup(t *testing.T) (*application.Service, string) {
 	t.Helper()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -69,7 +69,7 @@ func TestOverviewComputesNetWorth(t *testing.T) {
 }
 
 func TestOverviewBeforeOnboarding(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	service := portfolio.NewService(app)
 	result, err := service.Overview(context.Background(), account.AccountFilterRequest{})
 	if err != nil {
@@ -149,7 +149,7 @@ func TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts(t *testing.T) {
 // "matches the Go-computed multi-owner fixture" test; if either side
 // changes, the other must change with it.
 func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "The Tans", BaseCurrency: "USD", MemberNames: []string{"Alice", "Bob"},

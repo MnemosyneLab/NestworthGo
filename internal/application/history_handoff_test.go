@@ -37,7 +37,7 @@ func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Creation baselines", BaseCurrency: "CNY", MemberNames: []string{"Owner one", "Owner two"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Creation baselines", BaseCurrency: "CNY", MemberNames: []string{"Owner one", "Owner two"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -48,7 +48,7 @@ func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Existing", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{ownerOne}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
@@ -127,7 +127,7 @@ func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 	clock := time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Batch", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Batch", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
@@ -136,7 +136,7 @@ func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
@@ -199,7 +199,7 @@ func TestRebuildDirtySnapshotsPreservesRemainingRangeAcrossInterruptedBatch(t *t
 	service := NewService(repository)
 	clock := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(context.Background(), OnboardingInput{HouseholdName: "Cross-batch rebuild", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(context.Background(), OnboardingInput{HouseholdName: "Cross-batch rebuild", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(context.Background())
@@ -210,7 +210,7 @@ func TestRebuildDirtySnapshotsPreservesRemainingRangeAcrossInterruptedBatch(t *t
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(context.Background(), "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(context.Background(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
@@ -262,7 +262,7 @@ func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 	clock := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Activity page", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Activity page", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -273,7 +273,7 @@ func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
@@ -337,7 +337,7 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 	clock := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Quotes", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Quotes", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
@@ -362,7 +362,7 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
@@ -414,7 +414,7 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	clock := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Archive intervals", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Archive intervals", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -447,7 +447,7 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

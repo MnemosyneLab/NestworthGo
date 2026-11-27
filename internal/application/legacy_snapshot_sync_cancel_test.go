@@ -43,7 +43,7 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	s.SetLiveDatabasePath(db.Path)
 	committed := make(chan struct{})
 	s.SetHistoryPersister(coverageCancelPersister{testHistoryPersist{repo}, committed})
-	if err := s.CompleteOnboarding(t.Context(), OnboardingInput{HouseholdName: "Synthetic cancelled sync", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic cancelled sync", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := s.Bootstrap(t.Context())
@@ -70,7 +70,7 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)

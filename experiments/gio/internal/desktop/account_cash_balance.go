@@ -24,12 +24,10 @@ type cashBalanceLedger interface {
 
 type cashBalanceSources struct {
 	current map[domain.CurrencyCode]domain.Money
-	history bool
 }
 
 type cashBalanceReview struct {
-	plan    *application.CashBalancePlan
-	history bool
+	plan *application.CashBalancePlan
 }
 
 type cashBalanceDraft struct {
@@ -81,11 +79,14 @@ func (p *accountsPage) loadCashBalanceSources() {
 			if err != nil {
 				return err
 			}
+			if origin == nil {
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin}
+			}
 			values, err := feature.service.ListAccountCashValues(ctx, id)
 			if err != nil {
 				return err
 			}
-			source = cashBalanceSources{current: make(map[domain.CurrencyCode]domain.Money), history: origin != nil}
+			source = cashBalanceSources{current: make(map[domain.CurrencyCode]domain.Money)}
 			// The shared cash history returns effective/creation order, newest first.
 			for _, value := range values {
 				code := value.Amount.Currency()
@@ -103,7 +104,7 @@ func (p *accountsPage) previewCashBalance() {
 	f, d := p.cashBalance, p.cashBalance.draft
 	id, amount, currency := d.account.ID, strings.TrimSpace(d.amount.Text()), d.currency.String()
 	var reason *string
-	if note := d.reason.Text(); d.sources.history && strings.TrimSpace(note) != "" {
+	if note := d.reason.Text(); strings.TrimSpace(note) != "" {
 		reason = &note
 	}
 	d.problem = i18n.NoMessage
@@ -114,8 +115,11 @@ func (p *accountsPage) previewCashBalance() {
 			if err != nil {
 				return err
 			}
+			if origin == nil {
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin}
+			}
 			plan, err := f.service.PreviewCashBalance(ctx, id, amount, currency, reason)
-			review = cashBalanceReview{plan: plan, history: origin != nil}
+			review = cashBalanceReview{plan: plan}
 			return err
 		})
 		return review, err

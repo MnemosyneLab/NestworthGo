@@ -6,6 +6,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"path/filepath"
 	"testing"
@@ -20,7 +21,7 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 		t.Fatal(e)
 	}
 	defer db.Close()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	if e = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); e != nil {
 		t.Fatal(e)
@@ -30,7 +31,7 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = app.StartHistory(ctx, "UTC"); e != nil {
+	if _, e = app.CaptureSyntheticOrigin(ctx, "UTC"); e != nil {
 		t.Fatal(e)
 	}
 	service := NewService(app)
@@ -39,7 +40,7 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 		t.Fatal(e)
 	}
 	// Drop the adapter and application, then read the same registered identity.
-	app = application.NewService(sqlite.NewRepository(db))
+	app = application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	service = NewService(app)
 	v, e := service.Commit(ctx, p.PlanID)
@@ -149,7 +150,7 @@ func TestDesktopReconciliationOptionalReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 		t.Fatal(err)

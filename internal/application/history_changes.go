@@ -351,7 +351,7 @@ func (s *Service) rebuildCorrectionSnapshots(ctx context.Context, from string) e
 
 func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveAt, createdAt time.Time) (time.Time, time.Time, error) {
 	if origin == nil {
-		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording an observation"}
+		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	if effectiveAt.IsZero() {
 		effectiveAt = s.clock()

@@ -20,7 +20,7 @@ func TestDerivedSnapshotCoverageAllowsOnlyNonexistentCivilGaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := repo.CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	tx, err := db.SQL.BeginTx(ctx, nil)

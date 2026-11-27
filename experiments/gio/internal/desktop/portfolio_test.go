@@ -54,7 +54,7 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 	if _, err = service.AppendAccountCashValue(ctx, ids.account, "100", "USD", ""); err != nil {
 		return ids, err
 	}
-	if _, err = service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err = service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		return ids, err
 	}
 	service.SetClock(func() time.Time { return clock })
@@ -116,7 +116,7 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 func openPortfolioFixture(t *testing.T, mode string) (*application.Service, *pilot.Session, pilot.Paths, portfolioFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, session := reopenOnboardingProfile(t, paths)
+	service, session := reopenBaselineProfile(t, paths)
 	ids, err := seedPortfolio(t.Context(), service, accountTestClock, mode)
 	if err != nil {
 		t.Fatal(err)
@@ -409,7 +409,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	facts, err := readPortfolio(ctx, reopened, full.ID, "")
 	if err != nil || facts.instrument == nil || len(facts.positions) != 1 || facts.positions[0].Amounts.Quantity != "3" {

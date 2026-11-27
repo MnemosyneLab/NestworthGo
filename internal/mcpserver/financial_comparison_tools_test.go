@@ -37,7 +37,7 @@ func comparisonFixture(t *testing.T, s *Service, app *application.Service) domai
 		}
 		first = a.Account.ID
 	}
-	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)
@@ -183,7 +183,7 @@ func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) 
 			}
 			now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			app.SetClock(func() time.Time { return now })
-			if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err = app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			now = now.AddDate(0, 0, 2)

@@ -211,9 +211,8 @@ root. The installer reports both installation and backup paths.
 
 ## Connect and use
 
-1. Finish household setup. Start history in the App when recording ledger data
-   or requesting historical/period analysis; a current financial context works
-   without a history starting point.
+1. Finish household setup. The App automatically creates the ledger history
+   origin; recording and historical analysis use that origin.
 2. Open **Settings → AI / MCP**, choose read-only, directory maintenance or
    ledger recording, and enable MCP. Copy its exact local connection
    configuration into Codex's MCP settings. Keep the App running.

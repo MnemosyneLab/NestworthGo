@@ -40,7 +40,7 @@ func TestHistoricalReconciliationBackfilledHoldingLedgers(t *testing.T) {
 				}
 				costs[source.ID] = "10"
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 				t.Fatal(err)
 			}
 			effective := now.AddDate(0, 0, 1)
@@ -275,7 +275,7 @@ func TestHistoricalReconciliationBackfilledFirstBuyCorrectionAndUndo(t *testing.
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	effective := now.AddDate(0, 0, 1)
@@ -365,7 +365,7 @@ func TestHistoricalReconciliationForeignFirstBackfillAndLiquidation(t *testing.T
 			if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+			if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			effective := now.AddDate(0, 0, 1)

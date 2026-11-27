@@ -53,7 +53,7 @@ func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
 	a := overviewAccount(t, s, owner, "Private salary", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Private destination", "bank_account", "asset", "balance", "CNY", "0")
 	debt := overviewAccount(t, s, owner, "Private loan", "loan", "liability", "balance", "CNY", "30")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -138,7 +138,7 @@ func TestFinancialAttributionMissingFXInclusionAndUnsupported(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "USD", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -202,7 +202,7 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -236,7 +236,7 @@ func TestFinancialAttributionDSTCivilDayInterval(t *testing.T) {
 			s, _, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 			overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(t.Context(), "America/New_York"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/New_York"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
@@ -258,7 +258,7 @@ func TestFinancialAttributionSerializesConcurrentRevision(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -339,7 +339,7 @@ func TestFinancialAttributionEvidencePolicyAndScopeProof(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -401,7 +401,7 @@ func TestFinancialAttributionConcurrentExternalRevisionIsRejected(t *testing.T) 
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -436,7 +436,7 @@ func TestFinancialAttributionInteriorInclusionAndCloseBoundaries(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)

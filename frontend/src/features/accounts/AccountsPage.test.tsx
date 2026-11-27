@@ -270,7 +270,7 @@ beforeEach(() => {
   ]);
   createAccount.mockResolvedValue(emptyAccount);
   updateAccount.mockResolvedValue(emptyAccount);
-  historyOrigin.mockResolvedValue(null);
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
   startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   settingsLoad.mockResolvedValue({ timezone: "system", fxProvider: "frankfurter" });
@@ -1006,30 +1006,7 @@ describe("AccountsPage", () => {
     expect(screen.queryByRole("button", { name: "Buy investment" })).not.toBeInTheDocument();
   });
 
-  it("rejects a zero-quantity existing position and does not record a buy", async () => {
-    listAccounts.mockResolvedValue([brokerageAccount]);
-    accountValuations.mockResolvedValue([
-      {
-        account: brokerageAccount.account,
-        ownership: brokerageAccount.ownership,
-        complete: true,
-        components: [],
-        missingInputs: [],
-        baseValue: { amount: "0", currency: "USD" },
-      },
-    ]);
-    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD" }]);
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Record existing position" }));
-    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
-    await userEvent.type(screen.getByLabelText("Quantity"), "0");
-    const submitButtons = screen.getAllByRole("button", { name: "Record existing position" });
-    await userEvent.click(submitButtons[submitButtons.length - 1]);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/greater than zero/i);
-    expect(createHolding).not.toHaveBeenCalled();
-    expect(recordChange).not.toHaveBeenCalled();
-  });
+
 
   it("previews a dated existing position as an import after history starts", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
@@ -1045,8 +1022,11 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Record a quantity already in this account. This is not a buy and does not reduce cash.")).toBeInTheDocument();
     expect(await screen.findByLabelText("Local date")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Instrument"), "i1");
-    await userEvent.type(screen.getByLabelText("Quantity"), "2");
+    await userEvent.type(screen.getByLabelText("Quantity"), "0");
     await userEvent.type(screen.getByLabelText("Original per-unit acquisition cost (required)"), "80");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+    await userEvent.clear(screen.getByLabelText("Quantity"));
+    await userEvent.type(screen.getByLabelText("Quantity"), "2");
     expect(screen.getByRole("button", { name: "Preview" })).toBeEnabled();
     await userEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "position_import", accountId: brokerageAccount.account.id, instrumentId: "i1", quantity: "2", unitCost: "80" })));
@@ -1115,8 +1095,8 @@ describe("AccountsPage", () => {
     ]);
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Add cash balance" }));
-    const form = await screen.findByRole("form", { name: "Add cash balance" });
+    await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+    const form = await screen.findByRole("form", { name: "Reconcile balance" });
     await userEvent.selectOptions(within(form).getByLabelText("Currency"), "CNY");
     await userEvent.type(within(form).getByLabelText("Resulting balance"), "5000");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
@@ -1125,61 +1105,10 @@ describe("AccountsPage", () => {
     expect(appendCash).not.toHaveBeenCalled();
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(confirmCash).toHaveBeenCalledWith("cash-plan"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Add cash balance" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Reconcile balance" })).toHaveFocus());
     expect(recordChange).not.toHaveBeenCalled();
   });
 
-  it("starts History from a deposit and writes nothing when cancelled", async () => {
-    listAccounts.mockResolvedValue([brokerageAccount]);
-    accountValuations.mockResolvedValue([
-      {
-        account: brokerageAccount.account,
-        ownership: brokerageAccount.ownership,
-        complete: true,
-        components: [],
-        missingInputs: [],
-        baseValue: { amount: "0", currency: "USD" },
-      },
-    ]);
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Deposit or withdraw" }));
-    expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(startHistory).not.toHaveBeenCalled();
-    expect(recordChange).not.toHaveBeenCalled();
-  });
-
-  it("returns to Buy after Start History without waiting for origin refresh", async () => {
-    listAccounts.mockResolvedValue([brokerageAccount]);
-    accountValuations.mockResolvedValue([
-      {
-        account: brokerageAccount.account,
-        ownership: brokerageAccount.ownership,
-        complete: true,
-        components: [],
-        missingInputs: [],
-        baseValue: { amount: "0", currency: "USD" },
-      },
-    ]);
-    listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "CNY" }]);
-    historyOrigin.mockResolvedValue(null);
-    startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
-    expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
-    const timezone = await screen.findByLabelText("Timezone");
-    expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    expect(timezone).toHaveAttribute("readonly");
-    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(await screen.findByLabelText("Instrument")).toBeInTheDocument();
-    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), null);
-    expect(historyOrigin).toHaveBeenCalled();
-    expect(recordChange).not.toHaveBeenCalled();
-  });
 
   it("first buy of an unheld instrument leaves holdingId empty so Go creates the Holding", async () => {
     const mixed = {
@@ -1250,7 +1179,7 @@ describe("AccountsPage", () => {
     listAccounts.mockImplementation(async () => accounts);
     accountValuations.mockImplementation(async () => valuations);
     holdingsByAccounts.mockImplementation(async () => holdings);
-    historyOrigin.mockResolvedValue(null);
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
     listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "CNY" }]);
     // The new fund has no current price yet.
     groupAmounts["*"] = { currentValue: undefined, unrealizedGain: undefined, valueMissingReason: "current instrument price is unavailable", gainMissingReason: "current instrument price is unavailable" };
@@ -1348,8 +1277,8 @@ describe("AccountsPage", () => {
     );
 
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "Add cash balance" }));
-    const cashForm = await screen.findByRole("form", { name: "Add cash balance" });
+    await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+    const cashForm = await screen.findByRole("form", { name: "Reconcile balance" });
     await userEvent.selectOptions(within(cashForm).getByLabelText("Currency"), "CNY");
     await userEvent.type(within(cashForm).getByLabelText("Resulting balance"), "10000");
     await userEvent.click(within(cashForm).getByRole("button", { name: "Preview" }));
@@ -1360,12 +1289,7 @@ describe("AccountsPage", () => {
     expect((await screen.findAllByText(/CN¥\s*10,000\.00/)).length).toBeGreaterThan(0);
 
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
-    expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
-    const timezone = screen.getByLabelText("Timezone");
-    expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    expect(timezone).toHaveAttribute("readonly");
-    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
+
 
     const tradeForm = await screen.findByRole("form", { name: "Record change" });
     await userEvent.selectOptions(within(tradeForm).getByLabelText("Instrument"), "fund-1");
@@ -1537,67 +1461,15 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
-    const form = await screen.findByRole("form", { name: "Add cash balance" });
+    const form = await screen.findByRole("form", { name: "Reconcile balance" });
     expect(form).toHaveTextContent(/Current balance/);
     expect(form).toHaveTextContent("US$800.00");
     expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
   });
 
-  it("disables simple value Save while the amount is unchanged", async () => {
-    const simple = {
-      ...emptyAccount,
-      account: { ...emptyAccount.account, trackingMode: "manual_value", name: "House" },
-    };
-    listAccounts.mockResolvedValue([simple]);
-    accountValuations.mockResolvedValue([
-      {
-        account: simple.account,
-        ownership: simple.ownership,
-        complete: true,
-        components: [{ nativeCurrency: "USD", nativeAmount: "1000", available: true }],
-        missingInputs: [],
-        baseValue: { amount: "1000", currency: "USD" },
-      },
-    ]);
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /House/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Update value" }));
-    const form = await screen.findByRole("form", { name: "Update value" });
-    expect(within(form).getByLabelText("New value")).toHaveValue("1000");
-    expect(within(form).getByRole("button", { name: "Save" })).toBeDisabled();
-    await userEvent.clear(within(form).getByLabelText("New value"));
-    await userEvent.type(within(form).getByLabelText("New value"), "1100");
-    expect(within(form).getByRole("button", { name: "Save" })).toBeEnabled();
-    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(appendValue).toHaveBeenCalledWith("acc-1", "1100", ""));
-  });
 
-  it("defaults record-position unit cost from the latest price", async () => {
-    listAccounts.mockResolvedValue([brokerageAccount]);
-    accountValuations.mockResolvedValue([
-      {
-        account: brokerageAccount.account,
-        ownership: brokerageAccount.ownership,
-        complete: true,
-        components: [],
-        missingInputs: [],
-        baseValue: { amount: "0", currency: "USD" },
-      },
-    ]);
-    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD", quoteSource: "provider" }]);
-    currentInstrumentQuote.mockResolvedValue({
-      id: "q1",
-      instrumentId: "i1",
-      unitPrice: "12.50",
-      currency: "USD",
-      quotedAt: "2026-08-23T00:00:00Z",
-    });
-    renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
-    await userEvent.click(await screen.findByRole("button", { name: "Record existing position" }));
-    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
-    await waitFor(() => expect(screen.getByLabelText("Unit cost (optional) USD")).toHaveValue("12.50"));
-  });
+
+
 
   it("opens cash dividend from a holding row with that holding preselected and submits the existing command", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
@@ -1748,7 +1620,7 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
-  let form = await screen.findByRole("form", { name: "Add cash balance" });
+  let form = await screen.findByRole("form", { name: "Reconcile balance" });
   await userEvent.type(within(form).getByLabelText("Resulting balance"), "900");
   await userEvent.type(within(form).getByLabelText("Reason (optional)"), "Statement");
   within(form).getByRole("button", { name: "Preview" }).focus();
@@ -1773,7 +1645,7 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.getByRole("button", { name: "Reconcile balance" })).toHaveFocus());
   await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
-  form = await screen.findByRole("form", { name: "Add cash balance" });
+  form = await screen.findByRole("form", { name: "Reconcile balance" });
   expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
   expect(within(form).getByLabelText("Reason (optional)")).toHaveValue("");
   expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
@@ -1789,7 +1661,7 @@ it("cash review shows origin-local time and exact sub-minor-unit values alongsid
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
-  const form = await screen.findByRole("form", { name: "Add cash balance" });
+  const form = await screen.findByRole("form", { name: "Reconcile balance" });
   await userEvent.selectOptions(within(form).getByLabelText("Currency"), "CNY");
   await userEvent.type(within(form).getByLabelText("Resulting balance"), "10.0001");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
@@ -1815,7 +1687,7 @@ it.each(["success", "uncertain"])("retains deferred cash confirmation across all
   await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
   const trigger = await screen.findByRole("button", { name: "Reconcile balance" });
   await userEvent.click(trigger);
-  const form = await screen.findByRole("form", { name: "Add cash balance" });
+  const form = await screen.findByRole("form", { name: "Reconcile balance" });
   await userEvent.type(within(form).getByLabelText("Resulting balance"), "900");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
   await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
@@ -1824,21 +1696,21 @@ it.each(["success", "uncertain"])("retains deferred cash confirmation across all
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: "Close" }));
   await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
-  expect(screen.getByRole("form", { name: "Add cash balance" })).toBe(form);
+  expect(screen.getByRole("form", { name: "Reconcile balance" })).toBe(form);
   if (outcome === "uncertain") {
     await act(async () => { reject(new Error("IPC outcome unknown")); });
     await within(form).findByRole("alert");
     await userEvent.keyboard("{Escape}");
     await userEvent.click(screen.getByRole("button", { name: "Close" }));
     await userEvent.click(screen.getByRole("dialog").parentElement!.previousElementSibling!);
-    expect(screen.getByRole("form", { name: "Add cash balance" })).toBe(form);
+    expect(screen.getByRole("form", { name: "Reconcile balance" })).toBe(form);
     expect(within(form).getByLabelText("Resulting balance")).toBeDisabled();
     expect(within(form).getByRole("button", { name: "Back to draft" })).toBeDisabled();
     expect(previewCash).toHaveBeenCalledTimes(1);
     await userEvent.click(within(form).getByRole("button", { name: "Retry same confirmation" }));
     expect(confirmCash.mock.calls.map(([id]) => id)).toEqual(["cash-plan", "cash-plan"]);
   } else { await act(async () => { resolve({}); }); }
-  await waitFor(() => expect(screen.queryByRole("form", { name: "Add cash balance" })).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Reconcile balance" })).not.toBeInTheDocument());
   expect(confirmCash).toHaveBeenCalledTimes(outcome === "uncertain" ? 2 : 1);
   await waitFor(() => expect(trigger).toHaveFocus());
   await userEvent.click(trigger);
@@ -2103,27 +1975,8 @@ it.each(["en", "zh-CN", "zh-TW"])("records card purchase, refund and principal p
   } finally { await i18n.changeLanguage("en"); }
 });
 
-it("starts history from the unified entry and cancels without writing", async () => {
-  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
-  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
-  expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(startHistory).not.toHaveBeenCalled();
-  expect(recordChange).not.toHaveBeenCalled();
-});
 
-it("continues unified recording with the selected pension and currency after starting history", async () => {
-  listAccounts.mockResolvedValue([{ ...emptyAccount, account: { ...emptyAccount.account, accountType: "pension", trackingMode: "manual_value", defaultCurrency: "CNY" } }]);
-  renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
-  await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Start history" }));
-  const form = await screen.findByRole("form", { name: "Record change" });
-  expect(within(form).getByText(/Checking/)).toBeInTheDocument();
-  expect(within(form).getByLabelText("Currency")).toHaveValue("CNY");
-  expect(recordChange).not.toHaveBeenCalled();
-});
-
-it("retries a failed origin read before offering to start history", async () => {
+it("retries a failed origin read without offering to start history", async () => {
   historyOrigin.mockRejectedValue(new Error("synthetic origin read failure"));
   renderPage({ selectedAccountId: "acc-1", onSelectAccount: vi.fn() });
   await userEvent.click(await screen.findByRole("button", { name: "Record a change" }));

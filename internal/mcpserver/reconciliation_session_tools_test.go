@@ -6,6 +6,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -211,14 +212,14 @@ func TestReconciliationSessionCivilDateFiltersAndPaging(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			app := application.NewService(sqlite.NewRepository(db))
+			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 			now, _ := time.Parse(time.RFC3339, tc.instants[0])
 			app.SetClock(func() time.Time { return now })
 			if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 				t.Fatal(err)
 			}
 			if tc.zone != "" {
-				if _, err = app.StartHistory(ctx, tc.zone); err != nil {
+				if _, err = app.CaptureSyntheticOrigin(ctx, tc.zone); err != nil {
 					t.Fatal(err)
 				}
 			}

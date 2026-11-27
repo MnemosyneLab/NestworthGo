@@ -46,7 +46,7 @@ func TestOverviewTrendReadsTheSelectedWindowAndNavigatesPeriods(t *testing.T) {
 	clock := func() time.Time { return now }
 	fixture := &overviewRangeFixture{origin: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	fixture.overviewReader = overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
-		return domain.OverviewResult{Currency: "USD", AccountCount: 1, HistoryStarted: true}, nil
+		return domain.OverviewResult{Currency: "USD", AccountCount: 1}, nil
 	})
 	fixture.trend = domain.NetWorthTrend{Currency: "USD", StartDate: "2026-11-23", EndDate: "2026-11-25",
 		Points: []domain.NetWorthTrendPoint{{LocalDate: "2026-11-23"}, {LocalDate: "2026-11-25", Current: true}}}
@@ -111,7 +111,7 @@ func TestOverviewAllHistoryFollowsTheLedgerDay(t *testing.T) {
 	clock := func() time.Time { return now }
 	fixture := &overviewRollingFixture{now: clock, loc: loc}
 	fixture.overviewReader = overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
-		return domain.OverviewResult{Currency: "USD", AccountCount: 1, HistoryStarted: true}, nil
+		return domain.OverviewResult{Currency: "USD", AccountCount: 1}, nil
 	})
 	page := newOverviewPage(ctx, fixture, clock, func() {})
 	t.Cleanup(func() {
@@ -222,7 +222,7 @@ func TestOverviewAllHistoryStaysSelectedWhenTheRangeMatchesLastWeek(t *testing.T
 		started:                time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC),
 	}
 	fixture.overviewReader = overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
-		return domain.OverviewResult{Currency: "USD", AccountCount: 1, HistoryStarted: true}, nil
+		return domain.OverviewResult{Currency: "USD", AccountCount: 1}, nil
 	})
 	page := newOverviewPage(ctx, fixture, clock, func() {})
 	t.Cleanup(func() {

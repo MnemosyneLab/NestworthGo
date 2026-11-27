@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 )
 
@@ -226,7 +227,6 @@ func TestWealthHistoryWithoutAClosedDay(t *testing.T) {
 		name, text string
 		origin     *domain.HistoryOrigin
 	}{
-		{"before History", "Start History to view daily wealth values.", nil},
 		{"starting day", "No closed days are available since History started.", &domain.HistoryOrigin{StartedAt: now, Timezone: "UTC"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -367,7 +367,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	seed := application.NewService(sqlite.NewRepository(db))
+	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	seed.SetClock(clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Wealth History", BaseCurrency: "AUD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
@@ -389,7 +389,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 	if _, err := seed.SetFXPreference(ctx, "USD", "AUD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := seed.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -416,7 +416,7 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = copyDB.Close() })
 		provider := &unavailableOverviewProvider{}
-		s := application.NewService(sqlite.NewRepository(copyDB), application.NewMarketDataRegistry(provider))
+		s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)}, application.NewMarketDataRegistry(provider))
 		s.SetClock(clock)
 		return s, provider
 	}

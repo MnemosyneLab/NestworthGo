@@ -24,7 +24,7 @@ func TestHistoricalSnapshotsUseCivilLabelsAcrossMidnightTransitions(t *testing.T
 			last, _ := time.Parse("2006-01-02", tc.last)
 			*now = first.AddDate(0, 0, -2).Add(12 * time.Hour)
 			a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(ctx, tc.zone); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, tc.zone); err != nil {
 				t.Fatal(err)
 			}
 			location, _ := time.LoadLocation(tc.zone)
@@ -113,7 +113,7 @@ func TestCivilSnapshotPolicyInvalidationRebuildIsAppendOnlyAndIdempotent(t *test
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	origin, err := s.StartHistory(ctx, "America/Santiago")
+	origin, err := s.CaptureSyntheticOrigin(ctx, "America/Santiago")
 	if err != nil {
 		t.Fatal(err)
 	}

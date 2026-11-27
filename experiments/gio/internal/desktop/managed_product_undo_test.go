@@ -150,7 +150,7 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	if err := refDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	_, _, refReopened := openStage6Database(t, refPath, linkedContractClock)
 	rows := managedOperations(t, reopened, id)
 	if len(rows) != 3 || rows[0].Kind != domain.ProductOpUndo || rows[1].ID.String() != settlement ||

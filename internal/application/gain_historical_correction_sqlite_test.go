@@ -21,7 +21,7 @@ func TestAccountGainCorrectionKeepsOriginalEconomicSaleFXTime(t *testing.T) {
 	service := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic correction", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic correction", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -53,7 +53,7 @@ func TestAccountGainCorrectionKeepsOriginalEconomicSaleFXTime(t *testing.T) {
 	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 

@@ -161,7 +161,7 @@ func TestHistoricalOverviewP1ReadOnlyWireAndFrozenEvidence(t *testing.T) {
 	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -255,7 +255,7 @@ func TestHistoricalOverviewP1MissingDetailsAndExplicitHoldingIDs(t *testing.T) {
 	if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)

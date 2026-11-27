@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
@@ -103,7 +104,7 @@ func newMarketOperationsHarness(t *testing.T, provider *refreshTestProvider, his
 		t.Fatal(err)
 	}
 	repo := sqlite.NewRepository(db)
-	service := application.NewService(repo, application.NewMarketDataRegistryWithDefault(provider.Key(), provider, &refreshInstrumentTestProvider{}))
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider, &refreshInstrumentTestProvider{}))
 	appports.AttachSQLiteHistory(service, repo)
 	service.SetLiveDatabasePath(db.Path)
 	start := time.Date(2026, time.November, 2, 18, 0, 0, 0, time.UTC)
@@ -138,7 +139,7 @@ func newMarketOperationsHarness(t *testing.T, provider *refreshTestProvider, his
 		}
 	}
 	if historical {
-		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 	}

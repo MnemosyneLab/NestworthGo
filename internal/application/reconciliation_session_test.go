@@ -27,7 +27,7 @@ func reconciliationFixture(t *testing.T) (*Service, *sqlite.DB, string) {
 	s := NewService(sqlite.NewRepository(db))
 	s.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	ctx := context.Background()
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := s.Bootstrap(ctx)
@@ -35,7 +35,7 @@ func reconciliationFixture(t *testing.T) (*Service, *sqlite.DB, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return s, db, a.Account.ID.String()

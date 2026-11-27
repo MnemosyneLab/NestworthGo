@@ -42,7 +42,7 @@ func TestUndoRejectsLaterHoldingTradesThatWouldLoseTheirCostBasis(t *testing.T) 
 	service := NewService(sqlite.NewRepository(db))
 	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	service.SetClock(func() time.Time { return now })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -60,7 +60,7 @@ func TestUndoRejectsLaterHoldingTradesThatWouldLoseTheirCostBasis(t *testing.T) 
 	if _, err := service.AppendAccountCashValue(ctx, broker.Account.ID, "1000", "USD", "2026-01-02"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

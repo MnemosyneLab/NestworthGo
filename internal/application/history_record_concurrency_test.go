@@ -21,7 +21,7 @@ func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Concurrent", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Concurrent", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -32,7 +32,7 @@ func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	amount, _ := domain.ParseMoney("100", "CNY")

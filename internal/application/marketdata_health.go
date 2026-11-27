@@ -29,7 +29,6 @@ const (
 	HealthKindSnapshotMissing          = "snapshot_missing"
 	HealthKindSnapshotOutdated         = "snapshot_outdated"
 	HealthKindSyncFailure              = "sync_failure"
-	HealthKindHistoryNotStarted        = "history_not_started"
 
 	HealthSeverityBlocking = "blocking"
 	HealthSeverityWarning  = "warning"
@@ -93,21 +92,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 		return MarketDataHealthReport{}, err
 	}
 	if origin == nil {
-		issue := HealthIssue{
-			ID:        HealthKindHistoryNotStarted,
-			Kind:      HealthKindHistoryNotStarted,
-			Severity:  HealthSeverityInfo,
-			GroupKey:  HealthKindHistoryNotStarted,
-			TargetKey: "history",
-			Code:      string(domain.ErrHistoryNotStarted),
-			Reason:    "history_not_started",
-			Action:    HealthActionNone,
-		}
-		valuationIssues, err := s.scanValuationHealth(ctx, map[string]struct{}{}, map[string]struct{}{})
-		if err != nil {
-			return MarketDataHealthReport{}, err
-		}
-		return finishHealthReport(MarketDataHealthReport{Issues: append([]HealthIssue{issue}, valuationIssues...)}), nil
+		return MarketDataHealthReport{}, &domain.Error{Code: domain.ErrIntegrity, Message: "ledger history origin is missing"}
 	}
 
 	plan, err := s.PlanHistorySync(ctx, HistorySyncOptions{})

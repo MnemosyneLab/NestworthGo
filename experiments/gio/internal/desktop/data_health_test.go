@@ -87,7 +87,6 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	}
 	assertPageLabel(t, &h.router, "Prerequisites")
 	assertPageLabel(t, &h.router, "Missing initial manual FX rate")
-	assertPageLabel(t, &h.router, "Start History to plan a repair.")
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "JPY", "140.1234", now.Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}

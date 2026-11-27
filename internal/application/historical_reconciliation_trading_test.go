@@ -74,7 +74,7 @@ func TestHistoricalReconciliationTradingLedgers(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 				t.Fatal(err)
 			}
 			*now = now.AddDate(0, 0, 1)
@@ -211,7 +211,7 @@ func TestHistoricalReconciliationSplitAndQuantityMismatch(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "10", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -262,7 +262,7 @@ func TestHistoricalReconciliationTradingCorrectionUndoAndSeparateIncome(t *testi
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "10", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)

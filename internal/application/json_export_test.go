@@ -58,7 +58,7 @@ func TestJSONExportIncludesArchivedHistoryAndTransferCosts(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "720", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{source.ID: "720"}); err != nil {
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{source.ID: "720"}); err != nil {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

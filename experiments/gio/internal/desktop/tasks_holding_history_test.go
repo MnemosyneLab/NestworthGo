@@ -200,7 +200,7 @@ func TestHoldingReconciliationDatedHistoryHandoffMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	got, err := reopened.Activity(ctx, id)
 	if err != nil || got.EffectiveLocalDate != day || !got.EffectiveAt.Equal(wantedAt) ||
 		len(got.Effects) != 1 || *got.Effects[0].HoldingID != ids.holding || got.Effects[0].CostUnitPrice.Canonical() != "13.12345678" {

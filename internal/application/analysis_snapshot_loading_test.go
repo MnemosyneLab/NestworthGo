@@ -75,7 +75,7 @@ func TestAnalysisAccountSnapshotLoading(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "America/New_York", map[domain.HoldingID]string{held.ID: "8", peerHeld.ID: "8"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "America/New_York", map[domain.HoldingID]string{held.ID: "8", peerHeld.ID: "8"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 3)
@@ -490,7 +490,7 @@ func TestAnalysisAccountSnapshotsOutsideFundingGap(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", nil); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", nil); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

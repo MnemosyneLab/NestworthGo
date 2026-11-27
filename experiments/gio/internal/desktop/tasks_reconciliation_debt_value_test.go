@@ -246,7 +246,7 @@ func TestLinkedDebtAndValueMatchWails(t *testing.T) {
 		if err := s.storage.Close(); err != nil {
 			t.Fatal(err)
 		}
-		reopened, _ := reopenOnboardingProfile(t, s.paths)
+		reopened, _ := reopenBaselineProfile(t, s.paths)
 		reopened.SetClock(linkedContractClock)
 		assertNativeTradeCash(t, reopened, s.ids.holdings, map[domain.CurrencyCode]string{"USD": "175.9449"})
 		if loan := readBankRecord(t, reopened, s.ids.loan).LatestValue; loan == nil || loan.Amount.CanonicalAmount() != "100.0016" {

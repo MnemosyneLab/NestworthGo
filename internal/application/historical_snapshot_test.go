@@ -44,8 +44,8 @@ func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing
 	if _, err := service.AppendManualInstrumentQuote(ctx, second.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatalf("second quote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{firstHolding.ID: "0.00006", secondHolding.ID: "0.00006"}); err != nil {
-		t.Fatalf("StartHistoryWithCosts: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{firstHolding.ID: "0.00006", secondHolding.ID: "0.00006"}); err != nil {
+		t.Fatalf("CaptureSyntheticOriginWithCosts: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	overview, err := service.Overview(ctx, domain.AccountFilter{})
@@ -110,7 +110,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Legacy", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Legacy", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -124,7 +124,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -173,8 +173,8 @@ func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("liability: %v", err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	overview, err := service.Overview(ctx, domain.AccountFilter{})
@@ -245,8 +245,8 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 	if err != nil {
 		t.Fatalf("excluded liability: %v", err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	overview, err := service.Overview(ctx, domain.AccountFilter{})
@@ -306,8 +306,8 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "3682", "2026-08-01", false); err != nil {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "3682"}); err != nil {
-		t.Fatalf("StartHistoryWithCosts: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "3682"}); err != nil {
+		t.Fatalf("CaptureSyntheticOriginWithCosts: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
@@ -370,8 +370,8 @@ func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-01", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
@@ -448,8 +448,8 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 		t.Fatalf("quote: %v", err)
 	}
 	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC))
 	amount, _ := domain.ParseMoney("25", "USD")
@@ -492,7 +492,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 		service.setClock(func() time.Time { return clock })
 		ctx := context.Background()
-		if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Migration complete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Migration complete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 			t.Fatal(err)
 		}
 		bootstrap, err := service.Bootstrap(ctx)
@@ -506,7 +506,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 		clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -566,7 +566,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 		service.setClock(func() time.Time { return clock })
 		ctx := context.Background()
-		if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Migration incomplete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Migration incomplete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 			t.Fatal(err)
 		}
 		bootstrap, err := service.Bootstrap(ctx)
@@ -580,7 +580,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 		clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

@@ -267,8 +267,8 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	if err := refSession.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopenedRef, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	reopenedRef, _ := reopenBaselineProfile(t, refPaths)
 	reopened.SetClock(late)
 	reopenedRef.SetClock(late)
 	checkReview(wailsReview(reopened), wailsReview(reopenedRef), "stale")
@@ -296,7 +296,7 @@ func (s *delayedTasksReview) ListReviewAlertGroupsV2(ctx context.Context, filter
 
 func TestTaskChecksSeparateEmptyStatesAndLateRead(t *testing.T) {
 	ctx := t.Context()
-	app, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	app, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic empty checks", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {

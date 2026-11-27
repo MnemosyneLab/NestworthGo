@@ -264,7 +264,7 @@ func (s *Service) previewHostLedgerChange(ctx context.Context, in history.Change
 			return nil, err
 		}
 		if origin == nil {
-			return nil, fail("history_not_started", "start history in the App before recording changes")
+			return nil, fail("history_origin_missing", "ledger history origin is missing")
 		}
 		resolved, err = ledgerCommand(in, origin)
 		return resolved, err

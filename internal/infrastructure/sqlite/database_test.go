@@ -104,7 +104,7 @@ func TestOpenInvalidatesSnapshotsWhenHistoricalResolverPolicyChanges(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := repository.CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	snapshotID := domain.NewDailyValuationSnapshotID()
@@ -153,7 +153,7 @@ func TestSameHashSnapshotReuseRestoresCompletenessAfterResolverPolicyMigration(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := repository.CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	cutoff := startedAt.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 999*time.Millisecond)

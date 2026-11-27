@@ -281,7 +281,7 @@ func TestHoldingReconciliationLinkedTradeDividendAndCustodyMatchWails(t *testing
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	assertNativeTradeCash(t, reopened, ids.account, map[domain.CurrencyCode]string{"USD": "149.625", "EUR": "1.2345"})
 	positions, err := reopened.HoldingsByAccounts(ctx, []domain.AccountID{ids.account, target})
 	if err != nil || len(positions[ids.account]) != 1 || len(positions[target]) != 1 ||

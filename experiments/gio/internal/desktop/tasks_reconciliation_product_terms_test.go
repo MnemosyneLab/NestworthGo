@@ -194,8 +194,8 @@ func TestLinkedLockedProductTermsMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, copy := range []struct {
 		svc     *application.Service
 		product domain.ProductContractID

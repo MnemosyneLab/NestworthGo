@@ -16,7 +16,7 @@ func TestPostOriginBalanceEvidenceAtTimestampBoundaries(t *testing.T) {
 					ctx, s, _, db, boot, setNow := historicalInsertionFixture(t)
 					originAt := historicalInsertionTime(25).Add(fraction)
 					setNow(originAt)
-					if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+					if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 						t.Fatal(err)
 					}
 					setNow(originAt.Add(delay))

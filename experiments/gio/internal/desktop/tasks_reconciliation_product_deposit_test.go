@@ -250,8 +250,8 @@ func TestLinkedTermDepositMatchesWails(t *testing.T) {
 			if err := refStorage.Close(); err != nil {
 				t.Fatal(err)
 			}
-			reopened, _ := reopenOnboardingProfile(t, paths)
-			reference, _ := reopenOnboardingProfile(t, refPaths)
+			reopened, _ := reopenBaselineProfile(t, paths)
+			reference, _ := reopenBaselineProfile(t, refPaths)
 			for _, copy := range []struct {
 				app                               *application.Service
 				account                           domain.AccountID

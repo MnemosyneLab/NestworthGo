@@ -304,7 +304,7 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 	case row == composition-1 && p.hasCompositionSummary():
 		return p.breakdowns.composition(gtx, view, result)
 	case row == p.trendIndex() && row < composition:
-		return p.overviewTrendCard(gtx, view, result.HistoryStarted)
+		return p.overviewTrendCard(gtx, view)
 	case row == composition:
 		return p.allocation.section(gtx, view, result)
 	case row == p.recentActivityIndex():
@@ -383,7 +383,7 @@ func (p *overviewPage) hasAttentionSection() bool {
 }
 
 func (p *overviewPage) canRecordFirstActivity() bool {
-	return p.openLedger != nil && p.current.value.HistoryStarted && len(p.current.value.RecentActivities) == 0
+	return p.openLedger != nil && len(p.current.value.RecentActivities) == 0
 }
 
 func (p *overviewPage) overviewActionRow(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -458,7 +458,7 @@ func (p *overviewPage) attention(gtx layout.Context, view ui.View, missing []dom
 				}
 				return returnMonthButton(view, &p.firstActivity, i18n.OverviewRecordOpenLedger, nil, true)(gtx)
 			}))
-	} else if len(rows) == 1 && p.healthScan.report != nil && p.current.value.HistoryStarted {
+	} else if len(rows) == 1 && p.healthScan.report != nil {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewNoDataActions), view.Colors.SecondaryInk)))
 	}
 	if p.upcoming.checks != nil && p.upcoming.openTasks != nil {

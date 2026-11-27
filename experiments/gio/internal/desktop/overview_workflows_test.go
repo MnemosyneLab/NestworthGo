@@ -38,7 +38,7 @@ func TestOverviewLinksNetWorthHistoryAndExactCoverageScope(t *testing.T) {
 	}
 	fixture := overviewHistoryFixture{
 		overviewReader: overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
-			return domain.OverviewResult{Currency: "USD", AccountCount: 2, HistoryStarted: true, DisplayValuation: partial,
+			return domain.OverviewResult{Currency: "USD", AccountCount: 2, DisplayValuation: partial,
 				MissingInputs: []domain.MissingInputView{{Kind: domain.MissingFXRate, BaseCurrency: "USD", QuoteCurrency: "AUD", AccountName: "Synthetic Australian cash"}}}, nil
 		}),
 		trend: domain.NetWorthTrend{Currency: "USD", StartDate: "2026-11-23", EndDate: "2026-11-25",

@@ -23,10 +23,10 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 	now := time.Date(2026, 10, 1, 4, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	ctx := t.Context()
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic migration", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic migration", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	account := seedHoldingsCash(t, s, ctx, "150000.01")

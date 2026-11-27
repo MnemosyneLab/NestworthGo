@@ -91,8 +91,10 @@ describe("OnboardingPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: /get started/i }));
 
     expect(completeOnboarding).toHaveBeenCalledWith(
-      expect.objectContaining({ householdName: "The Tans", memberNames: ["Alice", "Bob"] }),
+      expect.objectContaining({ householdName: "The Tans", memberNames: ["Alice", "Bob"], timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
     );
+    expect(completeOnboarding.mock.calls[0]?.[0]).not.toHaveProperty("historyStartDate");
+    expect(within(form).queryByRole("checkbox")).not.toBeInTheDocument();
     await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1));
   });
 
@@ -117,7 +119,7 @@ describe("OnboardingPage", () => {
     const form = screen.getByRole("form", { name: "Onboarding" });
     await userEvent.type(within(form).getByLabelText(/household name/i), "The Tans");
     await userEvent.type(within(form).getByLabelText("Member 1 name"), "Alice");
-    await userEvent.click(within(form).getByRole("checkbox", { name: "Start recording from an earlier date" }));
+    await userEvent.click(within(form).getByRole("button", { name: "Choose an earlier start date" }));
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const today = localDateInTimeZone(timezone)!;
     const selected = `${today.slice(0, 7)}-01`;

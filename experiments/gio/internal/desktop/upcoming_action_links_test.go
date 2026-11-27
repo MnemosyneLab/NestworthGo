@@ -57,7 +57,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 	clock := func() time.Time { return accountTestClock }
 	reference := application.NewService(sqlite.NewRepository(referenceDB))
 	reference.SetClock(clock)
-	service, _ = reopenOnboardingProfile(t, paths)
+	service, _ = reopenBaselineProfile(t, paths)
 	service.SetClock(clock)
 	p := newOverviewPage(ctx, service, clock, func() {})
 	tasks := newTasksPage(ctx, service, func() {})

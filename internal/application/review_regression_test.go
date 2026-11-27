@@ -26,7 +26,7 @@ func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "120", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	tick(time.Date(2026, 8, 1, 13, 0, 0, 0, time.UTC))

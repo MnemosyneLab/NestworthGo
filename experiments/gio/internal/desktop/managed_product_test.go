@@ -49,7 +49,7 @@ func seedManagedProducts(ctx context.Context, app *application.Service, at time.
 	if _, err := app.AppendAccountCashValue(ctx, fixture.account, "3000", "USD", ""); err != nil {
 		return fixture, err
 	}
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		return fixture, err
 	}
 	app.SetClock(func() time.Time { return at })
@@ -98,7 +98,7 @@ func seedManagedProducts(ctx context.Context, app *application.Service, at time.
 func openManagedProductFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, managedProductFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	app, storage := reopenOnboardingProfile(t, paths)
+	app, storage := reopenBaselineProfile(t, paths)
 	fixture, err := seedManagedProducts(t.Context(), app, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -313,7 +313,7 @@ func TestManagedTermDepositReadOnlyMatchesWails(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	check(reopened)
 	assertCash(reopened)
 }

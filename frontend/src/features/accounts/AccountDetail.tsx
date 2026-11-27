@@ -16,10 +16,8 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
-import { useObjectNavigation } from "@/app/NavigationContext";
 import { useAccountCashValues, useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { AccountProductsSection } from "@/features/liquidity/AccountProductsSection";
-import { useHistoryOrigin } from "@/queries/history";
 import { compareCanonical, formatAmount, formatSignedMoney } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
@@ -121,8 +119,6 @@ export function AccountDetail({
   updateValue?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const navigation = useObjectNavigation();
-  const origin = useHistoryOrigin();
   const settings = useSettings();
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
@@ -140,7 +136,6 @@ export function AccountDetail({
   const composite = record.account.trackingMode === "holdings";
   const cashValues = useAccountCashValues(record.account.id, composite);
   const cashOnly = composite && record.account.accountType === "cash_on_hand";
-  const historyStarted = Boolean(origin.data);
   const readOnly = archived;
   const cash = useMemo(() => cashComponents(valuation), [valuation]);
   const groupsQuery = useInstrumentHoldingGroups(composite && !cashOnly, record.account.id);
@@ -248,14 +243,6 @@ export function AccountDetail({
           {t("accounts.archivedReadOnly")}
         </p>
       )}
-      {!archived && origin.isSuccess && !historyStarted && navigation && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <p className="text-sm text-muted-foreground">{t("overview.startHistoryNext")}</p>
-          <Button type="button" size="sm" variant="outline" onClick={() => navigation.open({ page: "history" })}>
-            {t("history.startButton")}
-          </Button>
-        </div>
-      )}
       <section data-assistant-module="reconciliation"><AccountReconciliation accountId={record.account.id} archived={archived} /></section>
       {valuation && !valuation.complete && missingReasons.length > 0 && (
         <p role="status" className="text-sm text-warning-foreground">
@@ -301,7 +288,7 @@ export function AccountDetail({
               {!readOnly && (
                 <div className="flex flex-wrap gap-2">
                   <Button ref={cashActionTrigger} type="button" onClick={() => setAction("cash")}>
-                    {historyStarted ? t("accounts.reconcileBalance") : t("accounts.addCashBalance")}
+                    {t("accounts.reconcileBalance")}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setAction("deposit")}>
                     {t("accounts.depositOrWithdraw")}
@@ -436,7 +423,6 @@ export function AccountDetail({
           holdingId={actionHoldingId}
           record={record}
           valuation={valuation}
-          historyStarted={historyStarted}
           onClose={() => {
             setAction(null);
             setActionHoldingId(undefined);

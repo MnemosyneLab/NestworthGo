@@ -106,7 +106,6 @@ type Bootstrap = {
   currency: string;
   today: string;
   time: string;
-  historyStarted: boolean;
   capabilities: Session["device"]["permissions"];
 };
 type Page<T> = { items: T[]; next: string; healthy?: boolean };
@@ -682,8 +681,7 @@ export function MobileApp() {
                 canWrite={
                   !pending &&
                   !offline &&
-                  b.capabilities.record &&
-                  b.historyStarted
+                  b.capabilities.record
                 }
                 canRefresh={b.capabilities.market_refresh && !offline}
               />
@@ -764,7 +762,6 @@ export function MobileApp() {
                     title={t("mobile.quickRecord")}
                     disabled={
                       !b.capabilities.record ||
-                      !b.historyStarted ||
                       !!pending ||
                       offline
                     }
@@ -812,11 +809,6 @@ export function MobileApp() {
                 ),
               )}
             </nav>
-          )}
-          {!b.historyStarted && (
-            <p className="mobile-notice" data-tone="warning">
-              {t("mobile.historyRequired")}
-            </p>
           )}
         </>
       )}

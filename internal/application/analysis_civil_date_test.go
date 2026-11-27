@@ -202,7 +202,7 @@ func TestAnalysisLoadInputsLooksBackToPreviousExistingCivilDate(t *testing.T) {
 	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "apia-analysis-lookback", nil)
 	setClock(time.Date(2011, 12, 29, 12, 0, 0, 0, time.UTC))
-	if _, err := service.StartHistoryOnDate(ctx, "Pacific/Apia", "2011-12-29", nil); err != nil {
+	if _, err := service.CaptureSyntheticOriginOnDate(ctx, "Pacific/Apia", "2011-12-29", nil); err != nil {
 		t.Fatal(err)
 	}
 	setClock(time.Date(2012, 1, 2, 12, 0, 0, 0, time.UTC))

@@ -41,7 +41,7 @@ func TestManualFXReceiptIdentifiesCommittedQuoteAfterRepriceFailure(t *testing.T
 	s := NewService(repo)
 	now := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic FX receipt", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic FX receipt", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.SetFXPreference(ctx, "USD", "JPY", "manual"); err != nil {

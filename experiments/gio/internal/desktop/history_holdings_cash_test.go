@@ -337,7 +337,7 @@ func TestHoldingsCashFlowsKeepWailsOpeningBaseline(t *testing.T) {
 	prepareBaseline := func() (*application.Service, domain.AccountID, wire.AccountCashValueDTO) {
 		t.Helper()
 		paths := prepareOnboardingProfile(t)
-		seed, _ := reopenOnboardingProfile(t, paths)
+		seed, _ := reopenBaselineProfile(t, paths)
 		seed.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 		if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 			HouseholdName: "Synthetic cash baseline", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
@@ -371,11 +371,11 @@ func TestHoldingsCashFlowsKeepWailsOpeningBaseline(t *testing.T) {
 		}
 		in := history.CashMovementInput{Movement: history.CashContribution, Account: id, Currency: "SGD", Amount: "20", Date: "2026-11-21", Time: "01:00"}
 		var issue *domain.Error
-		if _, err := history.ReviewCashMovement(ctx, seed, in); !errors.As(err, &issue) || issue.Code != domain.ErrHistoryNotStarted {
+		if _, err := history.ReviewCashMovement(ctx, seed, in); !errors.As(err, &issue) || issue.Code != domain.ErrMissingHistoryOrigin {
 			t.Fatalf("History movement tried to replace the opening path: %v", err)
 		}
 		seed.SetClock(func() time.Time { return accountTestClock.Add(-36 * time.Hour) })
-		if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
+		if _, err := seed.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 		seed.SetClock(func() time.Time { return accountTestClock })

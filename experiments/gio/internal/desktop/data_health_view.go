@@ -39,7 +39,6 @@ var healthKinds = map[string]i18n.MessageID{
 	application.HealthKindSnapshotMissing:          i18n.HealthSnapshotMissing,
 	application.HealthKindSnapshotOutdated:         i18n.HealthSnapshotOutdated,
 	application.HealthKindSyncFailure:              i18n.HealthSyncFailure,
-	application.HealthKindHistoryNotStarted:        i18n.HealthHistoryNotStarted,
 }
 
 var healthSeverities = map[string]i18n.MessageID{

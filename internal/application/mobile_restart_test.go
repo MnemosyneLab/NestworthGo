@@ -16,7 +16,7 @@ func TestMobileReceiptsSurviveVerifiedSQLiteReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.Add(time.Minute)

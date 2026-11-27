@@ -18,7 +18,6 @@ import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmati
 import { paginateActivityPage } from "@/test/activityPage";
 import { HistoryPage } from "./HistoryPage";
 import { AccountActionSheet } from "@/features/accounts/AccountActionSheets";
-import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
@@ -366,62 +365,6 @@ describe("HistoryPage", () => {
     expect(listActivityPage.mock.calls[0][0].kinds).toBeUndefined();
   });
 
-  it("prompts to Start History when none exists yet", async () => {
-    historyOrigin.mockResolvedValue(null);
-    renderPage();
-    expect(await screen.findByRole("heading", { name: "Start history" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
-  });
-
-  it("starts history with the resolved settings timezone", async () => {
-    historyOrigin.mockResolvedValue(null);
-    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    renderPage();
-    const timezoneInput = await screen.findByLabelText("Timezone");
-    expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    expect(timezoneInput).toHaveAttribute("readonly");
-    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(resolvedTimezone) ?? "");
-    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), null);
-    expect(startHistory).not.toHaveBeenCalled();
-    expect(startHistoryWithCosts).not.toHaveBeenCalled();
-  });
-
-  it("starts History on the selected earlier date", async () => {
-    historyOrigin.mockResolvedValue(null);
-    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    renderPage();
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const today = localDateInTimeZone(timezone)!;
-    const selected = `${today.slice(0, 7)}-01`;
-    await userEvent.click(await screen.findByLabelText("Start date"));
-    const calendar = await screen.findByRole("grid");
-    await userEvent.click(calendar.querySelector(`[data-day="${selected}"] button`) as HTMLElement);
-    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-
-    expect(startHistoryOnDate).toHaveBeenCalledWith(timezone, selected, null);
-    expect(startHistory).not.toHaveBeenCalled();
-  });
-
-  it("starts history with unit costs when holdings already exist", async () => {
-    historyOrigin.mockResolvedValue(null);
-    startingPointDraft.mockResolvedValue([
-      { holdingId: "h1", instrumentId: "i1", instrumentName: "Vanguard S&P 500 ETF", currency: "USD", quantity: "100", unitCost: "" },
-    ]);
-    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    renderPage();
-    const timezoneInput = await screen.findByLabelText("Timezone");
-    expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    expect(timezoneInput).toHaveAttribute("readonly");
-    const costInput = await screen.findByLabelText(/Vanguard S&P 500 ETF/);
-    await userEvent.type(costInput, "430.25");
-    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), { h1: "430.25" });
-    expect(startHistoryWithCosts).not.toHaveBeenCalled();
-    expect(startHistory).not.toHaveBeenCalled();
-  });
 
   it("previews then records a money_added change", async () => {
     const success = vi.spyOn(toast, "success");
@@ -637,7 +580,7 @@ describe("HistoryPage", () => {
     previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
     render(
       <QueryClientProvider client={createTestQueryClient()}>
-        <AccountActionSheet action="buy" historyStarted record={{
+        <AccountActionSheet action="buy" record={{
           account: {
             id: "brokerage-1", householdId: "h1", name: "Brokerage", trackingMode: "holdings",
             accountType: "brokerage", balanceSheetRole: "asset", defaultCurrency: "USD", iconKey: "",
@@ -1739,23 +1682,6 @@ it.each(["sell", "dividend", "adjust", "transfer"] as const)("distinguishes equa
   await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining(flow === "transfer" ? { fromHoldingId: "holding-b", toAccountId: "destination" } : flow === "sell" ? { holdingId: "holding-b", instrumentId: "class-b", side: "sell" } : { holdingId: "holding-b" })));
 });
 
-it("keeps duplicate-alias starting-point cost inputs distinct and submits each holding ID", async () => {
-  historyOrigin.mockResolvedValue(null);
-  startingPointDraft.mockResolvedValue([
-    { holdingId: "holding-a", instrumentId: "class-a", instrumentName: "Family fund · 000001 · Share class A · USD · ISIN-A", quantity: "10", currency: "USD", unitCost: "" },
-    { holdingId: "holding-b", instrumentId: "class-b", instrumentName: "Family fund · 000002 · Share class B · USD · ISIN-B", quantity: "10", currency: "USD", unitCost: "" },
-  ]);
-  startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-  renderPage();
-  const user = userEvent.setup();
-  const a = await screen.findByLabelText(/Family fund · 000001 · Share class A.*ISIN-A.*10/);
-  const b = screen.getByLabelText(/Family fund · 000002 · Share class B.*ISIN-B.*10/);
-  expect(a).not.toBe(b);
-  await user.type(a, "12.34");
-  await user.type(b, "56.78");
-  await user.click(screen.getByRole("button", { name: "Start history" }));
-  await waitFor(() => expect(startHistoryOnDate).toHaveBeenCalledWith(expect.any(String), expect.any(String), { "holding-a": "12.34", "holding-b": "56.78" }));
-});
 
 it.each(["success", "uncertain"])("retains a deferred Repeat confirmation across Escape, Close and backdrop (%s)", async (outcome) => {
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
@@ -2040,7 +1966,7 @@ it.each([
   { code: "conflict", field: "inputGeneration" },
   { code: "validation", field: "localDate" },
   { code: "decimal_overflow" },
-  { code: "history_not_started" },
+  { code: "history_origin_missing" },
 ])("keeps postcommit-shaped Fix failure $code recoverable with the original source and ID", async error => {
   fixChange.mockRejectedValueOnce(new Error(JSON.stringify({ ...error, message: "snapshot rebuild failed after financial commit" }))).mockResolvedValue({});
   const { form } = await openOrdinaryRecoveryForm("fix");
@@ -2369,17 +2295,6 @@ it.each(["before-consume","during-consume","unchanged"] as const)("fences real H
   change:async()=>{await userEvent.selectOptions(screen.getByLabelText(i18n.t("history.filterKind")),"cash_in"); expect(screen.getByLabelText(i18n.t("history.filterKind"))).toHaveValue("cash_in");},
  });
  expect(recordChange).not.toHaveBeenCalled(); expect(undoChange).not.toHaveBeenCalled();
-});
-
-
-it("reads real starting-point business controls without invoking history writes", async()=>{
- historyOrigin.mockResolvedValue(null); scanHealth.mockResolvedValue({issues:[]}); settingsLoad.mockResolvedValue({timezone:"UTC"});
- renderPage(); await screen.findByLabelText(i18n.t("history.timezone"));
- const page=capturePageContent("history:");
- expect(page.nodes.find(n=>n.id==="starting-point/history-timezone")).toMatchObject({value:"UTC",state:["readonly=true"]});
- expect(page.nodes.find(n=>n.id==="starting-point/history-start-date")?.value).not.toBe("");
- expect(page.nodes.some(n=>n.module==="activities")).toBe(false);
- expect(startHistory).not.toHaveBeenCalled();expect(startHistoryOnDate).not.toHaveBeenCalled();
 });
 
 

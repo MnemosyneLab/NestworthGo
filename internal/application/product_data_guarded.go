@@ -46,7 +46,7 @@ func (s *Service) productDataStateHash(ctx context.Context, contract domain.Prod
 		return "", err
 	}
 	if origin == nil {
-		return "", &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history must be started"}
+		return "", &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	date, _, err := domain.LocalCivilDate(now, origin.Timezone)
 	if err != nil {

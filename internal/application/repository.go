@@ -133,7 +133,7 @@ type HistoryRepository interface {
 	ListInstrumentPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentPreferenceObservation, error)
 	ListFXPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.FXPreferenceObservation, error)
 	LoadHistoricalSnapshotBatch(context.Context, domain.HouseholdID, time.Time) (domain.HistoricalSnapshotBatch, error)
-	StartHistory(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
+	CaptureSyntheticOrigin(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
 	CommitActivity(context.Context, domain.Activity, []domain.ActivityEffect, []domain.EndpointView, time.Time) error
 	CommitActivityBatch(context.Context, []domain.ActivityCommit, time.Time) error
 	LookupActivityMutation(context.Context, domain.HouseholdID, domain.MutationID) (*domain.ActivityMutationRecord, error)

@@ -108,7 +108,7 @@ func TestAccountDisplayRefreshToValuation(t *testing.T) {
 				service := NewService(sqlite.NewRepository(database), NewMarketDataRegistry(fake))
 				now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 				service.setClock(func() time.Time { return now })
-				if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Display refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+				if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Display refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 					t.Fatal(err)
 				}
 				bootstrap, err := service.Bootstrap(ctx)

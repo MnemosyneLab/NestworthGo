@@ -31,7 +31,7 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 			if _, err = s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: []AgentMarketDataItem{{InstrumentID: i.ID.String(), Currency: "CNY", Kind: quoteKind, Date: "2026-10-16", Timezone: "UTC", Value: "2", SourceTitle: "Synthetic Friday price"}}}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "2"}); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "2"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
@@ -136,7 +136,7 @@ func TestAgentClosureRoundTripCorrectionWithdrawalAndNoPriceFabrication(t *testi
 	if _, err = s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: []AgentMarketDataItem{{InstrumentID: i.ID.String(), Currency: "CNY", Kind: "nav", Date: "2026-10-16", Timezone: "UTC", Value: "2", SourceTitle: "Synthetic NAV"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "2"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)

@@ -30,7 +30,7 @@ func TestHistoricalSeriesConnectsYahooAndAgentCloses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "100"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)

@@ -29,7 +29,7 @@ func seriesAgentSelectionFixture(t *testing.T, kind string, days ...string) (*Se
 	if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	// Daily coverage assertions apply after an explicit switch out of manual

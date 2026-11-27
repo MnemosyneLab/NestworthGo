@@ -9,13 +9,12 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 func TestCashPreviewConfirmation(t *testing.T) {
-	for _, started := range []bool{false, true} {
+	for _, started := range []bool{true} {
 		t.Run(map[bool]string{false: "baseline", true: "history"}[started], func(t *testing.T) {
 			fx := onboardedFixture(t)
 			ctx := context.Background()
@@ -24,7 +23,7 @@ func TestCashPreviewConfirmation(t *testing.T) {
 				t.Fatal(err)
 			}
 			if started {
-				if _, err := history.NewService(fx.app).StartHistory(ctx, "UTC"); err != nil {
+				if _, err := fx.app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 					t.Fatal(err)
 				}
 			}

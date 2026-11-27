@@ -275,7 +275,7 @@ func (s *Service) recordProductOperation(ctx context.Context, command ProductCom
 
 func (s *Service) buildProductPlan(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, command ProductCommand, operationID domain.ProductOperationID, now time.Time) (productPlan, error) {
 	if origin == nil {
-		return productPlan{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a product operation"}
+		return productPlan{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	switch command.Kind {
 	case domain.ProductOpOpen:

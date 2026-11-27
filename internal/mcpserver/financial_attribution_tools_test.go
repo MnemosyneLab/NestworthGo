@@ -160,7 +160,7 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	if _, err := app.SetFXPreference(t.Context(), "CNY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -245,6 +245,7 @@ func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *te
 			repo := sqlite.NewRepository(db)
 			port := &attributionCaptureRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
 			app := application.NewService(port)
+			app.SetClock(func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) })
 			if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}

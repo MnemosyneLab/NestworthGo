@@ -51,7 +51,7 @@ func seedStage6Market(t *testing.T, start time.Time, withInstrument bool) ([]byt
 		}
 		id = instrument.ID
 	}
-	if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return stage6SeedBytes(t, db), id

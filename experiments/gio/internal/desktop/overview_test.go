@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -150,7 +151,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqlite.NewRepository(db)
-	seed := application.NewService(repo)
+	seed := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	seed.SetClock(clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Overview", BaseCurrency: "AUD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
@@ -215,7 +216,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		s := application.NewService(sqlite.NewRepository(db), registry...)
+		s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, registry...)
 		s.SetClock(clock)
 		s.SetQuoteCacheTTL(time.Hour)
 		return s
@@ -332,7 +333,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	service.SetClock(func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic allocation paths", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},

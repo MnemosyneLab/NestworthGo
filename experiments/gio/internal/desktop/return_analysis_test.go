@@ -19,6 +19,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 )
 
@@ -82,7 +83,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(sqlite.NewRepository(db))
+	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	seed.SetClock(clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic Return Calendar", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
@@ -116,7 +117,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if _, err := seed.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-02-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistoryWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
+	if _, err := seed.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -143,7 +144,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = copyDB.Close() })
 		provider := &unavailableOverviewProvider{}
-		s := application.NewService(sqlite.NewRepository(copyDB), application.NewMarketDataRegistry(provider))
+		s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)}, application.NewMarketDataRegistry(provider))
 		s.SetClock(clock)
 		return s, provider
 	}

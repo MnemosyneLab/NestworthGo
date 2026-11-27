@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	yfinancemodels "github.com/wnjoon/go-yfinance/pkg/models"
 )
 
@@ -298,7 +299,7 @@ func TestLatestManualQuotesKeepWorkingAfterSchema10(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repo := sqlite.NewRepository(database)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Latest", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +527,7 @@ func TestHistoricalCoverageRetainsTheEffectiveOlderBindingRevision(t *testing.T)
 		t.Fatal(err)
 	}
 
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	if _, err := service.UpdateInstrument(ctx, instrument.ID, application.InstrumentInput{ProviderSymbol: "MSFT"}); err != nil {
 		t.Fatal(err)
 	}
@@ -563,7 +564,7 @@ func TestHistoricalCoverageSurvivesSwitchToManual(t *testing.T) {
 	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))); err != nil {
 		t.Fatal(err)
 	}
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +649,7 @@ func seedHistoryWorkspace(t *testing.T) (*sqlite.DB, *sqlite.Repository, domain.
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repo := sqlite.NewRepository(database)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Persist", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
@@ -666,7 +667,7 @@ func seedHistoryWorkspace(t *testing.T) (*sqlite.DB, *sqlite.Repository, domain.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := repo.CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL"})
@@ -849,7 +850,7 @@ func TestManualModeChangeKeepsPriorProviderSlots(t *testing.T) {
 	if split != "4.0" {
 		t.Fatalf("split_factor = %s", split)
 	}
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	if _, err := service.UpdateInstrument(ctx, instrument.ID, application.InstrumentInput{
 		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
 		ProviderKey: "", ProviderSymbol: "", MarketCode: "US",

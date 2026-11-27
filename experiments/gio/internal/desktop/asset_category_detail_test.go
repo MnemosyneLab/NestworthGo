@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 )
 
@@ -45,7 +46,7 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 	db, err := sqlite.Open(path)
 	check(err)
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(sqlite.NewRepository(db))
+	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	seed.SetClock(clock)
 	check(seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic asset categories", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}))
 	boot, err := seed.Bootstrap(ctx)
@@ -55,7 +56,7 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 		DefaultCurrency: "USD", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 	})
 	check(err)
-	_, err = seed.StartHistory(ctx, "UTC")
+	_, err = seed.CaptureSyntheticOrigin(ctx, "UTC")
 	check(err)
 	now = now.AddDate(0, 0, 1)
 	amount, err := domain.ParseMoney("25.1234", "USD")
@@ -76,7 +77,7 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 		copyDB, err := sqlite.Open(copyPath)
 		check(err)
 		t.Cleanup(func() { _ = copyDB.Close() })
-		service := application.NewService(sqlite.NewRepository(copyDB))
+		service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)})
 		service.SetClock(clock)
 		return service
 	}

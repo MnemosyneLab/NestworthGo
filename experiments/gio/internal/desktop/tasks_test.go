@@ -275,7 +275,7 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	data, err := reopened.UpcomingActions(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -285,7 +285,7 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 
 func TestTermDepositTasksEmpty(t *testing.T) {
 	ctx := t.Context()
-	service, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	service, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic empty tasks", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {

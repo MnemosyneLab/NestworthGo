@@ -21,6 +21,11 @@ export function useCompleteOnboarding(onCompleted?: () => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: CompleteOnboardingRequest) => callService(() => HouseholdService.CompleteOnboarding(request)),
+    onError: () => {
+      // A response can fail after the atomic household/origin commit. Re-read
+      // Bootstrap instead of leaving a submitted form as the only recovery.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.household.bootstrap });
+    },
     onSuccess: () => {
       // Deliver the destination before Bootstrap can remove the onboarding UI.
       onCompleted?.();

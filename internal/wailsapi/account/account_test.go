@@ -15,7 +15,7 @@ import (
 
 func onboardedApp(t *testing.T) (*application.Service, []wire.MemberDTO) {
 	t.Helper()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice", "Bob"},
 	}); err != nil {

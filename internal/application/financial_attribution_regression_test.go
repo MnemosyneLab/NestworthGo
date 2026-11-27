@@ -42,7 +42,7 @@ func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Private existing", "bank_account", "asset", "balance", "CNY", "40")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -97,7 +97,7 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
+			if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -196,7 +196,7 @@ func TestFinancialAttributionGapBackfillChunks(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
@@ -212,7 +212,7 @@ func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic earlier revision", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -248,7 +248,7 @@ func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T)
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic bounded revision", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -286,7 +286,7 @@ func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 			overviewAccount(t, s, owner, "Synthetic Havana cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(t.Context(), "America/Havana"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/Havana"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
@@ -329,7 +329,7 @@ func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
 			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -378,7 +378,7 @@ func TestFinancialAttributionPrecisionComponentTiesAndMultiDay(t *testing.T) {
 			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)

@@ -64,7 +64,7 @@ func TestMobileManualHealthFixesLeaveDerivedIssuesVisible(t *testing.T) {
 		t.Fatal(err)
 	}
 	overviewAccount(t, s, owner, "Synthetic USD", "bank_account", "asset", "balance", "USD", "100")
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)

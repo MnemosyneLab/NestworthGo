@@ -44,7 +44,7 @@ func TestHistoricalReconciliationRetainedCorrectionsAndReversal(t *testing.T) {
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Bank", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -96,7 +96,7 @@ func TestHistoricalReconciliationInternalTransfersDebtAndFees(t *testing.T) {
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
 	d := overviewAccount(t, s, owner, "Debt", "loan", "liability", "balance", "CNY", "50")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -307,7 +307,7 @@ func TestHistoricalReconciliationSQLiteMultiCurrencyTransfer(t *testing.T) {
 	if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -370,7 +370,7 @@ func TestHistoricalReconciliationAgentCloseTimestampContinuity(t *testing.T) {
 				}
 			}
 			importClose("2026-08-01", "10", tc.openingTime)
-			if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "10"}); err != nil {
+			if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "10"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = now.AddDate(0, 0, 1)

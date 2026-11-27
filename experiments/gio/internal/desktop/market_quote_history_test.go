@@ -19,6 +19,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	quoteapi "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 )
 
@@ -60,7 +61,7 @@ func TestMarketQuoteHistoryThroughMarketAndFocusedHealth(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqlite.NewRepository(db)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	clock := func() time.Time { return time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC) }
 	service.SetClock(clock)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic quote history", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
@@ -81,7 +82,7 @@ func TestMarketQuoteHistoryThroughMarketAndFocusedHealth(t *testing.T) {
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "SGD", "7", "2026-11-20T18:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "America/Los_Angeles"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "America/Los_Angeles"); err != nil {
 		t.Fatal(err)
 	}
 	fixture := application.HealthIssue{ID: "fixture-fx", Kind: application.HealthKindMissingFXHistory, CurrencyA: "SGD",

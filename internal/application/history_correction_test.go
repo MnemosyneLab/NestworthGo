@@ -22,7 +22,7 @@ func TestHistoricalCorrectionReplaysSoldPositionAndAllSnapshots(t *testing.T) {
 	s := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	boot, _ := s.Bootstrap(ctx)
@@ -44,7 +44,7 @@ func TestHistoricalCorrectionReplaysSoldPositionAndAllSnapshots(t *testing.T) {
 	if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "1.0175", "2026-09-25T12:00:00Z", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -184,7 +184,7 @@ func TestCorrectionPreservesLaterAbsoluteBalanceObservation(t *testing.T) {
 	s := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	boot, _ := s.Bootstrap(ctx)
@@ -192,7 +192,7 @@ func TestCorrectionPreservesLaterAbsoluteBalanceObservation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -253,7 +253,7 @@ func TestCorrectionZeroDeltaObservation(t *testing.T) {
 			s := NewService(repo)
 			now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 			s.setClock(func() time.Time { return now })
-			if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			boot, _ := s.Bootstrap(ctx)
@@ -268,7 +268,7 @@ func TestCorrectionZeroDeltaObservation(t *testing.T) {
 			if err := s.ArchiveAccount(ctx, other.Account.ID, true); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 

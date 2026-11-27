@@ -56,7 +56,7 @@ func seedBankExpenseAmendments(t *testing.T, start time.Time) ([]byte, bankExpen
 	}
 	bank := create(bankExpenseAccount, "bank_account")
 	wallet := create("Synthetic Expense Wallet", "digital_wallet")
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	api := historyapi.NewService(app)

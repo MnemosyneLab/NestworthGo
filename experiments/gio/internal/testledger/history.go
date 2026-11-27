@@ -26,7 +26,7 @@ func seedHistory(ctx context.Context, service *application.Service, bankID domai
 	if err != nil {
 		return err
 	}
-	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		return err
 	}
 

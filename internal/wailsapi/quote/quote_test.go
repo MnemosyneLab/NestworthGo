@@ -12,7 +12,7 @@ import (
 )
 
 func TestAppendAndReadManualInstrumentQuote(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -50,7 +50,7 @@ func TestAppendAndReadManualInstrumentQuote(t *testing.T) {
 }
 
 func TestCurrentInstrumentQuoteBeforeAnyQuote(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -74,7 +74,7 @@ func TestCurrentInstrumentQuoteBeforeAnyQuote(t *testing.T) {
 }
 
 func TestFXPreferenceAndManualFXQuote(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -113,7 +113,7 @@ func TestFXPreferenceAndManualFXQuote(t *testing.T) {
 }
 
 func TestInstrumentAndFXQuoteSeriesAreLocalAndDirectional(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -162,7 +162,7 @@ func TestInstrumentAndFXQuoteSeriesAreLocalAndDirectional(t *testing.T) {
 }
 
 func TestQuoteSeriesRejectsUnknownRangeAndFilter(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -185,7 +185,7 @@ func TestQuoteSeriesRejectsUnknownRangeAndFilter(t *testing.T) {
 }
 
 func TestSetFXPreferenceAcceptsDirectPairWithoutBaseCurrency(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -203,7 +203,7 @@ func TestSetFXPreferenceAcceptsDirectPairWithoutBaseCurrency(t *testing.T) {
 }
 
 func TestSetInstrumentClosedDateUsesSharedAgentFacts(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := t.Context()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Synthetic"}}); err != nil {
 		t.Fatal(err)

@@ -133,7 +133,7 @@ func (p *overviewPage) leave() {
 
 func (p *overviewPage) updateTrend(gtx layout.Context, view ui.View) {
 	t := &p.trend
-	if p.current == nil || p.current.value.AccountCount == 0 || !p.current.value.HistoryStarted || t.reader == nil {
+	if p.current == nil || p.current.value.AccountCount == 0 || t.reader == nil {
 		t.retire()
 		return
 	}
@@ -257,18 +257,15 @@ func overviewTrendSpec(view ui.View, trend *domain.NetWorthTrend) charts.LineSpe
 	return spec
 }
 
-func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View, historyStarted bool) layout.Dimensions {
+func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View) layout.Dimensions {
 	l, t := view.Language, &p.trend
 	header := []layout.FlexChild{layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return view.Line(gtx, ui.TextHeading, l.Text(i18n.OverviewNetWorthTrend), view.Colors.Ink)
 	})}
 	if p.openHistory != nil {
 		label := i18n.OverviewOpenWealthHistory
-		if !historyStarted {
-			label = i18n.HistoryStartAction
-		}
 		if t.history.Clicked(gtx) {
-			p.openHistory(historyStarted, &t.history)
+			p.openHistory(true, &t.history)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		header = append(header, layout.Rigid(returnMonthButton(view, &t.history, label, nil, true)))
@@ -276,9 +273,7 @@ func (p *overviewPage) overviewTrendCard(gtx layout.Context, view ui.View, histo
 	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, header...)
 	})}
-	if !historyStarted {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryNoOrigin), view.Colors.SecondaryInk)))
-	} else if t.reader != nil {
+	if t.reader != nil {
 		rows = append(rows, p.overviewTrendRows(gtx, view)...)
 	}
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {

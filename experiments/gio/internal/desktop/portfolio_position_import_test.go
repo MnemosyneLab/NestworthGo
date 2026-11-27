@@ -103,7 +103,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	rows, err := reopened.HoldingsByAccounts(ctx, []domain.AccountID{ids.account, second})
 	if err != nil || len(rows[ids.account]) != 1 || len(rows[second]) != 1 ||
 		rows[second][0].InstrumentID != ids.foreign || rows[second][0].Quantity.Canonical() != "1.125" {

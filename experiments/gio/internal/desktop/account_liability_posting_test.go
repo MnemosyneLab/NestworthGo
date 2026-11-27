@@ -152,7 +152,7 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, after := reopenOnboardingProfile(t, paths)
+	reopened, after := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return now })
 	replay, err := plan.Commit(ctx, reopened)
 	if err != nil || replay.Activity.ID != id {

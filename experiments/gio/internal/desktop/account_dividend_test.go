@@ -48,7 +48,7 @@ func seedDividend(ctx context.Context, service *application.Service, now time.Ti
 func openDividendFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, saleFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, storage := reopenOnboardingProfile(t, paths)
+	service, storage := reopenBaselineProfile(t, paths)
 	ids, err := seedDividend(t.Context(), service, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	frozen := fault.attempts[1]
 	replay, err := reopened.RecordChangeGuarded(ctx, frozen.command, frozen.mutation, frozen.hash, frozen.token)

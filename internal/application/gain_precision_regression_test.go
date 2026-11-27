@@ -18,7 +18,7 @@ func TestInstrumentAggregationRoundsOnlyAfterSummation(t *testing.T) {
 	defer db.Close()
 	app := NewService(sqlite.NewRepository(db))
 	ctx := context.Background()
-	if err = app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic review", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err = app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic review", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
@@ -70,7 +70,7 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	app.setClock(func() time.Time { return now })
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Precision", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Precision", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
@@ -99,7 +99,7 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 			}
 		}
 	}
-	if _, err = app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

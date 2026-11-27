@@ -18,7 +18,7 @@ func TestManualQuoteDatesUseHistoryTimezone(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.StartHistory(ctx, zone); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, zone); err != nil {
 				t.Fatal(err)
 			}
 			location, err := time.LoadLocation(zone)
@@ -68,7 +68,7 @@ func TestManualQuoteDateOnlyUsesFirstActualInstantAfterSkippedMidnight(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.StartHistory(ctx, test.zone); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, test.zone); err != nil {
 				t.Fatal(err)
 			}
 			want, err := time.Parse(time.RFC3339, test.want)
@@ -95,7 +95,7 @@ func TestManualQuotesRejectEntirelySkippedCivilDateWithoutWriting(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "Pacific/Apia"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Pacific/Apia"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2011-12-30", false); err == nil {
@@ -155,7 +155,7 @@ func TestManualFutureQuotesCannotEnterCurrentValuation(t *testing.T) {
 	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	before, err := service.Overview(ctx, domain.AccountFilter{})

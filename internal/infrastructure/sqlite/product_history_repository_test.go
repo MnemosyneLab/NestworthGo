@@ -22,7 +22,7 @@ func seedProductHistory(t *testing.T) (*DB, *Repository, *application.Service, d
 	if _, err := app.AppendAccountCashValue(t.Context(), account.ID, "1000", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	maturity, zero, calendar := "2026-12-20", 0, "calendar"

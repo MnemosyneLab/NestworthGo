@@ -22,7 +22,7 @@ func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *test
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic FX regression", BaseCurrency: "CNY", MemberNames: []string{"Test owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic FX regression", BaseCurrency: "CNY", MemberNames: []string{"Test owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := s.Bootstrap(ctx)
@@ -38,7 +38,7 @@ func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *test
 	if _, err := s.AppendManualFXQuote(ctx, "CNY", "USD", "1.123456789012", "2026-08-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)

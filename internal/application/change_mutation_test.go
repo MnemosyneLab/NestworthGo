@@ -22,7 +22,7 @@ func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *tes
 	clock := originNow
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Mutations", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Mutations", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -33,7 +33,7 @@ func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = originNow.Add(24 * time.Hour)
@@ -90,7 +90,7 @@ func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
 	clock := originNow
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Fix", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Fix", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -101,7 +101,7 @@ func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = originNow.Add(24 * time.Hour)
@@ -185,7 +185,7 @@ func TestFixMutationRetryRecoversPostcommitSnapshotDomainError(t *testing.T) {
 	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := t.Context()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic recovery", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic recovery", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	boot, err := service.Bootstrap(ctx)
@@ -196,7 +196,7 @@ func TestFixMutationRetryRecoversPostcommitSnapshotDomainError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = clock.AddDate(0, 0, 1)

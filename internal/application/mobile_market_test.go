@@ -29,7 +29,7 @@ func TestMobileMarketJobsDedupeAcrossEntrypointsAndKeepPartialResults(t *testing
 	s, ctx, _, setClock := newOnboardedService(t, "mobile-market", []string{"Owner"})
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	setClock(now)
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	fake := newRefreshFakeProvider()

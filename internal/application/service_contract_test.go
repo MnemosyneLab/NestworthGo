@@ -21,7 +21,7 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 	clock := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
 		t.Fatalf("onboarding: %v", err)
 	}
 	institution, err := service.CreateInstitution(ctx, "Bank", domain.InstitutionBank)

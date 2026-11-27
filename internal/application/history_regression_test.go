@@ -22,7 +22,7 @@ func TestDebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
 			clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			service.setClock(func() time.Time { return clock })
 			ctx := context.Background()
-			if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Debt", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Debt", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			bootstrap, err := service.Bootstrap(ctx)
@@ -50,7 +50,7 @@ func TestDebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			clock = clock.Add(72 * time.Hour)
@@ -99,7 +99,7 @@ func TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Debt", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Debt", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
@@ -112,7 +112,7 @@ func TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	principal, _ := domain.ParseMoney("100", "CNY")
@@ -141,11 +141,11 @@ func TestPostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Creation", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Creation", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	owner := bootstrap.Members[0].ID
@@ -202,11 +202,11 @@ func TestSnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Cursor", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Cursor", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
@@ -245,7 +245,7 @@ func TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Archive", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Archive", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
@@ -277,7 +277,7 @@ func TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.ArchiveAccount(ctx, cash.Account.ID, true); err != nil {
@@ -329,7 +329,7 @@ func TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testin
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Observed", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Observed", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
@@ -342,7 +342,7 @@ func TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)

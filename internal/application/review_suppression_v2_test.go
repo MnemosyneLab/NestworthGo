@@ -15,7 +15,7 @@ func TestReviewSuppressionV2ReceiptKeepsAbsoluteCivilExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 31, 15, 0, 0, 0, time.UTC)
-	if _, err := s.StartHistory(t.Context(), "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	id := string(domain.NewReviewSuppressionID())

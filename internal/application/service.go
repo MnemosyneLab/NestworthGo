@@ -231,6 +231,24 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	return Bootstrap{Household: household, Members: members, Institutions: institutions, Groups: groups}, nil
 }
 
+// BootstrapLedger validates the creation invariant at the session boundary.
+// A fresh database has no household. An initialized database without its
+// origin is unsupported, not an invitation to manufacture history.
+func (s *Service) BootstrapLedger(ctx context.Context) (Bootstrap, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil || bootstrap.Household == nil {
+		return bootstrap, err
+	}
+	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return Bootstrap{}, err
+	}
+	if origin == nil {
+		return Bootstrap{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
+	}
+	return bootstrap, nil
+}
+
 // requireHousehold is the identity-only gate for mutations
 // that need the current Household ID but do not validate directory references.
 // Keep Bootstrap for callers that genuinely need active Members, Institutions,
@@ -302,25 +320,27 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		member.SortOrder = index
 		members = append(members, member)
 	}
-	if strings.TrimSpace(input.Timezone) == "" {
-		if strings.TrimSpace(input.HistoryStartDate) != "" {
-			return &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone is required for a chosen history start date"}
-		}
-		if err := s.repository.CreateOnboarding(ctx, household, members); err != nil {
-			return err
-		}
-		if err := s.ensureDefaultDirectory(ctx, household); err != nil {
-			return err
-		}
-		s.invalidateAnalysis()
-		return nil
+	// The ledger's immutable timezone is established with its empty origin.
+	// Non-interactive callers that omit a timezone use UTC; both desktop
+	// onboarding surfaces supply the resolved presentation timezone.
+	timezone := strings.TrimSpace(input.Timezone)
+	if timezone == "" {
+		timezone = "UTC"
 	}
 	now := s.clock()
-	startedAt, err := historyStartInstant(input.HistoryStartDate, input.Timezone, now)
+	location, err := time.LoadLocation(timezone)
+	if err != nil || timezone == "Local" {
+		return &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
+	}
+	day := strings.TrimSpace(input.HistoryStartDate)
+	if day == "" {
+		day = now.In(location).Format(time.DateOnly)
+	}
+	startedAt, err := historyStartInstant(day, timezone, now)
 	if err != nil {
 		return err
 	}
-	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, startedAt, now)
+	origin, err := domain.NewHistoryOrigin(household.ID, timezone, startedAt, now)
 	if err != nil {
 		return err
 	}
@@ -1445,7 +1465,6 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 const overviewRecentActivityLimit = 5
 
 func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.PortfolioSnapshot, result *domain.OverviewResult) error {
-	result.HistoryStarted = snapshot.Origin != nil
 	accountNames := make(map[domain.AccountID]string, len(snapshot.Accounts))
 	result.AccountLabels = make([]domain.OverviewNamedRef, 0, len(snapshot.Accounts))
 	for _, record := range snapshot.Accounts {

@@ -22,7 +22,7 @@ func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *te
 	clock := originNow
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Changes", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Changes", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -33,7 +33,7 @@ func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = originNow.Add(48 * time.Hour)
@@ -73,36 +73,6 @@ func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *te
 	}
 }
 
-func TestRecordChangeRequiresStartingPointAndDoesNotCallProviders(t *testing.T) {
-	t.Parallel()
-	database, err := sqlite.Open(t.TempDir() + "/change-gate.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
-	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Gate", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
-		t.Fatal(err)
-	}
-	household, err := service.Bootstrap(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	amount, _ := domain.ParseMoney("1", "CNY")
-	_, err = service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: household.Household.ID, AccountID: domain.AccountID("00000000-0000-4000-8000-000000000001"), Amount: amount})
-	if err == nil || err.(*domain.Error).Code != domain.ErrHistoryNotStarted {
-		t.Fatalf("pre-history record error = %v", err)
-	}
-	var activities int
-	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
-		t.Fatal(err)
-	}
-	if activities != 0 {
-		t.Fatalf("pre-history record wrote %d activities", activities)
-	}
-}
-
 func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/trade.db")
@@ -114,7 +84,7 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Trading", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Trading", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -139,7 +109,7 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	var startingCost string
@@ -203,7 +173,7 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 	ctx := context.Background()
 	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Dividends", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Dividends", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -228,7 +198,7 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "50", "USD", "2026-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	beforeEvents, err := repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
@@ -322,7 +292,7 @@ func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "First Buy", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "First Buy", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -340,7 +310,7 @@ func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
 	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-01-02"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	gross, _ := domain.ParseMoney("200", "USD")
@@ -388,7 +358,7 @@ func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Transfers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Transfers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -427,7 +397,7 @@ func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	cny, _ := domain.ParseMoney("125", "CNY")
@@ -468,7 +438,7 @@ func TestPositionTransferOverflowPersistsNoRows(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Overflow", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Overflow", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -499,7 +469,7 @@ func TestPositionTransferOverflowPersistsNoRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = clock.Add(24 * time.Hour)
@@ -539,7 +509,7 @@ func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Corrections", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Corrections", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -550,7 +520,7 @@ func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	amount, _ := domain.ParseMoney("100", "CNY")
@@ -615,7 +585,7 @@ func TestPreviewFixChangeMatchesFixChangeWithoutCommitting(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "PreviewFix", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "PreviewFix", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -626,7 +596,7 @@ func TestPreviewFixChangeMatchesFixChangeWithoutCommitting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	amount, _ := domain.ParseMoney("1000", "USD")
@@ -673,7 +643,7 @@ func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Observations", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Observations", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -688,7 +658,7 @@ func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.AppendAccountStateObservation(ctx, domain.AccountStateObservation{AccountID: account.Account.ID, EffectiveAt: clock, IncludeInNetWorth: true, IncludeInLiquidAssets: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}}); err != nil {
@@ -729,7 +699,7 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 	ctx := context.Background()
 	clock := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Snapshots", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Snapshots", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -741,7 +711,7 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
@@ -791,7 +761,7 @@ func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) 
 	ctx := context.Background()
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "MooMoo", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "MooMoo", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -831,7 +801,7 @@ func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) 
 		t.Fatalf("history-before cash observations = %d, want 3", len(cashBefore))
 	}
 	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -887,7 +857,7 @@ func TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	tradeAt := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

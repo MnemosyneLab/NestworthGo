@@ -14,7 +14,7 @@ import (
 
 func TestHistoricalCaptureCancellationAndRealErrors(t *testing.T) {
 	t.Parallel()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	s := analytics.NewService(app)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -34,7 +34,7 @@ func TestHistoricalCaptureCancellationAndRealErrors(t *testing.T) {
 	}
 	_, err = s.HistoricalOverview(t.Context(), "2026-08-01", "")
 	wire, ok = apierror.Parse(err.Error())
-	if !ok || wire.Code != string(domain.ErrHistoryNotStarted) {
+	if !ok || wire.Code != string(domain.ErrMissingHistoryOrigin) {
 		t.Fatalf("live missing-history failure lost its wire contract: %v", err)
 	}
 }

@@ -17,7 +17,7 @@ func TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership(t *testing.T) {
 	defer db.Close()
 	app := NewService(sqlite.NewRepository(db))
 	ctx := context.Background()
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := app.Bootstrap(ctx)
@@ -28,7 +28,7 @@ func TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	instrument := func(name, kind, currency string) domain.InstrumentID {

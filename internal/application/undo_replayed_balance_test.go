@@ -30,7 +30,7 @@ func TestUndoBalanceAndCashAfterBackfill(t *testing.T) {
 							t.Fatal(err)
 						}
 					}
-					if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+					if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 						t.Fatal(err)
 					}
 					setNow(historicalInsertionTime(29))
@@ -145,7 +145,7 @@ func TestUndoReplayedBalanceCommitIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setNow(historicalInsertionTime(29))
@@ -205,7 +205,7 @@ func TestHistoricalUndoPreservesLaterAbsoluteObservation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			setNow(historicalInsertionTime(30))

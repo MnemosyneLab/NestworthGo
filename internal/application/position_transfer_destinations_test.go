@@ -28,7 +28,7 @@ func TestPositionTransferRequiresExactlyOneDestination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 1, 13, 0, 0, 0, time.UTC)

@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestOverviewBreakdownChartsUseSharedAmountsAndShares(t *testing.T) {
@@ -43,7 +44,7 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	s := application.NewService(sqlite.NewRepository(db))
+	s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	clock := func() time.Time { return time.Date(2026, 11, 25, 16, 0, 0, 0, time.UTC) }
 	s.SetClock(clock)
 	if err := s.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic allocation links", BaseCurrency: "USD", MemberNames: []string{"Sample owner", "Other owner"}}); err != nil {

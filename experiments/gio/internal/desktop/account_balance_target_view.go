@@ -113,21 +113,13 @@ func (p *accountsPage) layoutBalanceTargetReview(gtx layout.Context, view ui.Vie
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	plan := d.review
-	help := i18n.AccountBankBalanceOpening
-	effective := l.Text(i18n.AccountBankBalanceOnConfirm)
+	help := i18n.AccountBankBalanceReconcile
 	if d.account.TrackingMode == domain.TrackingManualValue {
-		help = i18n.AccountValueOpening
+		help = i18n.AccountValueReconcile
 	}
-	if plan.command != nil {
-		help = i18n.AccountBankBalanceReconcile
-		if d.account.TrackingMode == domain.TrackingManualValue {
-			help = i18n.AccountValueReconcile
-		}
-		var err error
-		effective, err = targetBalanceTimestamp(view, plan.at, plan.zone)
-		if err != nil {
-			return view.Message(l.Text(copy.previewFailed), view.Colors.ErrorInk)(gtx)
-		}
+	effective, err := targetBalanceTimestamp(view, plan.at, plan.zone)
+	if err != nil {
+		return view.Message(l.Text(copy.previewFailed), view.Colors.ErrorInk)(gtx)
 	}
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

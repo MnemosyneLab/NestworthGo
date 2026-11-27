@@ -18,6 +18,7 @@ import (
 
 type onboardingService interface {
 	Bootstrap(context.Context) (application.Bootstrap, error)
+	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	CompleteOnboarding(context.Context, application.OnboardingInput) error
 }
 
@@ -47,17 +48,17 @@ type onboardingPage struct {
 	problem                                    i18n.MessageID
 	householdName                              string
 
-	name                           ui.TextField
-	members                        []*onboardingMember
-	membersList                    widget.List
-	focusName                      bool
-	focusMember                    *onboardingMember
-	currency                       string
-	currencyPicker, languagePicker ui.Select
-	historical                     bool
-	day                            string
-	calendar                       ui.DatePicker
-	toggle, add, create, retry     widget.Clickable
+	name                            ui.TextField
+	members                         []*onboardingMember
+	membersList                     widget.List
+	focusName                       bool
+	focusMember                     *onboardingMember
+	currency                        string
+	currencyPicker, languagePicker  ui.Select
+	showHistoryDate                 bool
+	day                             string
+	calendar                        ui.DatePicker
+	dateOptions, add, create, retry widget.Clickable
 }
 
 func newOnboardingPage(ctx context.Context, service onboardingService, clock func() time.Time, invalidate func()) *onboardingPage {
@@ -76,6 +77,13 @@ func (p *onboardingPage) read() {
 	p.reading, p.readFailed, p.form = true, false, false
 	p.workers.Go(func() {
 		core, err := p.service.Bootstrap(p.ctx)
+		if err == nil && core.Household != nil {
+			origin, readErr := p.service.HistoryOrigin(p.ctx)
+			err = readErr
+			if err == nil && origin == nil {
+				err = &domain.Error{Code: domain.ErrMissingHistoryOrigin}
+			}
+		}
 		p.results <- onboardingResult{household: core.Household, err: err}
 		p.invalidate()
 	})
@@ -144,12 +152,9 @@ func (p *onboardingPage) submit(location *time.Location) {
 		p.problem, p.focusMember = i18n.OnboardingMemberRequired, p.members[0]
 		return
 	}
-	if p.historical {
-		input.Timezone = location.String()
+	input.Timezone = location.String()
+	if p.showHistoryDate {
 		input.HistoryStartDate = p.day
-		if input.HistoryStartDate == "" {
-			input.HistoryStartDate = p.today(location)
-		}
 	}
 	p.writing, p.problem = true, i18n.NoMessage
 	p.workers.Go(func() {

@@ -44,7 +44,7 @@ func TestMobileDailyRecordsKeepSemanticsAndDurableReceipts(t *testing.T) {
 	if _, err := s.AppendAccountCashValue(ctx, broker, "10", "CNY", "2026-08-24"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "Asia/Shanghai"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Shanghai"); err != nil {
 		t.Fatal(err)
 	}
 	setClock(now.Add(time.Minute))
@@ -108,7 +108,7 @@ func TestMobilePreviewCASAndConcurrentReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setClock(now.Add(time.Minute))

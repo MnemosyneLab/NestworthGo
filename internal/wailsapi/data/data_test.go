@@ -22,7 +22,7 @@ func (m memoryDialogs) OpenFile(string, string, string) (string, error)         
 func (m memoryDialogs) ConfirmReplace(string) (bool, error)                     { return m.replace, nil }
 
 func TestCreateBackupCancel(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	service := NewService(app, nil, memoryDialogs{}, native.NoopRefresh{})
 	result, err := service.CreateBackup()
 	if err != nil {
@@ -45,7 +45,7 @@ func TestLastBackupStatusMissing(t *testing.T) {
 }
 
 func TestExportJSONCancelAndReplaceDeclined(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	service := NewService(app, nil, memoryDialogs{}, nil)
 	result, err := service.ExportJSON()
 	if err != nil || !result.Cancelled {
@@ -67,7 +67,7 @@ func TestExportJSONCancelAndReplaceDeclined(t *testing.T) {
 }
 
 func TestExportJSONWritesStructuredFile(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{HouseholdName: "Export", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}

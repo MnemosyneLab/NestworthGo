@@ -16,7 +16,7 @@ import (
 )
 
 func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -113,7 +113,7 @@ func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
 }
 
 func TestHoldingGainNotFound(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -127,7 +127,7 @@ func TestHoldingGainNotFound(t *testing.T) {
 }
 
 func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -162,8 +162,8 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 	historyService := history.NewService(app)
-	if _, err := historyService.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	if _, err := historyService.RecordChange(ctx, history.ChangeCommandRequest{
 		Kind: history.ChangeCashDividend, HoldingID: holdingDTO.ID, Amount: "25", Currency: "USD",
@@ -188,7 +188,7 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 }
 
 func TestRealizedGainInvalidDateRange(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},

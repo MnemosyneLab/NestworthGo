@@ -90,7 +90,7 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 	if _, err := svc.AppendManualInstrumentQuote(ctx, fund.ID, "10", start.Format(time.DateOnly), false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.StartHistoryWithCosts(ctx, "Asia/Singapore", costs); err != nil {
+	if _, err := svc.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", costs); err != nil {
 		t.Fatal(err)
 	}
 	now = start.AddDate(0, 0, 1)

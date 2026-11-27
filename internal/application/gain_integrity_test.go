@@ -16,7 +16,7 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 	t.Parallel()
 	fixture := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
-	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := fixture.service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	holdingID := findHoldingForInstrument(t, fixture.repository, fixture.account.Account.ID, fixture.qqq.ID)

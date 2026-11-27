@@ -20,7 +20,7 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -49,11 +49,7 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 	if _, err := service.AppendManualInstrumentQuote(ctx, priced.ID, "100", "2026-08-24", false); err != nil {
 		t.Fatal(err)
 	}
-	draft, err := service.StartingPointDraft(ctx)
-	if err != nil || len(draft) != 1 || draft[0].HoldingID != positive.ID || draft[0].UnitCost != "100" {
-		t.Fatalf("Starting Point draft = %+v, err=%v", draft, err)
-	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{positive.ID: "123.45"}); err != nil {
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{positive.ID: "123.45"}); err != nil {
 		t.Fatal(err)
 	}
 	origin, err := service.HistoryOrigin(ctx)
@@ -95,7 +91,7 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 			now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 			service.setClock(func() time.Time { return now })
 			ctx := context.Background()
-			if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+			if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			bootstrap, err := service.Bootstrap(ctx)
@@ -113,7 +109,7 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 			if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-24", false); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			// Cross a millisecond boundary on every clock read during creation.
@@ -169,7 +165,7 @@ func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T)
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -187,7 +183,7 @@ func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T)
 	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: initial.ID.String(), Quantity: "0"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	created, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Already Existed ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})

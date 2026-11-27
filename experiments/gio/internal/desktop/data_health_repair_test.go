@@ -14,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
@@ -46,7 +47,7 @@ func TestDataHealthRepairPreviewCancelAndVerifiedRetry(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	now := time.Date(2026, time.November, 4, 8, 0, 0, 0, time.UTC)
 	provider := &repairTestProvider{now: now}
-	service := application.NewService(sqlite.NewRepository(db), application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
+	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
 	service.SetClock(func() time.Time { return now })
 	t.Cleanup(service.CancelMarketDataSyncAndWait)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic repair", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
@@ -65,7 +66,7 @@ func TestDataHealthRepairPreviewCancelAndVerifiedRetry(t *testing.T) {
 	if _, err := service.SetFXPreference(ctx, "JPY", "USD", "provider"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	ref := marketdata.NewService(service, nil)

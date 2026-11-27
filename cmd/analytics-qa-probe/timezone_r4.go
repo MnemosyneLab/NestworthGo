@@ -13,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 type tzCase struct {
@@ -339,7 +340,7 @@ func buildTimezoneSpringDB(dbPath, timezone string, at time.Time) (persistedTZ, 
 		return "", "", err
 	}
 	defer database.Close()
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(database)})
 	ctx := context.Background()
 	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Timezone R4 " + timezone,
@@ -362,7 +363,7 @@ func buildTimezoneSpringDB(dbPath, timezone string, at time.Time) (persistedTZ, 
 	if err != nil {
 		return "", "", err
 	}
-	origin, err := svc.StartHistory(ctx, timezone)
+	origin, err := svc.CaptureSyntheticOrigin(ctx, timezone)
 	if err != nil {
 		return "", "", err
 	}

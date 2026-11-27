@@ -212,8 +212,8 @@ func TestStandaloneLockedProductValuationMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	refReopened, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	refReopened, _ := reopenBaselineProfile(t, refPaths)
 	for _, copy := range []struct {
 		app     *application.Service
 		product domain.ProductContractID
@@ -339,8 +339,8 @@ func TestStandaloneLockedProductRedemptionMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	refReopened, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	refReopened, _ := reopenBaselineProfile(t, refPaths)
 	for _, copy := range []struct {
 		app     *application.Service
 		product domain.ProductContractID

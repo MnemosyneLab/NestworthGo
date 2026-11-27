@@ -32,11 +32,10 @@ func TestOverviewPairsActionCardsAndOpensAuthoritativeHealthFinding(t *testing.T
 		{ID: "provisional", Kind: application.HealthKindValuationProvisional, Severity: application.HealthSeverityInfo, Action: application.HealthActionNone, Label: "Synthetic provisional"},
 		{ID: "provider", Kind: application.HealthKindMissingProviderKey, Severity: application.HealthSeverityBlocking, Action: application.HealthActionProviderSettings, Label: "Synthetic provider"},
 		{ID: "collapsed", Kind: application.HealthKindMissingManualPrice, Action: application.HealthActionManualEntry, Label: "Synthetic collapsed", Collapsed: true},
-		{ID: "history", Kind: application.HealthKindHistoryNotStarted, Action: application.HealthActionNone, Label: "Synthetic start"},
 	}
 	fixture := overviewHealthFixture{
 		overviewReader: overviewReaderFunc(func(context.Context, domain.AccountFilter) (domain.OverviewResult, error) {
-			return domain.OverviewResult{Currency: "USD", AccountCount: 1, HistoryStarted: true}, nil
+			return domain.OverviewResult{Currency: "USD", AccountCount: 1}, nil
 		}),
 		fixedDataHealthRead: fixedDataHealthRead{IssueCount: 3, Issues: issues},
 	}

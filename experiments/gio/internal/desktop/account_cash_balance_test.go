@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gioui.org/io/key"
-
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -51,62 +49,6 @@ func (s *cashTargetTestService) ListAccounts(ctx context.Context, filter domain.
 		return nil, errors.New("synthetic detail read failure after receipt")
 	}
 	return s.Service.ListAccounts(ctx, filter)
-}
-
-func TestAccountCashOpeningBalanceMatchesWails(t *testing.T) {
-	ctx := t.Context()
-	service, session, paths, id := seedCashTargetFixture(t, false)
-	ref, _, _, refID := seedCashTargetFixture(t, false)
-	p, h, finish := cashBalanceHarness(t, service)
-	click := func(label string) { h.click(label, false); finish() }
-	label := func(text string) { assertPageLabel(t, &h.router, text) }
-
-	scrollToAccountDetailLabel(h, "Set cash balance")
-	click("Set cash balance")
-	label("Save this currency’s opening balance without creating a ledger activity.")
-	if findPageLabel(&h.router, "Reason (optional)") != nil {
-		t.Fatal("an opening observation offered a History reason")
-	}
-	h.click("Cash currency", true)
-	h.router.Queue(key.EditEvent{Text: "EUR"})
-	h.frame()
-	h.router.Queue(key.Event{Name: key.NameDownArrow, State: key.Press, Modifiers: key.ModAlt})
-	h.frame()
-	h.press(key.NameReturn)
-	d := p.cashBalance.draft
-	setBankField(h, "Target balance · EUR", &d.amount, "20.5")
-	click("Review cash balance")
-	label("Balance before · 0 EUR")
-	label("Resulting balance · 20.5 EUR")
-	label("Effective: 2026-11-22 00:02:03.456 (UTC)")
-	plan := d.review.plan
-	click("Confirm cash balance")
-	label("Cash balance saved.")
-	if findPageLabel(&h.router, "View reconciliation") != nil || p.cashBalance.saved.ActivityID != nil {
-		t.Fatal("the opening observation offered a posted activity")
-	}
-	assertWailsCashTarget(t, ref, refID, plan, p.cashBalance.saved, nil)
-	if err := session.Close(); err != nil {
-		t.Fatal(err)
-	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	got, err := reopened.ConfirmCashBalance(ctx, plan)
-	if err != nil || got.ID != p.cashBalance.saved.ID {
-		t.Fatalf("baseline receipt after reopening returned %+v, %v", got, err)
-	}
-	for _, side := range []struct {
-		app *application.Service
-		id  domain.AccountID
-	}{{reopened, id}, {ref, refID}} {
-		values, err := side.app.ListAccountCashValues(ctx, side.id)
-		if err != nil || len(values) != 1 || values[0].ObservationKind != "baseline" || values[0].Amount.CanonicalAmount() != "20.5" {
-			t.Fatalf("expected one immutable EUR balance: %+v, %v", values, err)
-		}
-		rows, err := side.app.ListActivities(ctx, 50)
-		if err != nil || len(rows) != 0 {
-			t.Fatalf("baseline had unexpected ledger activity: %+v, %v", rows, err)
-		}
-	}
 }
 
 func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
@@ -217,7 +159,7 @@ func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	advanceCashTargetClock(reopened, ref, 2*time.Minute)
 	again, err := reopened.ConfirmCashBalance(ctx, plan)
 	if err != nil || again.ID != up.ID || again.ActivityID == nil || *again.ActivityID != *up.ActivityID {
@@ -300,7 +242,7 @@ func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *p
 	t.Helper()
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
-	service, session := reopenOnboardingProfile(t, paths)
+	service, session := reopenBaselineProfile(t, paths)
 	service.SetClock(func() time.Time { return accountTestClock.Add(-72 * time.Hour) })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic cash balance", BaseCurrency: "USD", MemberNames: []string{"Ana Example"}}); err != nil {
 		t.Fatal(err)
@@ -328,7 +270,7 @@ func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *p
 			}
 		}
 		service.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
-		if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+		if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 		advanceCashTargetClock(service, service, 0)

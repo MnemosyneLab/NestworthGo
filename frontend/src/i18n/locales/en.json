@@ -461,10 +461,8 @@
     },
     "soldCurrency": "Sold currency",
     "start": "Start history",
-    "startCostDescription": "Average cost",
-    "startCostHelp": "What this was worth when you started tracking it",
-    "startCostTitle": "Starting point values",
-    "startDescription": "Confirm the household timezone and review each average cost before history begins.",
+
+
     "startingPoint": "Starting point",
     "timeline": "Timeline",
     "toDate": "To",
@@ -1014,7 +1012,7 @@
   },
   "snapshot": {
     "historyRebuild": "History rebuild",
-    "noHistory": "Start history to build closed-day snapshots.",
+
     "revisionsUpdated": "%d history revisions updated",
     "updating": "Updating history…"
   },
@@ -1074,7 +1072,7 @@
     "accountCount_one": "{{count}} account",
     "accountCount_other": "{{count}} accounts",
     "accountCount": "{{count}} accounts",
-    "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
+    "unitCostHint": "Enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
   },
   "connections": {
     "historyCoverage": "Historical valuation: {{valued}} of {{total}} days have a total",
@@ -1545,8 +1543,8 @@
     "aboutPage": "About this page",
     "aboutChange": "About this change",
     "debtShort": "Debt balance",
-    "noOrigin": "History has not started yet",
-    "noOriginHint": "Wealth history becomes available after the household history begins.",
+    "noOrigin": "Ledger history is unavailable",
+    "noOriginHint": "The required ledger origin could not be loaded.",
     "estimatedShort": "Estimated",
     "coverageEstimated": "Complete estimated totals"
   },
@@ -2250,7 +2248,7 @@
     "queryResult": "Check original result",
     "recoveryHelp": "Check the receipt before another record. After app restart, verify unresolved results on desktop.",
     "saved": "Saved successfully",
-    "historyRequired": "Create the history starting point on desktop to enable recording.",
+
     "discardTitle": "Discard this draft?",
     "discardBody": "The unsaved fields will be cleared.",
     "discard": "Discard",

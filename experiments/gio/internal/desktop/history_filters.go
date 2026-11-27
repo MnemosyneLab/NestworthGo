@@ -30,10 +30,6 @@ var filterActivityKinds = []domain.ActivityKind{
 	domain.ActivityDebtPayment, domain.ActivityReversal,
 }
 
-func (p *historyPage) noHistory() bool {
-	return p.reads != nil && p.reads.refsErr == nil && p.reads.references != nil && p.reads.references.Origin == nil
-}
-
 func (p *historyPage) applyFilters(gtx layout.Context, filters history.Filters) {
 	if p.model.Filters().Equal(filters) {
 		return
@@ -49,7 +45,7 @@ func (p *historyPage) applyFilters(gtx layout.Context, filters history.Filters) 
 
 func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, c, l := p.reads, &p.filter, view.Language
-	if r == nil || p.noHistory() {
+	if r == nil {
 		return layout.Dimensions{}
 	}
 	if r.refsErr != nil {

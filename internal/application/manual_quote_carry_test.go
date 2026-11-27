@@ -28,7 +28,7 @@ func TestManualPreferenceCarriesAgentPriceAcrossValuationAndHealth(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 10, 20, 4, 0, 0, 0, time.UTC)

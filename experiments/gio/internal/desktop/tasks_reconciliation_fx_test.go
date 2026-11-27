@@ -130,7 +130,7 @@ func TestReconciliationLinkedCurrencyConversionMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	wantCash := map[domain.CurrencyCode]string{"USD": "148.5891", "EUR": "6.1404"}
 	assertNativeTradeCash(t, reopened, ids.account, wantCash)
 	assertNativeTradeCash(t, ref, refIDs.account, wantCash)

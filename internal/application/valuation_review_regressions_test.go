@@ -29,7 +29,7 @@ func TestDisplayFractionalLeavesAgreeAcrossValuationSurfaces(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -112,7 +112,7 @@ func TestReadyTrendsIgnoreOversizedUnrelatedArchivedHistory(t *testing.T) {
 	ctx := t.Context()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic visible cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -156,7 +156,7 @@ func TestEstimatedChangesRequireCompatibleScopeAndBasis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)

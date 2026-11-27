@@ -33,7 +33,7 @@ func newOnboardedService(t *testing.T, name string, members []string) (*Service,
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -119,7 +119,7 @@ func TestConcurrentAppendAccountCashValueSerializes(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := createHoldingsAccount(t, service, ctx, bootstrap.Members[0].ID, "Brokerage Cash")
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setClock(base.Add(24 * time.Hour))

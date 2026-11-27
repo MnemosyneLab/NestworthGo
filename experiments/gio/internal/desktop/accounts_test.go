@@ -20,6 +20,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -46,7 +47,7 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	check(err)
 	defer db.Close()
 	repo := sqlite.NewRepository(db)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	service.SetClock(func() time.Time { return accountTestClock.Add(-4 * time.Hour) })
 	check(service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Account Test Household", BaseCurrency: "AUD", MemberNames: []string{"Ana Example", "Bea Example"},
@@ -133,7 +134,7 @@ func openAccountTestFixture(t *testing.T) (accountFixture, *application.Service,
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = rdb.Close() })
-	wails := application.NewService(sqlite.NewRepository(rdb), application.NewMarketDataRegistry(&unavailableOverviewProvider{}))
+	wails := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(rdb)}, application.NewMarketDataRegistry(&unavailableOverviewProvider{}))
 	wails.SetClock(func() time.Time { return accountTestClock })
 	wails.SetQuoteCacheTTL(time.Hour)
 	if err := wails.SetFXProvider(application.FrankfurterProviderKey); err != nil {
@@ -150,7 +151,7 @@ func openAccountTestFixture(t *testing.T) (accountFixture, *application.Service,
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	gio := application.NewService(sqlite.NewRepository(session.DB))
+	gio := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(session.DB)})
 	gio.SetClock(func() time.Time { return accountTestClock })
 	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, gio)
 	if err != nil {

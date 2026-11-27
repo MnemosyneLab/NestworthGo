@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 )
 
@@ -27,13 +28,13 @@ func TestProductRefusalAndReceiptRecovery(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = db.Close() })
-			app := application.NewService(sqlite.NewRepository(db))
+			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 			now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 			app.SetClock(func() time.Time { return now })
 			if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := app.StartHistory(ctx, "UTC"); err != nil {
+			if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			bootstrap, err := app.Bootstrap(ctx)

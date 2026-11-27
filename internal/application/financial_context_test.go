@@ -73,7 +73,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	if next := contextFor(t, s, "current"); next.ContentHash != before {
 		t.Fatal("clock changed stable content")
 	}
-	if _, err := s.BuildFinancialContext(t.Context(), FinancialContextRequest{AsOf: "2026-08-01"}); !hasDomainCode(err, domain.ErrHistoryNotStarted) {
+	if _, err := s.BuildFinancialContext(t.Context(), FinancialContextRequest{AsOf: "2026-08-01"}); !hasDomainCode(err, domain.ErrMissingHistoryOrigin) {
 		t.Fatal(err)
 	}
 }
@@ -200,7 +200,7 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	if next := contextFor(t, s, "current", broker.Account.ID, a.Account.ID, a.Account.ID); next.ContentHash != r.ContentHash {
 		t.Fatalf("hidden or out-of-scope change changed hash\n%+v\n%+v", r.Content, next.Content)
 	}
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -217,7 +217,7 @@ func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)

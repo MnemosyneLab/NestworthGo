@@ -65,7 +65,7 @@ export const marketHealthEn = {
       valuation_provisional: "Coverage pending confirmation",
       snapshot_incomplete: "Snapshot incomplete",
       sync_failure: "Sync failure",
-      history_not_started: "History not started",
+
     },
     action: {
       repair: "Included in Repair All",
@@ -301,7 +301,7 @@ export const marketHealthZhCN = {
       valuation_provisional: "待确认覆盖",
       snapshot_incomplete: "快照不完整",
       sync_failure: "同步失败",
-      history_not_started: "尚未开始历史记录",
+
     },
     action: {
       repair: "包含在全部修复中",
@@ -518,7 +518,7 @@ export const marketHealthZhTW = {
       valuation_provisional: "待確認覆蓋",
       snapshot_incomplete: "快照不完整",
       sync_failure: "同步失敗",
-      history_not_started: "尚未開始歷史紀錄",
+
     },
     action: {
       repair: "包含在全部修復中",

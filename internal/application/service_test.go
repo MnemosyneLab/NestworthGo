@@ -83,8 +83,8 @@ func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T)
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24T12:00:00Z", false); err != nil {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, time.August, 24, 13, 0, 0, 0, time.UTC))
 	amount, err := domain.ParseMoney("100", "CNY")
@@ -98,9 +98,6 @@ func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T)
 	result, err := service.Overview(ctx, domain.AccountFilter{})
 	if err != nil {
 		t.Fatalf("Overview: %v", err)
-	}
-	if !result.HistoryStarted {
-		t.Fatal("HistoryStarted = false, want true")
 	}
 	if result.AccountCount != 1 {
 		t.Fatalf("AccountCount = %d, want 1", result.AccountCount)

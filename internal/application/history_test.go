@@ -21,7 +21,7 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "History", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "History", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -32,7 +32,7 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	origin, err := service.StartHistory(ctx, "Asia/Shanghai")
+	origin, err := service.CaptureSyntheticOrigin(ctx, "Asia/Shanghai")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 	if activities != 0 {
 		t.Fatalf("starting point fabricated %d activities", activities)
 	}
-	retried, err := service.StartHistory(ctx, "UTC")
+	retried, err := service.CaptureSyntheticOrigin(ctx, "UTC")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,10 +71,10 @@ func TestStartHistoryRequiresConfirmedIANAZone(t *testing.T) {
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "History", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "History", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.StartHistory(ctx, "system")
+	_, err = service.CaptureSyntheticOrigin(ctx, "system")
 	if err == nil || err.(*domain.Error).Code != domain.ErrHistoryTimezoneRequired {
 		t.Fatalf("timezone error = %v", err)
 	}

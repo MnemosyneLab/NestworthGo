@@ -19,6 +19,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 const financialFixtureID = "00000000-0000-4000-8000-000000000001"
@@ -494,7 +495,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	appports.Wire(app)
 	app.SetLiveDatabasePath(path)
 	if err = app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Restore test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
@@ -511,7 +512,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 	}
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	app.SetClock(func() time.Time { return now })
-	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)

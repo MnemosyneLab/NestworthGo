@@ -18,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
@@ -32,7 +33,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(sqlite.NewRepository(db))
+	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	seed.SetClock(clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic Wealth Shortcuts", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
@@ -51,7 +52,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := seed.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Date(2026, 11, 5, 17, 30, 0, 0, time.UTC) // November 6 in Singapore.
@@ -87,7 +88,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		app := application.NewService(sqlite.NewRepository(db))
+		app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 		app.SetClock(clock)
 		return app
 	}

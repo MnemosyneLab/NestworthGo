@@ -23,14 +23,14 @@ func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 9, 14, 1, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Backdated", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Backdated", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
@@ -162,7 +162,7 @@ func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
 	ctx := context.Background()
 	clock := time.Date(2026, 9, 14, 8, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Opening", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Opening", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := service.Bootstrap(ctx)
@@ -173,7 +173,7 @@ func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = clock.Add(time.Hour)

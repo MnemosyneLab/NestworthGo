@@ -191,7 +191,7 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 	investment := create("Investment", "investment_account", "asset", "manual_value", "50")
 	property := create("Property", "property", "asset", "manual_value", "300")
 	debt := create("Debt", "loan", "liability", "balance", "30")
-	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)

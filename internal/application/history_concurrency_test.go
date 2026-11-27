@@ -36,19 +36,19 @@ func TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary(t *testing.T) {
 	clock := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "History boundary", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "History boundary", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 
 	historyDone := make(chan error, 1)
 	go func() {
-		_, startErr := service.StartHistory(ctx, "UTC")
+		_, startErr := service.CaptureSyntheticOrigin(ctx, "UTC")
 		historyDone <- startErr
 	}()
 	select {
 	case <-barrier.entered:
 	case <-time.After(2 * time.Second):
-		t.Fatal("StartHistory did not reach the portfolio snapshot barrier")
+		t.Fatal("CaptureSyntheticOrigin did not reach the portfolio snapshot barrier")
 	}
 
 	instrumentDone := make(chan error, 1)
@@ -58,13 +58,13 @@ func TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary(t *testing.T) {
 	}()
 	select {
 	case err := <-instrumentDone:
-		t.Fatalf("CreateInstrument completed before StartHistory snapshot committed: %v", err)
+		t.Fatalf("CreateInstrument completed before CaptureSyntheticOrigin snapshot committed: %v", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 
 	close(barrier.release)
 	if err := <-historyDone; err != nil {
-		t.Fatalf("StartHistory() error = %v", err)
+		t.Fatalf("CaptureSyntheticOrigin() error = %v", err)
 	}
 	if err := <-instrumentDone; err != nil {
 		t.Fatalf("CreateInstrument() error = %v", err)
@@ -95,14 +95,14 @@ func TestConcurrentObservationWritersSerializeUnderHistoryLock(t *testing.T) {
 	clock := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Observation writers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Observation writers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Observed instrument", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	origin, err := service.HistoryOrigin(ctx)

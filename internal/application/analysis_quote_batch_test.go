@@ -100,7 +100,7 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)

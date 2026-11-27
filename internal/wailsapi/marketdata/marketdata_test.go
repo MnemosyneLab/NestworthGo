@@ -121,7 +121,7 @@ func TestFakeEmitterRetainsEventsWithoutDrainingNotifications(t *testing.T) {
 func onboardedAppWithProvider(t *testing.T) *application.Service {
 	t.Helper()
 	registry := application.NewMarketDataRegistryWithDefault(application.FrankfurterProviderKey, fakeProvider{key: application.FrankfurterProviderKey})
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	app.SetMarketDataRegistry(registry)
 	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -219,7 +219,7 @@ func (p yahooSearchProvider) SearchInstruments(context.Context, string, string, 
 
 func TestSearchInstrumentsReturnsYahooHits(t *testing.T) {
 	registry := application.NewMarketDataRegistryWithDefault(application.YahooFinanceProviderKey, yahooSearchProvider{fakeProvider{key: application.YahooFinanceProviderKey}})
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	app.SetMarketDataRegistry(registry)
 	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},

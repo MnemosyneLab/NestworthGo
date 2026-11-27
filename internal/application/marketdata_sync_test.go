@@ -132,7 +132,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	}
 	service.setClock(func() time.Time { return originClock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Sync", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Sync", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -161,7 +161,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	for _, instrument := range []domain.Instrument{first, second} {

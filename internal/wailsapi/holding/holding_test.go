@@ -21,7 +21,7 @@ type fixture struct {
 
 func onboardedFixture(t *testing.T) fixture {
 	t.Helper()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},

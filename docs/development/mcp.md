@@ -222,7 +222,7 @@ ascending as the tie. The authoritative parameter and continuation rules are
 in [mcp-pagination.md](mcp-pagination.md).
 
 `get_overview` returns `displayValuation` for assets, liabilities and net
-worth, plus `complete`, `historyStarted` and the missing-input count.
+worth, plus `complete` and the missing-input count.
 Each amount distinguishes its nullable complete total from its known subtotal.
 Account filters determine the totals (`totalsScope=request_account_filters`).
 Use `sections` with names from `availableSections` to include missing inputs,

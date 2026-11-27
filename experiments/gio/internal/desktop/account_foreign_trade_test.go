@@ -178,7 +178,7 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	replayed, err := plan.Commit(ctx, reopened)
 	if err != nil || replayed.Activity.ID != buyID {

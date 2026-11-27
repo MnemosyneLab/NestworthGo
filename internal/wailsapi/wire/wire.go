@@ -805,31 +805,6 @@ func FromFXPreferences(values []domain.FXPreference) []FXPreferenceDTO {
 	return result
 }
 
-// StartingPointHoldingDTO mirrors domain.StartingPointHoldingView.
-type StartingPointHoldingDTO struct {
-	HoldingID      string `json:"holdingId"`
-	InstrumentID   string `json:"instrumentId"`
-	InstrumentName string `json:"instrumentName"`
-	Currency       string `json:"currency"`
-	Quantity       string `json:"quantity"`
-	UnitCost       string `json:"unitCost,omitempty"`
-}
-
-func FromStartingPointHolding(value domain.StartingPointHoldingView) StartingPointHoldingDTO {
-	return StartingPointHoldingDTO{
-		HoldingID: value.HoldingID.String(), InstrumentID: value.InstrumentID.String(), InstrumentName: value.InstrumentName,
-		Currency: value.Currency.String(), Quantity: value.Quantity, UnitCost: value.UnitCost,
-	}
-}
-
-func FromStartingPointHoldings(values []domain.StartingPointHoldingView) []StartingPointHoldingDTO {
-	result := make([]StartingPointHoldingDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromStartingPointHolding(value))
-	}
-	return result
-}
-
 // ActivityEffectDTO mirrors domain.ActivityEffect.
 type ActivityEffectDTO struct {
 	ID             string     `json:"id"`

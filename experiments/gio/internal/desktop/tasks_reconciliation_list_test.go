@@ -81,7 +81,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 		t.Fatalf("fixture must keep a newer partial session outside the last-success receipt: %+v / %v", last, err)
 	}
 
-	app, _ := reopenOnboardingProfile(t, paths)
+	app, _ := reopenBaselineProfile(t, paths)
 	app.SetClock(clock)
 	accounts := newAccountsPage(ctx, app, clock, func() {})
 	tasks := newTasksPage(ctx, app, func() {})

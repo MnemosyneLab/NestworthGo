@@ -17,7 +17,7 @@ import (
 // Use the real temporary SQLite repository: an abandoned read must complete
 // quietly after Wails has already cancelled its JavaScript promise.
 func TestQuoteReadCancellationAndLiveErrors(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := t.Context()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic cancellation", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)

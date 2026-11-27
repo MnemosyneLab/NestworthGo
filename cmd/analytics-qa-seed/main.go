@@ -33,6 +33,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 type Result struct {
@@ -276,7 +277,7 @@ func main() {
 	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
 	repo := sqlite.NewRepository(database)
-	svc := application.NewService(repo)
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	ctx := context.Background()
 
 	commit, dirty := gitIdentity()
@@ -328,7 +329,7 @@ func main() {
 		add(report, "household_base_currency", "PASS", fmt.Sprintf("households.base_currency=%s", storedBase))
 	}
 
-	// 2) Create accounts before StartHistory so origin captures cash components.
+	// 2) Create accounts before CaptureSyntheticOrigin so origin captures cash components.
 	cash := must(svc.CreateAccount(ctx, application.AccountInput{
 		Name: "AUD Cash", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "10000",
@@ -373,7 +374,7 @@ func main() {
 		add(report, "instruments", "PASS", fmt.Sprintf("aapl=%s qqq=%s es3=%s quoteSource=manual", aapl.ID, qqq.ID, es3.ID))
 	}
 
-	// 4) One current FX + instrument quote before StartHistory.
+	// 4) One current FX + instrument quote before CaptureSyntheticOrigin.
 	nowISO := iso(originAt)
 	if !missingFX {
 		for _, p := range pairs {
@@ -387,7 +388,7 @@ func main() {
 	}
 	add(report, "current_quotes", "PASS", fmt.Sprintf("scenario=%s fx=%s prices=%s at %s", scenario, map[bool]string{true: "omitted", false: fxPairLabel(householdBase, pairs)}[missingFX], map[bool]string{true: "omitted", false: "AAPL=180 QQQ=400 ES3=3.20"}[missingPrice], nowISO))
 
-	// 4b) Prefer manual FX against the household base BEFORE StartHistory.
+	// 4b) Prefer manual FX against the household base BEFORE CaptureSyntheticOrigin.
 	prefsOK := true
 	prefNotes := make([]string, 0, len(pairs))
 	for _, p := range pairs {
@@ -404,8 +405,8 @@ func main() {
 		add(report, "fx_preference_manual", "PASS", fmt.Sprintf("%s rows=%d", strings.Join(prefNotes, " "), manualPreferenceCount))
 	}
 
-	// 5) StartHistory AFTER accounts exist → non-empty history_origin_components.
-	origin := must(svc.StartHistory(ctx, "Asia/Singapore"))
+	// 5) CaptureSyntheticOrigin AFTER accounts exist → non-empty history_origin_components.
+	origin := must(svc.CaptureSyntheticOrigin(ctx, "Asia/Singapore"))
 	compCount := countQuery(database.SQL, `SELECT COUNT(*) FROM history_origin_components`)
 	report.IDs["history_origin_id"] = string(origin.ID)
 	if compCount <= 0 {

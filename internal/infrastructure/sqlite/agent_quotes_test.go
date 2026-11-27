@@ -131,7 +131,7 @@ func TestAgentQuoteBatchRollbackAndEffectiveDateDirty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := repository.CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	quotedAt := time.Date(2026, 9, 28, 20, 0, 0, 0, time.UTC) // Sep 29 in Singapore.

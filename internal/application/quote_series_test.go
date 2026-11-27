@@ -191,8 +191,8 @@ func TestPortfolioTrendSumsInstrumentItemsAndExcludesCash(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "100", "2026-08-01", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
-		t.Fatalf("StartHistoryWithCosts: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
+		t.Fatalf("CaptureSyntheticOriginWithCosts: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 

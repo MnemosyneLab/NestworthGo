@@ -152,10 +152,10 @@ func TestFixtureCRenewalFaultInjectionRollsBack(t *testing.T) {
 	service := NewService(sqlite.NewRepository(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	account := seedHoldingsCash(t, service, ctx, "150000")
@@ -607,10 +607,10 @@ func newProductTestServiceTZ(t *testing.T, clock time.Time, timezone string) (*S
 	service := NewService(sqlite.NewRepository(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, timezone); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, timezone); err != nil {
 		t.Fatal(err)
 	}
 	return service, ctx

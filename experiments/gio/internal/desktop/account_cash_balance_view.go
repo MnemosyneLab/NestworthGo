@@ -50,10 +50,7 @@ func (p *accountsPage) layoutCashBalance(gtx layout.Context, view ui.View) layou
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
-	title, help := i18n.AccountCashSet, i18n.AccountCashOpeningHint
-	if d.sources.history {
-		title, help = i18n.HistoryCashReconciled, i18n.AccountCashReconcileHint
-	}
+	title, help := i18n.HistoryCashReconciled, i18n.AccountCashReconcileHint
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
@@ -92,11 +89,9 @@ func (p *accountsPage) layoutCashBalance(gtx layout.Context, view ui.View) layou
 			return view.Message(label, view.Colors.SecondaryInk)(gtx)
 		}),
 	}
-	if d.sources.history {
-		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return d.reason.Layout(gtx, view, ui.FieldOptions{Label: i18n.AccountCashReason, Disabled: d.previewing != nil})
-		}))
-	}
+	children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return d.reason.Layout(gtx, view, ui.FieldOptions{Label: i18n.AccountCashReason, Disabled: d.previewing != nil})
+	}))
 	if d.problem != i18n.NoMessage {
 		children = append(children, layout.Rigid(view.Message(l.Text(d.problem), view.Colors.ErrorInk)))
 	}
@@ -137,10 +132,7 @@ func (p *accountsPage) layoutCashBalanceReview(gtx layout.Context, view ui.View)
 	if err != nil {
 		return view.Message(l.Text(i18n.AccountCashPreviewFailed), view.Colors.ErrorInk)(gtx)
 	}
-	help := i18n.AccountCashOpeningHint
-	if d.review.history {
-		help = i18n.AccountCashReconcileHint
-	}
+	help := i18n.AccountCashReconcileHint
 	children := []layout.FlexChild{
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Label(gtx, l.Text(i18n.AccountCashReview), 19, font.Medium, view.Colors.Ink)

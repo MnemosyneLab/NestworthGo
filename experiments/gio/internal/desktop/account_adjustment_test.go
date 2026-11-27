@@ -119,7 +119,7 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	row, err := reopened.Activity(ctx, addID)
 	if err != nil || len(row.Effects) != 1 || *row.Effects[0].HoldingID != ids.holding ||
 		row.Effects[0].CostUnitPrice == nil || row.Effects[0].CostUnitPrice.Canonical() != "18.12345678" {

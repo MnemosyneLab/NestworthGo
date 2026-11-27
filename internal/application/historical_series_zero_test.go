@@ -54,7 +54,7 @@ func newSeriesZeroFixture(t *testing.T, fx bool, zone, first, quantity string, d
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.StartHistoryWithCosts(t.Context(), zone, map[domain.HoldingID]string{fixture.holding.ID: "100"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), zone, map[domain.HoldingID]string{fixture.holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	return fixture

@@ -37,7 +37,7 @@ func TestHoldingCostAvailabilityPreservesMarketValue(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.history {
-				if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: tc.historyCost}); err != nil {
+				if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: tc.historyCost}); err != nil {
 					t.Fatal(err)
 				}
 			}

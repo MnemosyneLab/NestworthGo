@@ -32,7 +32,7 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 			if _, err = s.AppendAccountCashValue(ctx, a.Account.ID, "1000", "USD", "2026-09-01"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistory(ctx, "America/Los_Angeles"); err != nil {
+			if _, err = s.CaptureSyntheticOrigin(ctx, "America/Los_Angeles"); err != nil {
 				t.Fatal(err)
 			}
 			setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))

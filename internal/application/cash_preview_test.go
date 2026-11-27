@@ -13,7 +13,7 @@ func TestCashPlanExpiryAndImmutableReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	reason := "Statement"
@@ -49,7 +49,7 @@ func TestCashPlanExpiryAndImmutableReason(t *testing.T) {
 }
 
 func TestCashPreviewRejectsLaterEffectiveWinningObservation(t *testing.T) {
-	for _, started := range []bool{false, true} {
+	for _, started := range []bool{true} {
 		t.Run(map[bool]string{false: "future-baseline", true: "history-clock-rollback"}[started], func(t *testing.T) {
 			s, ctx, bootstrap, setClock := newOnboardedService(t, "cash-order", []string{"Owner"})
 			account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
@@ -60,7 +60,7 @@ func TestCashPreviewRejectsLaterEffectiveWinningObservation(t *testing.T) {
 			later := original.Add(48 * time.Hour)
 			target, winning := "80", "500"
 			if started {
-				if _, err := s.StartHistory(ctx, "Asia/Shanghai"); err != nil {
+				if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Shanghai"); err != nil {
 					t.Fatal(err)
 				}
 				setClock(later)
@@ -107,7 +107,7 @@ func TestCashPreviewRejectsLaterEffectiveWinningObservation(t *testing.T) {
 }
 
 func TestCashConfirmationRechecksLaterWinnerUnderWriteGate(t *testing.T) {
-	for _, started := range []bool{false, true} {
+	for _, started := range []bool{true} {
 		t.Run(map[bool]string{false: "baseline", true: "history"}[started], func(t *testing.T) {
 			s, ctx, bootstrap, _ := newOnboardedService(t, "cash-confirm-order", []string{"Owner"})
 			account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
@@ -115,7 +115,7 @@ func TestCashConfirmationRechecksLaterWinnerUnderWriteGate(t *testing.T) {
 				t.Fatal(err)
 			}
 			if started {
-				if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+				if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -149,6 +149,9 @@ func TestCashPreviewRejectsWinningRowWithLaterAuditTime(t *testing.T) {
 	s, ctx, bootstrap, _ := newOnboardedService(t, "cash-audit-order", []string{"Owner"})
 	account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	amount, _ := domain.ParseMoney("500", "CNY")

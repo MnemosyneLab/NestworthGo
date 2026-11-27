@@ -41,7 +41,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			return domain.DailyValuationSnapshot{}, false, err
 		}
 		if origin == nil {
-			return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before building a snapshot"}
+			return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		state, stateErr := s.repository.DailySnapshotState(ctx, origin.HouseholdID)
 		if stateErr != nil {
@@ -367,7 +367,7 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 		return 0, err
 	}
 	if origin == nil {
-		return 0, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before building snapshots"}
+		return 0, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {

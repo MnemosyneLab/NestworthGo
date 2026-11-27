@@ -231,7 +231,7 @@ func TestHistoricalReconciliationPositionTransferIsNeutral(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "10"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = now.AddDate(0, 0, 1)

@@ -20,7 +20,7 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -154,8 +154,8 @@ func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	if _, err := service.UpdateHolding(ctx, holding.ID, HoldingUpdateInput{Quantity: "3", QuantitySet: true}); err == nil {
 		t.Fatal("UpdateHolding accepted a quantity mutation")
@@ -178,7 +178,7 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bound", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ"})
@@ -215,7 +215,7 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	note := "keep me"
@@ -254,7 +254,7 @@ func TestInstrumentPatchOmitsKeepAndNullClearsInsideTheWrite(t *testing.T) {
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	note := "keep me"
@@ -300,7 +300,7 @@ func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
 	defer database.Close()
 	service := NewService(sqlite.NewRepository(database))
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic patch", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic patch", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, template := range []string{"gold", "silver"} {

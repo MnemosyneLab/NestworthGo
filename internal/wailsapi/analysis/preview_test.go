@@ -8,6 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
@@ -18,7 +19,7 @@ func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { db.Close() })
-			app := application.NewService(sqlite.NewRepository(db))
+			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 			now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 			app.SetClock(func() time.Time { return now })
 			if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
@@ -32,7 +33,7 @@ func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)

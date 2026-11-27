@@ -25,7 +25,7 @@ func TestExactDefaultTimeAndManualMinuteBoundaries(t *testing.T) {
 			t.Run(fixture.zone+"/"+fixture.origin+"/"+string(kind), func(t *testing.T) {
 				zone := fixture.zone
 				ctx := context.Background()
-				app := wailstest.NewService(t)
+				app := wailstest.NewBaselineService(t)
 				now, err := time.Parse(time.RFC3339Nano, fixture.origin)
 				if err != nil {
 					t.Fatal(err)
@@ -62,7 +62,7 @@ func TestExactDefaultTimeAndManualMinuteBoundaries(t *testing.T) {
 					t.Fatal(err)
 				}
 				api := history.NewService(app)
-				origin, err := api.StartHistory(ctx, zone)
+				origin, err := app.CaptureSyntheticOrigin(ctx, zone)
 				if err != nil {
 					t.Fatal(err)
 				}

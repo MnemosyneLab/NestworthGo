@@ -23,7 +23,7 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 	t.Helper()
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	app.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic receipts", BaseCurrency: "USD", MemberNames: []string{"Example owner"}}); err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 			}
 		}
 	}
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {
@@ -131,7 +131,7 @@ func TestCashReceiptProcessBoundary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		app, session := reopenOnboardingProfile(t, paths)
+		app, session := reopenBaselineProfile(t, paths)
 		stop := make(chan string, 1)
 		page := newHistoryCashMovements(t.Context(), cashReceiptCrashLedger{app, mode == "after", stop},
 			func() time.Time { return accountTestClock }, func() {})
@@ -157,7 +157,7 @@ func TestCashReceiptProcessBoundary(t *testing.T) {
 			t.Run(movement.name+"/"+boundary, func(t *testing.T) {
 				paths := seedCashReceiptProfile(t)
 				mutation, activity := runCashReceiptCrash(t, movement.kind, boundary)
-				app, session := reopenOnboardingProfile(t, paths)
+				app, session := reopenBaselineProfile(t, paths)
 				pending, err := session.CashReceipts.Pending(t.Context())
 				if err != nil || len(pending) != 1 || !pending[0].MatchesLedger || pending[0].MutationID != mutation {
 					t.Fatalf("lost the frozen identity at %s: %+v / %v", boundary, pending, err)
@@ -315,7 +315,7 @@ func TestCashReceiptConflictAndReadFailureOnlyInspect(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			paths := seedCashReceiptProfile(t)
-			app, session := reopenOnboardingProfile(t, paths)
+			app, session := reopenBaselineProfile(t, paths)
 			page, _, h, finish := cashMovementHarness(t, app)
 			prepareCashReceiptReview(t, page, history.CashTransfer)
 			review := page.draft.review
@@ -369,7 +369,7 @@ func (cashReceiptSaveFailure) Remember(context.Context, string, string) error {
 
 func TestCashReceiptWriteErrorDoesNotDispatchAndSameProcessRetryKeepsIdentity(t *testing.T) {
 	paths := seedCashReceiptProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	fault := &cashMovementFault{Service: app, loseAttempt: 1, started: make(chan struct{}), release: make(chan struct{})}
 	close(fault.release)
 	page, timeline, h, finish := cashMovementHarness(t, fault)

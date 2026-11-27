@@ -261,7 +261,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return accountTestClock })
 	parity(reopened)
 	checkState(reopened, ids.bank, before, "40.125", "40.125", "85.3071", "0")
@@ -441,7 +441,7 @@ func TestAvailableFundsGlobalReservationEditKeepsSelectedHorizon(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	saved, err := readFundsReservation(ctx, reopened, domain.LiquiditySourceRef{}, funds.state)
 	if err != nil {
 		t.Fatal(err)

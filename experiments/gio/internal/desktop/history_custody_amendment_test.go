@@ -83,7 +83,7 @@ func TestHistoryCustodyCorrectionAndReversalMatchWails(t *testing.T) {
 		}
 	}
 	ref, _ := openBankFixture(t, copyBankProfile(t, paths.RootPath()))
-	app, storage := reopenOnboardingProfile(t, paths)
+	app, storage := reopenBaselineProfile(t, paths)
 	app.SetClock(func() time.Time { return now })
 	ref.SetClock(func() time.Time { return now })
 	fault := &lostCustodyCorrection{Service: app}
@@ -242,7 +242,7 @@ func TestHistoryCustodyCorrectionAndReversalMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return now })
 	positions(reopened, "2", "0", "0")
 	persisted, err := history.LoadDetail(ctx, reopened, originalID)

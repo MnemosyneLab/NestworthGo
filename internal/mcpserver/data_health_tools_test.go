@@ -143,9 +143,6 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := app.CreateHolding(ctx, application.HoldingInput{
 		AccountID: account.Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1",
 	}); err != nil {

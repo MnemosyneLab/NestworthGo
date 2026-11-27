@@ -15,7 +15,7 @@ func (s *Service) loadChangeContext(ctx context.Context) (*domain.HistoryOrigin,
 		return nil, domain.PortfolioSnapshot{}, err
 	}
 	if origin == nil {
-		return nil, domain.PortfolioSnapshot{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+		return nil, domain.PortfolioSnapshot{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *Service) changeState(ctx context.Context) (domain.ChangeState, error) {
 // portfolio snapshot.
 func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot) (domain.ChangeState, error) {
 	if origin == nil {
-		return domain.ChangeState{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+		return domain.ChangeState{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState), Instruments: make(map[domain.InstrumentID]domain.Instrument)}
 	for _, record := range snapshot.Accounts {
@@ -279,17 +279,6 @@ func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeSta
 	}
 	s.invalidateAnalysis()
 	return preview, nil
-}
-
-func (s *Service) HistoryMutationAllowed(ctx context.Context) error {
-	started, err := s.HistoryStarted(ctx)
-	if err != nil {
-		return err
-	}
-	if !started {
-		return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
-	}
-	return nil
 }
 
 func currentCashAmount(state domain.ChangeState, accountID domain.AccountID, currency domain.CurrencyCode) (domain.Money, error) {

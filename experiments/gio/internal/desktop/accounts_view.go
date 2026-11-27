@@ -94,17 +94,6 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if f := p.opening; f != nil {
-		if f.draft == nil && p.canOpenPosition() && f.open.Clicked(gtx) {
-			f.saved = ""
-			f.draft = &openingPositionDraft{account: p.freshDetail().record.Account, quantity: ui.NewTextField(true)}
-			p.loadOpeningPosition(f.draft)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		if f.draft != nil {
-			return p.layoutOpeningPosition(gtx, view)
-		}
-	}
 	if f := p.investment; f != nil {
 		if f.draft == nil {
 			switch {
@@ -309,8 +298,7 @@ func (p *accountsPage) status(gtx layout.Context, view ui.View) layout.Dimension
 	if f := p.balanceTarget; f != nil && p.target.account != "" {
 		if f.saved.account == p.target.account {
 			lines = append(lines, layout.Rigid(balanceSavedLine(view, f.savedMessage, &f.view, f.saved.activity != "" && f.openActivity != nil)))
-		} else if f.unverified == p.target.account {
-			lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountBankBalanceUnverified), view.Colors.ErrorInk)))
+
 		}
 	}
 	if m := p.maintenance; m != nil && p.target.account != "" {

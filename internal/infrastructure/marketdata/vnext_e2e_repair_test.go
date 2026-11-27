@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestE2EEquityUSManualFXRepairProbe(t *testing.T) {
@@ -417,7 +418,7 @@ func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Serv
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repo := sqlite.NewRepository(database)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	service.SetClock(func() time.Time { return originClock })
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Repair", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
@@ -477,7 +478,7 @@ func seedRepairPortfolio(t *testing.T, svc *application.Service, repo *sqlite.Re
 	if _, err := svc.AppendManualFXQuote(ctx, "USD", "SGD", "1.35", "2026-09-06T00:00:00+08:00"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := svc.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 }

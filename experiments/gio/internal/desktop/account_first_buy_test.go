@@ -53,7 +53,7 @@ func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now
 		return fixture, err
 	}
 	service.SetClock(func() time.Time { return originAt })
-	if _, err = service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err = service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		return fixture, err
 	}
 	i, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic Index Fund", Symbol: "QA-BUY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
@@ -76,7 +76,7 @@ func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now
 func openFirstBuyFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, firstBuyFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, session := reopenOnboardingProfile(t, paths)
+	service, session := reopenBaselineProfile(t, paths)
 	ids, err := seedFirstBuy(t.Context(), service, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -300,7 +300,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	assertFacts(reopened, ids, fault.firstActivity)
 	frozen := fault.attempts[2]
@@ -352,7 +352,7 @@ func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
 	ctx := t.Context()
 	now := accountTestClock.Add(345 * time.Millisecond)
 	originAt := accountTestClock.Add(123 * time.Millisecond)
-	app, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	app, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
 	ids, err := seedFirstBuyAtOrigin(ctx, app, now, originAt)
 	if err != nil {
 		t.Fatal(err)

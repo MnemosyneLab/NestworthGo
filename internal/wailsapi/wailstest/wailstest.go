@@ -14,12 +14,23 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 // NewService opens a fresh temp-file SQLite database (removed automatically
 // with the test's t.TempDir()) and returns an application.Service backed by
 // the real repository implementation.
 func NewService(t *testing.T, registries ...application.MarketDataRegistryPort) *application.Service {
+	return newService(t, false, registries...)
+}
+
+// NewBaselineService stages synthetic current facts for tests of existing
+// immutable history origins; use NewService for actual onboarding tests.
+func NewBaselineService(t *testing.T, registries ...application.MarketDataRegistryPort) *application.Service {
+	return newService(t, true, registries...)
+}
+
+func newService(t *testing.T, baseline bool, registries ...application.MarketDataRegistryPort) *application.Service {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "nestworth.db")
 	database, err := sqlite.Open(path)
@@ -28,7 +39,11 @@ func NewService(t *testing.T, registries ...application.MarketDataRegistryPort) 
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repository := sqlite.NewRepository(database)
-	service := application.NewService(repository, registries...)
+	var port application.Repository = repository
+	if baseline {
+		port = &testfixture.BaselineRepository{Repository: repository}
+	}
+	service := application.NewService(port, registries...)
 	appports.Wire(service)
 	appports.AttachSQLiteHistory(service, repository)
 	service.SetLiveDatabasePath(path)

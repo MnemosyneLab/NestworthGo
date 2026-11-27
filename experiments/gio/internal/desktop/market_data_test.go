@@ -17,6 +17,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	quoteapi "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -42,7 +43,7 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	provider := &unavailableOverviewProvider{}
-	service := application.NewService(sqlite.NewRepository(db), application.NewMarketDataRegistry(provider))
+	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, application.NewMarketDataRegistry(provider))
 	now := time.Date(2026, time.November, 4, 8, 0, 0, 0, time.UTC)
 	service.SetClock(func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic market data", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {

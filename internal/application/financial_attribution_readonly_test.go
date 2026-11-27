@@ -10,7 +10,7 @@ import (
 func TestReadOnlyFinancialAttributionDoesNotMaintainSnapshots(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	account := overviewAccount(t, s, owner, "Synthetic read-only return", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -81,7 +81,7 @@ func TestReadOnlyAttributionPriceReturnMissingAndBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)

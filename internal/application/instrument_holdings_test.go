@@ -29,7 +29,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	repo := &holdingsSnapshotCounter{Repository: sqlite.NewRepository(db)}
 	app := NewService(repo)
 	ctx := context.Background()
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := app.Bootstrap(ctx)

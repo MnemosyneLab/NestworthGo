@@ -15,7 +15,7 @@ func TestRepeatCommitChecksSourceEvenWithCurrentToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	origin, err := s.StartHistory(ctx, "UTC")
+	origin, err := s.CaptureSyntheticOrigin(ctx, "UTC")
 	if err != nil {
 		t.Fatal(err)
 	}

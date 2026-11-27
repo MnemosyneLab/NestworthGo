@@ -26,7 +26,7 @@ func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.D
 	s := NewService(sqlite.NewRepository(db))
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(context.Background(), OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(context.Background(), OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := s.Bootstrap(context.Background())
@@ -69,7 +69,7 @@ func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	home := overviewAccount(t, s, owner, "Home", "property", "asset", "manual_value", "CNY", "1000")
 	debt := overviewAccount(t, s, owner, "Loan", "loan", "liability", "balance", "CNY", "250")
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -152,7 +152,7 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -193,7 +193,7 @@ func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -228,7 +228,7 @@ func TestHistoricalOverviewDateValidationAndDST(t *testing.T) {
 		t.Fatal("history not started accepted")
 	}
 	*now = time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
-	if _, err := s.StartHistory(ctx, "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
@@ -273,7 +273,7 @@ func TestHistoricalOverviewCurrentIsCapturedWithHistoricalInputs(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -319,7 +319,7 @@ func TestHistoricalOverviewPriceGapsBackfillClearingAndArchive(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "5", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	// Simulate a retained position whose old pricing evidence is unavailable.
@@ -386,7 +386,7 @@ func TestHistoricalOverviewInternalTransferAndDebtPrincipalAreNeutral(t *testing
 	a := overviewAccount(t, s, owner, "Bank A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Bank B", "bank_account", "asset", "balance", "CNY", "0")
 	d := overviewAccount(t, s, owner, "Debt", "loan", "liability", "balance", "CNY", "50")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -431,7 +431,7 @@ func TestHistoricalOverviewSameDayComparisonSharesOneUnmodifiedBatch(t *testing.
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Balance", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -528,7 +528,7 @@ func TestHistoricalOverviewCivilDayBoundaries(t *testing.T) {
 				t.Fatal(err)
 			}
 			*now = day.AddDate(0, 0, -2).Add(12 * time.Hour)
-			if _, err := s.StartHistory(context.Background(), tc.zone); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(context.Background(), tc.zone); err != nil {
 				t.Fatal(err)
 			}
 			*now = day.AddDate(0, 0, 3).Add(12 * time.Hour)
@@ -554,7 +554,7 @@ func TestHistoricalOverviewMidnightDSTIncludesBothEconomicDays(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	*now = time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := s.StartHistory(ctx, "America/Santiago"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "America/Santiago"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 9, 5, 15, 0, 0, 0, time.UTC)

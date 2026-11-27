@@ -125,9 +125,9 @@ func TestConfirmHoldingAccountMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(linkedContractClock)
-	referenceApp, _ := reopenOnboardingProfile(t, refPaths)
+	referenceApp, _ := reopenBaselineProfile(t, refPaths)
 	referenceApp.SetClock(linkedContractClock)
 	got, err := reconciliation.NewService(reopened).Get(ctx, session.ID)
 	want, refErr := reconciliation.NewService(referenceApp).Get(ctx, wails.ID)

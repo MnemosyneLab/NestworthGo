@@ -108,8 +108,8 @@ func TestStandaloneProductInterestMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app       *application.Service
 		id        domain.ProductContractID
@@ -177,8 +177,8 @@ func TestStandaloneSimpleInterestPaidThroughMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app     *application.Service
 		id      domain.ProductContractID
@@ -273,8 +273,8 @@ func TestStandaloneProductTermsMatchWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app     *application.Service
 		id      domain.ProductContractID

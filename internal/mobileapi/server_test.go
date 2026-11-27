@@ -30,7 +30,7 @@ type httpFixture struct {
 
 func fixture(t *testing.T, p Permissions) *httpFixture {
 	t.Helper()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := t.Context()
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "SYNTHETIC MOBILE TEST", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func fixture(t *testing.T, p Permissions) *httpFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	s := New(app, filepath.Join(t.TempDir(), "mobile.json"), fstest.MapFS{"mobile.html": {Data: []byte("<html>Login shell</html>")}})

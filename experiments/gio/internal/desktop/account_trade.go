@@ -113,7 +113,7 @@ func (p *accountsPage) canTradeAccount() bool {
 }
 
 func (p *accountsPage) canImportPosition() bool {
-	return p.canTradeAccount() && !p.current.beforeHistory
+	return p.canTradeAccount()
 }
 
 func (f *accountInvestment) holdingActionFallback(tag event.Tag) *widget.Clickable {
@@ -486,7 +486,7 @@ func tradeProblem(err error, labels tradeLabels, fallback i18n.MessageID) i18n.M
 		return i18n.BuyDateSequence
 	}
 	switch issue.Code {
-	case domain.ErrHistoryNotStarted:
+	case domain.ErrMissingHistoryOrigin:
 		return labels.history
 	case domain.ErrInvalidChangeTime:
 		return i18n.ContributionInvalidTime

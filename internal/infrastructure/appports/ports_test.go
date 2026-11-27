@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestBackupWithoutWails(t *testing.T) {
@@ -145,7 +146,7 @@ func newWiredService(t *testing.T, name string, members []string) (*application.
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repo := sqlite.NewRepository(database)
-	service := application.NewService(repo)
+	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
 	Wire(service)
 	AttachSQLiteHistory(service, repo)
 	service.SetLiveDatabasePath(path)

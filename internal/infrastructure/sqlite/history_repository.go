@@ -111,7 +111,7 @@ func listHistoryOriginComponentsQuery(ctx context.Context, query queryer, origin
 
 // HistoryOriginData loads the immutable baseline together with all baseline
 // state needed to reconstruct an as-of portfolio. Keeping this read beside
-// StartHistory avoids accidentally falling back to today's metadata.
+// CaptureSyntheticOrigin avoids accidentally falling back to today's metadata.
 func (r *Repository) HistoryOriginData(ctx context.Context, originID domain.HistoryOriginID) (domain.HistoryOriginData, error) {
 	return historyOriginDataQuery(ctx, r.database.SQL, originID)
 }
@@ -262,7 +262,7 @@ func historyOriginDataQuery(ctx context.Context, query queryer, originID domain.
 	return data, nil
 }
 
-func (r *Repository) StartHistory(ctx context.Context, data domain.HistoryOriginData) (domain.HistoryOrigin, error) {
+func (r *Repository) CaptureSyntheticOrigin(ctx context.Context, data domain.HistoryOriginData) (domain.HistoryOrigin, error) {
 	if err := validateHistoryOriginData(data); err != nil {
 		return domain.HistoryOrigin{}, err
 	}

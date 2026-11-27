@@ -9,6 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestPilotHistoryPagesAfterReopen(t *testing.T) {
@@ -25,7 +26,7 @@ func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := application.NewService(sqlite.NewRepository(session.DB)).ListActivityPage(ctx, query)
+		page, err := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(session.DB)}).ListActivityPage(ctx, query)
 		closeErr := session.Close()
 		if err != nil || closeErr != nil {
 			t.Fatalf("read activity page: %v; close: %v", err, closeErr)
@@ -86,7 +87,7 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Ordinary household", BaseCurrency: "USD", MemberNames: []string{"Sample member"},
 	}); err != nil {
@@ -100,7 +101,7 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	page, err := application.NewService(sqlite.NewRepository(reopened.DB)).ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
+	page, err := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(reopened.DB)}).ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
 	if err != nil || len(page.Activities) != 0 || page.HasMore || page.Next != nil {
 		t.Fatalf("expected existing history to remain empty, got %+v and %v", page, err)
 	}

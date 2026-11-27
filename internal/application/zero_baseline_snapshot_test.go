@@ -23,14 +23,14 @@ func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
 			ctx := context.Background()
 			now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 			s.setClock(func() time.Time { return now })
-			if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			bootstrap, err := s.Bootstrap(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 				t.Fatal(err)
 			}
 			now = now.Add(24 * time.Hour)

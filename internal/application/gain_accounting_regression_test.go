@@ -36,7 +36,7 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 	f.service = NewService(f.repo)
 	f.service.setClock(func() time.Time { return f.now })
 	ctx := context.Background()
-	if err := f.service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic accounting", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := f.service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic accounting", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	f.boot, err = f.service.Bootstrap(ctx)
@@ -77,7 +77,7 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 			t.Fatal(err)
 		}
 	}
-	if _, err := f.service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := f.service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	f.now = f.now.Add(time.Hour)

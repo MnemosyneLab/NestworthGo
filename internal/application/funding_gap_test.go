@@ -32,7 +32,7 @@ func TestFundingGapAttributionAcrossPurchasesAndResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origin, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holdings[0].ID: "10"})
+	origin, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holdings[0].ID: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}

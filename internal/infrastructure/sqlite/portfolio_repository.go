@@ -350,7 +350,7 @@ func (r *Repository) CreateHoldingWithActivity(ctx context.Context, holding doma
 		var householdID, timezone string
 		if err := tx.QueryRowContext(ctx, `SELECT a.household_id, o.timezone FROM accounts a JOIN history_origins o ON o.household_id = a.household_id WHERE a.id = ?`, holding.AccountID.String()).Scan(&householdID, &timezone); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 			}
 			return err
 		}

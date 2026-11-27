@@ -702,7 +702,7 @@ func TestAnalysisReviewServiceLoadsClosedSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	origin, err := service.StartHistory(ctx, "America/Los_Angeles")
+	origin, err := service.CaptureSyntheticOrigin(ctx, "America/Los_Angeles")
 	if err != nil {
 		t.Fatal(err)
 	}

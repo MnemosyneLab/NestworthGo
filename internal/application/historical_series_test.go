@@ -18,7 +18,7 @@ func TestHistoricalSeriesReadOnlyExactP1EndpointsAndSingleCapture(t *testing.T) 
 	s, db, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "0.0001")
 	overviewAccount(t, s, owner, "Debt", "loan", "liability", "balance", "USD", "10")
-	if _, err := s.StartHistory(ctx, "Asia/Shanghai"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Shanghai"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 31)
@@ -61,7 +61,7 @@ func TestHistoricalSeriesBoundsSkippedDatesCancellationAndScope(t *testing.T) {
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	account := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -105,7 +105,7 @@ func TestHistoricalSeriesInteriorSkippedCivilDate(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	*now = time.Date(2011, 12, 29, 12, 0, 0, 0, time.UTC)
 	overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "Pacific/Apia"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Pacific/Apia"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2012, 1, 2, 12, 0, 0, 0, time.UTC)
@@ -129,7 +129,7 @@ func TestHistoricalSeriesEmptyScopeTransitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	for _, change := range []struct {
@@ -173,7 +173,7 @@ func TestHistoricalSeriesScopeAfterMissingCivilDate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(ctx, "Pacific/Apia"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, "Pacific/Apia"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2011, 12, 30, 12, 0, 0, 0, time.UTC) // Dec 31 in Apia, after its skipped Dec 30.
@@ -219,7 +219,7 @@ func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
 				if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-01", false); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+				if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 					t.Fatal(err)
 				}
 			} else {
@@ -230,7 +230,7 @@ func TestHistoricalSeriesSelectedEvidenceBasis(t *testing.T) {
 				if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "1", "2026-08-01"); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+				if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -328,7 +328,7 @@ func TestHistoricalSeriesConcurrentCaptureNoSecondaryReads(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 3)
@@ -376,7 +376,7 @@ func TestHistoricalSeriesBackfillManualCarryQuoteIdentityAndTinyValues(t *testin
 	if _, err := s.AppendManualInstrumentQuote(ctx, i.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -424,7 +424,7 @@ func TestHistoricalSeriesDSTAndNegativeNetWorth(t *testing.T) {
 	*now = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 	overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
 	overviewAccount(t, s, owner, "Loan", "loan", "liability", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
@@ -447,7 +447,7 @@ func TestHistoricalSeriesPreflightLeafAndByteBudgets(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic A", "bank_account", "asset", "balance", "CNY", "1")
 	overviewAccount(t, s, owner, "Synthetic B", "bank_account", "asset", "balance", "CNY", "2")
-	if _, err := s.StartHistory(context.Background(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(context.Background(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	for _, limits := range []domain.HistoricalSeriesLimits{{MaxLeaves: 1, MaxFacts: 100000, MaxBytes: 32 << 20}, {MaxLeaves: 1000, MaxFacts: 100000, MaxBytes: 1}} {
@@ -467,7 +467,7 @@ func TestHistoricalSeriesMissingFXAndCancellationAfterRead(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic foreign cash", "bank_account", "asset", "balance", "USD", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -497,7 +497,7 @@ func TestHistoricalSeriesCorrectionsMatchP1EconomicTime(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)

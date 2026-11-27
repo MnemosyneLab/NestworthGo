@@ -417,9 +417,6 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 	}
 	s.ledgerVersion = pages.version
-	if s.accounts != nil && s.accounts.opening != nil {
-		s.accounts.opening.onSaved = s.refreshLedgerReads
-	}
 	if s.ledgerVersion != nil {
 		s.seenLedgerVersion = s.ledgerVersion()
 	}
@@ -681,7 +678,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 		s.accounts.pollLiabilityPosting()
 		s.accounts.investment.poll(s.accounts.investmentRuntime())
-		s.accounts.pollOpeningPosition()
 		if s.accounts.pollInlineInstitution() && s.directory != nil {
 			for _, list := range s.directory.lists {
 				if list.isInstitutions() {

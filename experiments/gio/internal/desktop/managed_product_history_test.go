@@ -139,7 +139,7 @@ func TestProductOperationHistoryMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	api := liquidity.NewService(reopened)
 	for offset, cursor := 0, ""; ; {
 		page, err := api.ListOperations(ctx, liquidity.ListOperationsRequest{ProductID: id.String(), Cursor: cursor, Limit: productHistoryPageSize})

@@ -60,7 +60,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 	t.Cleanup(func() { _ = db.Close() })
 	service := NewService(sqlite.NewRepository(db))
 	service.setClock(func() time.Time { return now })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic review pipeline", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic review pipeline", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -114,7 +114,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 			t.Fatalf("set synthetic FX preference for %s: %v", currency, err)
 		}
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 

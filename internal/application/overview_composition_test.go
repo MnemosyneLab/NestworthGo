@@ -166,7 +166,7 @@ func TestOverviewAssetCompositionUsesCurrentInputsWithTheirOwnReferenceDates(t *
 	if _, err := s.AppendManualInstrumentQuote(ctx, manual.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "Asia/Singapore", costs); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", costs); err != nil {
 		t.Fatal(err)
 	}
 

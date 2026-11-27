@@ -14,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	instrumentapi "github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	marketapi "github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
@@ -63,7 +64,7 @@ func TestMarketInstrumentSourceLookupSaveRetryAndFindingReturn(t *testing.T) {
 	mismatch := native
 	mismatch.ProviderSymbol, mismatch.QuoteCurrency = "DEMO-EUR", "EUR"
 	provider := &instrumentBindingTestProvider{key: application.YahooFinanceProviderKey, hits: []application.InstrumentSearchHit{mismatch, native}, failFirst: true}
-	app := application.NewService(sqlite.NewRepository(db), application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
+	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic binding", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}

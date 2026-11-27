@@ -26,7 +26,7 @@ func cashTransferLiabilityFixture(t *testing.T) (*Service, *sqlite.DB, domain.Ho
 	savings := create("Synthetic Savings", "bank_account", "asset", "0")
 	loan := create("Synthetic Loan", "loan", "liability", "500")
 	otherLoan := create("Synthetic Other Loan", "loan", "liability", "0")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return s, db, boot.Household.ID, bank, savings, loan, otherLoan

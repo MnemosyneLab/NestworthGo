@@ -320,7 +320,7 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		}
 	}
 	if origin == nil {
-		return AnalysisInputs{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before analyzing"}
+		return AnalysisInputs{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {

@@ -32,8 +32,8 @@ func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-15", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
-		t.Fatalf("StartHistoryWithCosts: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "50"}); err != nil {
+		t.Fatalf("CaptureSyntheticOriginWithCosts: %v", err)
 	}
 
 	wealth, err := service.NetWorthTrend(ctx, domain.Trend30Days)
@@ -71,8 +71,8 @@ func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
 		t.Fatalf("account: %v", err)
 	}
 	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 	zero, err := domain.ParseMoney("0", "CNY")
@@ -141,8 +141,8 @@ func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testin
 	}); err != nil {
 		t.Fatalf("account: %v", err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	if _, err := service.RebuildHistoricalSnapshots(ctx, "2026-06-20", "2026-07-30"); err == nil {
 		t.Fatal("RebuildHistoricalSnapshots accepted more than 31 days")
@@ -218,7 +218,7 @@ func TestExplicitTrendWindowExcludesCurrentAndLaterDays(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setClock(time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC))

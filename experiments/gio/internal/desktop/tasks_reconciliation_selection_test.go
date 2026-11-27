@@ -274,7 +274,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	persisted, err := reconciliation.NewService(reopened).Get(ctx, planID)
 	if err != nil || persisted.StartedAt != exactTime {

@@ -304,7 +304,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 
 func TestPortfolioMyHoldingsUnknownCostKeepsValue(t *testing.T) {
 	ctx := t.Context()
-	service, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	service, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
 	service.SetClock(func() time.Time { return accountTestClock })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic prehistory holdings", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},

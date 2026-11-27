@@ -20,7 +20,7 @@ import (
 func TestPerformanceBindingsDailySeriesAndFixedReturns(t *testing.T) {
 	for _, kind := range []string{"stock"} {
 		t.Run(kind, func(t *testing.T) {
-			app := wailstest.NewService(t)
+			app := wailstest.NewBaselineService(t)
 			app.SetClock(func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) })
 			ctx := t.Context()
 			if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic performance", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}}); err != nil {
@@ -91,7 +91,7 @@ func TestPerformanceBindingsDailySeriesAndFixedReturns(t *testing.T) {
 // are not daily closes, whereas three explicit daily facts must remain visible
 // even though they cannot establish a 30-day return.
 func TestPerformanceBindingsSparseDailyAndTimestampedManualPrices(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	app.SetClock(func() time.Time { return time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC) })
 	ctx := t.Context()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic sparse history", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}}); err != nil {

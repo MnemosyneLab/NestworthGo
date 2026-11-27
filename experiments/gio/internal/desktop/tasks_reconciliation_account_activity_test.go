@@ -223,7 +223,7 @@ func TestReconciliationAccountImportAndCashEntriesMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	assertNativeTradeCash(t, reopened, ids.account, map[domain.CurrencyCode]string{"USD": "157"})
 	links, err := reconciliation.NewService(reopened).Links(ctx, session.ID)
 	if err != nil || len(links) != 3 {

@@ -177,8 +177,8 @@ func TestLinkedLockedProductSettlementMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reference, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	reference, _ := reopenBaselineProfile(t, refPaths)
 	links, err := reconciliation.NewService(reopened).Links(ctx, session.ID)
 	if err != nil || !reflect.DeepEqual(links, saved) {
 		t.Fatalf("reopen lost the settlement links: %+v %v", links, err)

@@ -21,7 +21,7 @@ func seriesHistoryScaleFixture(t testing.TB, accountCount, backfillsPerInstrumen
 	s := NewService(sqlite.NewRepository(db))
 	now := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic series benchmark", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic series benchmark", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := s.Bootstrap(ctx)
@@ -59,7 +59,7 @@ func seriesHistoryScaleFixture(t testing.TB, accountCount, backfillsPerInstrumen
 			costs[h.ID] = "0.00006"
 		}
 	}
-	if _, err := s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 	if backfillsPerInstrument > 0 || activityCount > 0 {

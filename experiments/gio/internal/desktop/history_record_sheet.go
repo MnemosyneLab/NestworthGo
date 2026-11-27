@@ -29,8 +29,7 @@ func (s *shell) historyRecordOpen() bool {
 }
 
 func (p *historyPage) canRecord() bool {
-	return p != nil && p.cashMovements != nil && p.reads != nil && p.reads.detail == nil &&
-		(p.startPoint == nil || !p.startPoint.open)
+	return p != nil && p.cashMovements != nil && p.reads != nil && p.reads.detail == nil
 }
 
 func (p *historyPage) updateRecordTrigger(gtx layout.Context) {

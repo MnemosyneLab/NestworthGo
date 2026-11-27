@@ -61,7 +61,7 @@ func marketReadFixture(t testing.TB, count, quotes int) (*Service, *marketReadDr
 	start := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return start })
 	ctx := context.Background()
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic market reads", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic market reads", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < count; i++ {
@@ -91,7 +91,7 @@ func marketReadFixture(t testing.TB, count, quotes int) (*Service, *marketReadDr
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	s.setClock(func() time.Time { return start.AddDate(0, 0, 4) })

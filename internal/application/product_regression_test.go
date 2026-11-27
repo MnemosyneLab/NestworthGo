@@ -115,10 +115,10 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 	service := NewService(sqlite.NewRepository(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	account := seedHoldingsCash(t, service, ctx, "150000")
@@ -319,10 +319,10 @@ func TestProductRegressionTermsWriteRollbackAndCAS(t *testing.T) {
 	s := NewService(repo)
 	s.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err = s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Terms", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err = s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Terms", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	a := seedHoldingsCash(t, s, ctx, "150000")

@@ -193,7 +193,7 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	persisted, err := reconciliation.NewService(reopened).Get(ctx, session.ID)
 	if err != nil || persisted.Status != "completed" || persisted.ClosingNote != closing || persisted.Revision != closed.Revision {
 		t.Fatalf("closure did not survive reopen: %+v / %v", persisted, err)

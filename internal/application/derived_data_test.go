@@ -23,7 +23,7 @@ func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T)
 	s := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	boot, _ := s.Bootstrap(ctx)
@@ -31,7 +31,7 @@ func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)

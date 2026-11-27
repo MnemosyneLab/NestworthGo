@@ -41,7 +41,7 @@ func seedExistingBuy(ctx context.Context, app *application.Service, now time.Tim
 func openExistingBuyFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, saleFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	app, storage := reopenOnboardingProfile(t, paths)
+	app, storage := reopenBaselineProfile(t, paths)
 	ids, err := seedExistingBuy(t.Context(), app, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +304,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	assertPosition(reopened, ids, "4", "100", "-8", "92", "252", 6)
 	r, err := reentry.Commit(ctx, reopened)

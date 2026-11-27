@@ -96,7 +96,7 @@ func TestDelayedNAVDisplayRolloverLateRevisionAndReadOnlyCapture(t *testing.T) {
 	if _, err = s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: []AgentMarketDataItem{item}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "2"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 12, 4, 0, 0, 0, time.UTC)

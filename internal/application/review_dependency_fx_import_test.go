@@ -53,7 +53,7 @@ func productionFXSuffixFixture(t *testing.T, zones ...string) (seriesZeroFixture
 		t.Fatal(err)
 	}
 	importSuffixFX(t, f, "append", "", "2026-10-01", "1")
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{f.holding.ID: "100"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{f.holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	f.day(t, "2026-10-12")

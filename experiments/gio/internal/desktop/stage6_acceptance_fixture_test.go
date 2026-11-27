@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
@@ -21,7 +22,7 @@ func openStage6Database(t *testing.T, path string, clock func() time.Time, provi
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqlite.NewRepository(db)
-	svc := application.NewService(repo, providers...)
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo}, providers...)
 	appports.AttachSQLiteHistory(svc, repo)
 	svc.SetLiveDatabasePath(db.Path)
 	svc.SetClock(clock)
@@ -75,7 +76,7 @@ func seedStage6Snapshots(t *testing.T, start time.Time, closedDays int, dirty bo
 		InitialAmount: "125.25", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bs.Members[0].ID}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = start.AddDate(0, 0, closedDays)

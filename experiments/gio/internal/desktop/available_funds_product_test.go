@@ -287,8 +287,8 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			if err := refSession.Close(); err != nil {
 				t.Fatal(err)
 			}
-			actual, _ := reopenOnboardingProfile(t, paths)
-			reference, _ := reopenOnboardingProfile(t, refPaths)
+			actual, _ := reopenBaselineProfile(t, paths)
+			reference, _ := reopenBaselineProfile(t, refPaths)
 			for _, copy := range []struct {
 				app     *application.Service
 				account domain.AccountID

@@ -52,7 +52,7 @@ func seedStage6CardStatement(t *testing.T, start time.Time) ([]byte, cardStateme
 	}
 	card := create(stage6CardStatementCard, "credit_card", "liability", "30")
 	create("Synthetic Statement Bank", "bank_account", "asset", "100")
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

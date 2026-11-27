@@ -127,7 +127,7 @@ func TestMarketComparisonProviderManualSourcesAndIncompleteBasis(t *testing.T) {
 	s := NewService(repo)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
-	if e = s.CompleteOnboarding(t.Context(), OnboardingInput{HouseholdName: "Synthetic comparison", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
+	if e = s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic comparison", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
 		t.Fatal(e)
 	}
 	i, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic source comparison", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
@@ -214,7 +214,7 @@ func TestMarketComparisonFinalCaptureBudgetEscapedEvidence(t *testing.T) {
 	s := NewService(repo)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
-	if e = s.CompleteOnboarding(t.Context(), OnboardingInput{HouseholdName: "Synthetic byte budget", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
+	if e = s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic byte budget", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
 		t.Fatal(e)
 	}
 	i, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic budget", Type: "stock", QuoteCurrency: "USD", QuoteSource: "agent"})

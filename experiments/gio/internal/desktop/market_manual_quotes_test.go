@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	quoteapi "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 )
 
@@ -28,7 +29,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 	t.Cleanup(func() { _ = db.Close() })
 	repo := sqlite.NewRepository(db)
 	provider := &unavailableOverviewProvider{}
-	svc := application.NewService(repo, application.NewMarketDataRegistry(provider))
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo}, application.NewMarketDataRegistry(provider))
 	now := time.Date(2026, 11, 21, 8, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
 	svc.SetClock(clock)
@@ -60,7 +61,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.StartHistoryWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+	if _, err := svc.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 4)
@@ -196,7 +197,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	restarted := application.NewService(sqlite.NewRepository(reopened), application.NewMarketDataRegistry(provider))
+	restarted := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(reopened)}, application.NewMarketDataRegistry(provider))
 	restarted.SetClock(clock)
 	wails := quoteapi.NewService(restarted)
 	price, err := wails.CurrentInstrumentQuote(ctx, instrument.ID.String())
@@ -236,7 +237,7 @@ func TestMarketDataManualQuoteRetryBlocksOverlapAndHonorsCommittedReceipt(t *tes
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	svc := application.NewService(sqlite.NewRepository(db))
+	svc := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
 	clock := func() time.Time { return time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC) }
 	svc.SetClock(clock)
 	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic manual retry", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {

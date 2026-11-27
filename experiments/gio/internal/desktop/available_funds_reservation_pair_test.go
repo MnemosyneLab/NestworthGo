@@ -52,7 +52,7 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if err := os.WriteFile(refPath, seed, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app, session = reopenOnboardingProfile(t, paths)
+	app, session = reopenBaselineProfile(t, paths)
 	clock := func() time.Time { return accountTestClock }
 	app.SetClock(clock)
 	db, err := sqlite.Open(refPath)
@@ -212,7 +212,7 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
+	app, _ = reopenBaselineProfile(t, paths)
 	app.SetClock(clock)
 	db, err = sqlite.Open(refPath)
 	if err != nil {

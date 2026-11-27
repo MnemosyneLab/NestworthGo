@@ -21,7 +21,7 @@ func TestBackdatedPositionImportPreviewsAndCommitsWithoutCash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setNow(historicalInsertionTime(29))
@@ -95,7 +95,7 @@ func TestPositionImportRequiresKnownCostAndMatchingCurrency(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "99", "2026-09-25", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setNow(historicalInsertionTime(29))

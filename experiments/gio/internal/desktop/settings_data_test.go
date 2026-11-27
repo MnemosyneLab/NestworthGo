@@ -85,24 +85,3 @@ func TestSettingsDataRebuildMatchesWailsAndPreservesPreferences(t *testing.T) {
 		}
 	}
 }
-
-func TestSettingsDataShowsHistoryRequirementInSimplifiedChinese(t *testing.T) {
-	_, _, app := openStage6Database(t, filepath.Join(t.TempDir(), "no-history.db"), func() time.Time { return accountTestClock })
-	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic no history", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
-		t.Fatal(err)
-	}
-	h, page := generalSettingsHarness(t)
-	page.data.run = app.RebuildDerivedData
-	page.prefs.saved.Language = settings.LanguageZhCN
-	h.frame()
-	h.click("数据", false)
-	assertPageLabel(t, &h.router, "重算历史与余额")
-	h.click("重算全部数据", false)
-	page.prefs.wait()
-	h.frame()
-	assertPageLabel(t, &h.router, "请先开始历史记录，再重算数据。")
-	origin, err := app.HistoryOrigin(t.Context())
-	if err != nil || origin != nil || page.data.result != nil {
-		t.Fatalf("a recalculation without history returned %+v, origin %+v, %v", page.data.result, origin, err)
-	}
-}

@@ -31,7 +31,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	a := overviewAccount(t, s, owner, "Secret A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Secret B", "bank_account", "asset", "balance", "CNY", "0")
 	debt := overviewAccount(t, s, owner, "Secret debt", "loan", "liability", "balance", "CNY", "30")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -118,10 +118,10 @@ func TestFinancialComparisonMissingFXNativeDeltaAndDates(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "FX", "bank_account", "asset", "balance", "USD", "10")
-	if _, err := s.BuildFinancialComparison(t.Context(), FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); !hasDomainCode(err, domain.ErrHistoryNotStarted) {
+	if _, err := s.BuildFinancialComparison(t.Context(), FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); !hasDomainCode(err, domain.ErrMissingHistoryOrigin) {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(t.Context(), "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -164,7 +164,7 @@ func TestFinancialComparisonSingleCaptureWithConcurrentWrite(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -213,7 +213,7 @@ func TestFinancialComparisonPositionTransferAndMissingPrice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -256,7 +256,7 @@ func TestFinancialComparisonRetainedCorrectionAndNamedDisclosure(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Chosen name", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -300,7 +300,7 @@ func TestFinancialComparisonExclusionIsNotAValueDelta(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
