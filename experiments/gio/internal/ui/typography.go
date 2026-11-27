@@ -2,7 +2,6 @@ package ui
 
 import (
 	"image/color"
-	"runtime"
 
 	"gioui.org/font"
 	"gioui.org/layout"
@@ -21,19 +20,9 @@ import (
 // proportional and old-style. Where none of these exist, Gio uses its bundled
 // default, which also has tabular figures.
 const (
-	sansTypeface   font.Typeface = "Avenir Next, Helvetica Neue"
-	serifTypeface  font.Typeface = "Iowan Old Style, Charter"
-	darwinFallback font.Typeface = ", Hiragino Sans GB, Apple Color Emoji"
+	sansTypeface  font.Typeface = "Avenir Next, Helvetica Neue"
+	serifTypeface font.Typeface = "Iowan Old Style, Charter"
 )
-
-func systemTypeface(base font.Typeface) font.Typeface {
-	if runtime.GOOS == "darwin" {
-		// Automatic fallback can miss Han at medium and bold weights and
-		// omit emoji even at regular weight on macOS.
-		return base + darwinFallback
-	}
-	return base
-}
 
 // NewTheme returns a Material theme whose text and editors use the sans stack.
 // Every window creates its theme here so no text falls back to the toolkit
@@ -41,6 +30,9 @@ func systemTypeface(base font.Typeface) font.Typeface {
 func NewTheme() *material.Theme {
 	theme := material.NewTheme()
 	theme.Face = systemTypeface(sansTypeface)
+	if faces := supplementalSystemFaces(); len(faces) > 0 {
+		theme.Shaper = text.NewShaper(text.WithCollection(faces))
+	}
 	return theme
 }
 

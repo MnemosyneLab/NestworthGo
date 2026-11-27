@@ -5,6 +5,7 @@ go 1.27.4
 require (
 	gioui.org v0.10.3
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/go-text/typesetting v0.3.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/waltwang/nestworth-go v0.0.0
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0
@@ -22,7 +23,6 @@ require (
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
