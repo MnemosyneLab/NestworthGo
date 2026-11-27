@@ -30,7 +30,7 @@ type accountDetailControls struct {
 	cashHistoryRetry   widget.Clickable
 
 	investmentActionsRow int
-	productRows          map[*widget.Clickable]int
+	actionRows           map[*widget.Clickable]int
 	revealedShortcut     event.Tag
 }
 

@@ -209,7 +209,7 @@ func (p *accountsPage) revealAccountDetailAction(focus event.Tag) bool {
 		return false
 	}
 	if button, ok := focus.(*widget.Clickable); ok {
-		if row, found := detail.productRows[button]; found {
+		if row, found := detail.actionRows[button]; found {
 			p.list.Position = layout.Position{First: row}
 			detail.revealedShortcut = focus
 			return true

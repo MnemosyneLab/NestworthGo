@@ -126,7 +126,9 @@ export function AccountDetail({
   const recordTrigger = useRef<HTMLButtonElement>(null);
   const secondaryTrigger = useRef<HTMLButtonElement | null>(null);
   const cashActionTrigger = useRef<HTMLButtonElement>(null);
+  const simpleValueTrigger = useRef<HTMLButtonElement>(null);
   const backTrigger = useRef<HTMLButtonElement>(null);
+  const valueActionTrigger = action === "simple" ? simpleValueTrigger : action === "cash" ? cashActionTrigger : undefined;
   const [actionHoldingId, setActionHoldingIdState] = useState<string>();
   const setAction = (next: AccountAction) => { if (!hasUnresolvedSheetConfirmation()) setActionState(next); };
   const setActionHoldingId = (next: string | undefined) => { if (!hasUnresolvedSheetConfirmation()) setActionHoldingIdState(next); };
@@ -409,7 +411,7 @@ export function AccountDetail({
                 : t("accounts.currentBalance", { amount: titleAmount })}
             </p>
             {!readOnly && (
-              <Button type="button" className="self-start" onClick={() => setAction("simple")}>
+              <Button ref={simpleValueTrigger} type="button" className="self-start" onClick={() => setAction("simple")}>
                 {record.account.trackingMode === "manual_value" ? t("accounts.updateValue") : t("accounts.updateBalance")}
               </Button>
             )}
@@ -427,7 +429,11 @@ export function AccountDetail({
             setAction(null);
             setActionHoldingId(undefined);
           }}
-          finalFocus={action === "record" ? recordTrigger : action === "cash" ? () => cashActionTrigger.current?.isConnected ? cashActionTrigger.current : backTrigger.current?.isConnected ? backTrigger.current : document.getElementById("main-content") : undefined}
+          finalFocus={action === "record" ? recordTrigger : valueActionTrigger && (() => {
+            if (valueActionTrigger.current?.isConnected) return valueActionTrigger.current;
+            if (backTrigger.current?.isConnected) return backTrigger.current;
+            return document.getElementById("main-content");
+          })}
           onRecorded={() => {
             setAction(null);
             setActionHoldingId(undefined);

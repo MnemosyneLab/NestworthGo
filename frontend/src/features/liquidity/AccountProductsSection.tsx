@@ -1,6 +1,6 @@
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { productStateLabel } from "./liquidityDisplay";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ export function AccountProductsSection({
   const products = useProducts({ accountId: record.account.id, includeClosed: true });
   const [openForm, setOpenForm] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  const productTrigger = useRef<HTMLButtonElement | null>(null);
   const eligible = canHoldProducts(record.account);
 
   if (!canViewProducts(record.account)) {
@@ -84,7 +85,10 @@ export function AccountProductsSection({
                   return (
                     <tr key={product.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
                       <td className="py-2">
-                        <Button type="button" variant="link" className="h-auto p-0" onClick={() => setProductId(product.id)}>
+                        <Button type="button" variant="link" className="h-auto p-0" onClick={event => {
+                          productTrigger.current = event.currentTarget;
+                          setProductId(product.id);
+                        }}>
                           {instrumentDisplayLabel(product)}
                         </Button>
                         <Badge className="ml-2" variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>{productStateLabel(t, product.displayState)}</Badge>
@@ -109,7 +113,7 @@ export function AccountProductsSection({
           open={openForm}
           onOpenChange={setOpenForm}
         />}
-        <ProductDetailSheet key={productId ?? "product"} productId={productId} open={Boolean(productId)} onOpenChange={(open) => { if (!open) setProductId(null); }} />
+        <ProductDetailSheet key={productId ?? "product"} productId={productId} open={Boolean(productId)} finalFocus={productTrigger} onOpenChange={(open) => { if (!open) setProductId(null); }} />
       </CardContent>
     </Card>
   );

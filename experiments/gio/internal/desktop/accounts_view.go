@@ -123,7 +123,14 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			title := l.Text(i18n.AccountReadList)
 			if detail {
 				rows := p.detailRows(view)
-				return pageListGap(gtx, view, &p.list, title, len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions { return rows[i](gtx) })
+				dims := pageListGap(gtx, view, &p.list, title, len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions { return rows[i](gtx) })
+				if f := p.balanceTarget; f != nil && f.restore == &f.open && p.restoreDetailActionFocus(gtx, &f.open) {
+					f.restore = nil
+				}
+				if f := p.statement; f != nil && f.restoreFocus && p.restoreDetailActionFocus(gtx, &f.open) {
+					f.restoreFocus = false
+				}
+				return dims
 			}
 			return pageListGap(gtx, view, &p.list, title, len(p.rows), 0, func(gtx layout.Context, i int) layout.Dimensions {
 				row := p.rows[i]
@@ -505,7 +512,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		owner = l.Text(i18n.AccountReferenceUnavailable)
 	}
 	p.detail.investmentActionsRow = -1
-	clear(p.detail.productRows)
+	clear(p.detail.actionRows)
 	var rows []layout.Widget
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Bottom: ui.Space12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -552,6 +559,9 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		inclusion = i18n.AccountExcludedFromNetWorth
 	}
 	rows = append(rows, accountLine(view, l.Text(inclusion)))
+	if f := p.statement; f != nil && statementCard(a) && p.freshDetail() != nil {
+		p.trackDetailActionRow(&f.open, len(rows))
+	}
 	rows = append(rows, p.accountReconciliationRow(view, a))
 	if row.value != nil && a.TrackingMode == domain.TrackingHoldings && !a.IsLiability() {
 		if composition := p.accountComposition(view, row.value.Composition); composition != nil {
@@ -564,12 +574,9 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		if p.canUpdateBalanceTarget() {
 			copy := balanceTargetCopyFor(a)
 			button := &p.balanceTarget.open
+			p.trackDetailActionRow(button, len(rows))
 			actions = append(actions, func(gtx layout.Context) layout.Dimensions {
 				view.Focus.Watch(gtx, button)
-				if p.balanceTarget.restore == button && gtx.Enabled() {
-					p.balanceTarget.restore = nil
-					gtx.Execute(key.FocusCmd{Tag: button})
-				}
 				return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(copy.action)})(gtx)
 			})
 		}
@@ -720,7 +727,7 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 		}
 		if account.ArchivedAt == nil && p.creation != nil {
 			button := &p.createProductAccount
-			p.trackProductRow(button, len(rows))
+			p.trackDetailActionRow(button, len(rows))
 			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
 				view.Focus.Watch(gtx, button)
 				if p.focusCreate == button && gtx.Enabled() {
@@ -773,7 +780,7 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 		title := view.Body(ui.TextLabel, name, view.Colors.Ink)
 		if p.openProduct != nil {
 			button := portfolioButton(p.productButtons, id)
-			p.trackProductRow(button, len(rows))
+			p.trackDetailActionRow(button, len(rows))
 			title = func(gtx layout.Context) layout.Dimensions {
 				view.Focus.Watch(gtx, button)
 				if button.Clicked(gtx) {
@@ -808,11 +815,34 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 	return rows
 }
 
-func (p *accountsPage) trackProductRow(button *widget.Clickable, row int) {
-	if p.detail.productRows == nil {
-		p.detail.productRows = make(map[*widget.Clickable]int)
+func (p *accountsPage) trackDetailActionRow(button *widget.Clickable, row int) {
+	if p.detail.actionRows == nil {
+		p.detail.actionRows = make(map[*widget.Clickable]int)
 	}
-	p.detail.productRows[button] = row
+	p.detail.actionRows[button] = row
+}
+
+func (p *accountsPage) restoreDetailActionFocus(gtx layout.Context, button *widget.Clickable) bool {
+	if !gtx.Enabled() || p.request != nil || p.err != nil {
+		return false
+	}
+	row, found := p.detail.actionRows[button]
+	if !found {
+		return true
+	}
+	position := p.list.Position
+	last := position.First + position.Count - 1
+	// A receipt or reconciliation action can shrink the viewport on return.
+	// Preserve the existing offset when the action row is already visible.
+	clipped := row < position.First || row > last || row == position.First && position.Offset > 0 ||
+		row == last && position.OffsetLast < 0 && row != position.First
+	if clipped && p.revealAccountDetailAction(button) {
+		gtx.Execute(op.InvalidateCmd{})
+		return false
+	}
+	p.detail.revealedShortcut = nil
+	gtx.Execute(key.FocusCmd{Tag: button})
+	return true
 }
 
 // accountSection is the heading of a block of detail lines.

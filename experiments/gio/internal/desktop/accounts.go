@@ -362,6 +362,12 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
 	p.actionSheet = nil
+	if p.balanceTarget != nil {
+		p.balanceTarget.restore = nil
+	}
+	if p.statement != nil {
+		p.statement.restoreFocus = false
+	}
 	p.positions.visit = accountPositionsVisit{}
 	p.positions.trend.restore(instrumentPerformanceVisit{})
 	p.detail.restore(accountCompositionVisit{})

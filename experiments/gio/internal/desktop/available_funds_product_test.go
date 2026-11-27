@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gioui.org/io/event"
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -162,6 +163,21 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 					t.Fatal("wrong setup account or currency")
 				}
 				if entry.account {
+					// The portable tree also holds the disabled account trigger.
+					titles := make(map[input.SemanticID]struct{})
+					var collect func([]input.SemanticNode)
+					collect = func(nodes []input.SemanticNode) {
+						for _, node := range nodes {
+							if node.Desc.Label == "Add product" {
+								titles[node.ID] = struct{}{}
+							}
+							collect(node.Children)
+						}
+					}
+					collect(h.router.AppendSemantics(nil))
+					if len(titles) != 2 {
+						t.Fatalf("want one account trigger and one Add product heading, got %d labels", len(titles))
+					}
 					h.focused(&d.form.principal.Editor)
 					if entry.account {
 						label("Account cash available · US$156.00")

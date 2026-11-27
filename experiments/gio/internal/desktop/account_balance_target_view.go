@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"gioui.org/font"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -62,7 +61,6 @@ func (p *accountsPage) layoutBalanceTarget(gtx layout.Context, view ui.View) lay
 		f.draft = nil
 		f.restore = f.entry
 		p.restoreAccountRecord(f.entry)
-		gtx.Execute(key.FocusCmd{Tag: f.entry})
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
