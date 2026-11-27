@@ -84,6 +84,14 @@ func TestShareBPSFormatsWithoutBinaryFloat(t *testing.T) {
 	}
 }
 
+func TestShareBPSOneDecimalMatchesWailsHalfEven(t *testing.T) {
+	for value, want := range map[int]string{0: "0.0%", 15: "0.2%", 25: "0.2%", 35: "0.4%", 7408: "74.1%", 2592: "25.9%", 10000: "100.0%", -15: "-0.2%"} {
+		if got := ShareBPSOneDecimal(value); got != want {
+			t.Fatalf("ShareBPSOneDecimal(%d) = %q, want %q", value, got, want)
+		}
+	}
+}
+
 func TestDateTimeConvertsTimezoneAndUsesSelectedLayouts(t *testing.T) {
 	pref := settings.Default()
 	pref.Timezone = "Asia/Shanghai"

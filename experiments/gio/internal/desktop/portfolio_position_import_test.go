@@ -112,7 +112,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	h.press(key.NameReturn)
 	finish()
 	h.assertTitlebarAction("Record existing holding")
-	assertPageLabel(t, &h.router, "Existing position recorded.")
+	assertPageLabel(t, &h.router, "Change recorded")
 	assertPageLabel(t, &h.router, "View ledger activity")
 	if portfolio.positionReceipt == nil {
 		t.Fatal("saving the import did not leave a receipt on the portfolio")

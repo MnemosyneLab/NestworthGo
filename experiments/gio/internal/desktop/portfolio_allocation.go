@@ -116,9 +116,9 @@ func portfolioAllocationSpecs(view ui.View, data domain.PortfolioValuation) (cha
 	label := l.Text(i18n.PortfolioAllocationChart)
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
-		CenterCaption: l.Text(i18n.PortfolioValuedHoldings), CenterValue: l.Text(i18n.OverviewNoValue),
+		CenterCaption: l.Text(i18n.AccountValuedSubtotal), CenterValue: l.Text(i18n.OverviewNoValue),
 		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), ZeroTotal: l.Text(i18n.WealthAllocationZero),
-		StackedDiameter: 224}
+		StackedDiameter: 224, BalancedSlots: true}
 	center := data.ValuedSubtotal
 	useDonut := false
 	if center != nil {
@@ -136,7 +136,7 @@ func portfolioAllocationSpecs(view ui.View, data domain.PortfolioValuation) (cha
 		}
 		useDonut = useDonut && value.Valid() && !amount.IsNegative() && row.ShareBPS >= 0 && row.ShareBPS <= domain.TotalOwnershipBPS
 		text := valuationMoney(view, row.Amount, false)
-		share := portfolioDecimal(view, strings.TrimSuffix(format.ShareBPS(row.ShareBPS), "%")) + "%"
+		share := portfolioDecimal(view, strings.TrimSuffix(format.ShareBPSOneDecimal(row.ShareBPS), "%")) + "%"
 		donut.Slices = append(donut.Slices, charts.Slice{ID: id, Label: name, Value: value, Text: text, Share: share})
 		bars.Bars = append(bars.Bars, charts.Bar{ID: id, Label: name, Value: value, Text: text, Detail: []string{share}})
 	}

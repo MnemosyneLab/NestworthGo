@@ -138,7 +138,8 @@ func (p *portfolioPage) updateAllocationTrend(gtx layout.Context, view ui.View) 
 func (p *portfolioPage) portfolioTrendCard(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		a, l := &p.allocation, view.Language
-		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioValue), view.Colors.Ink))}
+		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioValue), view.Colors.Ink)),
+			ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.PortfolioTrendBasis), view.Colors.SecondaryInk))}
 		if p.current.allocation.originErr != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.PortfolioTrendFailed), view.Colors.ErrorInk)),
 				ui.Rigid(returnMonthButton(view, &a.retry, i18n.HistoryRetry, nil, p.request == nil)))
@@ -197,7 +198,7 @@ func portfolioTrendSpec(view ui.View, trend domain.PortfolioTrend) charts.LineSp
 		FormatValue: func(value float64) string { return chartAxisNumber(view, value) },
 		Messages:    charts.Messages{Empty: l.Text(i18n.PortfolioTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}
-	series := charts.LineSeries{ID: "portfolio-valued-holdings", Name: l.Text(i18n.PortfolioValuedHoldings)}
+	series := charts.LineSeries{ID: "portfolio-valued-holdings", Name: l.Text(i18n.AccountValuedSubtotal)}
 	for _, point := range trend.Points {
 		date, ok := ui.ParseCivilDay(point.LocalDate)
 		if !ok {
@@ -221,7 +222,7 @@ func portfolioTrendSpec(view ui.View, trend domain.PortfolioTrend) charts.LineSp
 func portfolioTrendTable(view ui.View, trend domain.PortfolioTrend, selected charts.Selection) charts.Table {
 	l := view.Language
 	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartDate)},
-		{Title: l.Text(i18n.PortfolioValuedHoldings), Numeric: true}, {Title: l.Text(i18n.OverviewKnownSubtotal), Numeric: true},
+		{Title: l.Text(i18n.AccountValuedSubtotal), Numeric: true}, {Title: l.Text(i18n.OverviewKnownSubtotal), Numeric: true},
 		{Title: l.Text(i18n.ChartCoverage), Wrap: true}}, Selected: charts.NoRow}
 	for i, point := range trend.Points {
 		total, subtotal := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)

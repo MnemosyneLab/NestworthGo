@@ -79,7 +79,51 @@ func seedPortfolioTrendHistory(ctx context.Context, service *application.Service
 			return err
 		}
 	}
+	// Introduce a real holding on Nov 23 with no Nov 23 market quote. The
+	// service snapshots the missing instrument price as incomplete evidence;
+	// the following day's quote closes the gap without backfilling history.
+	clock = now.AddDate(0, 0, -1)
+	unknown, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
+		Name: "Synthetic unpriced holding", Symbol: "QA-UNPRICED", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{
+		AccountID: broker.Account.ID.String(), InstrumentID: unknown.ID.String(), Quantity: "2", UnitCost: "3",
+	}); err != nil {
+		return err
+	}
+	clock = now
+	if _, _, err := service.BuildDailyValuationSnapshot(ctx, "2026-11-23"); err != nil {
+		return err
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, unknown.ID, "5", "2026-11-24T12:00:00+08:00", false); err != nil {
+		return err
+	}
 	return nil
+}
+
+func TestPortfolioAllocationUsesWailsCopyAndOneDecimalShares(t *testing.T) {
+	view := ui.View{Language: i18n.SimplifiedChinese, DecimalSeparator: ".", GroupingSeparator: ","}
+	data := domain.PortfolioValuation{
+		ValuedSubtotal: &domain.MoneyView{Amount: "100", Currency: "USD"},
+		ByInstrumentType: []domain.AllocationView{
+			{Key: string(domain.InstrumentStock), Amount: domain.MoneyView{Amount: "74.08", Currency: "USD"}, ShareBPS: 7408},
+			{Key: string(domain.InstrumentETF), Amount: domain.MoneyView{Amount: "25.92", Currency: "USD"}, ShareBPS: 2592},
+		},
+	}
+	donut, _, useDonut := portfolioAllocationSpecs(view, data)
+	if !useDonut || donut.Label != "配置" || donut.CenterCaption != "已估值小计" || !donut.BalancedSlots || donut.StackedDiameter != 224 {
+		t.Fatalf("portfolio allocation copy or responsive chart options differ from Wails: %+v / %v", donut, useDonut)
+	}
+	if got := []string{donut.Slices[0].Share, donut.Slices[1].Share}; got[0] != "74.1%" || got[1] != "25.9%" {
+		t.Fatalf("allocation share labels = %v, want Wails one-decimal percentages", got)
+	}
+	trend := portfolioTrendSpec(view, domain.PortfolioTrend{})
+	if trend.Summary != "带标的持仓随时间的已估值小计。现金不计入。" || trend.Series[0].Name != "已估值小计" {
+		t.Fatalf("portfolio trend uses different Wails copy: %+v", trend)
+	}
 }
 
 func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T) {
@@ -107,7 +151,7 @@ func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T)
 		t.Fatalf("all-time history points = %d / %d, want four closed dates and today: %+v / %+v", len(allGio.Points), len(allWails.Points), allGio.Points, allWails.Points)
 	}
 	wantDates := []string{"2026-11-20", "2026-11-21", "2026-11-22", "2026-11-23", "2026-11-24"}
-	wantValues := []string{"20", "40", "60", "60", "60"}
+	wantValues := []string{"20", "40", "60", "", "70"}
 	for i, point := range allGio.Points {
 		want := allWails.Points[i]
 		if point.LocalDate != wantDates[i] || point.LocalDate != want.LocalDate || point.Current != want.Current ||
@@ -115,10 +159,19 @@ func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T)
 			t.Fatalf("portfolio history point %d differed from Wails: Gio %+v, Wails %+v", i, point, want)
 		}
 		amount := point.ValuedSubtotal
-		if amount == nil || amount.CanonicalAmount() != wantValues[i] || want.ValuedSubtotal == nil || want.ValuedSubtotal.Amount != wantValues[i] {
+		if wantValues[i] == "" {
+			if point.Complete || point.MissingCount == 0 || amount != nil || want.ValuedSubtotal != nil ||
+				point.DisplayValuation.KnownSubtotal == nil || point.DisplayValuation.KnownSubtotal.Amount != "60" {
+				t.Fatalf("the unpriced service-backed day was not represented as a partial valuation: Gio %+v / Wails %+v", point, want)
+			}
+		} else if amount == nil || amount.CanonicalAmount() != wantValues[i] || want.ValuedSubtotal == nil || want.ValuedSubtotal.Amount != wantValues[i] {
 			t.Fatalf("portfolio securities total on %s = Gio %+v / Wails %+v, want %s (brokerage cash is $1,000,000)", point.LocalDate, amount, want.ValuedSubtotal, wantValues[i])
 		}
-		if total := portfolioTrendTotal(point); total == nil || total.Amount != wantValues[i] {
+		if total := portfolioTrendTotal(point); wantValues[i] == "" {
+			if total != nil {
+				t.Fatalf("chart filled an incomplete day with %+v; it should remain a gap", total)
+			}
+		} else if total == nil || total.Amount != wantValues[i] {
 			t.Fatalf("chart total on %s = %+v, want holdings only $%s", point.LocalDate, total, wantValues[i])
 		}
 	}
@@ -138,7 +191,7 @@ func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T)
 	spec := portfolioTrendSpec(ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}, allGio)
 	if len(spec.Series) != 1 || len(spec.Series[0].Points) != len(allGio.Points) ||
 		!spec.Series[0].Points[0].Value.Valid() || spec.Series[0].Points[0].Value.Number != 20 ||
-		!spec.Series[0].Points[3].Value.Valid() || spec.Series[0].Points[3].Value.Number != 60 ||
+		spec.Series[0].Points[3].Value.Valid() ||
 		!allGio.Points[4].Current || !spec.Series[0].Points[4].Provisional {
 		t.Fatalf("portfolio chart did not plot historical securities-only totals: %+v", spec.Series)
 	}
@@ -267,6 +320,7 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 		t.Fatalf("the window does not use the ledger's civil dates: %+v", page.current.allocation)
 	}
 	assertPageLabel(t, &h.router, "Allocation")
+	assertPageLabel(t, &h.router, "Valued holdings over time. Cash is not included.")
 	assertPageLabel(t, &h.router, "Included accounts")
 	actual := page.current.summary
 	reference, err := adapter.Portfolio(ctx, account.AccountFilterRequest{})
