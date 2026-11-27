@@ -91,7 +91,14 @@ func checkTitlebarControls(t *testing.T, h *previewHarness, record bool) {
 	last := toggle
 	for _, label := range labels {
 		b := semanticBounds(t, &h.router, label, false)
-		if b.Min.X < g.split || b.Min.X < last.Max.X || b.Min.Y < g.top || b.Max.Y > g.height || b.Max.X > h.size.X-g.rightInset {
+		minX, maxX := g.split, h.size.X-g.rightInset
+		if !s.collapsed() && (label == "Back" || label == "Forward") {
+			minX, maxX = g.sidebarNav.Min.X, g.sidebar-h.metric().Dp(titlebarSidebarNavInset)
+			if !b.In(g.sidebarNav) || (label == "Forward" && b.Max.X != maxX) {
+				t.Fatalf("%s (%v) is not in the right-aligned sidebar navigation %v", label, b, g.sidebarNav)
+			}
+		}
+		if b.Min.X < minX || b.Min.X < last.Max.X || b.Min.Y < g.top || b.Max.Y > g.height || b.Max.X > maxX {
 			t.Fatalf("%s (%v) overlaps chrome or another control (%v), geometry %+v", label, b, last, g)
 		}
 		for _, drag := range g.drag {
@@ -223,17 +230,29 @@ func TestIntegratedTitlebarSnapshots(t *testing.T) {
 			t.Fatal(err)
 		}
 		p := s.preferences.colors()
+		leftHeader := p.SidebarBackground
+		if s.collapsed() {
+			leftHeader = p.PageBackground
+		}
 		// Sample actual GPU-rendered top and sidebar surfaces, away from
 		// controls. No fake lights or OS frame are drawn.
-		for _, sample := range []struct {
+		samples := []struct {
 			point image.Point
 			want  color.NRGBA
 		}{
-			{image.Pt(2, 2), p.SidebarBackground},
-			{image.Pt(s.chrome.split-2, 2), p.SidebarBackground},
+			{image.Pt(2, 2), leftHeader},
+			{image.Pt(s.chrome.sidebar-2, 2), leftHeader},
 			{image.Pt(s.chrome.split+2, 2), p.PageBackground},
 			{image.Pt(2, s.chrome.height+2), p.SidebarBackground},
-		} {
+		}
+		if s.collapsed() {
+			for _, x := range []int{s.chrome.sidebar - 1, s.chrome.split - 1} {
+				if got := color.NRGBAModel.Convert(img.At(x, 2)).(color.NRGBA); got != p.PageBackground {
+					t.Fatalf("%s has a titlebar seam at x=%d: %v, want %v", name, x, got, p.PageBackground)
+				}
+			}
+		}
+		for _, sample := range samples {
 			got := color.NRGBAModel.Convert(img.At(sample.point.X, sample.point.Y)).(color.NRGBA)
 			if got != sample.want {
 				t.Fatalf("%s at %v is %v, want %v", name, sample.point, got, sample.want)
@@ -263,7 +282,7 @@ func TestIntegratedTitlebarGeometry(t *testing.T) {
 	gtx := layout.Context{Metric: unit.Metric{PxPerDp: 2, PxPerSp: 2}, Constraints: layout.Exact(image.Pt(1280, 1000))}
 	for _, left := range []unit.Dp{0, 50, 72, 100, 145} {
 		for _, rail := range []unit.Dp{sidebarRailWidth, sidebarWidth} {
-			g := calculateTitlebar(gtx, titlebarMetrics{active: true, buttonRight: left, buttonBottom: 50}, rail)
+			g := calculateTitlebar(gtx, titlebarMetrics{active: true, buttonRight: left, buttonBottom: 50}, rail, rail == sidebarWidth)
 			if g.toggle.Min.X < gtx.Dp(left)+gtx.Dp(8) || g.toggle.Max.Y >= g.height ||
 				(g.toggle.Min.X < g.sidebar && g.toggle.Max.X >= g.sidebar) || g.split < g.toggle.Max.X || g.height < gtx.Dp(58) {
 				t.Fatalf("invalid geometry for native right %v and sidebar %v: %+v", left, rail, g)

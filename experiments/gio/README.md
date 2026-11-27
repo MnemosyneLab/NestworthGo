@@ -192,9 +192,10 @@ content size rather than adding the native titlebar height. Startup-blocked wind
 The adapter reports native button extent and safe-area insets in AppKit points.
 `desktop/titlebar.go` converts these to the current Gio pixel metric. The
 sidebar and page backgrounds continue to the top using the current palette.
-The toggle sits after the native buttons; in the collapsed rail only the top
-sidebar segment extends beyond the rail. The page's navigation/history/title
-row keeps its controls, absolute popup anchors and focus. In full screen the
+The toggle sits after the native buttons. Back and Forward sit at the right
+edge of the expanded sidebar. When the sidebar collapses, the buttons move into
+the page toolbar and the whole titlebar uses the page background. The toolbar
+keeps its absolute popup anchors and focus. In full screen the
 layout drops the traffic-light reservation when AppKit hides them, retaining
 the reported safe area. Only explicit blank rectangles of the rendered
 toolbar accept native window drag; they are disabled while a Gio sheet/menu

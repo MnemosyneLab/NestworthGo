@@ -782,7 +782,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.wideCollapsed = !s.wideCollapsed
 		}
 	}
-	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth())
+	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth(), !s.collapsed())
 	if !gtx.Enabled() {
 		s.chrome.drag = [2]image.Rectangle{}
 	}
@@ -1130,12 +1130,12 @@ func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
 	colors := view.Colors
 	size := image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect{Max: size}.Op())
-	dividerTop := 0
-	if s.chrome.split > s.chrome.sidebar {
-		dividerTop = s.chrome.height
+	top := 0
+	if s.titlebar.active && s.collapsed() {
+		top = s.chrome.height
 	}
-	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, dividerTop, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect(image.Rect(0, top, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, top, size.X, size.Y)).Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarTitlebar(gtx, view) }),
@@ -1366,7 +1366,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 				left = 12
 			}
 			return layout.Inset{Left: left, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				gap := gtx.Dp(2)
+				gap := gtx.Dp(titlebarNavGap)
 				x := s.chrome.split + gtx.Dp(left)
 				direction := func(step int) layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions {
@@ -1375,9 +1375,11 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						return dims
 					}
 				}
-				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
-					layout.Rigid(direction(-1)),
-					layout.Rigid(direction(1)),
+				var controls []layout.FlexChild
+				if s.chrome.sidebarNav.Empty() {
+					controls = append(controls, layout.Rigid(direction(-1)), layout.Rigid(direction(1)))
+				}
+				controls = append(controls,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 					layout.Rigid(layout.Spacer{Width: 10}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -1397,6 +1399,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						return layout.Dimensions{}
 					}),
 				)
+				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx, controls...)
 			})
 		})
 	})
