@@ -465,7 +465,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.accounts.investment.onPosted = s.historyPage.showPosted
 		}
 		if s.portfolio != nil && s.portfolio.investment != nil {
-			s.portfolio.investment.onPosted = s.historyPage.showPosted
+			s.portfolio.investment.onPosted = s.portfolio.positionImported
+			s.portfolio.openPostedActivity = s.historyPage.reads.open
 		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
@@ -494,7 +495,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				source.historyDetail.linked >= 3 && s.trail.current().target.activity == s.historyPage.reads.posted.ID {
 				return i18n.CustodyAmendmentBack
 			}
-			if source.target.route == portfolioRoute && s.portfolio != nil && s.portfolio.investment != nil && source.focus == &s.portfolio.investment.importOpen {
+			if source.target.route == portfolioRoute && s.portfolio != nil && s.portfolio.investment != nil &&
+				(source.focus == &s.portfolio.investment.importOpen || s.portfolio.positionReceipt != nil && source.focus == &s.portfolio.positionReceipt.view) {
 				return i18n.PositionImportBackPortfolio
 			}
 			if source.target.route != accountsRoute || s.accounts == nil {
@@ -875,6 +877,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		} else {
 			s.accounts.layoutAccountActionSheet(windowContext, view)
 		}
+		return dims
+	}
+	if s.portfolioPositionImportOpen() {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.portfolio.layoutPositionImportSheet(windowContext, view)
 		return dims
 	}
 	if catalogEditorOpen && s.instrumentCatalogEditorOpen() {

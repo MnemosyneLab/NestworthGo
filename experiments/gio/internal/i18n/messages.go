@@ -1850,6 +1850,11 @@ const (
 	PositionImportAccount
 	PositionImportPortfolioAction
 	PositionImportBackPortfolio
+	PositionImportSingleCandidate
+	PositionImportQuantityBefore
+	PositionImportQuantityChange
+	PositionImportQuantityAfter
+	PositionImportViewActivity
 	CustodyOpen
 	CustodyReview
 	CustodyConfirm

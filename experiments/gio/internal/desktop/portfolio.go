@@ -149,6 +149,9 @@ type portfolioPage struct {
 	openHoldingHistory    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
 	openHoldingAnalysis   func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
 	productButtons        map[domain.ProductContractID]*widget.Clickable
+	positionSheet         *portfolioPositionImportSheet
+	positionReceipt       *portfolioPositionReceipt
+	openPostedActivity    func(domain.ActivityID, event.Tag)
 }
 
 func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate func()) *portfolioPage {
@@ -225,7 +228,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	if f := p.investment; f != nil {
 		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 		f.poll(run)
-		if f.draft != nil {
+		if f.draft != nil && !f.draft.contextualSheet {
 			return f.layoutForm(gtx, view, run)
 		}
 	}
@@ -271,6 +274,20 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.positionReceipt == nil {
+				return layout.Dimensions{}
+			}
+			if p.positionReceipt.view.Clicked(gtx) {
+				p.openPositionReceipt(gtx)
+			}
+			if p.positionReceipt.dismiss.Clicked(gtx) {
+				p.positionReceipt = nil
+				gtx.Execute(op.InvalidateCmd{})
+				return layout.Dimensions{}
+			}
+			return p.layoutPositionImportReceipt(gtx, view)
+		}),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" {
 				return p.layoutInstrumentDetailHeader(gtx, view)
 			}
@@ -309,6 +326,14 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			})
 		}),
 	)
+}
+
+func (p *portfolioPage) positionImported(activity domain.Activity, notice i18n.MessageID, _ event.Tag) {
+	p.positionReceipt = &portfolioPositionReceipt{activity: activity.ID, message: notice}
+	if p.investment != nil {
+		p.investment.restore = &p.investment.importOpen
+	}
+	p.read()
 }
 
 func (p *portfolioPage) canImportPosition() bool {

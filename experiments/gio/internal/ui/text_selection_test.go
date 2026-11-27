@@ -87,6 +87,44 @@ func TestPageTextDragAndCopy(t *testing.T) {
 	}
 }
 
+func TestPageTextSelectionHandlesInputMethodEditEvent(t *testing.T) {
+	var selection TextSelection
+	var router input.Router
+	var ops op.Ops
+	now := time.Unix(1, 0)
+	view := testView().WithTextSelection(&selection)
+	frame := func() layout.Dimensions {
+		ops.Reset()
+		now = now.Add(16 * time.Millisecond)
+		gtx := testContext(&ops, &router, now, 340)
+		dims := view.Line(gtx, TextBody, "Static account label", view.Colors.Ink)
+		selection.EndFrame()
+		router.Frame(&ops)
+		return dims
+	}
+	frame()
+	dims := frame()
+	router.Queue(pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary,
+		Position: f32.Pt(12, float32(dims.Size.Y/2)), Time: now.Sub(time.Unix(1, 0))})
+	frame()
+	if selection.active == nil {
+		t.Fatal("clicking static text did not start a selectable session")
+	}
+
+	// Gio may deliver an IME edit event to the focused selectable alongside
+	// the key filters that handle Escape and copy. It must remain a valid event.
+	router.Queue(key.EditEvent{Text: "a"})
+	frame()
+	if selection.active == nil {
+		t.Fatal("an input-method edit unexpectedly ended the text selection")
+	}
+	router.Queue(key.Event{Name: key.NameEscape, State: key.Press})
+	frame()
+	if selection.active != nil {
+		t.Fatal("Escape did not end the selectable session after an edit event")
+	}
+}
+
 func TestSelectableTextKeepsListScrolling(t *testing.T) {
 	var selection TextSelection
 	var router input.Router

@@ -72,6 +72,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	if d.instrument != ids.foreign || len(d.sources.Instruments) != 1 {
 		t.Fatal("the picker included a security already held by the selected account")
 	}
+	assertPageLabel(t, &h.router, "Only one unused security matches this account")
 	setBankField(h, "Existing quantity", &d.quantity, "4")
 	setBankField(h, "Original cost per unit · EUR", &d.unitCost, "7")
 	pick("Second desk · USD")
@@ -93,10 +94,25 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	setBankField(h, "Original cost per unit · EUR", &d.unitCost, "2.12345678")
 	click("Review existing position")
 	h.focused(&d.confirm)
+	for _, label := range []string{
+		"Quantity before · 0", "Quantity change · 1.125", "Quantity after · 1.125",
+		"Unit cost · 2.12345678 EUR", "Second desk", "QA-BUY",
+	} {
+		assertPageLabel(t, &h.router, label)
+	}
 	h.press(key.NameReturn)
 	finish()
-	assertPageLabel(t, &h.router, "Unit cost · 2.12345678 EUR")
-	id := ledger.reads.detail.id
+	h.assertTitlebarAction("Record existing holding")
+	assertPageLabel(t, &h.router, "Existing position recorded.")
+	assertPageLabel(t, &h.router, "View ledger activity")
+	if portfolio.positionReceipt == nil {
+		t.Fatal("saving the import did not leave a receipt on the portfolio")
+	}
+	id := portfolio.positionReceipt.activity
+	click("View ledger activity")
+	if ledger.reads.detail == nil || ledger.reads.detail.id != id {
+		t.Fatal("the receipt did not open its saved ledger activity")
+	}
 	click("Back to Investment Assets")
 	h.focused(&f.importOpen)
 	if portfolio.search.Field.Text() != "QA-BUY" {

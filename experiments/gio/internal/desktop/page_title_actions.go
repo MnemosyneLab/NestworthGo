@@ -192,7 +192,7 @@ func (p *portfolioPage) portfolioTitleAction(view ui.View) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			if gtx.Enabled() && f.importOpen.Clicked(gtx) {
 				f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
-				f.draft.pickAccount, f.draft.focusAccount = true, true
+				f.draft.pickAccount, f.draft.focusAccount, f.draft.contextualSheet = true, true, true
 				f.draft.accounts = p.current.importAccounts
 				view.RestorePageScroll(0)
 				gtx.Execute(op.InvalidateCmd{})
