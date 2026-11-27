@@ -20,7 +20,7 @@ extern void nestworthTitlebarChanged(uintptr_t token, int active, double right, 
 @property (strong) NSArray *observers;
 @property (strong) id mouseMonitor;
 @property (strong) NSAppearance *originalAppearance;
-@property NSWindowTitlebarSeparatorStyle originalSeparator;
+@property NSTitlebarSeparatorStyle originalSeparator;
 - (void)refresh;
 - (void)schedule;
 - (void)restore;
@@ -99,8 +99,8 @@ static NSRect topLeftRect(NSView *view, NSRect rect) {
         window.styleMask |= NSWindowStyleMaskFullSizeContentView;
     if (!window.titlebarAppearsTransparent) window.titlebarAppearsTransparent = YES;
     if (window.titleVisibility != NSWindowTitleHidden) window.titleVisibility = NSWindowTitleHidden;
-    if (window.titlebarSeparatorStyle != NSWindowTitlebarSeparatorStyleNone)
-        window.titlebarSeparatorStyle = NSWindowTitlebarSeparatorStyleNone;
+    if (window.titlebarSeparatorStyle != NSTitlebarSeparatorStyleNone)
+        window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleNone;
     NSAppearanceName name = self.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua;
     if (![window.appearance.name isEqualToString:name])
         window.appearance = [NSAppearance appearanceNamed:name];
