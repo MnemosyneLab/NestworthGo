@@ -1341,7 +1341,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	return s.layoutHeaderChrome(gtx, view, func(gtx layout.Context) layout.Dimensions {
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
-			return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Left: 20, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gap := gtx.Dp(2)
 				x := s.chrome.split + gtx.Dp(20)
 				direction := func(step int) layout.Widget {

@@ -13,6 +13,13 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
+const (
+	titlebarCompactPageWidth unit.Dp = 500
+	titlebarWideDragPad      unit.Dp = 44
+	titlebarCompactDragPad   unit.Dp = 24
+	titlebarRightPadding     unit.Dp = 16
+)
+
 // titlebarMetrics is the public-AppKit geometry in view points (Gio dp), not
 // screen pixels. A zero value retains the ordinary platform decorations.
 type titlebarMetrics struct {
@@ -50,14 +57,14 @@ func calculateTitlebar(gtx layout.Context, metrics titlebarMetrics, sidebar unit
 	// Do not include the heading (keyboard focus), nav buttons or a popover.
 	g.drag[0] = image.Rect(g.toggle.Max.X+gtx.Dp(4), g.top, max(g.toggle.Max.X+gtx.Dp(4), g.split-1), g.height-1)
 	right := gtx.Constraints.Max.X - gtx.Dp(metrics.safeRight)
-	dragWidth := gtx.Dp(44)
-	if right-g.split < gtx.Dp(500) && g.drag[0].Dx() >= gtx.Dp(44) {
+	dragWidth := gtx.Dp(titlebarWideDragPad)
+	if right-g.split < gtx.Dp(titlebarCompactPageWidth) && g.drag[0].Dx() >= gtx.Dp(titlebarWideDragPad) {
 		// On the narrow expanded shell the left segment is already a large
 		// drag target. Keep more space for the route name and record action.
-		dragWidth = gtx.Dp(24)
+		dragWidth = gtx.Dp(titlebarCompactDragPad)
 	}
 	// Include the existing 16dp toolbar padding in the reserved drag pad.
-	g.rightInset = gtx.Dp(metrics.safeRight) + dragWidth - gtx.Dp(16)
+	g.rightInset = gtx.Dp(metrics.safeRight) + dragWidth - gtx.Dp(titlebarRightPadding)
 	g.drag[1] = image.Rect(right-dragWidth, g.top, right, g.height-1)
 	return g
 }
