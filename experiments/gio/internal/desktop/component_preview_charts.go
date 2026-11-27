@@ -46,6 +46,12 @@ func newPreviewExample[S any](caption i18n.MessageID, chart any,
 				return lineTableItems(spec), func() charts.Table { return spec.Table(labels) }
 			case charts.DonutSpec:
 				return len(spec.Slices), func() charts.Table { return spec.Table(labels) }
+			case charts.BarSpec:
+				return len(spec.Bars), func() charts.Table { return spec.Table(labels) }
+			case charts.WaterfallSpec:
+				return len(spec.Steps), func() charts.Table { return spec.Table(labels) }
+			case charts.SankeySpec:
+				return len(spec.Nodes) + len(spec.Links), func() charts.Table { return spec.Table(labels) }
 			}
 			return 0, nil
 		},

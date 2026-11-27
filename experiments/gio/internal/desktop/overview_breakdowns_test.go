@@ -86,10 +86,12 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 	h.frame()
 	page.workers.Wait()
 	h.frame()
-	h.click("View allocation breakdowns", false)
+	if findPageLabel(&h.router, "View allocation breakdowns") != nil {
+		t.Fatal("Overview still shows the page-level breakdown shortcut")
+	}
+	page.list.ScrollTo(page.dimensionsIndex())
 	h.frame()
 	bank := accountListScope{accountByInstitution, institution.ID.String()}
-	h.focused(page.breakdowns.links[bank])
 	for _, label := range []string{"By institution", "By account type", "By member", "By group"} {
 		assertPageLabel(t, &h.router, label)
 	}
@@ -140,10 +142,9 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 		h.focused(page.breakdowns.links[tc.scope])
 	}
 	h.size = image.Pt(700, 480)
-	// The page actions are the first row of the scrolling page body.
-	page.list.ScrollTo(0)
+	page.list.ScrollTo(page.dimensionsIndex())
 	h.frame()
-	h.click("View allocation breakdowns", false)
+	h.router.Source().Execute(key.FocusCmd{Tag: page.breakdowns.links[bank]})
 	h.frame()
 	h.focused(page.breakdowns.links[bank])
 	h.router.MoveFocus(key.FocusForward)

@@ -268,17 +268,13 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	}
 	page.list.ScrollTo(page.compositionIndex())
 	h.frame()
+	scrollProductControl(t, h, "View allocation details")
 	h.click("View allocation details", false)
 	h.frame()
-	h.focused(&page.list)
-	assertPageLabel(t, &h.router, "Back to asset composition")
-	h.click("Back to asset composition", false)
-	h.frame()
-	h.focused(&page.allocation.details)
-	h.size = image.Pt(700, 480)
-	page.list.ScrollTo(page.dimensionsIndex() - 1)
-	h.frame()
-	h.click("USD Cash · A$123.51", false)
+	if !page.allocation.table.open {
+		t.Fatal("allocation disclosure did not open the chart table")
+	}
+	h.click("Open account · USD Cash", false)
 	h.frame()
 	if h.shell.trail.current().target.account != row.account.id {
 		t.Fatal("allocation row did not open the exact account")
@@ -437,8 +433,7 @@ func TestOverviewSankeyDistinguishesZeroNegativeAndMissingValues(t *testing.T) {
 			h := newShellHarnessWithPages(t, ledgerPages{overview: p})
 			h.shell.prefs.saved.Language = settings.LanguageEnglish
 			h.frame()
-			for _, label := range append(tt.labels, "Valuation read date · 2026-11-25", "Quote and FX reference dates · 2026-10-29 – 2026-11-01",
-				"Oldest carried reference date · 2026-10-29") {
+			for _, label := range tt.labels {
 				assertPageLabel(t, &h.router, label)
 			}
 			if len(p.allocation.model.spec.Links) != 0 || findPageLabel(&h.router, "View allocation details") != nil {
@@ -473,26 +468,34 @@ func TestOverviewAllocationDetailsVirtualizeLongTables(t *testing.T) {
 	p.current = &read
 	h := newShellHarnessWithPages(t, ledgerPages{overview: p})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
-	h.size = image.Pt(1000, 720)
+	h.size = image.Pt(1000, 950)
 	var opened domain.AccountID
 	p.allocation.openAccount = func(id domain.AccountID, _ string, _ event.Tag) { opened = id }
 	h.frame()
-	if len(p.allocation.model.rows) != count || p.dimensionsIndex()-p.compositionIndex()-1 != count+1 {
-		t.Fatalf("details rows = %d, list items = %d; want every one of %d paths", len(p.allocation.model.rows), p.dimensionsIndex()-p.compositionIndex()-1, count)
+	table := p.allocation.pathTable(ui.View{Language: i18n.English})
+	if len(table.Rows) != count || p.dimensionsIndex() != p.compositionIndex()+1 {
+		t.Fatalf("details contain %d paths; expected %d inline chart rows", len(table.Rows), count)
 	}
-	p.list.ScrollTo(p.compositionIndex() + 1)
+	p.list.ScrollTo(p.compositionIndex())
 	h.frame()
-	assertPageLabel(t, &h.router, "Back to asset composition")
+	p.allocation.table.open = true
+	h.frame()
 	if laid := len(p.allocation.buttons); laid == 0 || laid > 40 {
 		t.Fatalf("laid out %d detail rows at the top of a %d-row table; want only the visible ones", laid, count)
 	}
-	p.list.ScrollTo(p.dimensionsIndex() - 1)
+	p.allocation.table.list.ScrollTo(count - 1)
 	h.frame()
 	if laid := len(p.allocation.buttons); laid > 80 {
 		t.Fatalf("laid out %d detail rows after jumping to the end; want only rows near the viewport", laid)
 	}
-	h.click("Synthetic account 599 · US$2.75", false)
+	last := p.allocation.buttons[string(p.allocation.model.rows[count-1].id)]
+	if last == nil {
+		t.Fatal("the table did not render its last account link after scrolling")
+	}
+	h.router.Source().Execute(key.FocusCmd{Tag: last})
 	h.frame()
+	h.focused(last)
+	h.press(key.NameReturn)
 	if opened != "account-599" {
 		t.Fatalf("last allocation row opened %q, want account-599", opened)
 	}

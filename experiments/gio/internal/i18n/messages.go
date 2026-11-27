@@ -513,8 +513,6 @@ const (
 	OverviewAssetsComposition
 	OverviewLiabilitiesComposition
 	OverviewCompositionMissing
-	OverviewOpenBreakdowns
-	OverviewBreakdownHint
 	OverviewByInstitution
 	OverviewByAccountType
 	OverviewByMember
@@ -527,8 +525,7 @@ const (
 	OverviewAllocationClass
 	OverviewAllocationAccount
 	OverviewAllocationDetails
-	OverviewAllocationBack
-	OverviewAllocationHelp
+	OverviewAllocationColumn
 	OverviewAllocationMissing
 	OverviewAllocationZero
 	OverviewAllocationEmpty
@@ -536,9 +533,6 @@ const (
 	OverviewAllocationUnassigned
 	OverviewAllocationUnknownAccount
 	OverviewAllocationOrdinal
-	OverviewAllocationDate
-	OverviewAllocationQuoteDates
-	OverviewAllocationCarriedDate
 	OverviewOpenAccounts
 	OverviewOpenWealthHistory
 	OverviewNetWorthTrend
@@ -565,6 +559,12 @@ const (
 	OverviewUpcomingShortfall
 	OverviewUpcomingUnresolved
 	OverviewRecentTitle
+	OverviewRecentAdded
+	OverviewRecentRemoved
+	OverviewRecentCardPurchase
+	OverviewRecentCardRefund
+	OverviewRecentUpdated
+	OverviewRecentWithReason
 	OverviewRecentAll
 	OverviewRecentEmpty
 	OverviewTrendGaps

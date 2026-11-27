@@ -451,7 +451,7 @@ Drag across a read-only text field or amount to select part of it. Use
 **Command+C** on macOS or **Ctrl+C** on Linux to copy the selection. Selection
 spans one amount, paragraph or other text label at a time.
 
-**Net worth history** shows the shared daily series. Choose a period or
+**Household net worth trend** shows the shared daily series. Choose a period or
 expand **Daily valuation data** to read the values by date. Coverage links
 open Data health for the period or day. **Open Wealth history** goes to
 the analysis page. Before History starts, the card links to the existing
@@ -467,20 +467,17 @@ In **Manage → Market data**, choose **Set price** on an instrument or
 the finding's item and date filled in. Leave the date blank to save with
 the current time. The saved observation preserves the existing quote source.
 
-The asset and liability category cards use the household's base currency.
-**View allocation breakdowns** jumps to institution, account type, member
-and group. Open a row to see the matching accounts. **Back to accounts**
-returns from an account to its filtered list. The toolbar Back restores
-the Overview row and its focus.
+The asset and liability composition cards use the household's base currency.
+Institution, account type, member and group breakdowns appear below the chart.
+Open a row to see the matching accounts. The toolbar Back restores the
+Overview row and its focus.
 
 **Asset composition Sankey** shows each positive allocation by asset class,
-institution and account. The section shows the valuation read date,
-quote and FX reference dates, and oldest carried reference when available.
-It also shows the known subtotal when coverage is incomplete and counts of
-missing and zero-value components. Use arrows and Enter in the diagram to open an
-account. **View allocation details** jumps to the keyboard-scrollable list of
-all paths, including the smallest ones. Back from an account restores the
-diagram or list control that opened it.
+institution and account. It shows the known subtotal for incomplete coverage
+and counts of missing and zero-value components. Use arrows and Enter in the
+diagram to open an account. **View allocation details** expands the shared,
+keyboard-scrollable chart table beneath the diagram. Every account path is
+available in the table.
 [Overview allocation scope and verification](docs/roadmap.md#overview-asset-composition-sankey)
 
 ## Accounts

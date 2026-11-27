@@ -52,6 +52,10 @@ func (t *chartDataTable) layout(view ui.View, items int, build func() charts.Tab
 // link to the finding behind a missing value. action returns nil for rows
 // without one.
 func (t *chartDataTable) layoutWithActions(view ui.View, items int, build func() charts.Table, action func(row int) layout.Widget) layout.Widget {
+	return t.layoutDisclosure(view, view.Language.Text(i18n.ChartDataTable), items, build, action, nil)
+}
+
+func (t *chartDataTable) layoutDisclosure(view ui.View, label string, items int, build func() charts.Table, action, firstCell func(int) layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		if items == 0 {
 			return layout.Dimensions{}
@@ -60,7 +64,7 @@ func (t *chartDataTable) layoutWithActions(view ui.View, items int, build func()
 			t.open = !t.open
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		label := view.Language.Text(i18n.ChartDataTable)
+		view.Focus.Watch(gtx, &t.toggle)
 		toggle := analysisDisclosure(view, &t.toggle, label, t.open)
 		if !t.open {
 			return toggle(gtx)
@@ -72,28 +76,38 @@ func (t *chartDataTable) layoutWithActions(view ui.View, items int, build func()
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 			layout.Rigid(toggle),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return t.table(gtx, view, label, table, action)
+				return t.tableWithCells(gtx, view, label, table, action, firstCell)
 			}),
 		)
 	}
 }
 
 func (t *chartDataTable) table(gtx layout.Context, view ui.View, label string, table charts.Table, action func(int) layout.Widget) layout.Dimensions {
+	return t.tableWithCells(gtx, view, label, table, action, nil)
+}
+
+func (t *chartDataTable) tableWithCells(gtx layout.Context, view ui.View, label string, table charts.Table, action, firstCell func(int) layout.Widget) layout.Dimensions {
 	colors := view.Colors
 	widths := chartTableWidths(gtx, view, table, gtx.Constraints.Max.X-gtx.Dp(chartTablePadStart+chartTablePadEnd))
 	gap := gtx.Dp(ui.Space16)
-	cells := func(gtx layout.Context, texts []string, header bool) layout.Dimensions {
+	cells := func(gtx layout.Context, texts []string, row int) layout.Dimensions {
 		children := make([]layout.FlexChild, len(table.Columns))
 		for c, column := range table.Columns {
 			children[c] = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Min.X, gtx.Constraints.Max.X = widths[c], widths[c]
 				style, ink := ui.TextBody, colors.Ink
-				if header {
+				if row < 0 {
 					style, ink = ui.TextCaptionStrong, colors.SecondaryInk
 				}
 				content := ""
 				if c < len(texts) {
 					content = texts[c]
+				}
+				if c == 0 && row >= 0 && firstCell != nil {
+					gtx.Constraints.Min.X = 0
+					dims := firstCell(row)(gtx)
+					dims.Size.X = widths[c]
+					return dims
 				}
 				if column.Numeric {
 					return view.LineEnd(gtx, style, content, ink)
@@ -112,7 +126,7 @@ func (t *chartDataTable) table(gtx layout.Context, view ui.View, label string, t
 		header[c] = column.Title
 	}
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return cells(gtx, header, true) }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return cells(gtx, header, -1) }),
 		layout.Rigid(view.Hairline),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
@@ -131,7 +145,7 @@ func (t *chartDataTable) table(gtx layout.Context, view ui.View, label string, t
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 						// The row reads as one sentence, as the chart readout does.
 						macro := op.Record(gtx.Ops)
-						dims := cells(gtx, table.Rows[i], false)
+						dims := cells(gtx, table.Rows[i], i)
 						call := macro.Stop()
 						defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
 						semantic.LabelOp(chartTableRowText(table.Rows[i])).Add(gtx.Ops)

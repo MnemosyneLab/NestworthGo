@@ -12,7 +12,6 @@ import (
 
 	"gioui.org/font"
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -153,19 +152,6 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.current != nil && p.current.value.AccountCount > 0 {
 		p.allocation.update(view, p.current)
 	}
-	if p.current != nil && len(p.current.value.AssetComposition.Paths) > 0 {
-		section := p.compositionIndex()
-		switch {
-		case p.allocation.details.Clicked(gtx):
-			p.list.ScrollTo(section + 1)
-			gtx.Execute(key.FocusCmd{Tag: &p.list})
-			gtx.Execute(op.InvalidateCmd{})
-		case p.allocation.back.Clicked(gtx):
-			p.list.ScrollTo(section)
-			p.allocation.restoreFocus = true
-			gtx.Execute(op.InvalidateCmd{})
-		}
-	}
 	p.actions = p.actions[:0]
 	if p.openHealth != nil {
 		if p.health.Clicked(gtx) {
@@ -173,23 +159,11 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if p.hasDimensions() {
-		if p.breakdowns.jump.Clicked(gtx) {
-			p.list.ScrollTo(p.dimensionsIndex())
-			p.breakdowns.focusFirst = p.breakdowns.open != nil
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		p.actions = append(p.actions, returnMonthButton(view, &p.breakdowns.jump, i18n.OverviewOpenBreakdowns, nil, true))
-	}
 	if p.err != nil {
 		p.actions = append(p.actions, returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, !p.loading))
 	}
 	return pageListGap(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), 0, func(gtx layout.Context, row int) layout.Dimensions {
-		gap := ui.Space16
-		if p.continuesAllocationDetails(row) {
-			gap = 0
-		}
-		return layout.Inset{Bottom: gap}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Bottom: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return p.overviewRow(gtx, view, row)
 		})
 	})
@@ -307,27 +281,9 @@ func (p *overviewPage) overviewRow(gtx layout.Context, view ui.View, row int) la
 		return p.allocation.section(gtx, view, result)
 	case row == p.recentActivityIndex():
 		return p.overviewRecentActivity(gtx, view, result)
-	case row >= p.dimensionsIndex():
-		pair := row - p.dimensionsIndex()
-		if pair == 0 {
-			return (ui.Column{Gap: 8}).Layout(gtx,
-				ui.Rigid(view.Message(l.Text(i18n.OverviewBreakdownHint), view.Colors.SecondaryInk)),
-				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.breakdowns.dimensions(gtx, view, result, pair) }))
-		}
-		return p.breakdowns.dimensions(gtx, view, result, pair)
 	default:
-		return p.allocation.detailItem(gtx, view, row-composition-1)
+		return p.breakdowns.dimensions(gtx, view, result, row-p.dimensionsIndex())
 	}
-}
-
-// continuesAllocationDetails reports whether the next list item is the next
-// row of the same allocation table card, so no gap separates them.
-func (p *overviewPage) continuesAllocationDetails(row int) bool {
-	if p.current == nil || p.current.value.AccountCount == 0 || len(p.current.value.AssetComposition.Paths) == 0 {
-		return false
-	}
-	first := p.compositionIndex() + 1
-	return row >= first && row < first+p.allocation.detailItems()-1
 }
 
 func (p *overviewPage) rowCount() int {
@@ -349,11 +305,7 @@ func (p *overviewPage) recentActivityIndex() int {
 }
 
 func (p *overviewPage) dimensionsIndex() int {
-	n := p.compositionIndex() + 1
-	if len(p.current.value.AssetComposition.Paths) > 0 {
-		n += p.allocation.detailItems()
-	}
-	return n
+	return p.compositionIndex() + 1
 }
 
 func (p *overviewPage) compositionIndex() int {

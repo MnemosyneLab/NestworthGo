@@ -3,8 +3,6 @@ package desktop
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
 	"gioui.org/io/event"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -273,64 +272,131 @@ func (p *overviewPage) overviewUpcomingItem(view ui.View, row domain.UpcomingAct
 
 func (p *overviewPage) overviewRecentActivity(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {
 	l := view.Language
-	var fields []layout.Widget
-	if p.openLedger != nil {
-		if p.recent.Clicked(gtx) {
-			p.openLedger(&p.recent)
-			gtx.Execute(op.InvalidateCmd{})
+	header := func(gtx layout.Context) layout.Dimensions {
+		children := []layout.FlexChild{layout.Flexed(1, view.Body(ui.TextHeading, l.Text(i18n.OverviewRecentTitle), view.Colors.Ink))}
+		if p.openLedger != nil {
+			if p.recent.Clicked(gtx) {
+				p.openLedger(&p.recent)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			children = append(children, layout.Rigid(view.ButtonOf(&p.recent, ui.ButtonSpec{
+				Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.OverviewRecentAll),
+			})))
 		}
-		fields = append(fields, returnMonthButton(view, &p.recent, i18n.OverviewRecentAll, nil, true))
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx, children...)
 	}
+	rows := []ui.ColumnChild{ui.Rigid(header)}
 	if len(result.RecentActivities) == 0 {
-		fields = append(fields, view.Message(l.Text(i18n.OverviewRecentEmpty), view.Colors.SecondaryInk))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewRecentEmpty), view.Colors.SecondaryInk)))
 	}
-	names := make(map[string]string)
+	names := historyRowNames{accounts: make(map[domain.AccountID]domain.Account), instruments: make(map[domain.InstrumentID]string)}
 	for _, row := range result.AccountLabels {
 		if row.Name != row.ID {
-			names[row.ID] = row.Name
+			names.accounts[domain.AccountID(row.ID)] = domain.Account{Name: row.Name, BalanceSheetRole: row.BalanceSheetRole}
 		}
 	}
 	for _, row := range result.InstrumentLabels {
-		names[row.ID] = domain.InstrumentDisplayLabel(row.Name, row.Symbol, row.ShortName)
+		names.instruments[domain.InstrumentID(row.ID)] = domain.InstrumentDisplayLabel(row.Name, row.Symbol, row.ShortName)
 	}
-	day := ""
-	for _, activity := range result.RecentActivities {
-		if day != activity.EffectiveLocalDate {
-			day = activity.EffectiveLocalDate
-			fields = append(fields, view.Body(ui.TextCaption, historyDay(view, day), view.Colors.SecondaryInk))
+	for start := 0; start < len(result.RecentActivities); {
+		day := result.RecentActivities[start].EffectiveLocalDate
+		group := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextCaptionStrong, historyDay(view, day), view.Colors.SecondaryInk))}
+		for start < len(result.RecentActivities) && result.RecentActivities[start].EffectiveLocalDate == day {
+			activity := result.RecentActivities[start]
+			group = append(group, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				icon, tone := overviewActivityStyle(activity.Kind)
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.IconTile(gtx, icon, 32, view.Colors.CategorySoft(tone), view.Colors.Category[tone])
+					}),
+					layout.Flexed(1, view.Body(ui.TextBody, overviewActivitySentence(view, activity, names), view.Colors.Ink)),
+				)
+			}))
+			start++
 		}
-		headline := l.Text(historyKindLabel(activity.Kind, activity.Reason))
-		var facts []string
-		add := func(value string) {
-			if value != "" && !slices.Contains(facts, value) {
-				facts = append(facts, value)
-			}
-		}
-		for _, effect := range activity.Effects {
-			if effect.AccountID != nil {
-				add(names[effect.AccountID.String()])
-			}
-			if effect.InstrumentID != nil {
-				add(names[effect.InstrumentID.String()])
-			}
-		}
-		if activity.TradeDetail != nil {
-			add(overviewRecentMoney(view, activity.TradeDetail.Gross))
-		} else if activity.DividendDetail != nil {
-			add(names[activity.DividendDetail.InstrumentID.String()])
-			add(overviewRecentMoney(view, activity.DividendDetail.Amount))
-		} else {
-			for _, effect := range activity.Effects {
-				if effect.Money != nil && effect.Role != domain.EffectRoleFee && effect.Role != domain.EffectRoleCost {
-					add(overviewRecentMoney(view, *effect.Money))
-				}
-			}
-		}
-		fields = append(fields, view.Body(ui.TextBody, strings.Join(append([]string{headline}, facts...), " · "), view.Colors.Ink))
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space12}).Layout(gtx, group...)
+		}))
 	}
-	return fundsCard(view, l.Text(i18n.OverviewRecentTitle), fields...)(gtx)
+	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: 20}).Layout(gtx, rows...)
+	})
 }
 
-func overviewRecentMoney(view ui.View, money domain.Money) string {
-	return valuationMoney(view, domain.MoneyView{Amount: money.CanonicalAmount(), Currency: money.Currency()}, false)
+func overviewActivityStyle(kind domain.ActivityKind) (ui.Glyph, int) {
+	switch kind {
+	case domain.ActivityCashIn:
+		return lucide.ArrowDownRight, 1
+	case domain.ActivityCashOut:
+		return lucide.ArrowUpRight, 2
+	case domain.ActivityCashDividend:
+		return lucide.Coins, 3
+	case domain.ActivityValueUpdate, domain.ActivityCostAdjustment:
+		return lucide.Pencil, 4
+	case domain.ActivityCashTransfer, domain.ActivityPositionTransfer:
+		return lucide.GitCompareArrows, 0
+	case domain.ActivityFXConversion:
+		return lucide.RefreshCw, 7
+	case domain.ActivityBuy:
+		return lucide.TrendingUp, 0
+	case domain.ActivitySell:
+		return lucide.TrendingDown, 5
+	case domain.ActivityDebtDraw, domain.ActivityDebtPayment:
+		return lucide.ReceiptText, 6
+	default:
+		return lucide.History, 7
+	}
+}
+
+func overviewActivitySentence(view ui.View, activity domain.Activity, names historyRowNames) string {
+	l := view.Language
+	fallback := func() string { return historyRowSummary(view, activity, names) }
+	if activity.ReversesActivityID != nil || activity.ProductContext != nil {
+		return fallback()
+	}
+	var account, value string
+	for _, effect := range activity.Effects {
+		if effect.Money != nil {
+			account = names.endpoint(effect)
+			value = valuationMoney(view, domain.MoneyView{Amount: effect.Money.CanonicalAmount(), Currency: effect.Money.Currency()}, false)
+			break
+		}
+	}
+	reason := repeatReasonLabels[activity.Reason]
+	var sentence i18n.MessageID
+	switch {
+	case activity.Reason == domain.ReasonCardPurchase:
+		sentence, reason = i18n.OverviewRecentCardPurchase, i18n.NoMessage
+	case activity.Reason == domain.ReasonCardRefund:
+		sentence, reason = i18n.OverviewRecentCardRefund, i18n.NoMessage
+	case activity.Kind == domain.ActivityCashIn:
+		sentence = i18n.OverviewRecentAdded
+	case activity.Kind == domain.ActivityCashOut:
+		sentence = i18n.OverviewRecentRemoved
+	case activity.Kind == domain.ActivityValueUpdate:
+		if len(activity.Resulting) == 0 {
+			return fallback()
+		}
+		result := activity.Resulting[0]
+		if result.Amount == "" || result.Currency == "" {
+			return fallback()
+		}
+		entry := names.account(result.AccountID)
+		account = entry.Name
+		value = valuationMoney(view, domain.MoneyView{Amount: result.Amount, Currency: result.Currency}, entry.IsLiability())
+		sentence = i18n.OverviewRecentUpdated
+		if activity.Reason == domain.ReasonReconciliation {
+			reason = i18n.LiabilityReasonReconciliation
+		}
+	default:
+		return fallback()
+	}
+	if account == "" || value == "" {
+		return fallback()
+	}
+	text := fmt.Sprintf(l.Text(sentence), account, value)
+	if reason != i18n.NoMessage && activity.Reason != domain.ReasonOther {
+		text = fmt.Sprintf(l.Text(i18n.OverviewRecentWithReason), text, l.Text(reason))
+	}
+	return text
 }

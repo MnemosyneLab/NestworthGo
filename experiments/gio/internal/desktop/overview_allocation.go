@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -39,9 +38,7 @@ type overviewAllocationModel struct {
 type overviewAllocation struct {
 	chart                               charts.SankeyChart
 	selected                            charts.Selection
-	details                             widget.Clickable
-	back                                widget.Clickable
-	restoreFocus                        bool
+	table                               chartDataTable
 	buttons                             map[string]*widget.Clickable
 	read                                *overviewRead
 	language                            i18n.Language
@@ -73,7 +70,7 @@ func overviewAssetAllocation(view ui.View, data domain.OverviewResult) overviewA
 	}
 	out := overviewAllocationModel{
 		spec: charts.SankeySpec{
-			Label: l.Text(i18n.OverviewAllocationTitle), Summary: l.Text(i18n.OverviewAllocationHelp),
+			Label:        l.Text(i18n.OverviewAllocationTitle),
 			ColumnTitles: []string{l.Text(root), l.Text(i18n.OverviewAllocationClass), l.Text(i18n.AccountMaintenanceInstitution), l.Text(i18n.OverviewAllocationAccount)},
 			Messages:     charts.Messages{Empty: l.Text(i18n.OverviewAllocationEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 		},
@@ -194,32 +191,7 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 		return view.Line(gtx, ui.TextHeading, l.Text(i18n.OverviewAllocationTitle), view.Colors.Ink)
 	}
 	rows := []ui.ColumnChild{ui.Rigid(title)}
-	if len(c.Paths) != 0 {
-		rows[0] = ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-				layout.Flexed(1, title),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if a.restoreFocus && gtx.Enabled() {
-						a.restoreFocus = false
-						gtx.Execute(key.FocusCmd{Tag: &a.details})
-					}
-					return returnMonthButton(view, &a.details, i18n.OverviewAllocationDetails, nil, true)(gtx)
-				}))
-		})
-	}
 	rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewAllocationScope), view.Colors.SecondaryInk)))
-	if data.ValuationReadDate != "" {
-		date := wealthDay(view, data.ValuationReadDate)
-		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationDate), date), view.Colors.SecondaryInk)))
-	}
-	quality := data.DisplayValuation.Assets.Quality
-	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return overviewEvidence(gtx, view, quality, i18n.OverviewAllocationQuoteDates)
-	}))
-	if quality.OldestCarriedMarketDate != nil {
-		date := wealthDay(view, *quality.OldestCarriedMarketDate)
-		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewAllocationCarriedDate), date), view.Colors.SecondaryInk)))
-	}
 	appendAmount := func(id i18n.MessageID, amount decimal.Decimal) {
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(id)+" · "+overviewAllocationMoney(view, data.Currency, amount), view.Colors.Ink)))
 	}
@@ -248,7 +220,6 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 		}
 		rows = append(rows, ui.Rigid(view.Message(l.Text(id), view.Colors.SecondaryInk)))
 	} else {
-		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.OverviewAllocationHelp), view.Colors.SecondaryInk)))
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			view.Focus.Watch(gtx, &a.chart)
 			spec := a.model.spec
@@ -265,70 +236,51 @@ func (a *overviewAllocation) section(gtx layout.Context, view ui.View, data doma
 			}
 			return dims
 		}))
+		rows = append(rows, ui.Rigid(a.table.layoutDisclosure(view, l.Text(i18n.OverviewAllocationDetails), len(a.model.rows),
+			func() charts.Table { return a.pathTable(view) }, nil,
+			func(index int) layout.Widget { return a.pathCell(view, index) })))
 	}
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 	})
 }
 
-// detailItems is how many page list items the table behind the allocation
-// chart takes: the back link, then one per account path. Each is its own list
-// item, so a long table lays out only the rows near the viewport.
-func (a *overviewAllocation) detailItems() int {
-	return 1 + len(a.model.rows)
+func (a *overviewAllocation) pathTable(view ui.View) charts.Table {
+	l := view.Language
+	table := charts.Table{Columns: []charts.TableColumn{
+		{Title: l.Text(i18n.OverviewAllocationColumn), Wrap: true},
+		{Title: l.Text(i18n.ChartAmount), Numeric: true},
+	}, Selected: charts.NoRow}
+	for i, row := range a.model.rows {
+		table.Rows = append(table.Rows, []string{row.account.label + "\n" + row.class + " · " + row.institution, row.amount})
+		if a.selected.Item == row.id || a.selected.Item == "/"+row.id {
+			table.Selected = i
+		}
+	}
+	return table
 }
 
-// detailItem is one item of the allocation table. The items join into one
-// card: the back link rounds its top, the last path rounds its bottom, and the
-// shared edge between items is the row divider.
-func (a *overviewAllocation) detailItem(gtx layout.Context, view ui.View, item int) layout.Dimensions {
-	rows := a.model.rows
-	last := item == len(rows)
-	if item == 0 {
-		return view.RowCard(gtx, true, last, func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.W.Layout(gtx, returnMonthButton(view, &a.back, i18n.OverviewAllocationBack, nil, true))
-			})
-		})
-	}
-	return view.RowCard(gtx, false, last, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.X = gtx.Constraints.Max.X
-		return a.row(gtx, view, rows[item-1])
-	})
-}
+func (a *overviewAllocation) pathCell(view ui.View, index int) layout.Widget {
+	row := a.model.rows[index]
+	return func(gtx layout.Context) layout.Dimensions {
+		context := view.Body(ui.TextCaption, row.class+" · "+row.institution, view.Colors.SecondaryInk)
+		if row.account.id == "" || a.openAccount == nil {
+			return (ui.Column{Gap: ui.Space2}).Layout(gtx,
+				ui.Rigid(view.Body(ui.TextBody, row.account.label, view.Colors.Ink)), ui.Rigid(context))
+		}
+		if a.buttons == nil {
+			a.buttons = make(map[string]*widget.Clickable)
+		}
+		button := portfolioButton(a.buttons, string(row.id))
+		view.Focus.Watch(gtx, button)
+		if button.Clicked(gtx) {
+			a.openAccount(row.account.id, row.account.label, button)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		name := fmt.Sprintf(view.Language.Text(i18n.HistoryOpenAccount), row.account.label)
+		return (ui.Column{Gap: ui.Space2}).Layout(gtx,
+			ui.Rigid(view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: row.account.label, Name: name})),
+			ui.Rigid(context))
 
-func (a *overviewAllocation) row(gtx layout.Context, view ui.View, row overviewAllocationRow) layout.Dimensions {
-	title := row.account.label + " · " + row.amount
-	context := row.class + " › " + row.institution
-	colors := view.Colors
-	content := func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: 2}).Layout(gtx,
-					ui.Rigid(view.Body(ui.TextBody, row.account.label, colors.Ink)),
-					ui.Rigid(view.Body(ui.TextCaption, context, colors.SecondaryInk)))
-			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextLabel, row.amount, colors.Ink)
-			}),
-		)
 	}
-	if row.account.id == "" || a.openAccount == nil {
-		return layout.UniformInset(ui.Space12).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return semanticRow(gtx, title+" · "+context, content)
-			}))
-		})
-	}
-	if a.buttons == nil {
-		a.buttons = make(map[string]*widget.Clickable)
-	}
-	button := portfolioButton(a.buttons, string(row.id))
-	view.Focus.Watch(gtx, button)
-	if button.Clicked(gtx) {
-		a.openAccount(row.account.id, row.account.label, button)
-		gtx.Execute(op.InvalidateCmd{})
-	}
-	return view.ButtonOf(button, ui.ButtonSpec{Name: title, Description: context, Variant: ui.ButtonGhost, Fill: true, Content: content})(gtx)
 }

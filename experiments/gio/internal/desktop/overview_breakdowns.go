@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -28,12 +27,10 @@ type overviewSummaryChart struct {
 }
 
 type overviewBreakdowns struct {
-	summaries  [2]overviewSummaryChart
-	jump       widget.Clickable
-	stretch    [3]ui.RowHeights // composition, then each pair of dimensions
-	focusFirst bool
-	links      map[accountListScope]*widget.Clickable
-	open       func(navigationTarget, string, event.Tag)
+	summaries [2]overviewSummaryChart
+	stretch   [3]ui.RowHeights // composition, then each pair of dimensions
+	links     map[accountListScope]*widget.Clickable
+	open      func(navigationTarget, string, event.Tag)
 }
 
 type overviewSummary struct {
@@ -186,10 +183,6 @@ func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim 
 		b.links[scope] = button
 	}
 	view.Focus.Watch(gtx, button)
-	if b.focusFirst {
-		b.focusFirst = false
-		gtx.Execute(key.FocusCmd{Tag: button})
-	}
 	if button.Clicked(gtx) {
 		b.open(target, name, button)
 		gtx.Execute(op.InvalidateCmd{})

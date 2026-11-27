@@ -88,6 +88,9 @@ func TestOverviewUpcomingAndRecentActivityUseTheWailsReads(t *testing.T) {
 	page.list.ScrollTo(page.recentActivityIndex())
 	settle()
 	assertPageLabel(t, &h.router, "Recent activity")
+	if bounds := semanticBounds(t, &h.router, "View all activity", false); bounds.Dx() > 200 {
+		t.Fatalf("recent activity action spans %dpx; want a compact header action", bounds.Dx())
+	}
 	h.click("View all activity", false)
 	settle()
 	if h.shell.activeRoute() != historyRoute {
