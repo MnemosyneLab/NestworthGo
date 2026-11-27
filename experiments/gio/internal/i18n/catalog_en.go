@@ -1535,6 +1535,10 @@ var englishCatalog = catalog{
 	HistoryCashReconciled:    "Cash reconciliation",
 
 	AccountBankBalanceAction:  "Update bank balance",
+	AccountBalanceUpdate:      "Update balance",
+	AccountBalanceReview:      "Review balance",
+	AccountBalanceConfirm:     "Confirm balance",
+	AccountBalanceSaved:       "Balance saved.",
 	AccountBankBalanceReview:  "Review bank balance",
 	AccountBankBalanceConfirm: "Confirm bank balance",
 

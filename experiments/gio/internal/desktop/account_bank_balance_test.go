@@ -3,7 +3,6 @@ package desktop
 import (
 	"context"
 	"errors"
-	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -11,10 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
+
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
@@ -227,6 +229,64 @@ func balanceTargetHarness(t *testing.T, ledger *balanceTargetTestService, accoun
 	return p, h, finish
 }
 
+func TestBankBalanceUsesLedgerWallTimeReasonAndNote(t *testing.T) {
+	ctx := t.Context()
+	gio, _, _, id := seedBankBalanceFixture(t, true)
+	wails, _, _, refID := seedBankBalanceFixture(t, true)
+	p, h, settle := balanceTargetHarness(t, &balanceTargetTestService{Service: gio, keepReads: true}, "Harbor Checking", func() time.Time { return accountTestClock })
+	click := func(label string) {
+		t.Helper()
+		h.click(label, false)
+		settle()
+	}
+	const note = "Synthetic bank interest"
+	fill := func() {
+		click("Update bank balance")
+		d := p.balanceTarget.draft
+		assertPageLabel(t, &h.router, "Effective date")
+		assertPageLabel(t, &h.router, "Effective time")
+		h.click("Reason", true)
+		click("Interest")
+		if d.reason != domain.ReasonInterest {
+			t.Fatalf("reason picker selected %s", d.reason)
+		}
+		setBankField(h, "Target balance · USD", &d.amount, "132.2345")
+		setBankField(h, "Notes", &d.note, note)
+		d.day, d.clock = "2026-11-22", "00:45"
+		settle()
+		click("Review bank balance")
+		assertPageLabel(t, &h.router, "Effective: 2026-11-22 00:45:00.000 (Asia/Singapore)")
+		assertPageLabel(t, &h.router, "Reason · Interest")
+		assertPageLabel(t, &h.router, "Notes · "+note)
+	}
+	before := gio.MobileDataVersion()
+	fill()
+	h.press(key.NameEscape)
+	settle()
+	h.focused(&p.balanceTarget.open)
+	if gio.MobileDataVersion() != before || p.balanceTarget.draft != nil {
+		t.Fatal("Escape changed the ledger or left the review open")
+	}
+	fill()
+	plan := *p.balanceTarget.draft.review
+	click("Confirm bank balance")
+	request := historyapi.ChangeCommandRequest{Kind: historyapi.ChangeValueUpdate, AccountID: refID.String(),
+		NewValue: "132.2345", NewValueCurrency: "USD", Reason: "interest", Note: productOptional(note),
+		EffectiveLocalDate: "2026-11-22", EffectiveLocalTime: "00:45", MutationID: domain.NewMutationID().String()}
+	want, err := historyapi.NewService(wails).RecordChange(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := gio.Activity(ctx, p.balanceTarget.saved.activity)
+	if err != nil || got.Reason != domain.ReasonInterest || !reflect.DeepEqual(got.Note, request.Note) ||
+		wire.FormatTime(got.EffectiveAt) != want.Activity.EffectiveAt || !got.EffectiveAt.Equal(plan.at) ||
+		readBankRecord(t, gio, id).LatestValue.Amount.CanonicalAmount() != "132.2345" ||
+		readBankRecord(t, wails, refID).LatestValue.Amount.CanonicalAmount() != "132.2345" {
+		t.Fatalf("the dated exact balance differs from Wails: %+v, %v", got, err)
+	}
+	h.focused(&p.balanceTarget.open)
+}
+
 func wailsBalanceAdjustment(id domain.AccountID, target string, at time.Time) historyapi.ChangeCommandRequest {
 	return historyapi.ChangeCommandRequest{Kind: historyapi.ChangeValueUpdate, AccountID: id.String(), NewValue: target, NewValueCurrency: "USD",
 		Reason: "reconciliation", EffectiveAt: at.UTC().Format(time.RFC3339Nano), MutationID: domain.NewMutationID().String()}
@@ -341,7 +401,7 @@ func TestBalanceTargetRejectsClockRollback(t *testing.T) {
 			now := accountTestClock.Add(time.Minute)
 			clock := func() time.Time { return now }
 			testfixture.SetClock(app, clock)
-			plan, err := reviewBalanceTarget(t.Context(), app, id, tc.target, clock)
+			plan, err := reviewBalanceTarget(t.Context(), app, id, balanceTargetInput{amount: tc.target}, clock)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -356,7 +416,7 @@ func TestBalanceTargetRejectsClockRollback(t *testing.T) {
 			}
 			assertBankObservations(t, session, id, 1, 0)
 			now = accountTestClock.Add(2 * time.Minute)
-			plan, err = reviewBalanceTarget(t.Context(), app, id, tc.target, clock)
+			plan, err = reviewBalanceTarget(t.Context(), app, id, balanceTargetInput{amount: tc.target}, clock)
 			if err != nil {
 				t.Fatal(err)
 			}

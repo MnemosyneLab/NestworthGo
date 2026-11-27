@@ -1393,6 +1393,10 @@ const (
 	AccountCashView
 	HistoryCashReconciled
 	AccountBankBalanceAction
+	AccountBalanceUpdate
+	AccountBalanceReview
+	AccountBalanceConfirm
+	AccountBalanceSaved
 	AccountBankBalanceReview
 	AccountBankBalanceConfirm
 

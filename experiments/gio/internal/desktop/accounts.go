@@ -40,23 +40,24 @@ type accountRow struct {
 }
 
 type accountsResult struct {
-	rows          []accountRow
-	institutions  map[domain.InstitutionID]domain.Institution
-	members       map[domain.MemberID]domain.Member
-	groups        map[domain.GroupID]domain.Group
-	holdings      map[domain.HoldingID]domain.Holding
-	holdingGroups []domain.InstrumentHoldingGroupView
-	holdingsErr   error
-	lastCheck     *domain.ReconciliationSession
-	checkErr      error
-	cashValues    []domain.AccountCashValue
-	cashValuesErr error
-	managed       map[domain.InstrumentID]bool
-	products      []application.ProductDetail
-	unavailable   bool
-	historyZone   *time.Location
-	readAt        time.Time
-	err           error
+	rows             []accountRow
+	institutions     map[domain.InstitutionID]domain.Institution
+	members          map[domain.MemberID]domain.Member
+	groups           map[domain.GroupID]domain.Group
+	holdings         map[domain.HoldingID]domain.Holding
+	holdingGroups    []domain.InstrumentHoldingGroupView
+	holdingsErr      error
+	lastCheck        *domain.ReconciliationSession
+	checkErr         error
+	cashValues       []domain.AccountCashValue
+	cashValuesErr    error
+	managed          map[domain.InstrumentID]bool
+	products         []application.ProductDetail
+	unavailable      bool
+	historyZone      *time.Location
+	historyStartedAt time.Time
+	readAt           time.Time
+	err              error
 }
 
 // Match the Wails list and valuation reads. A detail visit uses the same
@@ -143,16 +144,18 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		}
 	}
 	result.lastCheck, result.checkErr = service.ReconciliationLastSuccess(ctx, target.account.String())
+	origin, err := service.HistoryOrigin(ctx)
+	if err != nil {
+		result.err = err
+		return
+	}
+	if origin != nil {
+		result.historyZone, _ = time.LoadLocation(origin.Timezone)
+		result.historyStartedAt = origin.StartedAt
+	}
 	if records[0].Account.TrackingMode == domain.TrackingHoldings {
 		result.cashValues, result.cashValuesErr = service.ListAccountCashValues(ctx, target.account)
-		origin, err := service.HistoryOrigin(ctx)
-		if err != nil {
-			result.err = err
-			return
-		}
-		if origin != nil {
-			result.historyZone, _ = time.LoadLocation(origin.Timezone)
-		}
+
 		holdings, err := service.HoldingsByAccounts(ctx, filter.AccountIDs)
 		if err != nil {
 			result.err = err

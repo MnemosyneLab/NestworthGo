@@ -25,6 +25,11 @@ type balanceTargetLedger interface {
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
 }
 
+type balanceTargetInput struct {
+	amount, day, clock, note string
+	reason                   domain.ActivityReason
+}
+
 type balanceTargetPlan struct {
 	account domain.AccountID
 
@@ -32,6 +37,8 @@ type balanceTargetPlan struct {
 	before, target, after, delta string
 	at                           time.Time
 	zone                         string
+	reason                       domain.ActivityReason
+	note                         *string
 	command                      any
 	mutation, payloadHash, token string
 }
@@ -46,7 +53,13 @@ func (r balanceTargetReceipt) known() bool { return r.activity != "" }
 
 type balanceTargetDraft struct {
 	account                                      domain.Account
-	amount                                       ui.TextField
+	amount, note                                 ui.TextField
+	day, clock                                   string
+	reason                                       domain.ActivityReason
+	reasonPicker                                 ui.Select
+	datePicker                                   ui.DatePicker
+	timePicker                                   ui.TimePicker
+	useNow                                       widget.Clickable
 	focus, uncertain                             bool
 	problem                                      i18n.MessageID
 	review                                       *balanceTargetPlan
@@ -62,6 +75,7 @@ type accountBalanceTarget struct {
 	savedMessage i18n.MessageID
 
 	open, view   widget.Clickable
+	restore      *widget.Clickable
 	entry        *widget.Clickable
 	openActivity func(domain.ActivityID, event.Tag)
 }
@@ -71,24 +85,18 @@ func supportsBalanceTarget(row domain.AccountRecord) bool {
 	if a.ArchivedAt != nil || row.LatestValue == nil {
 		return false
 	}
-	if a.TrackingMode == domain.TrackingManualValue {
-		return true
-	}
-	if a.TrackingMode != domain.TrackingBalance {
-		return false
-	}
-	return (a.AccountType == domain.TypeBankAccount && a.BalanceSheetRole == domain.RoleAsset) ||
-		(a.AccountType == domain.TypeCreditCard && a.IsLiability())
+	return a.TrackingMode == domain.TrackingManualValue || a.TrackingMode == domain.TrackingBalance
 }
 
 func (p *accountsPage) canUpdateBalanceTarget() bool {
 	row := p.freshDetail()
-	return p.balanceTarget != nil && row != nil && supportsBalanceTarget(row.record)
+	return p.balanceTarget != nil && row != nil && p.current.historyZone != nil && supportsBalanceTarget(row.record)
 }
 
 func (p *accountsPage) startBalanceTarget() {
 	row := p.freshDetail().record
-	d := &balanceTargetDraft{account: row.Account, amount: ui.NewTextField(true), focus: true}
+	d := &balanceTargetDraft{account: row.Account, amount: ui.NewTextField(true), note: ui.NewTextField(true),
+		reason: domain.ReasonReconciliation, focus: true}
 	d.amount.Editor.SetText(row.LatestValue.Amount.CanonicalAmount())
 	p.balanceTarget.draft, p.balanceTarget.entry = d, &p.balanceTarget.open
 }
@@ -104,14 +112,14 @@ func readBalanceTarget(ctx context.Context, service balanceTargetLedger, id doma
 	return rows[0], nil
 }
 
-func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id domain.AccountID, raw string, clock func() time.Time) (balanceTargetPlan, error) {
+func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id domain.AccountID, input balanceTargetInput, clock func() time.Time) (balanceTargetPlan, error) {
 	var plan balanceTargetPlan
 	err := service.WithRead(ctx, func(ctx context.Context) error {
 		row, err := readBalanceTarget(ctx, service, id)
 		if err != nil {
 			return err
 		}
-		money, err := domain.ParseMoney(strings.TrimSpace(raw), row.Account.DefaultCurrency)
+		money, err := domain.ParseMoney(strings.TrimSpace(input.amount), row.Account.DefaultCurrency)
 		if err != nil {
 			return err
 		}
@@ -125,10 +133,20 @@ func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id do
 		if origin == nil {
 			return &domain.Error{Code: domain.ErrMissingHistoryOrigin}
 		}
+		reason := input.reason
+		if reason == "" || row.Account.IsLiability() {
+			reason = domain.ReasonReconciliation
+		}
 		request := historyapi.ChangeCommandRequest{
 			Kind: historyapi.ChangeValueUpdate, AccountID: id.String(), NewValue: plan.target, NewValueCurrency: money.Currency().String(),
-			Reason: string(domain.ReasonReconciliation), EffectiveAt: clock().UTC().Truncate(time.Millisecond).Format(time.RFC3339Nano),
+			Reason: string(reason), EffectiveLocalDate: input.day, EffectiveLocalTime: input.clock,
 			MutationID: domain.NewMutationID().String(),
+		}
+		if input.day == "" && input.clock == "" {
+			request.EffectiveAt = clock().UTC().Truncate(time.Millisecond).Format(time.RFC3339Nano)
+		}
+		if note := strings.TrimSpace(input.note); note != "" {
+			request.Note = &note
 		}
 		plan.command, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 		if err != nil {
@@ -148,6 +166,7 @@ func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id do
 		line := preview.Review[0]
 		plan.before, plan.after, plan.delta = line.Before, line.After, line.Delta
 		plan.at, plan.zone, plan.token = preview.Activity.EffectiveAt, origin.Timezone, token
+		plan.reason, plan.note = preview.Activity.Reason, preview.Activity.Note
 		return nil
 	})
 	return plan, err
@@ -162,10 +181,11 @@ func (plan balanceTargetPlan) commit(ctx context.Context, service balanceTargetL
 
 func (p *accountsPage) previewBalanceTarget() {
 	f, d := p.balanceTarget, p.balanceTarget.draft
-	id, raw := d.account.ID, d.amount.Text()
+	id := d.account.ID
+	input := balanceTargetInput{amount: d.amount.Text(), day: d.day, clock: d.clock, reason: d.reason, note: d.note.Text()}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (balanceTargetPlan, error) {
-		return reviewBalanceTarget(p.ctx, f.service, id, raw, p.clock)
+		return reviewBalanceTarget(p.ctx, f.service, id, input, p.clock)
 	})
 }
 
@@ -198,7 +218,8 @@ func (p *accountsPage) pollBalanceTarget() balanceTargetReceipt {
 	case result := <-d.confirming:
 		d.confirming = nil
 		if result.value.known() {
-			f.saved, f.savedMessage, f.draft = result.value, copy.saved, nil
+			f.saved, f.savedMessage, f.draft, f.restore = result.value, copy.saved, nil, f.entry
+			p.restoreAccountRecord(f.entry)
 			return result.value
 		}
 		d.problem = copy.problem(result.err, i18n.NoMessage)
@@ -237,7 +258,9 @@ func (copy balanceTargetCopy) problem(err error, fallback i18n.MessageID) i18n.M
 			return copy.invalidTarget
 		}
 		return copy.previewFailed
-	case domain.ErrInvalidChange, domain.ErrInvalidChangeTime, domain.ErrInsufficientBalance:
+	case domain.ErrInvalidChangeTime:
+		return i18n.ContributionInvalidTime
+	case domain.ErrInvalidChange, domain.ErrInsufficientBalance:
 		return copy.previewFailed
 	}
 	return fallback

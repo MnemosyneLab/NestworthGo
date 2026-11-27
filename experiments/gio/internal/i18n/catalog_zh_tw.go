@@ -1535,6 +1535,10 @@ var traditionalChineseCatalog = catalog{
 	HistoryCashReconciled:    "現金對帳",
 
 	AccountBankBalanceAction:  "更新銀行餘額",
+	AccountBalanceUpdate:      "更新餘額",
+	AccountBalanceReview:      "預覽餘額",
+	AccountBalanceConfirm:     "確認餘額",
+	AccountBalanceSaved:       "餘額已儲存。",
 	AccountBankBalanceReview:  "預覽銀行餘額",
 	AccountBankBalanceConfirm: "確認銀行餘額",
 

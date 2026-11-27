@@ -566,6 +566,10 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 			button := &p.balanceTarget.open
 			actions = append(actions, func(gtx layout.Context) layout.Dimensions {
 				view.Focus.Watch(gtx, button)
+				if p.balanceTarget.restore == button && gtx.Enabled() {
+					p.balanceTarget.restore = nil
+					gtx.Execute(key.FocusCmd{Tag: button})
+				}
 				return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(copy.action)})(gtx)
 			})
 		}

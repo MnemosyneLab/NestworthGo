@@ -1535,6 +1535,10 @@ var simplifiedChineseCatalog = catalog{
 	HistoryCashReconciled:    "现金对账",
 
 	AccountBankBalanceAction:  "更新银行余额",
+	AccountBalanceUpdate:      "更新余额",
+	AccountBalanceReview:      "预览余额",
+	AccountBalanceConfirm:     "确认余额",
+	AccountBalanceSaved:       "余额已保存。",
 	AccountBankBalanceReview:  "预览银行余额",
 	AccountBankBalanceConfirm: "确认银行余额",
 

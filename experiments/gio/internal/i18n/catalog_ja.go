@@ -1534,6 +1534,10 @@ var japaneseCatalog = catalog{
 	HistoryCashReconciled:    "現金残高の照合",
 
 	AccountBankBalanceAction:  "銀行口座の残高を更新",
+	AccountBalanceUpdate:      "残高を更新",
+	AccountBalanceReview:      "残高を確認",
+	AccountBalanceConfirm:     "残高を確定",
+	AccountBalanceSaved:       "残高を保存しました。",
 	AccountBankBalanceReview:  "銀行口座の残高を確認",
 	AccountBankBalanceConfirm: "銀行口座の残高を確定",
 
