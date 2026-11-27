@@ -15,6 +15,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+const accountHeaderIconMinWidth = 112
+
 func (s *shell) pageTitleAction(gtx layout.Context, view ui.View) layout.Widget {
 	switch s.activeRoute() {
 	case accountsRoute:

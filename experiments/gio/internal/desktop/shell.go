@@ -1456,7 +1456,7 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 						event.Op(gtx.Ops, &s.headingFocus)
 						label := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, ui.TextPageTitle, name, colors.Ink) }
-						if accountIcon == nil || gtx.Constraints.Max.X < gtx.Dp(112) {
+						if accountIcon == nil || gtx.Constraints.Max.X < gtx.Dp(accountHeaderIconMinWidth) {
 							return label(gtx)
 						}
 						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,

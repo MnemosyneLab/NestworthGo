@@ -20,7 +20,10 @@ import (
 	"github.com/waltwang/nestworth-go/internal/format"
 )
 
-const accountWideContent = 900
+const (
+	accountWideContent   = 900
+	accountRowStackWidth = 480
+)
 
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
@@ -321,7 +324,7 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 									return accountTypeTile(gtx, view, account, p.current.institutions)
 								}),
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									if width < gtx.Dp(480) {
+									if width < gtx.Dp(accountRowStackWidth) {
 										return ui.Column{Gap: ui.Space8}.Layout(gtx, ui.Rigid(title), ui.Rigid(balance))
 									}
 									return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
