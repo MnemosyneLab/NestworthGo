@@ -102,7 +102,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	h.focused(&d.confirm)
 	for _, label := range []string{
 		"Quantity before · 0", "Quantity change · 1.125", "Quantity after · 1.125",
-		"Original cost per unit · 2.12345678 EUR", "Second desk", "QA-BUY",
+		"Original cost per unit · 2.12345678 EUR", "Second desk · QA-BUY",
 	} {
 		assertPageLabel(t, &h.router, label)
 	}
