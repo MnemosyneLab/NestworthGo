@@ -110,7 +110,9 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 				})
 			}
 			intro := func(gtx layout.Context) layout.Dimensions {
-				return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+				dims := ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+				dims.Size = gtx.Constraints.Constrain(dims.Size)
+				return dims
 			}
 			controls := func(gtx layout.Context) layout.Dimensions {
 				return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, len(right), func(gtx layout.Context, i int) layout.Dimensions { return right[i](gtx) })
@@ -314,7 +316,6 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 							balance := func(gtx layout.Context) layout.Dimensions {
 								return layoutAccountAmounts(gtx, view, amounts, layout.Start)
 							}
-							valueWidth := width * 2 / 5
 							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 									return accountTypeTile(gtx, view, account, p.current.institutions)
@@ -325,9 +326,10 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 									}
 									return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 										layout.Flexed(1, title),
-										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-											gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, valueWidth)
-											return layoutAccountAmounts(gtx, view, amounts, layout.End)
+										layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+											return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+												return layoutAccountAmounts(gtx, view, amounts, layout.End)
+											})
 										}))
 								}),
 							)
@@ -472,6 +474,12 @@ func accountAmountLines(view ui.View, row accountRow, brief bool) []accountAmoun
 	if baseCurrency != "" && baseCurrency != primaryCurrency {
 		label := amount(base, baseCurrency, !v.Complete)
 		if base == nil && brief {
+			pending := native != nil && slices.ContainsFunc(v.MissingInputs, func(input domain.MissingInputView) bool {
+				return input.Kind == domain.MissingFXRate && input.BaseCurrency != primaryCurrency
+			})
+			if !pending {
+				return lines
+			}
 			label = l.Text(i18n.AccountPendingConversion)
 		}
 		lines = append(lines, accountAmountLine{ui.TextCaption, label})
