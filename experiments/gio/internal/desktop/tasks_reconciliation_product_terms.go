@@ -172,10 +172,12 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 }
 
 func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing bool, focus func(layout.Context, *ui.TextField)) []layout.Widget {
-	return f.termsFields(view, origin, calendar, currency, principal, ready, editing, false, focus)
+	return f.termsFields(view, origin, calendar, currency, principal, ready, editing, false, focus, nil)
 }
 
-func (f *holdingProductTerms) termsFields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing, sheet bool, focus func(layout.Context, *ui.TextField)) []layout.Widget {
+type productDateFeedback func(layout.Context, *ui.DatePicker, i18n.MessageID, string) string
+
+func (f *holdingProductTerms) termsFields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing, sheet bool, focus func(layout.Context, *ui.TextField), dateFeedback productDateFeedback) []layout.Widget {
 	l := view.Language
 	text := func(field *ui.TextField, label i18n.MessageID, money bool) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
@@ -213,8 +215,16 @@ func (f *holdingProductTerms) termsFields(view ui.View, origin *image.Point, cal
 		return func(gtx layout.Context) layout.Dimensions {
 			options := ui.DateOptions{Today: calendar.today, AllowFuture: true, Clearable: true, WeekStart: week, Format: view.DateFormat}
 			field := ui.PickerField{Label: label, Origin: *origin, Disabled: disabled || !ready || calendar.today == ""}
-			control.Layout(gtx, view, field, options, value, change)
-			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+			picker := func(gtx layout.Context) layout.Dimensions {
+				control.Layout(gtx, view, field, options, value, change)
+				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
+			}
+			if dateFeedback != nil && !field.Disabled {
+				if problem := dateFeedback(gtx, control, label, value); problem != "" {
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(picker), ui.Rigid(view.Message(problem, view.Colors.ErrorInk)))
+				}
+			}
+			return picker(gtx)
 		}
 	}
 	selectField := func(control *ui.Select, label i18n.MessageID, options []productFormChoice, value string, change func(string)) layout.Widget {

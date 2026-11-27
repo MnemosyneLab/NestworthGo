@@ -31,25 +31,25 @@ type productSetupRuntime struct {
 }
 
 type fundsProductSetup struct {
-	runtime           productSetupRuntime
-	account           domain.Account
-	choices           []domain.Account
-	accountButtons    map[domain.AccountID]*widget.Clickable
-	form              *holdingProductAdd
-	sheet             analysisSheet
-	overlay           ui.Overlay
-	currencyFocus     bool
-	principalRequired bool
-	currency          string
-	cash              *domain.AccountValuation
-	cashRead          <-chan historyResult[[]domain.AccountValuation]
-	preview           <-chan historyResult[productReceiptPlan]
-	post              <-chan historyResult[application.ProductOperationReceipt]
-	plan              *productReceiptPlan
-	problem           i18n.MessageID
-	uncertain, focus  bool
-	cancel, review    widget.Clickable
-	edit, confirm     widget.Clickable
+	runtime          productSetupRuntime
+	account          domain.Account
+	choices          []domain.Account
+	accountButtons   map[domain.AccountID]*widget.Clickable
+	form             *holdingProductAdd
+	sheet            analysisSheet
+	overlay          ui.Overlay
+	currencyFocus    bool
+	requiredField    i18n.MessageID
+	currency         string
+	cash             *domain.AccountValuation
+	cashRead         <-chan historyResult[[]domain.AccountValuation]
+	preview          <-chan historyResult[productReceiptPlan]
+	post             <-chan historyResult[application.ProductOperationReceipt]
+	plan             *productReceiptPlan
+	problem          i18n.MessageID
+	uncertain, focus bool
+	cancel, review   widget.Clickable
+	edit, confirm    widget.Clickable
 }
 
 func (p *availableFundsPage) productAccounts() []domain.Account {

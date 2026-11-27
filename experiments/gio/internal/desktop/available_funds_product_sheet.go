@@ -73,7 +73,7 @@ func (p *availableFundsPage) layoutProductSetupSheet(gtx layout.Context, view ui
 	}
 
 	d.sheet.layoutPanel(gtx, view, view.Language.Text(title), func(gtx layout.Context, view ui.View) layout.Dimensions {
-		principalFocusTop := -1
+		fieldFocusTop := -1
 		dims := productSheetRows(gtx, view, &d.sheet, &d.overlay, func(gtx layout.Context, view ui.View, origin *image.Point) []layout.Widget {
 			switch {
 			case d.form == nil:
@@ -81,13 +81,13 @@ func (p *availableFundsPage) layoutProductSetupSheet(gtx layout.Context, view ui
 			case d.plan != nil:
 				return d.reviewRows(view)
 			default:
-				return d.setupSheetFields(gtx, view, origin, calendar, &principalFocusTop)
+				return d.setupSheetFields(gtx, view, origin, calendar, &fieldFocusTop)
 			}
 		})
-		if principalFocusTop >= 0 {
+		if fieldFocusTop >= 0 {
 			position := &d.sheet.list.Position
-			top := principalFocusTop - view.Origin.Y
-			minOffset := max(0, top+gtx.Dp(ui.PickerHeight)-gtx.Constraints.Max.Y)
+			top := fieldFocusTop - view.Origin.Y
+			minOffset := max(0, top+gtx.Dp(ui.PickerHeight+ui.Space24)-gtx.Constraints.Max.Y)
 			offset := min(max(position.Offset, minOffset), top)
 			if position.Offset != offset {
 				position.Offset = offset
@@ -100,10 +100,10 @@ func (p *availableFundsPage) layoutProductSetupSheet(gtx layout.Context, view ui
 
 	// Read the form only after its editors and any picker have processed input.
 	if preview {
-		if strings.TrimSpace(d.form.principal.Text()) == "" {
-			d.principalRequired, d.focus, d.problem = true, true, i18n.NoMessage
+		d.requiredField = d.form.requiredSheetField()
+		if d.requiredField != i18n.NoMessage {
+			d.focus, d.problem = true, i18n.NoMessage
 		} else {
-			d.principalRequired = false
 			d.requestReview()
 		}
 		gtx.Execute(op.InvalidateCmd{})
@@ -140,7 +140,7 @@ func productSheetRows(gtx layout.Context, view ui.View, sheet *analysisSheet, ov
 	return dims
 }
 
-func (d *fundsProductSetup) setupSheetFields(gtx layout.Context, view ui.View, origin *image.Point, calendar productFormCalendar, principalFocusTop *int) []layout.Widget {
+func (d *fundsProductSetup) setupSheetFields(gtx layout.Context, view ui.View, origin *image.Point, calendar productFormCalendar, fieldFocusTop *int) []layout.Widget {
 	if d.currencyFocus {
 		d.focus, d.currencyFocus = false, false
 		gtx.Execute(key.FocusCmd{Tag: &d.form.currency.Trigger})
@@ -149,18 +149,33 @@ func (d *fundsProductSetup) setupSheetFields(gtx layout.Context, view ui.View, o
 	if amount, ok := d.cashAmount(); ok {
 		cash = valuationMoney(view, domain.MoneyView{Currency: domain.CurrencyCode(d.currency), Amount: amount}, false)
 	}
-	return d.form.sheetFields(view, origin, calendar, d.account.Name, &d.currency, cash, d.preview == nil,
+	required := func(label i18n.MessageID, value string) string {
+		if d.requiredField != label {
+			return ""
+		}
+		if strings.TrimSpace(value) != "" || (label == i18n.ProductEditMaturity && d.form.terms.terms.Kind != string(domain.ProductTermDeposit)) {
+			d.requiredField = i18n.NoMessage
+			return ""
+		}
+		return fmt.Sprintf(view.Language.Text(i18n.ProductSetupRequired), view.Language.Text(label))
+	}
+	return d.form.addFields(view, origin, calendar, d.account.Name, &d.currency, cash, d.preview == nil,
 		func(gtx layout.Context, field *ui.TextField) {
-			if d.focus {
+			if d.focus && (d.requiredField == i18n.NoMessage || d.requiredField == i18n.ProductAddPrincipal) {
 				field.Focus(gtx)
-				*principalFocusTop = origin.Y
+				*fieldFocusTop = origin.Y
 				d.focus = false
 			}
 		}, func() { d.problem = i18n.NoMessage }, func(value string) string {
-			if !d.principalRequired || strings.TrimSpace(value) != "" {
-				return ""
+			return required(i18n.ProductAddPrincipal, value)
+		}, func(gtx layout.Context, control *ui.DatePicker, label i18n.MessageID, value string) string {
+			problem := required(label, value)
+			if problem != "" && d.focus {
+				gtx.Execute(key.FocusCmd{Tag: &control.Trigger})
+				*fieldFocusTop = origin.Y
+				d.focus = false
 			}
-			return fmt.Sprintf(view.Language.Text(i18n.ProductSetupRequired), view.Language.Text(i18n.ProductAddPrincipal))
+			return problem
 		})
 }
 

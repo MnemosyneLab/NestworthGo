@@ -108,14 +108,23 @@ func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *im
 }
 
 func (f *holdingProductAdd) fields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func()) []layout.Widget {
-	return f.addFields(view, origin, calendar, name, currency, cash, ready, focus, changed, nil)
+	return f.addFields(view, origin, calendar, name, currency, cash, ready, focus, changed, nil, nil)
 }
 
-func (f *holdingProductAdd) sheetFields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func(), principalProblem func(string) string) []layout.Widget {
-	return f.addFields(view, origin, calendar, name, currency, cash, ready, focus, changed, principalProblem)
+func (f *holdingProductAdd) requiredSheetField() i18n.MessageID {
+	switch {
+	case strings.TrimSpace(f.principal.Text()) == "":
+		return i18n.ProductAddPrincipal
+	case f.terms.terms.StartOn == "":
+		return i18n.ProductEditStart
+	case f.terms.terms.Kind == string(domain.ProductTermDeposit) && productString(f.terms.terms.MaturityOn) == "":
+		return i18n.ProductEditMaturity
+	default:
+		return i18n.NoMessage
+	}
 }
 
-func (f *holdingProductAdd) addFields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func(), principalProblem func(string) string) []layout.Widget {
+func (f *holdingProductAdd) addFields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func(), principalProblem func(string) string, dateFeedback productDateFeedback) []layout.Widget {
 	l := view.Language
 	pick := func(selectControl *ui.Select, label i18n.MessageID, options []ui.Choice, value string, searchable bool, change func(string)) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
@@ -168,7 +177,7 @@ func (f *holdingProductAdd) addFields(view ui.View, origin *image.Point, calenda
 		}
 		rows = append(rows, checkpointCheckbox(view, &f.excludesCash, i18n.ProductAddExcludeCash, ready))
 	}
-	rows = append(rows, f.terms.termsFields(view, origin, calendar, *currency, f.principal.Text(), ready, false, sheet, focus)...)
+	rows = append(rows, f.terms.termsFields(view, origin, calendar, *currency, f.principal.Text(), ready, false, sheet, focus, dateFeedback)...)
 	if f.mode == domain.ProductOpOpen {
 		if sheet {
 			rows = append(rows, productFormDisclosure(view, &f.transactionToggle, i18n.ProductSetupTransaction, &f.transactionOpen, ready))

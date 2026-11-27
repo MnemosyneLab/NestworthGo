@@ -180,7 +180,7 @@ func (d *productTermsDraft) termsSheetFields(gtx layout.Context, view ui.View, o
 				field.Focus(gtx)
 				d.focus = false
 			}
-		})...)
+		}, nil)...)
 	return append(rows, func(gtx layout.Context) layout.Dimensions {
 		return d.shortName.Layout(gtx, view, ui.FieldOptions{Label: i18n.ProductTermsShortName,
 			Help: i18n.ProductTermsShortNameHelp, Disabled: d.input != nil})
