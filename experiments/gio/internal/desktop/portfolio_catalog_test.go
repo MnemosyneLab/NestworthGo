@@ -398,6 +398,9 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	h := newShellHarnessWithPages(t, ledgerPages{portfolio: port})
 	h.size = image.Pt(820, 760)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.shell.preferences.language = i18n.English
+	h.shell.theme.Face = font.Typeface("DejaVu Sans")
+	h.locale = system.Locale{Language: "en-US"}
 	settle := func() {
 		for range 4 {
 			h.frame()
@@ -436,8 +439,13 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 		t.Fatalf("catalog changed the saved quote provenance: %+v", quote)
 	}
 	click(fmt.Sprintf(h.shell.preferences.language.Text(i18n.PortfolioCatalogOpen), instrument.DisplayLabel()))
-	if port.id != instrument.ID || port.current.instrument == nil || len(port.current.positions) != 0 {
-		t.Fatal("unheld instrument did not open restored instrument details")
+	if port.id != instrument.ID || port.current == nil || port.current.instrument == nil || len(port.current.positions) != 0 {
+		hasInstrument, positionCount := false, -1
+		if port.current != nil {
+			hasInstrument, positionCount = port.current.instrument != nil, len(port.current.positions)
+		}
+		t.Fatalf("unheld instrument detail action ended with id=%s (want %s), instrument=%v, positions=%d",
+			port.id, instrument.ID, hasInstrument, positionCount)
 	}
 	click("Back")
 	if port.tabs.active != portfolioInstruments || port.catalog.search.Field.Text() != "qa-bond" {
