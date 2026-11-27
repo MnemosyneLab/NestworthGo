@@ -23,7 +23,7 @@ import (
 
 // These are representative native point geometries, NOT rendered native buttons.
 // The same production shell is used on all platforms in this test.
-var normalTitlebar = titlebarMetrics{active: true, buttonRight: 72, buttonBottom: 24}
+var normalTitlebar = titlebarMetrics{active: true, buttonRight: 72, buttonBottom: 24, buttonCenter: 17}
 
 func syntheticTitlebarHarness(t *testing.T) *previewHarness {
 	t.Helper()
@@ -83,6 +83,11 @@ func checkTitlebarControls(t *testing.T, h *previewHarness, record bool) {
 	if record {
 		labels = append(labels, "Record change")
 	}
+	if s.titlebar.buttonCenter > 0 {
+		if center := h.metric().Dp(s.titlebar.buttonCenter); absTitlebarPixel(toggle.Min.Y+toggle.Dy()/2-center) > 1 {
+			t.Fatalf("sidebar toggle %v does not share the native center %d", toggle, center)
+		}
+	}
 	last := toggle
 	for _, label := range labels {
 		b := semanticBounds(t, &h.router, label, false)
@@ -93,6 +98,9 @@ func checkTitlebarControls(t *testing.T, h *previewHarness, record bool) {
 			if b.Overlaps(drag) || toggle.Overlaps(drag) {
 				t.Fatalf("drag zone %v overlaps control %s %v or toggle %v", drag, label, b, toggle)
 			}
+		}
+		if absTitlebarPixel(b.Min.Y+b.Dy()/2-g.center) > 1 {
+			t.Fatalf("%s (%v) does not share the toolbar center %d", label, b, g.center)
 		}
 		last = b
 	}
@@ -342,3 +350,5 @@ func TestIntegratedTitlebarHostContract(t *testing.T) {
 		}
 	}
 }
+
+func absTitlebarPixel(value int) int { return max(value, -value) }

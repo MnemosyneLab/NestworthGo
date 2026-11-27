@@ -134,20 +134,20 @@ func (p *overviewPage) overviewTaskSummary(view ui.View) layout.Widget {
 	}
 	counts := [3]*int{attention, s.review, s.sessions}
 	fields := []ui.ColumnChild{ui.Rigid(view.Hairline), ui.Rigid(tradeTitle(view, i18n.NavTasks))}
-	for i, count := range counts {
-		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+	fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return (ui.Wrap{Gap: ui.Space4, Middle: true}).Layout(gtx, len(counts), func(gtx layout.Context, i int) layout.Dimensions {
 			button := &s.links[i]
 			if button.Clicked(gtx) {
 				u.openTasks(tasksTab(i), button)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			label := l.Text(taskTabLabels[i])
-			if count != nil {
+			if count := counts[i]; count != nil {
 				label = fmt.Sprintf(l.Text(taskSummaryLabels[i]), *count)
 			}
-			return layout.W.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: label}))
-		}))
-	}
+			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: label})(gtx)
+		})
+	}))
 	if s.reviewErr != nil || s.reconErr != nil {
 		fields = append(fields, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if s.retry.Clicked(gtx) {

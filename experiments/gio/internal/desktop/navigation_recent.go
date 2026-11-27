@@ -13,7 +13,13 @@ import (
 )
 
 func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layout.Dimensions {
-	size := image.Pt(gtx.Dp(ui.ControlDefault), gtx.Dp(ui.ControlDefault))
+	control, buttonSize := ui.ControlDefault, ui.ButtonDefault
+	center := s.chrome.top + (s.chrome.height-s.chrome.top)/2
+	if s.titlebar.active {
+		control, buttonSize = ui.ControlSmall, ui.ButtonSmall
+		center = s.chrome.center
+	}
+	size := image.Pt(gtx.Dp(control), gtx.Dp(control))
 	gtx.Constraints = layout.Exact(size)
 	title := view.Language.Text(i18n.NavigationRecent)
 	if len(s.trail.recent) == 0 {
@@ -24,7 +30,7 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 		for i := range s.trail.recent {
 			choices = append(choices, ui.Choice{ID: strconv.Itoa(i), Label: s.visitLabel(view.Language, &s.trail.recent[i])})
 		}
-		y := s.chrome.top + (s.chrome.height-s.chrome.top-size.Y)/2
+		y := center - size.Y/2
 		bounds := image.Rectangle{Min: image.Pt(anchorX, y), Max: image.Pt(anchorX+size.X, y+size.Y)}
 		previous := &s.forward
 		if s.trail.adjacent(1) == nil {
@@ -40,7 +46,7 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 			gtx.Execute(op.InvalidateCmd{})
 		})
 	}
-	dims := view.ButtonOf(&s.recentPicker.Trigger, ui.ButtonSpec{Variant: ui.ButtonGhost, Name: title, ShortName: title, Icon: recentIcon})(gtx)
+	dims := view.ButtonOf(&s.recentPicker.Trigger, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: buttonSize, Name: title, ShortName: title, Icon: recentIcon})(gtx)
 	s.recentHint.Layout(gtx, view, s.recentPicker.Trigger.Hovered(), title)
 	return dims
 }

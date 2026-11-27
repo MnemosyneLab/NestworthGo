@@ -82,7 +82,7 @@ func TestDataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevi
 	h.frame()
 	overview.workers.Wait()
 	h.frame()
-	h.click("View period coverage gaps", false)
+	h.click("Closed days with a valuation · 0 of 1", false)
 	h.frame()
 	p.workers.Wait()
 	h.frame()

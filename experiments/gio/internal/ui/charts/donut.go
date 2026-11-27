@@ -54,6 +54,8 @@ type DonutSpec struct {
 	// as the Wails overview does: each entry shows its share as a pill beside
 	// the amount instead of under it.
 	Compact bool
+	// StackLegend gives the chart its own row and scales the ring to the available width.
+	StackLegend bool
 }
 
 // Rows returns the text form of every slice in order, with the share appended
@@ -237,10 +239,12 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 	if spec.Compact {
 		sideBySide, diameterDp, gapDp = donutCompactSideBySide, donutCompactDiameter, ui.Space8
 	}
-	stacked := !ui.WidthAtLeast(gtx, inner, sideBySide)
+	stacked := spec.StackLegend || !ui.WidthAtLeast(gtx, inner, sideBySide)
 	gap := gtx.Dp(gapDp)
 	diameter := min(gtx.Dp(diameterDp), inner)
-	if !stacked {
+	if spec.StackLegend {
+		diameter = min(inner, max(gtx.Dp(200), min(gtx.Dp(300), inner*3/5)))
+	} else if !stacked {
 		diameter = min(diameter, inner*2/5)
 	} else if spec.Compact {
 		diameter = min(gtx.Dp(donutDiameter*2/3), inner)

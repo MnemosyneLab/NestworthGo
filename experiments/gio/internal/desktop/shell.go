@@ -13,6 +13,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -1360,9 +1361,13 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	return s.layoutHeaderChrome(gtx, view, func(gtx layout.Context) layout.Dimensions {
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
-			return layout.Inset{Left: 20, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			left := unit.Dp(20)
+			if s.titlebar.active {
+				left = 12
+			}
+			return layout.Inset{Left: left, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				gap := gtx.Dp(2)
-				x := s.chrome.split + gtx.Dp(20)
+				x := s.chrome.split + gtx.Dp(left)
 				direction := func(step int) layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions {
 						dims := s.navigationButton(gtx, view, step)

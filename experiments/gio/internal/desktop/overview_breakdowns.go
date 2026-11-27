@@ -66,7 +66,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: overviewBreakdownMoney(view, currency, summary.total, summary.liability),
-		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), Compact: true}
+		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), StackLegend: true}
 	bars := charts.BarSpec{Label: label, Messages: messages}
 	useDonut := summary.total.IsPositive()
 	for _, item := range summary.items {
@@ -98,7 +98,9 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 			if summary.quality.UnpricedCount > 0 {
 				rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewCompositionMissing), summary.quality.UnpricedCount), view.Colors.WarningInk)))
 			}
-			rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
+			if !useDonut {
+				rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
+			}
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				var dims layout.Dimensions
 				var events []charts.Event

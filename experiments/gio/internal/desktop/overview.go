@@ -520,11 +520,7 @@ func (p *overviewPage) totals(gtx layout.Context, view ui.View) layout.Dimension
 				return view.Line(gtx, ui.TextHero, hero, colors.Ink)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-					ui.Rigid(view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), p.current.value.Currency), colors.SecondaryInk)),
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
-					}))
+				return overviewEvidence(gtx, view, values.NetWorth.Quality, i18n.OverviewQuoteDates)
 			}),
 			layout.Rigid(view.Hairline),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {

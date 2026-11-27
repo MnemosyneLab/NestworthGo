@@ -42,9 +42,9 @@ static NSRect topLeftRect(NSView *view, NSRect rect) {
 
 // Measure actual, visible standard AppKit controls. An object returned by
 // standardWindowButton is not sufficient if Gio or AppKit hides it.
-static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right, CGFloat *bottom) {
+static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right, CGFloat *bottom, CGFloat *center) {
     NSUInteger visible = 0;
-    CGFloat r = 0, b = 0;
+    CGFloat r = 0, b = 0, centers = 0;
     for (NSButton *button in windowButtons(window)) {
         if (!button.superview || button.window != window || button.alphaValue <= 0 ||
             [button isHiddenOrHasHiddenAncestor]) continue;
@@ -56,10 +56,12 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
             visible++;
             r = MAX(r, NSMaxX(bounds));
             b = MAX(b, NSMaxY(bounds));
+            centers += NSMidY(bounds);
         }
     }
     if (right) *right = r;
     if (bottom) *bottom = b;
+    if (center) *center = visible ? centers / visible : 0;
     return visible;
 }
 
@@ -95,7 +97,7 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
     NSWindow *window = self.window;
     if (!window || view.window != window || window.contentView != view) {
         self.unavailable = YES;
-        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0, 0);
         return;
     }
     if (self.transition) return; // AppKit owns the full-screen animation.
@@ -105,14 +107,14 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
         !(window.styleMask & NSWindowStyleMaskTitled)))) {
         self.unavailable = YES;
         [self restore];
-        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0, 0);
         return;
     }
     if (!self.enabled) {
         [self restore];
         // Do not touch the initial system titlebar before Gio releases
         // ownership of its fallback decoration. Go acts on this preflight.
-        nestworthTitlebarChanged(self.token, NestworthTitlebarReady, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarReady, 0, 0, 0, 0, 0, 0);
         return;
     }
     BOOL firstInstall = !self.installed;
@@ -161,8 +163,8 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
         [view setNeedsDisplay:YES];
     }
     NSEdgeInsets safe = view.safeAreaInsets;
-    CGFloat right = 0, bottom = 0;
-    NSUInteger visible = visibleButtons(view, window, &right, &bottom);
+    CGFloat right = 0, bottom = 0, center = 0;
+    NSUInteger visible = visibleButtons(view, window, &right, &bottom, &center);
     // Every normal-window native control must really intersect the full
     // content view. If not, restore native decorations rather than putting
     // Gio controls on top of unknown button geometry.
@@ -170,10 +172,10 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
         right > NSWidth(view.bounds)/2 || bottom > NSHeight(view.bounds)/4)) {
         self.unavailable = YES;
         [self restore];
-        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(self.token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0, 0);
         return;
     }
-    nestworthTitlebarChanged(self.token, NestworthTitlebarIntegrated, ceil(right), ceil(bottom),
+    nestworthTitlebarChanged(self.token, NestworthTitlebarIntegrated, ceil(right), ceil(bottom), center,
         fullscreen ? ceil(safe.top) : 0, ceil(safe.left), ceil(safe.right));
 }
 @end
@@ -211,7 +213,7 @@ void nestworthTitlebarAttach(uintptr_t token, uintptr_t viewRef) {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSWindow *window = view.window;
         if (!window || window.contentView != view) {
-            nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+            nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0, 0);
             return;
         }
         if (!titlebars) titlebars = [NSMutableDictionary dictionary];
@@ -277,7 +279,7 @@ void nestworthTitlebarRefresh(uintptr_t token) {
 void nestworthTitlebarSetMode(uintptr_t token, int enabled, int dark, double width, double height) {
     NestworthTitlebar *s = titlebars[@(token)];
     if (!s) {
-        nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0);
+        nestworthTitlebarChanged(token, NestworthTitlebarUnavailable, 0, 0, 0, 0, 0, 0);
         return;
     }
     s.enabled = enabled != 0;
@@ -301,7 +303,7 @@ NestworthTitlebarProbe nestworthTitlebarProbe(uintptr_t token) {
     result.fullSize = (window.styleMask & NSWindowStyleMaskFullSizeContentView) != 0;
     result.fullscreen = (window.styleMask & NSWindowStyleMaskFullScreen) != 0;
     result.transition = s.transition;
-    result.visibleButtons = (int)visibleButtons(view, window, NULL, NULL);
+    result.visibleButtons = (int)visibleButtons(view, window, NULL, NULL, NULL);
     return result;
 }
 

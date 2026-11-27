@@ -88,7 +88,9 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 		MissingInputs: []domain.MissingInputView{{Kind: domain.MissingFXRate, BaseCurrency: "AUD", QuoteCurrency: "USD", AccountName: "Foreign debt"}},
 	}})
 	label("Incomplete valuation")
-	label("Base currency AUD")
+	if findPageLabel(&h.router, "Base currency AUD") != nil {
+		t.Fatal("net worth card still duplicates the base currency")
+	}
 	label("Net worth · Known net contribution")
 	label("A$128.75")
 	label("Unavailable")

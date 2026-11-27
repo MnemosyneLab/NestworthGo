@@ -535,14 +535,16 @@ func (p *availableFundsPage) sourceNavigationActions(view ui.View, key string, a
 }
 
 func fundsCard(view ui.View, title string, fields ...layout.Widget) layout.Widget {
+	return fundsCardWithHeader(view, view.Body(ui.TextHeading, title, view.Colors.Ink), fields...)
+}
+
+func fundsCardWithHeader(view ui.View, header layout.Widget, fields ...layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 			children := make([]layout.FlexChild, 0, len(fields)+2)
 			children = append(children,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return view.Body(ui.TextHeading, title, view.Colors.Ink)(gtx)
-				}),
+				layout.Rigid(header),
 				layout.Rigid(view.Hairline),
 			)
 			for _, field := range fields {

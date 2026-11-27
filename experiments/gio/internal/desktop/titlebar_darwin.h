@@ -24,5 +24,5 @@ void nestworthTitlebarUpdate(uintptr_t token, int dark, double width, double hei
 	double x1, double y1, double w1, double h1,
 	double x2, double y2, double w2, double h2);
 void nestworthTitlebarChanged(uintptr_t token, int status, double right, double bottom,
-	double top, double left, double safeRight);
+	double center, double top, double left, double safeRight);
 #endif
