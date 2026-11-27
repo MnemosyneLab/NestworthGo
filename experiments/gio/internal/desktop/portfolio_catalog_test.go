@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"math"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"gioui.org/font"
+	"gioui.org/io/input"
+	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -100,6 +103,36 @@ func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
 			if quote.Empty() || quote.Min.X <= identity.Min.X || quote.Max.X != edit.Max.X {
 				t.Fatalf("the compact catalog row should right-align its quote below the identity/actions: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
 			}
+			quotes := []image.Rectangle{
+				quote,
+				assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$101.00"),
+				assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$99.00"),
+			}
+			evidence := semanticBoundsContaining(&h.router,
+				language.Text(i18n.ChartSource)+": "+language.Text(i18n.PortfolioInstrumentQuoteManual))
+			if len(evidence) < 3 {
+				t.Fatalf("expected a visible quote source/evidence label for each catalog row, found %v", evidence)
+			}
+			actions := []image.Rectangle{
+				aaplActions, es3Actions,
+				semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), "QA-QQQ"), false),
+				aaplEdit, es3Edit,
+				semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), "QA-QQQ"), false),
+			}
+			contentBounds := make([]image.Rectangle, 0, len(quotes)+len(evidence))
+			for _, bounds := range quotes {
+				contentBounds = append(contentBounds, semanticTextLineBounds(bounds, ui.TextLabel))
+			}
+			for _, bounds := range evidence {
+				contentBounds = append(contentBounds, semanticTextLineBounds(bounds, ui.TextCaption))
+			}
+			for _, content := range contentBounds {
+				for _, target := range actions {
+					if !content.Intersect(target).Empty() {
+						t.Fatalf("catalog quote/evidence %v overlaps a trailing action hit target %v at %d×%d", content, target, width, height)
+					}
+				}
+			}
 		} else if quote.Min.X <= identity.Max.X || details.Min.X <= quote.Max.X || edit.Min.X <= details.Max.X {
 			t.Fatalf("the wide catalog row should keep quote and actions trailing across the identity row: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
 		}
@@ -113,17 +146,73 @@ func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
 		{i18n.English, settings.LanguageEnglish, "en-US", "DejaVu Sans"},
 		{i18n.SimplifiedChinese, settings.LanguageZhCN, "zh-CN", "Noto Sans CJK SC, DejaVu Sans"},
 	} {
-		h.shell.preferences.language = sample.language
-		h.shell.prefs.saved.Language = sample.setting
-		h.shell.theme.Face = font.Typeface(sample.face)
-		h.locale = system.Locale{Language: sample.system}
-		h.size = image.Pt(900, 600)
-		settle()
-		assertCatalogRows(sample.language, 900, 600)
-		h.size = image.Pt(1280, 800)
-		settle()
-		assertCatalogRows(sample.language, 1280, 800)
+		for _, appearance := range []settings.Appearance{settings.AppearanceLight, settings.AppearanceDark} {
+			h.shell.preferences.language = sample.language
+			h.shell.prefs.saved.Language = sample.setting
+			h.shell.prefs.saved.Appearance = appearance
+			h.shell.theme.Face = font.Typeface(sample.face)
+			h.locale = system.Locale{Language: sample.system}
+			h.size = image.Pt(900, 600)
+			settle()
+			assertCatalogRows(sample.language, 900, 600)
+
+			instrument := portfolio.current.catalog.instruments[0]
+			foundInstrument := false
+			for _, item := range portfolio.current.catalog.instruments {
+				if item.Symbol != nil && *item.Symbol == "QA-AAPL" {
+					instrument = item
+					foundInstrument = true
+					break
+				}
+			}
+			if !foundInstrument {
+				t.Fatal("QA-AAPL was not present in the measured catalog fixture")
+			}
+			h.click(fmt.Sprintf(sample.language.Text(i18n.PortfolioCatalogOpen), "QA-AAPL"), false)
+			settle()
+			if portfolio.id != instrument.ID || portfolio.current == nil || portfolio.current.instrument == nil || portfolio.current.instrument.ID != instrument.ID {
+				t.Fatalf("the 900×600 %v %v Details hit target did not open QA-AAPL: id %s, current %+v", sample.language, appearance, portfolio.id, portfolio.current)
+			}
+			h.click(sample.language.Text(i18n.NavigationBack), false)
+			settle()
+			h.click(fmt.Sprintf(sample.language.Text(i18n.PortfolioCatalogEditNamed), "QA-AAPL"), false)
+			settle()
+			if draft := portfolio.catalog.draft; draft == nil || draft.instrument.ID != instrument.ID {
+				t.Fatalf("the 900×600 %v %v Edit hit target did not open QA-AAPL: draft %+v", sample.language, appearance, draft)
+			}
+			h.press(key.NameEscape)
+			settle()
+			if portfolio.catalog.draft != nil {
+				t.Fatalf("Escape did not close the 900×600 %v %v QA-AAPL editor", sample.language, appearance)
+			}
+
+			h.size = image.Pt(1280, 800)
+			settle()
+			assertCatalogRows(sample.language, 1280, 800)
+		}
 	}
+}
+
+func semanticBoundsContaining(router *input.Router, part string) []image.Rectangle {
+	var bounds []image.Rectangle
+	var visit func([]input.SemanticNode)
+	visit = func(nodes []input.SemanticNode) {
+		for _, node := range nodes {
+			if strings.Contains(node.Desc.Label, part) {
+				bounds = append(bounds, node.Desc.Bounds)
+			}
+			visit(node.Children)
+		}
+	}
+	visit(router.AppendSemantics(nil))
+	return bounds
+}
+
+// A scroll-row semantic label inherits Gio's unbounded scroll-axis max. Use
+// its actual type-scale line box for collision checks against clickable bounds.
+func semanticTextLineBounds(bounds image.Rectangle, style ui.TextStyle) image.Rectangle {
+	height := int(math.Ceil(float64(style.Size) * float64(style.LineHeight)))
+	return image.Rect(bounds.Min.X, bounds.Min.Y, bounds.Max.X, bounds.Min.Y+height)
 }
 
 func TestMarketRowActionLayoutKeepsNarrowAndLongLabelFallback(t *testing.T) {

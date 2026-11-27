@@ -550,28 +550,33 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 						}
 						return layout.Flex{Axis: layout.Vertical, Alignment: layout.End, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, children...)
 					}
-					topLine := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-						layout.Rigid(tile),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							return view.Line(gtx, ui.TextLabel, spec.name, colors.Ink)
-						}),
-						layout.Rigid(buttons),
-					)
-					metadataLine := layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return layout.Spacer{Width: ui.Space32 + ui.Space12}.Layout(gtx)
-						}),
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-							width := gtx.Constraints.Max.X
-							dims := metadata(gtx)
-							dims.Size.X = width
-							return dims
-						}),
-						layout.Flexed(1, figuresEnd),
-					)
+					// Flex records operations at the current origin. Build each row
+					// inside Column's child callback so its text, quote, and actions
+					// are replayed together at that row's actual vertical offset.
 					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-						ui.Rigid(func(gtx layout.Context) layout.Dimensions { return topLine }),
-						ui.Rigid(func(gtx layout.Context) layout.Dimensions { return metadataLine }),
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+								layout.Rigid(tile),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return view.Line(gtx, ui.TextLabel, spec.name, colors.Ink)
+								}),
+								layout.Rigid(buttons),
+							)
+						}),
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layout.Spacer{Width: ui.Space32 + ui.Space12}.Layout(gtx)
+								}),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									width := gtx.Constraints.Max.X
+									dims := metadata(gtx)
+									dims.Size.X = width
+									return dims
+								}),
+								layout.Flexed(1, figuresEnd),
+							)
+						}),
 					)
 				}
 				fill := func(w layout.Widget) layout.Widget {
