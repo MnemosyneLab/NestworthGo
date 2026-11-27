@@ -136,7 +136,6 @@ func (p *accountsPage) layoutAccountRecord(gtx layout.Context, view ui.View) lay
 		return layout.Dimensions{}
 	}
 	rows := []ui.ColumnChild{
-		ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.LiabilityRecord), view.Colors.Ink)),
 		ui.Rigid(view.Body(ui.TextLabel, p.name(), view.Colors.Ink)),
 	}
 	if row := p.freshDetail(); row != nil {

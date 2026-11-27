@@ -521,7 +521,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 						return layoutAccountAmounts(gtx, view, accountAmountLines(view, row, false), layout.End)
 					}),
 					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.E.Layout(gtx, view.Body(ui.TextCaption, valuationReadTime(view, p.current.readAt), view.Colors.SecondaryInk))
+						return view.LineEnd(gtx, ui.TextCaption, valuationReadTime(view, p.current.readAt), view.Colors.SecondaryInk)
 					}),
 				)
 			}

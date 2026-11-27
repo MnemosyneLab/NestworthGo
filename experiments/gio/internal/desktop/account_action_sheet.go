@@ -29,10 +29,11 @@ func (p *accountsPage) accountActionTitle() i18n.MessageID {
 		return i18n.AccountMaintenanceEdit
 	case p.productSetup != nil:
 		return i18n.ProductAddAction
+	case p.balanceTarget != nil && p.balanceTarget.draft != nil:
+		return balanceTargetCopyFor(p.balanceTarget.draft.account).action
 	case p.detail.record.open || p.detail.cashActions.active() ||
 		p.liabilityPosting != nil && p.liabilityPosting.draft != nil ||
 		p.cashBalance != nil && p.cashBalance.draft != nil ||
-		p.balanceTarget != nil && p.balanceTarget.draft != nil ||
 
 		p.investment != nil && p.investment.draft != nil:
 		return i18n.LiabilityRecord

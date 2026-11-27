@@ -72,9 +72,6 @@ func (p *accountsPage) layoutBalanceTarget(gtx layout.Context, view ui.View) lay
 	preview := d.previewing == nil && d.prepare.Clicked(gtx)
 	origin := view.Origin
 	fields := []layout.Widget{
-		func(gtx layout.Context) layout.Dimensions {
-			return view.Label(gtx, l.Text(copy.action), 19, font.Medium, view.Colors.Ink)
-		},
 		view.Message(d.account.Name, view.Colors.Ink),
 		func(gtx layout.Context) layout.Dimensions {
 			if d.focus && gtx.Enabled() {
