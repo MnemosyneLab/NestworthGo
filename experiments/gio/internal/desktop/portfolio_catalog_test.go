@@ -15,6 +15,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/system"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -92,26 +93,31 @@ func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
 			t.Fatalf("the measured ETF row height should keep QQQ near ES3 in the viewport: ES3 %v, QQQ %v", es3, qqq)
 		}
 		identity := aapl
-		quote := assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$203.00")
+		quoteLabel := fmt.Sprintf(language.Text(i18n.MarketLatestPrice), "US$203.00")
+		quote := assertPageLabel(t, &h.router, quoteLabel)
 		details := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), "QA-AAPL"), false)
 		edit := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), "QA-AAPL"), false)
 		if quote.Empty() || details.Empty() || edit.Empty() || absTitlebarPixel(details.Min.Y-identity.Min.Y) > 12 || absTitlebarPixel(details.Min.Y-edit.Min.Y) > 1 {
 			t.Fatalf("the measured %d×%d catalog identity and action controls should share a compact top line: identity %v, quote %v, details %v, edit %v",
 				width, height, identity, quote, details, edit)
 		}
+		asOfPrefix := strings.TrimSpace(strings.Split(language.Text(i18n.PortfolioInstrumentQuoteAsOf), "%s")[0])
+		evidence := semanticBoundsContaining(&h.router, asOfPrefix)
+		if len(evidence) < 3 || absTitlebarPixel(evidence[0].Min.Y-quote.Min.Y) > 1 {
+			t.Fatalf("the catalog should keep quote and Wails-style as-of evidence on one line at %d×%d: quote %v, evidence %v", width, height, quote, evidence)
+		}
+		sourceBadges := semanticBoundsContaining(&h.router, language.Text(i18n.PortfolioInstrumentQuoteManual))
+		if len(sourceBadges) < 3 {
+			t.Fatalf("expected the configured source badge on each catalog row, found %v", sourceBadges)
+		}
 		if width == 900 {
-			if quote.Empty() || quote.Min.X <= identity.Min.X || quote.Max.X != edit.Max.X {
-				t.Fatalf("the compact catalog row should right-align its quote below the identity/actions: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
+			if quote.Empty() || quote.Min.Y <= details.Min.Y {
+				t.Fatalf("the compact catalog row should put its single quote/evidence line below identity/actions: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
 			}
 			quotes := []image.Rectangle{
 				quote,
-				assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$101.00"),
-				assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$99.00"),
-			}
-			evidence := semanticBoundsContaining(&h.router,
-				language.Text(i18n.ChartSource)+": "+language.Text(i18n.PortfolioInstrumentQuoteManual))
-			if len(evidence) < 3 {
-				t.Fatalf("expected a visible quote source/evidence label for each catalog row, found %v", evidence)
+				assertPageLabel(t, &h.router, fmt.Sprintf(language.Text(i18n.MarketLatestPrice), "US$101.00")),
+				assertPageLabel(t, &h.router, fmt.Sprintf(language.Text(i18n.MarketLatestPrice), "US$99.00")),
 			}
 			actions := []image.Rectangle{
 				aaplActions, es3Actions,
@@ -133,8 +139,15 @@ func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
 					}
 				}
 			}
-		} else if quote.Min.X <= identity.Max.X || details.Min.X <= quote.Max.X || edit.Min.X <= details.Max.X {
-			t.Fatalf("the wide catalog row should keep quote and actions trailing across the identity row: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
+		} else {
+			measureOps := new(op.Ops)
+			measureGtx := layout.Context{Ops: measureOps, Metric: h.metric(), Locale: system.Locale{Language: string(language)},
+				Constraints: layout.Constraints{Max: image.Pt(width, height)}}
+			measureView := ui.View{Theme: h.shell.theme, Colors: h.shell.preferences.colors(), Language: language}
+			identityEnd := identity.Min.X + marketTextWidth(measureGtx, measureView, ui.TextLabel, "QA-AAPL")
+			if quote.Min.X <= identityEnd || details.Min.X <= quote.Max.X || edit.Min.X <= details.Max.X {
+				t.Fatalf("the wide catalog row should keep quote and actions trailing across the identity row: identity %v, quote %v, details %v, edit %v", identity, quote, details, edit)
+			}
 		}
 	}
 	for _, sample := range []struct {
@@ -234,7 +247,7 @@ func TestMarketRowActionLayoutKeepsNarrowAndLongLabelFallback(t *testing.T) {
 			}
 			spec := marketRowSpec{
 				icon: lucide.TrendingUp, name: name, caption: "Synthetic issuer full name", badges: marketBadges(view, "USD", domain.QuoteSourceManual),
-				value: lang.Text(i18n.PortfolioInstrumentLatestQuote) + " · US$203.00", evidence: "Manual · Nov 27, 2026, 8:00 AM",
+				value: fmt.Sprintf(lang.Text(i18n.MarketLatestPrice), "US$203.00"), evidence: "as of Nov 27, 2026, 8:00 AM",
 				catalogActions: true, actionLabels: []string{lang.Text(i18n.PortfolioCatalogDetails), lang.Text(i18n.InstitutionsEdit)},
 			}
 			row := marketQuoteRow(view, true, true, spec, actions)
@@ -248,11 +261,11 @@ func TestMarketRowActionLayoutKeepsNarrowAndLongLabelFallback(t *testing.T) {
 	assertCompact := func(h *previewHarness, height int, language i18n.Language, name string) {
 		t.Helper()
 		identity := assertPageLabel(t, &h.router, name)
-		quote := assertPageLabel(t, &h.router, language.Text(i18n.PortfolioInstrumentLatestQuote)+" · US$203.00")
+		quote := assertPageLabel(t, &h.router, fmt.Sprintf(language.Text(i18n.MarketLatestPrice), "US$203.00"))
 		details := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), name), false)
 		edit := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), name), false)
 		if height > 110 || absTitlebarPixel(details.Min.Y-identity.Min.Y) > 12 || absTitlebarPixel(details.Min.Y-edit.Min.Y) > 1 ||
-			quote.Empty() || quote.Max.X != edit.Max.X {
+			quote.Empty() || quote.Min.Y <= details.Min.Y {
 			t.Fatalf("compact row geometry should keep actions with identity and quote/timestamp right-aligned below: height %d, identity %v, quote %v, details %v, edit %v", height, identity, quote, details, edit)
 		}
 	}
@@ -261,17 +274,35 @@ func TestMarketRowActionLayoutKeepsNarrowAndLongLabelFallback(t *testing.T) {
 	chinese, chineseHeight := render(900, "QA-AAPL", i18n.SimplifiedChinese, settings.LanguageZhCN, "Noto Sans CJK SC, DejaVu Sans", "zh-CN")
 	assertCompact(chinese, chineseHeight.Y, i18n.SimplifiedChinese, "QA-AAPL")
 	narrow, narrowHeight := render(400, "QA-AAPL", i18n.English, settings.LanguageEnglish, "DejaVu Sans", "en-US")
-	narrowQuote := assertPageLabel(t, &narrow.router, "Latest quote · US$203.00")
+	narrowQuote := assertPageLabel(t, &narrow.router, "Latest: US$203.00")
 	narrowDetails := semanticBounds(t, &narrow.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioCatalogOpen), "QA-AAPL"), false)
 	if narrowHeight.Y <= compactHeight.Y || narrowDetails.Min.Y <= narrowQuote.Min.Y {
 		t.Fatalf("a narrow viewport should stack row actions below quote details: compact %v, narrow %v, quote %v, actions %v", compactHeight, narrowHeight, narrowQuote, narrowDetails)
 	}
 	longName := strings.Repeat("Long synthetic issuer identity ", 8)
 	long, longHeight := render(900, longName, i18n.English, settings.LanguageEnglish, "DejaVu Sans", "en-US")
-	longQuote := assertPageLabel(t, &long.router, "Latest quote · US$203.00")
+	longQuote := assertPageLabel(t, &long.router, "Latest: US$203.00")
 	longDetails := semanticBounds(t, &long.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioCatalogOpen), longName), false)
 	if longHeight.Y <= compactHeight.Y || longDetails.Min.Y <= longQuote.Min.Y {
 		t.Fatalf("a long identity should retain the stacked fallback: compact %v, long %v, quote %v, actions %v", compactHeight, longHeight, longQuote, longDetails)
+	}
+}
+
+func TestPortfolioCatalogQuoteEvidenceMatchesConfiguredSourceSemantics(t *testing.T) {
+	view := ui.View{Language: i18n.English, TimeLocation: time.UTC, TimeFormat: "24h", DateFormat: settings.DateFormatISO}
+	instrument := domain.Instrument{QuoteSource: domain.QuoteSourceManual}
+	quotedAt := time.Date(2026, 11, 27, 8, 0, 0, 0, time.UTC)
+	configured := domain.InstrumentQuote{SourceKind: domain.QuoteSourceManual, SourceKey: "manual", QuotedAt: quotedAt}
+	if got := instrumentCatalogQuoteEvidence(view, instrument, configured); !strings.HasPrefix(got, "as of ") || strings.Contains(got, "Manual") {
+		t.Fatalf("the configured source should appear once in the identity badge while the quote line shows its time: %q", got)
+	}
+	provider := configured
+	provider.SourceKind, provider.SourceKey, provider.Delayed = domain.QuoteSourceProvider, "yahoo_finance", true
+	got := instrumentCatalogQuoteEvidence(view, instrument, provider)
+	for _, part := range []string{"as of ", "Provider · yahoo_finance", "Delayed"} {
+		if !strings.Contains(got, part) {
+			t.Fatalf("the catalog quote omitted additional provenance %q: %q", part, got)
+		}
 	}
 }
 
@@ -523,7 +554,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	setBankField(h, "Search instruments", &port.catalog.search.Field, "qa-bond")
 	settle()
 	assertPageLabel(t, &h.router, instrument.DisplayLabel())
-	assertPageLabel(t, &h.router, "Latest quote · US$5.6789123")
+	assertPageLabel(t, &h.router, fmt.Sprintf(h.shell.preferences.language.Text(i18n.MarketLatestPrice), "US$5.6789123"))
 	if quote := port.current.catalog.quotes[instrument.ID]; quote == nil || !quote.QuotedAt.Equal(quotedAt) || quote.SourceKind != domain.QuoteSourceManual {
 		t.Fatalf("catalog changed the saved quote provenance: %+v", quote)
 	}

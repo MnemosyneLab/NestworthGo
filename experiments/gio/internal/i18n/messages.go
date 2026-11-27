@@ -1676,6 +1676,7 @@ const (
 	PortfolioInstrumentMetal
 	PortfolioInstrumentBankProduct
 	PortfolioInstrumentMarketNote
+	PortfolioPerformanceInfo
 	PortfolioInstrumentDataNote
 	PortfolioInstrumentLatestQuote
 	PortfolioInstrumentQuoteManual

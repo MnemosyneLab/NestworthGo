@@ -1710,6 +1710,7 @@ var englishCatalog = catalog{
 	PortfolioInstrumentMetal:          "Precious metal",
 	PortfolioInstrumentBankProduct:    "Bank investment product",
 	PortfolioInstrumentMarketNote:     "Price and NAV changes describe this instrument, not your personal return.",
+	PortfolioPerformanceInfo:          "About price performance",
 	PortfolioInstrumentDataNote:       "Raw quote dates and sources are shown separately from your holdings.",
 	PortfolioInstrumentLatestQuote:    "Latest quote",
 	PortfolioInstrumentQuoteManual:    "Manual",

@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -53,6 +54,7 @@ type instrumentPerformanceVisit struct {
 	selected    charts.Selection
 	tableOpen   bool
 	tableScroll layout.Position
+	infoOpen    bool
 }
 
 type instrumentPerformance struct {
@@ -63,17 +65,20 @@ type instrumentPerformance struct {
 	chart             charts.LineChart
 	table             chartDataTable
 	selected          charts.Selection
+	info              widget.Clickable
+	infoOpen          bool
 	attribution       widget.Clickable
 	attributionCopied bool
 }
 
 func (p *instrumentPerformance) visit() instrumentPerformanceVisit {
-	return instrumentPerformanceVisit{period: p.period, selected: p.selected, tableOpen: p.table.open, tableScroll: p.table.list.Position}
+	return instrumentPerformanceVisit{period: p.period, selected: p.selected, tableOpen: p.table.open, tableScroll: p.table.list.Position, infoOpen: p.infoOpen}
 }
 
 func (p *instrumentPerformance) restore(v instrumentPerformanceVisit) {
 	p.period, p.selected = v.period, v.selected
 	p.table.open, p.table.list.Position = v.tableOpen, v.tableScroll
+	p.infoOpen = v.infoOpen
 	p.attributionCopied = false
 }
 
@@ -165,13 +170,15 @@ func (perf *instrumentPerformance) seriesRows(view ui.View, instrument domain.In
 	if perf.series.request == nil && perf.series.value == nil && perf.series.err == nil {
 		perf.series.load(ctx, workers, invalidate, readSeries)
 	}
-	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
-		fields := []ui.ColumnChild{
-			ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentMarketNote), view.Colors.SecondaryInk)),
-			ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioMarketPerformance), view.Colors.Ink)),
-			ui.Rigid(perf.periodButtons(view)),
+	data := perf.series.value
+	return []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+		fields := []ui.ColumnChild{ui.Rigid(perf.controls(view, data, period))}
+		if perf.infoOpen {
+			fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentMarketNote), view.Colors.SecondaryInk)))
+			if instrument.UsesMetalConversion() {
+				fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.QuoteHistoryMetalReference), view.Colors.SecondaryInk)))
+			}
 		}
-		data := perf.series.value
 		switch {
 		case perf.series.err != nil:
 			if perf.series.retry.Clicked(gtx) {
@@ -182,45 +189,83 @@ func (perf *instrumentPerformance) seriesRows(view ui.View, instrument domain.In
 				ui.Rigid(returnMonthButton(view, &perf.series.retry, i18n.HistoryRetry, nil, true)))
 		case data == nil || period != perf.period:
 			fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.MarketLoading), view.Colors.SecondaryInk)))
-		case data.Item == nil:
-			fields = append(fields, ui.Rigid(view.Message(l.Text(performanceUnavailable(data.UnavailableReason)), view.Colors.SecondaryInk)))
-		default:
-			value, ink := instrumentPerformancePercent(view, data.Item.PeriodPercent, true)
-			fields = append(fields, ui.Rigid(view.Body(ui.TextMetricLG, value, ink)))
-		}
-		if data != nil && period == perf.period && len(data.Points) == 0 {
+		case data.Item == nil && len(data.Points) == 0:
 			fields = append(fields,
 				ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioPerformanceEmpty), view.Colors.Ink)),
 				ui.Rigid(view.Message(l.Text(i18n.PortfolioPerformanceEmptyHint), view.Colors.SecondaryInk)))
 		}
-		if data != nil && period == perf.period && data.From != "" && data.To != "" {
-			fields = append(fields, ui.Rigid(view.Message(performanceDateRange(view, data.From, data.To), view.Colors.SecondaryInk)))
-		}
-		fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.PortfolioPerformanceBasis), view.Colors.SecondaryInk)))
-		if instrument.UsesMetalConversion() {
-			fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.QuoteHistoryMetalReference), view.Colors.SecondaryInk)))
+		if data != nil && period == perf.period && len(data.Points) > 0 {
+			spec := instrumentPerformanceChart(view, instrument, *data)
+			observations := make([]domain.QuoteSeriesPoint, len(data.Points))
+			for i, point := range data.Points {
+				observations[len(data.Points)-1-i] = performanceObservation(point, instrument.QuoteCurrency)
+			}
+			fields = append(fields, ui.Rigid(analysisLineBodyTable(view, &perf.chart, spec, &perf.selected, &perf.table, len(data.Points), func(charts.LineSpec) charts.Table {
+				return quoteObservationsTable(view, observations, marketFXPair{}, &instrument)
+			})))
 		}
 		if instrument.ProviderKey != nil && *instrument.ProviderKey == application.CoinGeckoProviderKey {
 			fields = append(fields, ui.Rigid(quoteHistoryAttribution(view, &perf.attribution, &perf.attributionCopied)))
 		}
 		return overviewBreakdownCard(gtx, view, fields)
 	}}
-	if data := perf.series.value; data != nil && len(data.Points) > 0 {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			if period != perf.period {
-				return layout.Dimensions{}
+}
+
+func (perf *instrumentPerformance) controls(view ui.View, data *domain.QuotePerformanceSeries, period instrumentPerformancePeriod) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		l := view.Language
+		value, ink := "—", view.Colors.SecondaryInk
+		date := ""
+		if data != nil && period == perf.period {
+			if data.Item != nil {
+				value, ink = instrumentPerformancePercent(view, data.Item.PeriodPercent, true)
+				date = performanceDateRange(view, data.Item.BaselineOn, data.Item.LatestOn)
+			} else {
+				date = l.Text(performanceUnavailable(data.UnavailableReason))
 			}
-			spec := instrumentPerformanceChart(view, instrument, *data)
-			return analysisLineCardTable(view, &perf.chart, spec, &perf.selected, &perf.table, len(data.Points), func(charts.LineSpec) charts.Table {
-				observations := make([]domain.QuoteSeriesPoint, len(data.Points))
-				for i, point := range data.Points {
-					observations[len(data.Points)-1-i] = performanceObservation(point, instrument.QuoteCurrency)
-				}
-				return quoteObservationsTable(view, observations, marketFXPair{}, &instrument)
-			})(gtx)
-		})
+		}
+		if perf.info.Clicked(gtx) {
+			perf.infoOpen = !perf.infoOpen
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		info := func(gtx layout.Context) layout.Dimensions {
+			view.Focus.Watch(gtx, &perf.info)
+			return view.ButtonOf(&perf.info, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact,
+				Name: l.Text(i18n.PortfolioPerformanceInfo), ShortName: l.Text(i18n.PortfolioPerformanceInfo),
+				Icon: lucide.Info, Toggle: true, Selected: perf.infoOpen})(gtx)
+		}
+		metric := func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+				ui.Rigid(view.Body(ui.TextMetricLG, value, ink)),
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+							return view.Line(gtx, ui.TextCaption, date, view.Colors.SecondaryInk)
+						}), layout.Rigid(info))
+				}),
+			)
+		}
+		if performanceControlsFit(gtx, view, date) {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+				layout.Flexed(1, metric), layout.Rigid(perf.periodButtons(view)))
+		}
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx,
+			ui.Rigid(metric), ui.Rigid(perf.periodButtons(view)))
 	}
-	return rows
+}
+
+func performanceControlsFit(gtx layout.Context, view ui.View, date string) bool {
+	periodWidth := 0
+	for index, choice := range instrumentPerformancePeriods {
+		if index > 0 {
+			periodWidth += gtx.Dp(ui.Space4)
+		}
+		periodWidth += marketTextWidth(gtx, view, ui.TextCaption, view.Language.Text(choice.short)) + 2*gtx.Dp(ui.Space8)
+	}
+	metricWidth := marketTextWidth(gtx, view, ui.TextMetricLG, "+100.00%")
+	dateWidth := marketTextWidth(gtx, view, ui.TextCaption, date)
+	infoWidth := gtx.Dp(ui.ControlCompact + ui.Space8)
+	return gtx.Constraints.Max.X >= max(metricWidth, dateWidth)+infoWidth+periodWidth+gtx.Dp(ui.Space16)
 }
 
 func (p *instrumentPerformance) periodButtons(view ui.View) layout.Widget {

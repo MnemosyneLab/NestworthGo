@@ -292,6 +292,9 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 	}
 	managed := catalog.managed[item.ID.String()] != ""
 	badges := marketBadges(view, item.QuoteCurrency.String(), item.QuoteSource)
+	if source := instrumentQuoteSources[item.QuoteSource]; source != i18n.NoMessage && len(badges) > 0 {
+		badges[len(badges)-1].text = l.Text(source)
+	}
 	if item.ArchivedAt != nil {
 		badges = append(badges, marketBadge{ui.BadgeNeutral, l.Text(i18n.DirectoryArchived)})
 	}
@@ -302,10 +305,10 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 	if icon == nil {
 		icon = lucide.TrendingUp
 	}
-	value, evidence := l.Text(i18n.MarketNoQuote), ""
+	value, evidence := l.Text(i18n.MarketNoCurrentPrice), ""
 	if q := catalog.quotes[item.ID]; q != nil {
-		value = l.Text(i18n.PortfolioInstrumentLatestQuote) + " · " + instrumentCurrentQuotePrice(view, item, *q)
-		evidence = instrumentCurrentQuoteEvidence(view, *q)
+		value = fmt.Sprintf(l.Text(i18n.MarketLatestPrice), instrumentCurrentQuotePrice(view, item, *q))
+		evidence = instrumentCatalogQuoteEvidence(view, item, *q)
 	} else if catalog.quoteErrors[item.ID] {
 		value = l.Text(i18n.PortfolioCatalogQuoteUnavailable)
 	}
@@ -341,10 +344,39 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			actionLabels = append(actionLabels, l.Text(i18n.InstitutionsEdit))
 		}
 		return marketQuoteRow(view, first, last, marketRowSpec{
-			icon: icon, name: title, caption: caption, badges: badges, value: value, evidence: evidence,
+			icon: icon, name: title, subtitle: caption, badges: badges, value: value, evidence: evidence,
 			catalogActions: true, actionLabels: actionLabels,
 		}, buttons)(gtx)
 	}
+}
+
+func instrumentCatalogQuoteEvidence(view ui.View, instrument domain.Instrument, quote domain.InstrumentQuote) string {
+	l := view.Language
+	var parts []string
+	day := ""
+	if quote.TimestampBasis == "date_label" {
+		day = quote.EffectiveDate
+	}
+	if stamp := strings.TrimPrefix(portfolioQuoteStamp(view, "", day, quote.QuotedAt), " · "); stamp != "" {
+		parts = append(parts, fmt.Sprintf(l.Text(i18n.PortfolioInstrumentQuoteAsOf), stamp))
+	}
+	if quote.SourceKey != "" && quote.SourceKey != string(quote.SourceKind) {
+		source := l.Text(instrumentQuoteSources[quote.SourceKind])
+		if source == "" {
+			source = l.Text(i18n.MarketNoSource)
+		}
+		parts = append(parts, source+" · "+quote.SourceKey)
+	} else if quote.SourceKind != instrument.QuoteSource {
+		source := l.Text(instrumentQuoteSources[quote.SourceKind])
+		if source == "" {
+			source = l.Text(i18n.MarketNoSource)
+		}
+		parts = append(parts, source)
+	}
+	if quote.Delayed {
+		parts = append(parts, l.Text(i18n.MarketDelayed))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func (p *portfolioPage) saveCatalogInstrument(archive bool) {

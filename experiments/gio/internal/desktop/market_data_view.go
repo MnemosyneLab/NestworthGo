@@ -3,6 +3,7 @@ package desktop
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"slices"
 	"strings"
 	"time"
@@ -383,6 +384,10 @@ func marketRowActionsAreTrailing(gtx layout.Context, view ui.View, spec marketRo
 }
 
 func marketRowActionsMinimumWidth(gtx layout.Context, view ui.View, spec marketRowSpec, actionCount int) int {
+	if spec.catalogActions {
+		return marketCatalogIdentityWidth(gtx, view, spec) + marketCatalogQuoteWidth(gtx, view, spec) +
+			marketCatalogActionWidth(gtx, view, spec.actionLabels) + 2*gtx.Dp(ui.Space12)
+	}
 	leftWidth := max(
 		marketTextWidth(gtx, view, ui.TextLabel, spec.name),
 		marketTextWidth(gtx, view, ui.TextCaption, spec.subtitle),
@@ -398,16 +403,9 @@ func marketRowActionsMinimumWidth(gtx layout.Context, view ui.View, spec marketR
 	children, fixed := 3, gtx.Dp(32)
 	if actionCount > 0 {
 		children++
-		if spec.catalogActions {
-			fixed += marketCatalogActionWidth(gtx, view, spec.actionLabels)
-		} else {
-			fixed += min(gtx.Constraints.Max.X, gtx.Dp(300))
-		}
+		fixed += min(gtx.Constraints.Max.X, gtx.Dp(300))
 	}
 	fixed += gtx.Dp(ui.Space16) * (children - 1)
-	if spec.catalogActions {
-		return fixed + leftWidth + figureWidth
-	}
 	return fixed + 2*max(leftWidth, figureWidth)
 }
 
@@ -438,25 +436,38 @@ func marketCatalogMetadataWidth(gtx layout.Context, view ui.View, spec marketRow
 	return width
 }
 
+func marketCatalogIdentityWidth(gtx layout.Context, view ui.View, spec marketRowSpec) int {
+	labelWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.name),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.subtitle),
+	)
+	width := gtx.Dp(20+ui.Space8) + labelWidth
+	if len(spec.badges) > 0 {
+		width += gtx.Dp(ui.Space8) + marketCatalogMetadataWidth(gtx, view, spec)
+	}
+	return width
+}
+
+func marketCatalogQuoteWidth(gtx layout.Context, view ui.View, spec marketRowSpec) int {
+	width := marketTextWidth(gtx, view, ui.TextLabel, spec.value)
+	if spec.evidence != "" {
+		width += gtx.Dp(ui.Space8) + marketTextWidth(gtx, view, ui.TextCaption, spec.evidence)
+	}
+	return width
+}
+
 func marketCatalogCompactFits(gtx layout.Context, view ui.View, spec marketRowSpec) bool {
 	if !spec.catalogActions || len(spec.actionLabels) == 0 {
 		return false
 	}
 	innerWidth := gtx.Constraints.Max.X
-	iconWidth, gap := gtx.Dp(32), gtx.Dp(ui.Space12)
-	identityWidth := marketTextWidth(gtx, view, ui.TextLabel, spec.name)
+	gap := gtx.Dp(ui.Space12)
+	identityWidth := marketCatalogIdentityWidth(gtx, view, spec)
 	actionWidth := marketCatalogActionWidth(gtx, view, spec.actionLabels)
-	if iconWidth+2*gap+identityWidth+actionWidth > innerWidth {
+	if identityWidth+gap+actionWidth > innerWidth {
 		return false
 	}
-	valueWidth := marketTextWidth(gtx, view, ui.TextLabel, spec.value)
-	evidenceWidth := marketTextWidth(gtx, view, ui.TextCaption, spec.evidence)
-	figureWidth := max(valueWidth, evidenceWidth)
-	indent := iconWidth + gap
-	columnWidth := (innerWidth - indent - gap) / 2
-	metadataWidth := marketCatalogMetadataWidth(gtx, view, spec)
-	compact := columnWidth > 0 && metadataWidth <= columnWidth && figureWidth <= columnWidth
-	return compact
+	return marketCatalogQuoteWidth(gtx, view, spec) <= innerWidth
 }
 
 // marketBadges are the currency and quote-source chips of a row.
@@ -519,6 +530,77 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 					}
 				}
 				buttons := marketActionRow(view, actions)
+				if spec.catalogActions {
+					catalogIcon := func(gtx layout.Context) layout.Dimensions {
+						return view.IconTile(gtx, spec.icon, 20, colors.Tint(colors.Accent, 0.10), colors.Accent)
+					}
+					catalogIdentity := func(gtx layout.Context) layout.Dimensions {
+						count := 2 + len(spec.badges)
+						return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, count, func(gtx layout.Context, index int) layout.Dimensions {
+							switch {
+							case index == 0:
+								return catalogIcon(gtx)
+							case index == 1:
+								children := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return view.Line(gtx, ui.TextLabel, spec.name, colors.Ink)
+								})}
+								if spec.subtitle != "" {
+									children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return view.Line(gtx, ui.TextCaption, spec.subtitle, colors.SecondaryInk)
+									}))
+								}
+								return (ui.Column{}).Layout(gtx, children...)
+							default:
+								badge := spec.badges[index-2]
+								return view.Badge(gtx, badge.tone, badge.text)
+							}
+						})
+					}
+					catalogQuote := func(gtx layout.Context) layout.Dimensions {
+						width := marketCatalogQuoteWidth(gtx, view, spec)
+						gtx.Constraints = layout.Constraints{Min: image.Pt(width, 0), Max: image.Pt(width, gtx.Constraints.Max.Y)}
+						line := func(style ui.TextStyle, content string, fg color.NRGBA) layout.Widget {
+							return func(gtx layout.Context) layout.Dimensions {
+								width := marketTextWidth(gtx, view, style, content)
+								gtx.Constraints = layout.Constraints{Min: image.Pt(width, 0), Max: image.Pt(width, gtx.Constraints.Max.Y)}
+								return view.Line(gtx, style, content, fg)
+							}
+						}
+						children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return line(ui.TextLabel, spec.value, colors.Ink)(gtx)
+						})}
+						if spec.evidence != "" {
+							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Spacer{Width: ui.Space8}.Layout(gtx)
+							}), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return line(ui.TextCaption, spec.evidence, colors.SecondaryInk)(gtx)
+							}))
+						}
+						return layout.Flex{Alignment: layout.Middle}.Layout(gtx, children...)
+					}
+					compactCatalog := func(gtx layout.Context) layout.Dimensions {
+						return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+							ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+									layout.Flexed(1, catalogIdentity), layout.Rigid(buttons))
+							}),
+							ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.E.Layout(gtx, catalogQuote)
+							}),
+						)
+					}
+					wideCatalog := func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+							layout.Flexed(1, catalogIdentity), layout.Rigid(catalogQuote), layout.Rigid(buttons))
+					}
+					fits := marketCatalogCompactFits(gtx, view, spec)
+					if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium) && marketRowActionsAreTrailing(gtx, view, spec, len(actions)) {
+						return wideCatalog(gtx)
+					}
+					if fits {
+						return compactCatalog(gtx)
+					}
+				}
 				compactCatalog := func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.Y = 0
 					metadata := func(gtx layout.Context) layout.Dimensions {

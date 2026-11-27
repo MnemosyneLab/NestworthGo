@@ -1709,6 +1709,7 @@ var japaneseCatalog = catalog{
 	PortfolioInstrumentMetal:          "貴金属",
 	PortfolioInstrumentBankProduct:    "銀行の運用商品",
 	PortfolioInstrumentMarketNote:     "価格と基準価額の変化は銘柄の値動きであり、個人の収益率ではありません。",
+	PortfolioPerformanceInfo:          "価格の変動について",
 	PortfolioInstrumentDataNote:       "相場データの日時と取得元は、保有資産とは別に表示されます。",
 	PortfolioInstrumentLatestQuote:    "最新の相場",
 	PortfolioInstrumentQuoteManual:    "手入力",

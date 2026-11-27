@@ -1710,6 +1710,7 @@ var traditionalChineseCatalog = catalog{
 	PortfolioInstrumentMetal:          "貴金屬",
 	PortfolioInstrumentBankProduct:    "銀行投資產品",
 	PortfolioInstrumentMarketNote:     "價格與淨值變化描述標的本身，不代表個人持有收益。",
+	PortfolioPerformanceInfo:          "關於價格表現",
 	PortfolioInstrumentDataNote:       "原始報價日期和來源與持倉資料分開顯示。",
 	PortfolioInstrumentLatestQuote:    "最新報價",
 	PortfolioInstrumentQuoteManual:    "手動",

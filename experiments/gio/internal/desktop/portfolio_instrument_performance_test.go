@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
 	"github.com/google/uuid"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -194,9 +196,41 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	}
 	label("30-day return")
 	label("Annualized · 243.33%")
+	h.size = image.Pt(900, 600)
+	h.shell.prefs.saved.Language = settings.LanguageZhCN
+	h.shell.prefs.saved.Appearance = settings.AppearanceDark
+	settle()
+	assertPageLabel(t, &h.router, "+20.00%")
+	chartSummary := semanticBoundsContaining(&h.router, i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceBasis))
+	weeklyClose := semanticBoundsContaining(&h.router, "EUR 105")
+	visible := func(bounds []image.Rectangle) bool {
+		for _, rect := range bounds {
+			if rect.Min.Y >= 0 && rect.Min.Y < h.size.Y {
+				return true
+			}
+		}
+		return false
+	}
+	if !visible(chartSummary) || !visible(weeklyClose) {
+		t.Fatalf("the 900×600 performance card should expose the daily chart before scrolling: summary %v, weekly close %v", chartSummary, weeklyClose)
+	}
+	h.size = image.Pt(1280, 800)
+	settle()
+	tableAction := semanticBounds(t, &h.router, i18n.SimplifiedChinese.Text(i18n.ChartDataTable), false)
+	returnsStart := assertPageLabel(t, &h.router, fmt.Sprintf(i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceDays), 30))
+	if tableAction.Min.Y >= h.size.Y || returnsStart.Min.Y >= h.size.Y {
+		t.Fatalf("the 1280×800 single-card performance layout should show its table launcher and returns below: table %v, returns %v", tableAction, returnsStart)
+	}
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1280, 1080)
+	settle()
 	h.size = image.Pt(665, 480)
 	settle()
-	click("Last week")
+	h.router.Source().Execute(key.FocusCmd{Tag: &perf.buttons[0]})
+	h.frame()
+	h.focused(&perf.buttons[0])
+	h.press(key.NameReturn)
+	settle()
 	checkSeries(fixture.full.ID, 7, "14.2857142857142857142857", "")
 	label("+14.29%")
 	h.size = image.Pt(1280, 1080)
@@ -204,7 +238,11 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	click("All history")
 	checkSeries(fixture.full.ID, 0, "50", "")
 	label("+50.00%")
-	click("View data table")
+	h.router.Source().Execute(key.FocusCmd{Tag: &perf.table.toggle})
+	h.frame()
+	h.focused(&perf.table.toggle)
+	h.press(key.NameReturn)
+	settle()
 	if !perf.table.open || probe.returnsCalls.Load() != 2 {
 		t.Fatal("chart period changed the fixed returns or failed to open the saved-price table")
 	}
@@ -248,7 +286,12 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	click("Note")
 	click("Market performance")
 	checkSeries(fixture.manual.ID, 30, "", "insufficient_daily_history")
+	click("About price performance")
 	label("Price and NAV changes describe this instrument, not your personal return.")
+	click("About price performance")
+	if findPageLabel(&h.router, "Price and NAV changes describe this instrument, not your personal return.") != nil {
+		t.Fatal("the performance information affordance did not close its explanation")
+	}
 	label("No daily price history yet")
 	label("Record or sync daily closing prices. Timestamped manual prices are available in Market Data.")
 	if len(perf.series.value.Points) != 0 {
