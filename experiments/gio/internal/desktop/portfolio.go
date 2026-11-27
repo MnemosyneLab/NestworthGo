@@ -251,13 +251,21 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 		status = i18n.OverviewRefreshing
 	}
 	children := make([]ui.ColumnChild, 0, 5)
-	if status != i18n.NoMessage || p.id != "" {
+	showStatusRow := status != i18n.NoMessage || p.id != ""
+	refreshingLoadedRoot := p.id == "" && p.current != nil && p.request != nil && p.err == nil
+	if refreshingLoadedRoot {
+		// Keep the populated holdings/catalog viewport stationary while an
+		// asynchronous refresh is pending. Show its status inside the existing
+		// valuation summary instead of inserting a new row above the page.
+		showStatusRow = false
+	}
+	if showStatusRow {
 		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-					// Keep the toolbar at a steady height when a background read
-					// starts between pressing and releasing a control below it.
+					// Keep the initial loading and detail-page status slot at a
+					// steady height when a background read is in flight.
 					gtx.Constraints.Min.Y = gtx.Sp(ui.TextBody.Size) + gtx.Dp(ui.Space12)
 					if status == i18n.NoMessage {
 						return layout.Dimensions{Size: gtx.Constraints.Min}
@@ -303,7 +311,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				return p.layoutPortfolioTabs(gtx, view)
 			}
 			return (ui.Column{Gap: ui.Space12}).Layout(gtx,
-				ui.Rigid(portfolioSummary(view, p.current.summary)),
+				ui.Rigid(portfolioSummary(view, p.current.summary, refreshingLoadedRoot)),
 				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutPortfolioTabs(gtx, view) }),
 			)
 		}),
@@ -377,7 +385,7 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 	}
 }
 
-func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Widget {
+func portfolioSummary(view ui.View, summary domain.PortfolioValuation, refreshing bool) layout.Widget {
 	l := view.Language
 	quality := summary.DisplayValuation.Quality
 	status, tone := i18n.OverviewCurrentEstimate, ui.BadgeSuccess
@@ -402,10 +410,16 @@ func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Wi
 		return (ui.Column{Gap: ui.Space4}).Layout(gtx,
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				base := fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency)
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				children := []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
 					layout.Rigid(view.Body(ui.TextCaption, base, view.Colors.SecondaryInk)),
-				)
+				}
+				if refreshing {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.OverviewRefreshing))
+					}))
+				}
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, children...)
 			}),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return overviewEvidence(gtx, view, quality, i18n.OverviewQuoteDates)

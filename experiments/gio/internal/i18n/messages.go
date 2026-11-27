@@ -1644,6 +1644,9 @@ const (
 	PortfolioValue
 	PortfolioCurrentValue
 	PortfolioSummaryCoverage
+	PortfolioColumnCost
+	PortfolioColumnValue
+	PortfolioColumnGain
 	PortfolioCost
 	PortfolioNativeValue
 	PortfolioCurrentPrice
@@ -1764,6 +1767,8 @@ const (
 	PortfolioCurrencySubtotal
 	PortfolioAccountOne
 	PortfolioAccountCount
+	PortfolioShowAccountHoldings
+	PortfolioHideAccountHoldings
 	PortfolioUnrealized
 	PortfolioCostMissing
 	PortfolioHoldingFXMissing

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 
@@ -157,12 +158,19 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	summaryAtNineHundred := assertPageLabel(t, &h.router, "Current investment value · Known subtotal")
 	toolbarTab := semanticBounds(t, &h.router, "My holdings", false)
 	groupAtNineHundred := semanticBounds(t, &h.router, "Stocks · 1 holding", false)
+	searchAtNineHundred := semanticBounds(t, &h.router, "Search holdings", true)
 	if summaryAtNineHundred.Min.Y > 130 {
 		t.Fatalf("investment summary retained excess empty space above it at 900px: %v", summaryAtNineHundred)
 	}
-	if groupAtNineHundred.Empty() || groupAtNineHundred.Min.Y > 360 || toolbarTab.Min.Y >= groupAtNineHundred.Min.Y {
+	if searchAtNineHundred.Empty() || findPageLabel(&h.router, "Search holdings") != nil {
+		t.Fatalf("the compact holdings search should retain its accessible name without a visible label row: %v", searchAtNineHundred)
+	}
+	if groupAtNineHundred.Empty() || groupAtNineHundred.Min.Y > 285 || toolbarTab.Min.Y >= groupAtNineHundred.Min.Y {
 		t.Fatalf("the grouped holdings table should follow the single responsive toolbar near the first viewport: tab %v, group %v",
 			toolbarTab, groupAtNineHundred)
+	}
+	for _, heading := range []string{"Cost", "Current value", "Gain / loss"} {
+		assertPageLabel(t, &h.router, heading)
 	}
 	h.size = image.Pt(1280, 800)
 	settle()
@@ -191,7 +199,11 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("expected visible EUR 60.36 and full-group EUR 68.36: %+v", filtered)
 	}
 	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
-	subtotal := assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	groupCostHeading := assertPageLabel(t, &h.router, "Cost")
+	groupCostValue := assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	if absTitlebarPixel(groupCostHeading.Max.X-groupCostValue.Max.X) > 8 {
+		t.Fatalf("currency subtotal label and value should share the right-aligned cost column: %v / %v", groupCostHeading, groupCostValue)
+	}
 	name := ids.instruments["QA-FULL"].DisplayLabel()
 	reveal("Actions for " + name)
 	beforeWideMenu := semanticBounds(t, &h.router, name, false)
@@ -212,11 +224,11 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("holding identity should read symbol, full name and account count in order before the right-side values and actions: identity %v, full name %v, accounts %v, cost %v, actions %v",
 			identity, fullName, accountCount, cost, menu)
 	}
-	costHeader := semanticBounds(t, &h.router, "Cost basis", false)
-	if subtotal.Max.X != cost.Max.X || costHeader.Max.X-8 != cost.Max.X {
-		t.Fatalf("native subtotal, sort caption, and row must share the cost column: %v / %v / %v", subtotal, costHeader, cost)
+	costHeader := semanticBounds(t, &h.router, "Cost", false)
+	if costHeader.Max.X-8 != cost.Max.X {
+		t.Fatalf("sort caption and holding amount must share the cost column: %v / %v", costHeader, cost)
 	}
-	click("Cost basis")
+	click("Cost")
 	if portfolio.holdings.visit.sort != (holdingSort{key: holdingSortCost}) {
 		t.Fatal("the first column activation did not select ascending cost")
 	}
@@ -240,7 +252,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	if findPageLabel(&h.router, "Unrealized gain or loss · -SGD S$14.50") != nil {
 		t.Fatal("holding amount repeated the currency code")
 	}
-	reveal("1 account")
+	reveal("Show account holdings for QA-LOSS")
 	disclosure := portfolio.holdings.disclosures[loss.ID]
 	h.router.Source().Execute(key.FocusCmd{Tag: disclosure})
 	h.press(key.NameReturn)
@@ -331,6 +343,130 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	reveal("Unrealized gain or loss · US$0.00")
 	if !portfolio.holdings.visit.showZero {
 		t.Fatal("keyboard could not reveal a known zero holding")
+	}
+}
+
+func TestPortfolioRefreshingKeepsPressedHoldingActionAnchored(t *testing.T) {
+	ctx := t.Context()
+	service, session, _, ids := openPortfolioFixture(t, "partial")
+	t.Cleanup(func() { _ = session.Close() })
+	probe := &portfolioReadProbe{Service: service, started: make(chan struct{}), release: make(chan struct{})}
+	portfolio := newPortfolioPage(ctx, probe, func() {})
+	portfolio.openHoldingHistory = func(domain.InstrumentID, domain.AccountID, string, event.Tag) {}
+	var released bool
+	releaseRead := func() {
+		if !released {
+			close(probe.release)
+			released = true
+		}
+	}
+	t.Cleanup(func() {
+		releaseRead()
+		portfolio.workers.Wait()
+	})
+	h := newShellHarnessWithPages(t, ledgerPages{portfolio: portfolio})
+	h.size = image.Pt(900, 600)
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	settle := func() {
+		for range 3 {
+			h.frame()
+			portfolio.workers.Wait()
+		}
+		h.frame()
+	}
+	h.frame()
+	h.click("Investment assets", false)
+	settle()
+	if portfolio.current == nil || len(portfolio.current.groups) == 0 {
+		t.Fatal("the fixture did not load populated holdings")
+	}
+	portfolio.list.ScrollTo(2)
+	settle()
+	listBefore, pageBefore := portfolio.list.Position, h.shell.stage.Position
+	if listBefore.First == 0 && listBefore.Offset == 0 {
+		t.Fatalf("the populated holdings tab did not scroll: %+v", listBefore)
+	}
+	type visibleHolding struct {
+		instrument  domain.Instrument
+		row, action image.Rectangle
+	}
+	visible := make([]visibleHolding, 0, len(ids.instruments))
+	for _, instrument := range ids.instruments {
+		name := instrument.DisplayLabel()
+		rowNode := findPageLabel(&h.router, name)
+		actionNode := findPageLabel(&h.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioActionsFor), name))
+		if rowNode == nil || actionNode == nil || rowNode.Desc.Bounds.Empty() || actionNode.Desc.Bounds.Empty() ||
+			rowNode.Desc.Bounds.Min.Y < 0 || rowNode.Desc.Bounds.Max.Y > h.size.Y {
+			continue
+		}
+		visible = append(visible, visibleHolding{instrument: instrument, row: rowNode.Desc.Bounds, action: actionNode.Desc.Bounds})
+	}
+	if len(visible) < 2 {
+		t.Fatalf("the scrolled shell needs at least two visible holdings to detect a wrong-row release: %+v", visible)
+	}
+	slices.SortFunc(visible, func(a, b visibleHolding) int { return a.row.Min.Y - b.row.Min.Y })
+	target := visible[0]
+	name := target.instrument.DisplayLabel()
+	pressAt := target.action.Min.Add(target.action.Max).Div(2)
+	h.router.Queue(pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary,
+		Position: f32.Pt(float32(pressAt.X), float32(pressAt.Y))})
+	h.frame()
+	if got := findPageLabel(&h.router, name); got == nil || got.Desc.Bounds != target.row {
+		t.Fatalf("the initial row-action press moved %s: got %+v, want %v", name, got, target.row)
+	}
+
+	probe.holdPrice.Store(true)
+	h.shell.refreshLedgerReads()
+	select {
+	case <-probe.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the delayed portfolio refresh did not start")
+	}
+	h.frame()
+	if portfolio.request == nil {
+		t.Fatal("the shell did not retain the pending portfolio read")
+	}
+	assertPageLabel(t, &h.router, "Updating valuation…")
+	rowDuringRefresh := findPageLabel(&h.router, name)
+	actionDuringRefresh := findPageLabel(&h.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioActionsFor), name))
+	if rowDuringRefresh == nil || rowDuringRefresh.Desc.Bounds != target.row || actionDuringRefresh == nil || actionDuringRefresh.Desc.Bounds != target.action ||
+		portfolio.list.Position != listBefore || h.shell.stage.Position != pageBefore {
+		t.Fatalf("a pending background read moved the pressed holding or its context: row %+v vs %v, action %+v vs %v, list %+v vs %+v, page %+v vs %+v",
+			rowDuringRefresh, target.row, actionDuringRefresh, target.action, portfolio.list.Position, listBefore, h.shell.stage.Position, pageBefore)
+	}
+
+	h.router.Queue(pointer.Event{Kind: pointer.Release, Source: pointer.Mouse,
+		Position: f32.Pt(float32(pressAt.X), float32(pressAt.Y))})
+	h.frame()
+	control := portfolio.holdingActions(portfolioHoldingKey{instrument: target.instrument.ID})
+	if portfolio.id != "" || h.shell.activeRoute() != portfolioRoute || h.shell.overlay.Trigger != &control.menu.Trigger {
+		t.Fatalf("releasing the row action selected another holding or opened the wrong menu: route %s, instrument %s, trigger %p",
+			h.shell.activeRoute(), portfolio.id, h.shell.overlay.Trigger)
+	}
+	rowAfterOpen := findPageLabel(&h.router, name)
+	if rowAfterOpen == nil || rowAfterOpen.Desc.Bounds != target.row || !h.shell.overlay.Anchor.Overlaps(target.action) ||
+		h.shell.overlay.Anchor.Min.Y >= target.row.Max.Y || h.shell.overlay.Anchor.Max.Y <= target.row.Min.Y {
+		t.Fatalf("the opened menu no longer anchors to the same visible holding: row %+v, want %v; anchor %v",
+			rowAfterOpen, target.row, h.shell.overlay.Anchor)
+	}
+	anchorAfterOpen := h.shell.overlay.Anchor
+
+	releaseRead()
+	settle()
+	rowAfterRefresh := findPageLabel(&h.router, name)
+	actionAfterRefresh := findPageLabel(&h.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioActionsFor), name))
+	if portfolio.request != nil || rowAfterRefresh == nil || rowAfterRefresh.Desc.Bounds != target.row ||
+		actionAfterRefresh == nil || actionAfterRefresh.Desc.Bounds != target.action || h.shell.overlay.Trigger != &control.menu.Trigger ||
+		h.shell.overlay.Anchor != anchorAfterOpen || portfolio.id != "" {
+		t.Fatalf("settled refresh changed the menu's holding target: row %+v, action %+v, anchor %v (was %v), route %s, instrument %s",
+			rowAfterRefresh, actionAfterRefresh, h.shell.overlay.Anchor, anchorAfterOpen, h.shell.activeRoute(), portfolio.id)
+	}
+	if findPageLabel(&h.router, "Updating valuation…") != nil {
+		t.Fatal("the settled refresh still displays the in-progress badge")
+	}
+	h.press(key.NameEscape)
+	if h.shell.overlay.Trigger != nil {
+		t.Fatal("Escape did not dismiss the row menu")
 	}
 }
 

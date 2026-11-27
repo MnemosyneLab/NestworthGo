@@ -169,12 +169,13 @@ func (f *TextField) layoutWithAccessories(gtx layout.Context, view View, options
 		view.Focus.Watch(gtx, &f.Editor)
 		return accessibility.Editor(gtx, &f.Editor, accessibleName, view.Language.Text(options.Help), layoutEditor)
 	}
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := make([]layout.FlexChild, 0, 4)
+	if options.Label != i18n.NoMessage {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Line(gtx, TextLabel, title, colors.Ink)
-		}),
-		layout.Rigid(field),
+		}))
 	}
+	children = append(children, layout.Rigid(field))
 	if options.Help != i18n.NoMessage {
 		children = append(children, layout.Rigid(view.Body(TextCaption, view.Language.Text(options.Help), colors.SecondaryInk)))
 	}
@@ -200,6 +201,16 @@ var searchIcon Glyph = lucide.Search
 var clearIcon Glyph = lucide.X
 
 func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.MessageID, onChange func(string)) layout.Dimensions {
+	return s.layout(gtx, view, FieldOptions{Label: label, Hint: hint}, onChange)
+}
+
+// LayoutCompact keeps the search field's accessible name and hint while using
+// the placeholder instead of a second visible label row.
+func (s *SearchField) LayoutCompact(gtx layout.Context, view View, label, hint i18n.MessageID, onChange func(string)) layout.Dimensions {
+	return s.layout(gtx, view, FieldOptions{Hint: hint, AccessibleName: view.Language.Text(label)}, onChange)
+}
+
+func (s *SearchField) layout(gtx layout.Context, view View, options FieldOptions, onChange func(string)) layout.Dimensions {
 	previous := s.Field.Text()
 	if s.Clear.Clicked(gtx) && previous != "" {
 		s.Field.Editor.SetText("")
@@ -217,7 +228,7 @@ func (s *SearchField) Layout(gtx layout.Context, view View, label, hint i18n.Mes
 		name := view.Language.Text(i18n.FieldClearSearch)
 		return view.ButtonOf(&s.Clear, ButtonSpec{Variant: ButtonGhost, Size: ButtonCompact, Name: name, Icon: clearIcon})(gtx)
 	}
-	dims := s.Field.layoutWithAccessories(gtx, view, FieldOptions{Label: label, Hint: hint}, leading, trailing)
+	dims := s.Field.layoutWithAccessories(gtx, view, options, leading, trailing)
 	if query := s.Field.Text(); query != previous {
 		onChange(query)
 	}

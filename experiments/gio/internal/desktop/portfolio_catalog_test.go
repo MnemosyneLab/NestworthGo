@@ -2,29 +2,115 @@ package desktop
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
-func TestCatalogQuoteActionsStayTrailingAt900PixelWindowWidth(t *testing.T) {
-	gtx := layout.Context{Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
-		Constraints: layout.Constraints{Max: image.Pt(844, 600)}}
-	if !marketRowActionsAreTrailing(gtx) {
-		t.Fatal("catalog quote and actions should stay on the trailing edge for a 900px window's 844px content area")
+func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
+	ctx := t.Context()
+	service, session, _, _ := openPortfolioFixture(t, "empty")
+	t.Cleanup(func() { _ = session.Close() })
+	quotedAt := accountTestClock.Add(-time.Hour).Format(time.RFC3339)
+	for _, instrument := range []struct{ name, shortName, symbol, kind, price string }{
+		{"Synthetic AAPL issuer", "QA-AAPL", "QA-AAPL", "stock", "203"},
+		{"Synthetic ES3 issuer", "QA-ES3", "QA-ES3", "etf", "101"},
+		{"Synthetic QQQ issuer", "QA-QQQ", "QA-QQQ", "etf", "99"},
+	} {
+		shortName := instrument.shortName
+		item, err := service.CreateInstrument(ctx, application.InstrumentInput{
+			Name: instrument.name, ShortName: &shortName, Symbol: instrument.symbol,
+			Type: instrument.kind, QuoteCurrency: "USD", QuoteSource: "manual",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.AppendManualInstrumentQuote(ctx, item.ID, instrument.price, quotedAt, false); err != nil {
+			t.Fatal(err)
+		}
 	}
-	gtx.Constraints.Max.X = 700
-	if marketRowActionsAreTrailing(gtx) {
-		t.Fatal("catalog row actions should stack below the figures when the content cannot fit them")
+	portfolio := newPortfolioPage(ctx, service, func() {})
+	t.Cleanup(portfolio.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{portfolio: portfolio})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(900, 600)
+	settle := func() {
+		for range 4 {
+			h.frame()
+			portfolio.workers.Wait()
+		}
+		h.frame()
+	}
+	settle()
+	h.click("Investment assets", false)
+	settle()
+	h.click("All instruments", false)
+	settle()
+
+	if h.drawn != image.Pt(900, 600) {
+		t.Fatalf("shell test viewport = %v, want the actual 900×600 shell viewport", h.drawn)
+	}
+	assertCatalogRows := func(width, height int) {
+		t.Helper()
+		if h.drawn != image.Pt(width, height) {
+			t.Fatalf("shell test viewport = %v, want %d×%d", h.drawn, width, height)
+		}
+		for _, label := range []string{"QA-AAPL", "QA-ES3", "QA-QQQ"} {
+			bounds := assertPageLabel(t, &h.router, label)
+			if bounds.Min.Y < 0 || bounds.Min.Y >= height {
+				t.Fatalf("catalog identity %q is outside the %d×%d viewport: %v", label, width, height, bounds)
+			}
+		}
+		identity := assertPageLabel(t, &h.router, "QA-AAPL")
+		quote := assertPageLabel(t, &h.router, "Latest quote · US$203.00")
+		details := semanticBounds(t, &h.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioCatalogOpen), "QA-AAPL"), false)
+		edit := semanticBounds(t, &h.router, fmt.Sprintf(i18n.English.Text(i18n.PortfolioCatalogEditNamed), "QA-AAPL"), false)
+		if quote.Empty() || quote.Min.X <= identity.Max.X || details.Min.X <= quote.Max.X || edit.Min.X <= details.Max.X ||
+			quote.Min.Y > identity.Min.Y+40 || details.Min.Y > identity.Min.Y+40 || edit.Min.Y > identity.Min.Y+40 ||
+			absTitlebarPixel(details.Min.Y-edit.Min.Y) > 8 {
+			t.Fatalf("the shell's measured %d×%d catalog content must keep quote and actions trailing on the identity row: identity %v, quote %v, details %v, edit %v",
+				width, height, identity, quote, details, edit)
+		}
+	}
+	assertCatalogRows(900, 600)
+	h.size = image.Pt(1280, 800)
+	settle()
+	assertCatalogRows(1280, 800)
+}
+
+func TestMarketRowActionLayoutKeepsNarrowAndLongLabelFallback(t *testing.T) {
+	var ops op.Ops
+	gtx := layout.Context{Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+		Ops: &ops, Constraints: layout.Constraints{Max: image.Pt(748, 600)}}
+	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette}
+	spec := marketRowSpec{name: "QA-AAPL", caption: "Synthetic AAPL issuer",
+		badges: []marketBadge{{text: "USD"}, {text: "Manual"}},
+		value:  "Latest quote · US$203", evidence: "Manual · Nov 27, 2026, 8:00 AM"}
+	if !marketRowActionsAreTrailing(gtx, view, spec, 2) {
+		t.Fatal("ordinary catalog labels and two actions should fit the measured 900px shell content")
+	}
+	gtx.Constraints.Max.X = 400
+	if marketRowActionsAreTrailing(gtx, view, spec, 2) {
+		t.Fatalf("actions should stack when the available row width is genuinely narrow: required %dpx", marketRowActionsMinimumWidth(gtx, view, spec, 2))
+	}
+	gtx.Constraints.Max.X = 748
+	long := spec
+	long.name = strings.Repeat("Long instrument label ", 4)
+	if marketRowActionsAreTrailing(gtx, view, long, 2) {
+		t.Fatalf("very long instrument identity should retain the stacked action fallback: required %dpx", marketRowActionsMinimumWidth(gtx, view, long, 2))
 	}
 }
 

@@ -136,7 +136,7 @@ func (p *portfolioPage) holdingSortHeader(gtx layout.Context, view ui.View, grou
 		h.sortButtons[group] = buttons
 	}
 	wide := ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth)
-	return layoutHoldingSortControls(gtx, view, &h.visit.sort, buttons, wide, func() {
+	return layoutPortfolioHoldingSortControls(gtx, view, &h.visit.sort, buttons, wide, func() {
 		if view.Overlay != nil {
 			view.Overlay.Close()
 		}
@@ -145,6 +145,18 @@ func (p *portfolioPage) holdingSortHeader(gtx layout.Context, view ui.View, grou
 }
 
 func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, wide bool, reset func()) layout.Dimensions {
+	return layoutHoldingSortControlsWithLabels(gtx, view, sort, buttons, wide, reset, holdingSortLabels)
+}
+
+func layoutPortfolioHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, wide bool, reset func()) layout.Dimensions {
+	labels := holdingSortLabels
+	labels[holdingSortCost] = i18n.PortfolioColumnCost
+	labels[holdingSortValue] = i18n.PortfolioColumnValue
+	labels[holdingSortGain] = i18n.PortfolioColumnGain
+	return layoutHoldingSortControlsWithLabels(gtx, view, sort, buttons, wide, reset, labels)
+}
+
+func layoutHoldingSortControlsWithLabels(gtx layout.Context, view ui.View, sort *holdingSort, buttons *[holdingSortCount]widget.Clickable, wide bool, reset func(), labels [holdingSortCount]i18n.MessageID) layout.Dimensions {
 	l := view.Language
 	column := func(gtx layout.Context, i int) layout.Dimensions {
 		key := holdingSortKey(i)
@@ -153,7 +165,7 @@ func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSo
 			*sort = holdingSort{key: key, descending: sort.key == key && !sort.descending}
 			reset()
 		}
-		label := holdingMetricLabel(l, holdingSortLabels[key])
+		label := holdingMetricLabel(l, labels[key])
 		name, title := label, label
 		selected := sort.key == key
 		if selected {
@@ -174,7 +186,7 @@ func layoutHoldingSortControls(gtx layout.Context, view ui.View, sort *holdingSo
 		return align.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact, Title: title, Name: name, Selected: selected}))
 	}
 	if !wide {
-		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(holdingSortLabels), column)
+		return (ui.Wrap{Gap: ui.Space8}).Layout(gtx, len(labels), column)
 	}
 	return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return holdingTableColumns(gtx, column, func(gtx layout.Context) layout.Dimensions {

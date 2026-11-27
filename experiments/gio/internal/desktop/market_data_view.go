@@ -2,9 +2,11 @@ package desktop
 
 import (
 	"fmt"
+	"image"
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -333,10 +335,57 @@ type marketBadge struct {
 	text string
 }
 
-const marketRowActionsSideBySideWidth = 760
+func marketTextWidth(gtx layout.Context, view ui.View, style ui.TextStyle, value string) int {
+	if value == "" {
+		return 0
+	}
+	gtx.Constraints = layout.Constraints{Max: image.Pt(1<<16, 1<<16)}
+	macro := op.Record(gtx.Ops)
+	label := view.TextLabelStyle(style, value, view.Colors.Ink)
+	label.MaxLines = 1
+	width := label.Layout(gtx).Size.X
+	macro.Stop()
+	if width > gtx.Sp(style.Size) {
+		return width
+	}
+	// Software-only Gio tests have no registered platform font faces, so the
+	// shaper can report one em for every string. Keep a conservative intrinsic
+	// width floor there; native windows use the actual shaped width above.
+	fallback, em := 0, gtx.Sp(style.Size)
+	for _, r := range value {
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) || unicode.Is(unicode.Katakana, r) {
+			fallback += em
+		} else {
+			fallback += max(1, em*7/20)
+		}
+	}
+	return max(width, fallback)
+}
 
-func marketRowActionsAreTrailing(gtx layout.Context) bool {
-	return ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, marketRowActionsSideBySideWidth)
+func marketRowActionsAreTrailing(gtx layout.Context, view ui.View, spec marketRowSpec, actionCount int) bool {
+	return gtx.Constraints.Max.X >= marketRowActionsMinimumWidth(gtx, view, spec, actionCount)
+}
+
+func marketRowActionsMinimumWidth(gtx layout.Context, view ui.View, spec marketRowSpec, actionCount int) int {
+	leftWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.name),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.subtitle),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.caption),
+	)
+	for _, badge := range spec.badges {
+		leftWidth = max(leftWidth, marketTextWidth(gtx, view, ui.TextCaptionStrong, badge.text)+gtx.Dp(16))
+	}
+	figureWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.value),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.evidence),
+	)
+	children, fixed := 3, gtx.Dp(32)
+	if actionCount > 0 {
+		children++
+		fixed += min(gtx.Constraints.Max.X, gtx.Dp(300))
+	}
+	fixed += gtx.Dp(ui.Space16) * (children - 1)
+	return fixed + 2*max(leftWidth, figureWidth)
 }
 
 // marketBadges are the currency and quote-source chips of a row.
@@ -399,7 +448,7 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 						return w(gtx)
 					}
 				}
-				if marketRowActionsAreTrailing(gtx) {
+				if marketRowActionsAreTrailing(gtx, view, spec, len(actions)) {
 					children := []layout.FlexChild{
 						layout.Rigid(tile), layout.Flexed(1, fill(left)), layout.Flexed(1, fill(figures())),
 					}
