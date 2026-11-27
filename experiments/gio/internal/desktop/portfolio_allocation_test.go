@@ -331,7 +331,6 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 		t.Fatalf("the window does not use the ledger's civil dates: %+v", page.current.allocation)
 	}
 	assertPageLabel(t, &h.router, "Allocation")
-	assertPageLabel(t, &h.router, "Valued holdings over time. Cash is not included.")
 	assertPageLabel(t, &h.router, "Included accounts")
 	actual := page.current.summary
 	reference, err := adapter.Portfolio(ctx, account.AccountFilterRequest{})
@@ -353,6 +352,9 @@ func TestPortfolioAllocationAndTrendMatchWailsAndRetainScope(t *testing.T) {
 	wTrend, err := adapter.PortfolioTrend(ctx, string(last()))
 	if err != nil || trend == nil || len(trend.Points) == 0 || len(trend.Points) != len(wTrend.Points) {
 		t.Fatalf("portfolio trend did not match: %+v / %+v / %v", trend, wTrend, err)
+	}
+	if got, want := portfolioTrendSpec(ui.View{Language: i18n.English}, *trend).Summary, i18n.English.Text(i18n.PortfolioTrendBasis); got != want {
+		t.Fatalf("the portfolio trend lost its accessible cash-exclusion summary: %q, want %q", got, want)
 	}
 	for i, point := range trend.Points {
 		want := wTrend.Points[i]
