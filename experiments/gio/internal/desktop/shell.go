@@ -882,7 +882,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if s.portfolioPositionImportOpen() {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
-		s.portfolio.layoutPositionImportSheet(windowContext, view)
+		s.portfolio.layoutPositionImportSheet(windowContext, view.WithTextSelection(&s.textSelection))
 		return dims
 	}
 	if catalogEditorOpen && s.instrumentCatalogEditorOpen() {
