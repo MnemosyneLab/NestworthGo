@@ -3,7 +3,7 @@ package application
 import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"testing"
 	"time"
 )
@@ -16,11 +16,11 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 			a := overviewAccount(t, s, owner, "Synthetic weekend", "brokerage", "asset", "holdings", "CNY", "")
-			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic weekend instrument", Type: kind, QuoteCurrency: "CNY", QuoteSource: "agent"})
+			i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic weekend instrument", Type: kind, QuoteCurrency: "CNY", QuoteSource: "agent"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+			h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -65,7 +65,7 @@ func TestWeekendCarryIsHealthyForDailyPricedInstruments(t *testing.T) {
 			}
 
 			if kind != "crypto" && kind != "other" {
-				batch, err := sqlite.NewRepository(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
+				batch, err := repos.New(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -125,11 +125,11 @@ func TestAgentClosureRoundTripCorrectionWithdrawalAndNoPriceFabrication(t *testi
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 	a := overviewAccount(t, s, owner, "Synthetic holiday", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic holiday fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic holiday fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestAgentClosureRoundTripCorrectionWithdrawalAndNoPriceFabrication(t *testi
 			t.Fatal("closure changed price")
 		}
 		if complete {
-			batch, err := sqlite.NewRepository(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
+			batch, err := repos.New(db).LoadReviewHistoricalBatch(ctx, a.Account.HouseholdID, *now)
 			if err != nil {
 				t.Fatal(err)
 			}

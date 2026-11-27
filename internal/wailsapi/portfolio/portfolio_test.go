@@ -15,7 +15,7 @@ import (
 
 func setup(t *testing.T) (*application.Service, string) {
 	t.Helper()
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -69,7 +69,7 @@ func TestOverviewComputesNetWorth(t *testing.T) {
 }
 
 func TestOverviewBeforeOnboarding(t *testing.T) {
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	service := portfolio.NewService(app)
 	result, err := service.Overview(context.Background(), account.AccountFilterRequest{})
 	if err != nil {
@@ -92,7 +92,7 @@ func TestPortfolioValuation(t *testing.T) {
 	}
 }
 
-func TestNetWorthTrendWithoutHistory(t *testing.T) {
+func TestNetWorthTrendOnFirstDay(t *testing.T) {
 	app, _ := setup(t)
 	service := portfolio.NewService(app)
 	result, err := service.NetWorthTrend(context.Background(), "30d")
@@ -102,28 +102,28 @@ func TestNetWorthTrendWithoutHistory(t *testing.T) {
 	if result.Currency != "USD" {
 		t.Fatalf("Currency = %q, want USD", result.Currency)
 	}
-	if len(result.Points) != 0 {
-		t.Fatalf("Points = %+v, want empty before history starts", result.Points)
+	if len(result.Points) != 1 || !result.Points[0].Current {
+		t.Fatalf("Points = %+v, want current first-day point", result.Points)
 	}
 }
 
-func TestPortfolioTrendWithoutHistory(t *testing.T) {
+func TestPortfolioTrendOnFirstDay(t *testing.T) {
 	app, _ := setup(t)
 	service := portfolio.NewService(app)
 	result, err := service.PortfolioTrend(context.Background(), "30d")
 	if err != nil {
 		t.Fatalf("PortfolioTrend: %v", err)
 	}
-	if result.Currency != "USD" || len(result.Points) != 0 {
-		t.Fatalf("PortfolioTrend = %+v, want empty before history starts", result)
+	if result.Currency != "USD" || len(result.Points) != 1 || !result.Points[0].Current {
+		t.Fatalf("PortfolioTrend = %+v, want current first-day point", result)
 	}
 }
 
 // Unknown trend ranges fail at ParseTrendRange on the Wails boundary, even
-// before history has started. The frontend catalog is the only source of
+// for a newly initialized ledger. The frontend catalog is the only source of
 // range buttons, so an unknown value is a client bug rather than a
 // pass-through.
-func TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts(t *testing.T) {
+func TestNetWorthTrendRejectsUnknownRange(t *testing.T) {
 	app, _ := setup(t)
 	service := portfolio.NewService(app)
 	_, err := service.NetWorthTrend(context.Background(), "not-a-range")
@@ -149,7 +149,7 @@ func TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts(t *testing.T) {
 // "matches the Go-computed multi-owner fixture" test; if either side
 // changes, the other must change with it.
 func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "The Tans", BaseCurrency: "USD", MemberNames: []string{"Alice", "Bob"},

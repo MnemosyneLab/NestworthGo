@@ -45,7 +45,7 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			}
 			var first domain.AccountID
 			for i := 0; i < 5; i++ {
-				a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: strings.Repeat("Untrusted name", 5), AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "10", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+				a, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: strings.Repeat("Untrusted name", 5), AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "10", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -71,7 +71,7 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			if initial.PositionsPage.Returned == 0 || !initial.PositionsPage.HasMore || initial.Content.Summary.NetWorth.Value == nil || *initial.Content.Summary.NetWorth.Value != "50" {
 				t.Fatal(initial)
 			}
-			if _, err = app.AppendAccountValue(t.Context(), first, "20", ""); err != nil {
+			if _, err = testfixture.AppendAccountValue(app, t.Context(), first, "20", ""); err != nil {
 				t.Fatal(err)
 			}
 			cursor := initial.PositionsPage.NextCursor
@@ -426,9 +426,9 @@ func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			repo := sqlite.NewRepository(db)
+			repo := testfixture.Repository(db)
 			port := &blockingContextRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
-			app := application.NewService(port)
+			app := testfixture.NewService(port)
 			if err = app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
@@ -495,7 +495,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	appports.Wire(app)
 	app.SetLiveDatabasePath(path)
 	if err = app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Restore test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
@@ -511,8 +511,8 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
-	if _, err = app.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
+	testfixture.SetClock(app, func() time.Time { return now })
+	if _, err = testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)

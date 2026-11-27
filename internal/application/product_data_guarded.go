@@ -72,7 +72,7 @@ func (s *Service) termsDetails(ctx context.Context, prepared preparedProductTerm
 	if err != nil {
 		return ProductDetail{}, ProductDetail{}, err
 	}
-	date, _, err := domain.LocalCivilDate(now, timezoneOrUTC(origin))
+	date, _, err := domain.LocalCivilDate(now, origin.Timezone)
 	if err != nil {
 		return ProductDetail{}, ProductDetail{}, err
 	}

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func TestHoldingReconciliationLinkedTradeDividendAndCustodyMatchWails(t *testing
 	clock := func() time.Time { return accountTestClock }
 	addDestination := func(service *application.Service) domain.AccountID {
 		t.Helper()
-		service.SetClock(clock)
+		testfixture.SetClock(service, clock)
 		boot, err := service.Bootstrap(ctx)
 		if err != nil {
 			t.Fatal(err)

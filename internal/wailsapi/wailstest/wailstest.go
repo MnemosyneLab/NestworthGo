@@ -38,12 +38,12 @@ func newService(t *testing.T, baseline bool, registries ...application.MarketDat
 		t.Fatalf("open test database: %v", err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repository := sqlite.NewRepository(database)
+	repository := testfixture.Repository(database)
 	var port application.Repository = repository
 	if baseline {
 		port = &testfixture.BaselineRepository{Repository: repository}
 	}
-	service := application.NewService(port, registries...)
+	service := testfixture.NewService(port, registries...)
 	appports.Wire(service)
 	appports.AttachSQLiteHistory(service, repository)
 	service.SetLiveDatabasePath(path)

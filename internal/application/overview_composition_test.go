@@ -23,7 +23,7 @@ func TestOverviewAssetCompositionUsesJointAllocations(t *testing.T) {
 	}
 	account := func(name, accountType, role, tracking, currency, institution, amount string, included bool) domain.AccountID {
 		t.Helper()
-		record, err := s.CreateAccount(ctx, AccountInput{
+		record, err := s.fixtureCreateAccount(ctx, AccountInput{
 			Name: name, AccountType: accountType, BalanceSheetRole: role, TrackingMode: tracking,
 			DefaultCurrency: currency, InstitutionID: institution, InitialAmount: amount,
 			OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}, IncludeInNetWorth: included,
@@ -41,18 +41,18 @@ func TestOverviewAssetCompositionUsesJointAllocations(t *testing.T) {
 	account("Credit card", "credit_card", "liability", "balance", "CNY", "", "5", true)
 	account("Foreign credit card", "credit_card", "liability", "balance", "GBP", "", "5", true)
 	archived := account("Archived", "bank_account", "asset", "balance", "CNY", "", "900", true)
-	if err := s.ArchiveAccount(ctx, archived, true); err != nil {
+	if err := s.fixtureArchiveAccount(ctx, archived, true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AppendAccountCashValue(ctx, mixed, "40", "CNY", "2026-08-01"); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, mixed, "40", "CNY", "2026-08-01"); err != nil {
 		t.Fatal(err)
 	}
 	for _, fixture := range []struct{ name, price string }{{"Stock one", "20"}, {"Stock two", "40"}, {"Missing quote", ""}} {
-		instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: fixture.name, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: fixture.name, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.CreateHolding(ctx, HoldingInput{AccountID: mixed.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+		if _, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: mixed.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
 			t.Fatal(err)
 		}
 		if fixture.price != "" {
@@ -149,11 +149,11 @@ func TestOverviewAssetCompositionUsesCurrentInputsWithTheirOwnReferenceDates(t *
 	costs := map[domain.HoldingID]string{}
 	holding := func(name, currency, source string) domain.Instrument {
 		t.Helper()
-		i, err := s.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: currency, QuoteSource: source})
+		i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: currency, QuoteSource: source})
 		if err != nil {
 			t.Fatal(err)
 		}
-		h, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
+		h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
 		if err != nil {
 			t.Fatal(err)
 		}

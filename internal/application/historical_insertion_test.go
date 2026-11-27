@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func historicalInsertionFixture(t *testing.T) (context.Context, *Service, *sqlite.Repository, *sqlite.DB, Bootstrap, func(time.Time)) {
@@ -17,7 +18,7 @@ func historicalInsertionFixture(t *testing.T) (context.Context, *Service, *sqlit
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
@@ -38,18 +39,18 @@ func historicalInsertionTime(day int) time.Time {
 func TestBackdatedSellUsesQuantityAtItsDateThenChecksLaterSales(t *testing.T) {
 	t.Parallel()
 	ctx, s, repo, db, boot, setNow := historicalInsertionFixture(t)
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +102,7 @@ func TestBackdatedSellUsesQuantityAtItsDateThenChecksLaterSales(t *testing.T) {
 func TestBackdatedEntryPreservesLaterAbsoluteValue(t *testing.T) {
 	t.Parallel()
 	ctx, s, repo, _, boot, setNow := historicalInsertionFixture(t)
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestBackdatedEntryPreservesLaterAbsoluteValue(t *testing.T) {
 func TestBackdatedExpenseUsesEarlierBalanceAndKeepsLaterObservation(t *testing.T) {
 	t.Parallel()
 	ctx, s, repo, _, boot, setNow := historicalInsertionFixture(t)
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

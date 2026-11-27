@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type syncFakeProvider struct {
@@ -119,7 +120,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repo := sqlite.NewRepository(database)
+	repo := repos.New(database)
 	registry := NewMarketDataRegistry(providers...)
 	service := NewService(repo, registry)
 	service.SetLiveDatabasePath(database.Path)
@@ -139,7 +140,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, accountErr := service.CreateAccount(ctx, AccountInput{
+	account, accountErr := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
@@ -147,14 +148,14 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	if accountErr != nil {
 		t.Fatal(accountErr)
 	}
-	first, err := service.CreateInstrument(ctx, InstrumentInput{
+	first, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
 		ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := service.CreateInstrument(ctx, InstrumentInput{
+	second, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "Ethereum", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider",
 		ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "ethereum", MarketCode: "CRYPTO",
 	})
@@ -165,7 +166,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 		t.Fatal(err)
 	}
 	for _, instrument := range []domain.Instrument{first, second} {
-		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+		if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -342,7 +343,7 @@ func TestSyncJobRateLimitStopsProviderAndRecordsEligibility(t *testing.T) {
 	if err := service.SetFXProvider(FrankfurterProviderKey); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(context.Background(), "USD", "SGD", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(context.Background(), "USD", "SGD", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {

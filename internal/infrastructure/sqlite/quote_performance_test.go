@@ -15,7 +15,7 @@ func TestQuotePerformanceEvidenceLatestAndNearestEarlierBaselines(t *testing.T) 
 	i.Name = "Synthetic NAV"
 	i.Type = domain.InstrumentBankInvestmentProduct
 	i.QuoteSource = domain.QuoteSourceAgent
-	if err := repository.CreateInstrument(t.Context(), i); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(t.Context(), i); err != nil {
 		t.Fatal(err)
 	}
 	for _, item := range []struct{ date, price string }{{"2026-01-01", "0.5"}, {"2026-09-01", "1"}, {"2026-09-24", "1.01"}, {"2026-10-05", "1.02"}, {"2026-10-14", "1.03"}, {"2026-10-20", "2"}} {
@@ -96,7 +96,7 @@ func TestQuotePerformanceAllSourcesIgnorePreferenceAndExcludeIntraday(t *testing
 				i.Symbol = &symbol
 				i.ProviderSymbol = &symbol
 			}
-			if err := repository.CreateInstrument(t.Context(), i); err != nil {
+			if err := fixtureWriter(repository).CreateInstrument(t.Context(), i); err != nil {
 				t.Fatal(err)
 			}
 			for n, source := range []domain.QuoteSourceKind{domain.QuoteSourceManual, domain.QuoteSourceProvider, domain.QuoteSourceAgent} {
@@ -182,7 +182,7 @@ func TestQuotePerformanceEvidenceReadsPeriodBaselines(t *testing.T) {
 	i.Name = "Synthetic gold"
 	i.Type = domain.InstrumentPreciousMetal
 	i.QuoteSource = domain.QuoteSourceAgent
-	if err := repository.CreateInstrument(t.Context(), i); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(t.Context(), i); err != nil {
 		t.Fatal(err)
 	}
 	for _, item := range []struct{ date, price string }{{"2025-01-01", "10"}, {"2026-01-01", "50"}, {"2026-09-01", "100"}, {"2026-10-14", "110"}, {"2026-10-20", "999"}} {
@@ -221,7 +221,7 @@ func TestQuotePerformanceSeriesEvidenceReadsUncoveredPeriod(t *testing.T) {
 	i.Name = "Synthetic stock"
 	i.Type = domain.InstrumentStock
 	i.QuoteSource = domain.QuoteSourceAgent
-	if err := repository.CreateInstrument(t.Context(), i); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(t.Context(), i); err != nil {
 		t.Fatal(err)
 	}
 	insert := func(date, price, kind string) {

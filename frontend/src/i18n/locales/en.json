@@ -1087,7 +1087,7 @@
     "noAutomaticRepair": "Automatic repair is unavailable for this coverage. Check the provider status or supported coverage; refreshing current quotes cannot fill this historical gap.",
     "noExecutableWork": "No executable repair work is available. Resolve the prerequisites or check coverage again later.",
     "viewPeriodGaps": "View gaps for this period",
-    "manualDateZone": "Dates use the History timezone (UTC before History starts).",
+    "manualDateZone": "Dates use the ledger timezone.",
     "noGroup": "No group",
     "analyze": "Analyze",
     "analyzeObject": "Analyze {{name}}",

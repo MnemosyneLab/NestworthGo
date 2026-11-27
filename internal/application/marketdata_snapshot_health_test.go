@@ -16,11 +16,11 @@ func TestIncompleteMetalSnapshotHealthLifecycle(t *testing.T) {
 	provider := &countingProvider{inner: &syncFakeProvider{key: YahooFinanceProviderKey}}
 	s.SetMarketDataRegistry(NewMarketDataRegistry(provider))
 	account := seedHoldingsCash(t, s, ctx, "10000")
-	metal, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "troy_oz"})
+	metal, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "troy_oz"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: metal.ID.String(), Quantity: "1", UnitCost: "4000"}); err != nil {
+	if _, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: metal.ID.String(), Quantity: "1", UnitCost: "4000"}); err != nil {
 		t.Fatal(err)
 	}
 	household, err := s.repository.Household(ctx)
@@ -154,7 +154,7 @@ func TestIncompleteCashSnapshotHealthIdentifiesEachCurrency(t *testing.T) {
 	service.setClock(func() time.Time { return now })
 	account := seedHoldingsCash(t, service, ctx, "1000")
 	for _, currency := range []string{"EUR", "SGD"} {
-		if _, err := service.AppendAccountCashValue(ctx, account, "100", currency, ""); err != nil {
+		if _, err := service.fixtureAppendAccountCashValue(ctx, account, "100", currency, ""); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,7 +13,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -96,7 +96,7 @@ func runQuantitativeProbe() error {
 	}
 	defer database.Close()
 	ctx := context.Background()
-	repository := sqlite.NewRepository(database)
+	repository := testfixture.Repository(database)
 	portfolio, err := repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil || portfolio.Household == nil {
 		if err == nil {
@@ -104,7 +104,7 @@ func runQuantitativeProbe() error {
 		}
 		return writeQuantitative(outPath, out, err)
 	}
-	service := application.NewService(repository)
+	service := testfixture.NewService(repository)
 	query := quantitativeQuery(from, to, domain.ScopeHousehold, "", domain.ValuationBase)
 	beginningDate, err := dayBefore(from)
 	if err != nil {
@@ -325,7 +325,7 @@ func quantitativeTransferCase(ctx context.Context, service *application.Service,
 		days = append(days, date)
 	}
 	sort.Strings(days)
-	withoutTransfers := application.NewService(withoutTransferRepository{Repository: repository, from: from, to: to})
+	withoutTransfers := testfixture.NewService(withoutTransferRepository{Repository: repository, from: from, to: to})
 	for _, date := range days {
 		query := quantitativeQuery(date, date, domain.ScopeHousehold, "", domain.ValuationBase)
 		withResult, err := service.AssetChange(ctx, query)

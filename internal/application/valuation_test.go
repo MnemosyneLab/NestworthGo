@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type goldenValuationFixture struct {
@@ -28,7 +29,7 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	service := NewService(repository)
 	now := time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
@@ -41,7 +42,7 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 		t.Fatal(err)
 	}
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Golden Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -49,39 +50,39 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	if err != nil {
 		t.Fatal(err)
 	}
-	qqq, err := service.CreateInstrument(ctx, InstrumentInput{
+	qqq, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
 		CountryCode: "US", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	es3, err := service.CreateInstrument(ctx, InstrumentInput{
+	es3, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "ES3", Type: "stock", QuoteCurrency: "SGD", QuoteSource: "manual", CountryCode: "SG",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: qqq.ID.String(), Quantity: "3", SortOrder: 1}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: qqq.ID.String(), Quantity: "3", SortOrder: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: es3.ID.String(), Quantity: "1000", SortOrder: 2}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: es3.ID.String(), Quantity: "1000", SortOrder: 2}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "5000", "SGD", "2026-08-23"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "5000", "SGD", "2026-08-23"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, qqq.ID, "700", "2026-08-23", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.SetInstrumentQuoteSource(ctx, qqq.ID, "manual"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, qqq.ID, "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if includeES3Quote {
 		if _, err := service.AppendManualInstrumentQuote(ctx, es3.ID, "4", "2026-08-23", false); err != nil {
 			t.Fatal(err)
 		}
-		if err := service.SetInstrumentQuoteSource(ctx, es3.ID, "manual"); err != nil {
+		if err := service.fixtureSetInstrumentQuoteSource(ctx, es3.ID, "manual"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -91,14 +92,14 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "6.9", "2026-08-23"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "SGD", "CNY", "manual"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "SGD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 
-	identityAccount, err := service.CreateAccount(ctx, AccountInput{
+	identityAccount, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Local Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInPortfolio: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -106,11 +107,11 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityInstrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Local ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual", CountryCode: "CN"})
+	identityInstrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Local ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual", CountryCode: "CN"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: identityAccount.Account.ID.String(), InstrumentID: identityInstrument.ID.String(), Quantity: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: identityAccount.Account.ID.String(), InstrumentID: identityInstrument.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, identityInstrument.ID, "10", "2026-08-23", false); err != nil {
@@ -119,7 +120,7 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 
 	// This account proves that excluded balance-sheet data is still readable but
 	// cannot leak into Portfolio or Overview totals.
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Excluded Balance", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInPortfolio: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "999999",
@@ -238,7 +239,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	if err := fixture.repository.AppendInstrumentQuote(ctx, staleQuote); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.SetInstrumentQuoteSource(ctx, fixture.qqq.ID, "provider"); err != nil {
+	if err := fixture.service.fixtureSetInstrumentQuoteSource(ctx, fixture.qqq.ID, "provider"); err != nil {
 		t.Fatal(err)
 	}
 	providerRate, err := domain.ParseFxRate("6.9")
@@ -259,7 +260,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	if err := fixture.repository.AppendFXQuote(ctx, providerFX); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.service.SetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
+	if _, err := fixture.service.fixtureSetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	provider, err := fixture.service.Portfolio(ctx, domain.AccountFilter{})
@@ -750,7 +751,7 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatal(err)
 	}
 	defer database.Close()
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	service := NewService(repository)
 	now := time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
@@ -761,7 +762,7 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Precision Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
@@ -770,11 +771,11 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatal(err)
 	}
 	for _, name := range []string{"First", "Second"} {
-		instrument, createErr := service.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		instrument, createErr := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
-		if _, createErr := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); createErr != nil {
+		if _, createErr := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); createErr != nil {
 			t.Fatal(createErr)
 		}
 		if _, createErr := service.AppendManualInstrumentQuote(ctx, instrument.ID, "0.00005", "2026-08-23", false); createErr != nil {
@@ -808,11 +809,11 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatalf("precision overview = %+v", overview)
 	}
 
-	archived, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Archived", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	archived, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Archived", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: archived.ID.String(), Quantity: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: archived.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, archived.ID, "999", "2026-08-23", false); err != nil {
@@ -849,7 +850,7 @@ func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	now := time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
@@ -860,25 +861,25 @@ func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	zeroInstrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Closed Position", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", Symbol: "CLOSED"})
+	zeroInstrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Closed Position", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", Symbol: "CLOSED"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: zeroInstrument.ID.String(), Quantity: "0"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: zeroInstrument.ID.String(), Quantity: "0"}); err != nil {
 		t.Fatal(err)
 	}
-	nonZero, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Needs Price", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	nonZero, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Needs Price", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: nonZero.ID.String(), Quantity: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: nonZero.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
 

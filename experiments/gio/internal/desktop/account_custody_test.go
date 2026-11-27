@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"testing"
@@ -23,7 +24,7 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	clock := func() time.Time { return now }
 	seed := func(service *application.Service, other domain.InstrumentID) domain.AccountID {
 		t.Helper()
-		service.SetClock(clock)
+		testfixture.SetClock(service, clock)
 		boot, err := service.Bootstrap(ctx)
 		if err != nil {
 			t.Fatal(err)

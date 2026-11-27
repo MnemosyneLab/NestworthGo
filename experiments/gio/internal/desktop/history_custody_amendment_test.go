@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"reflect"
@@ -39,7 +40,7 @@ func TestHistoryCustodyCorrectionAndReversalMatchWails(t *testing.T) {
 	ctx := t.Context()
 	seed, initialSession, paths, ids := openExistingBuyFixture(t)
 	now := accountTestClock
-	seed.SetClock(func() time.Time { return now })
+	testfixture.SetClock(seed, func() time.Time { return now })
 	boot, err := seed.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -84,8 +85,8 @@ func TestHistoryCustodyCorrectionAndReversalMatchWails(t *testing.T) {
 	}
 	ref, _ := openBankFixture(t, copyBankProfile(t, paths.RootPath()))
 	app, storage := reopenBaselineProfile(t, paths)
-	app.SetClock(func() time.Time { return now })
-	ref.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
+	testfixture.SetClock(ref, func() time.Time { return now })
 	fault := &lostCustodyCorrection{Service: app}
 	page := newLedgerHistory(ctx, fault, func() time.Time { return now }, func() {})
 	h := newShellHarnessWithPages(t, ledgerPages{history: page, version: app.MobileDataVersion})
@@ -243,7 +244,7 @@ func TestHistoryCustodyCorrectionAndReversalMatchWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(func() time.Time { return now })
+	testfixture.SetClock(reopened, func() time.Time { return now })
 	positions(reopened, "2", "0", "0")
 	persisted, err := history.LoadDetail(ctx, reopened, originalID)
 	if err != nil || persisted.Links.Replacement != saved.Activity.ID || persisted.Links.Reversal != saved.Links.CorrectionReversal {

@@ -83,11 +83,11 @@ func TestDelayedNAVDisplayRolloverLateRevisionAndReadOnlyCapture(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 10, 9, 4, 0, 0, 0, time.UTC)
 	account := overviewAccount(t, s, owner, "Synthetic NAV account", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}

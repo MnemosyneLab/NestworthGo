@@ -2,6 +2,7 @@ package history_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestExactDefaultTimeAndManualMinuteBoundaries(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				app.SetClock(func() time.Time { return now })
+				testfixture.SetClock(app, func() time.Time { return now })
 				hs := household.NewService(app)
 				if err := hs.CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 					t.Fatal(err)
@@ -62,7 +63,7 @@ func TestExactDefaultTimeAndManualMinuteBoundaries(t *testing.T) {
 					t.Fatal(err)
 				}
 				api := history.NewService(app)
-				origin, err := app.CaptureSyntheticOrigin(ctx, zone)
+				origin, err := testfixture.CaptureSyntheticOrigin(app, ctx, zone)
 				if err != nil {
 					t.Fatal(err)
 				}

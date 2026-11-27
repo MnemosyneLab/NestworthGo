@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -20,8 +21,8 @@ func TestLedgerQuantityAdjustmentsPreserveExactCostAndMatchWails(t *testing.T) {
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	adapter := historyapi.NewService(ref)
 	ledger := newLedgerHistory(ctx, app, clock, func() {})
 	f := &accountInvestment{service: app}

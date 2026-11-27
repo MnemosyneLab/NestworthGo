@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -73,8 +74,8 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.release) })
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	service.SetClock(clock)
-	reference.SetClock(clock)
+	testfixture.SetClock(service, clock)
+	testfixture.SetClock(reference, clock)
 	accounts := newAccountsPage(ctx, service, clock, func() {})
 	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
@@ -272,7 +273,7 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(clock)
+	testfixture.SetClock(reopened, clock)
 	assertState(reopened, ids, soldAll, "3", "60", "2", "0", "0", "-8", "0", "192", "192", 2)
 	for _, i := range []int{1, 2} {
 		frozen := fault.attempts[i]

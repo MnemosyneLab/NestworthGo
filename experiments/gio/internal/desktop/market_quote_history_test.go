@@ -60,14 +60,14 @@ func TestMarketQuoteHistoryThroughMarketAndFocusedHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
+	repo := testfixture.Repository(db)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
 	clock := func() time.Time { return time.Date(2026, 11, 26, 3, 0, 0, 0, time.UTC) }
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic quote history", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	asset, err := service.CreateInstrument(ctx, application.InstrumentInput{
+	asset, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 		Name: "Synthetic archive fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
 	})
 	if err != nil {
@@ -76,13 +76,13 @@ func TestMarketQuoteHistoryThroughMarketAndFocusedHealth(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, asset.ID, "12.34567891", "2026-07-20T18:00:00Z", true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "SGD", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(service, ctx, "SGD", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "SGD", "7", "2026-11-20T18:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CaptureSyntheticOrigin(ctx, "America/Los_Angeles"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "America/Los_Angeles"); err != nil {
 		t.Fatal(err)
 	}
 	fixture := application.HealthIssue{ID: "fixture-fx", Kind: application.HealthKindMissingFXHistory, CurrencyA: "SGD",

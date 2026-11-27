@@ -216,6 +216,9 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	if household == nil {
 		return Bootstrap{}, nil
 	}
+	if _, err := s.requireHistoryOrigin(ctx, household.ID); err != nil {
+		return Bootstrap{}, err
+	}
 	members, err := s.repository.ListMembers(ctx, false)
 	if err != nil {
 		return Bootstrap{}, err
@@ -229,24 +232,6 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 		return Bootstrap{}, err
 	}
 	return Bootstrap{Household: household, Members: members, Institutions: institutions, Groups: groups}, nil
-}
-
-// BootstrapLedger validates the creation invariant at the session boundary.
-// A fresh database has no household. An initialized database without its
-// origin is unsupported, not an invitation to manufacture history.
-func (s *Service) BootstrapLedger(ctx context.Context) (Bootstrap, error) {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil || bootstrap.Household == nil {
-		return bootstrap, err
-	}
-	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
-	if err != nil {
-		return Bootstrap{}, err
-	}
-	if origin == nil {
-		return Bootstrap{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
-	}
-	return bootstrap, nil
 }
 
 // requireHousehold is the identity-only gate for mutations
@@ -344,7 +329,7 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	if err != nil {
 		return err
 	}
-	if err := s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if err := s.repository.InitializeLedger(ctx, household, members, origin); err != nil {
 		return err
 	}
 	if err := s.ensureDefaultDirectory(ctx, household); err != nil {
@@ -820,7 +805,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	}
 	// The Starting-point read and the history-chain commit below must be
 	// atomic against other change writers.
-	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	origin, err := s.requireHistoryOrigin(ctx, bootstrap.Household.ID)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -854,7 +839,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	}
 	accountInput := domain.AccountInput{HouseholdID: bootstrap.Household.ID, Name: input.Name, AccountType: primary, BalanceSheetRole: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInPortfolio: input.IncludeInPortfolio, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, Ownership: ownershipShares, InitialAmount: input.InitialAmount}
 	var historyInitial *domain.Money
-	if origin != nil && strings.TrimSpace(input.InitialAmount) != "" && mode != domain.TrackingHoldings {
+	if strings.TrimSpace(input.InitialAmount) != "" && mode != domain.TrackingHoldings {
 		parsedInitial, parseErr := domain.ParseMoney(input.InitialAmount, currency)
 		if parseErr != nil {
 			return domain.AccountRecord{}, parseErr
@@ -892,7 +877,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		return domain.AccountRecord{}, err
 	}
 	createdEffectiveAt := account.CreatedAt
-	if origin != nil && account.OpenedOn != nil {
+	if account.OpenedOn != nil {
 		createdEffectiveAt, err = historyStartInstant(*account.OpenedOn, origin.Timezone, account.CreatedAt)
 		if err != nil {
 			return domain.AccountRecord{}, err
@@ -914,13 +899,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		}
 		value = &created
 	}
-	if origin == nil {
-		if err := s.repository.CreateAccount(ctx, account, ownership, value); err != nil {
-			return domain.AccountRecord{}, err
-		}
-		s.invalidateAnalysis()
-		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
-	}
+
 	creationObservation := domain.AccountStateObservation{
 		ID:                    domain.NewAccountStateObservationID(),
 		AccountID:             account.ID,
@@ -1122,11 +1101,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if observationErr != nil {
 		return domain.AccountRecord{}, observationErr
 	}
-	if observation.ID != "" {
-		if err := s.repository.UpdateAccountWithObservation(ctx, account, ownership, observation); err != nil {
-			return domain.AccountRecord{}, err
-		}
-	} else if err := s.repository.UpdateAccount(ctx, account, ownership); err != nil {
+	if err := s.repository.UpdateAccountWithObservation(ctx, account, ownership, observation); err != nil {
 		return domain.AccountRecord{}, err
 	}
 	s.invalidateAnalysis()
@@ -1177,38 +1152,15 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		}
 		when = parsed.UTC()
 	}
-	origin, originErr := s.repository.HistoryOrigin(ctx, record.Account.HouseholdID)
-	if originErr != nil {
-		return domain.AccountValue{}, originErr
+	preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when}, nil)
+	if commitErr != nil {
+		return domain.AccountValue{}, commitErr
 	}
-	if origin != nil {
-		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when}, nil)
-		if commitErr != nil {
-			return domain.AccountValue{}, commitErr
-		}
-		resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
-		if parseErr != nil {
-			return domain.AccountValue{}, parseErr
-		}
-		return domain.NewAccountValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
+	resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
+	if parseErr != nil {
+		return domain.AccountValue{}, parseErr
 	}
-	value, err := domain.NewAccountValue(record.Account, money, when, s.clock())
-	if err != nil {
-		return domain.AccountValue{}, err
-	}
-	if latest := record.LatestValue; currentObservation && record.Account.TrackingMode == domain.TrackingBalance && latest != nil {
-		// Match the latest-value query at storage precision. When both
-		// timestamps tie, the newly inserted row wins by insertion order.
-		if value.EffectiveAt.Before(latest.EffectiveAt) ||
-			(value.EffectiveAt.Equal(latest.EffectiveAt) && value.CreatedAt.Before(latest.CreatedAt)) {
-			return domain.AccountValue{}, &domain.Error{Code: domain.ErrCashBalanceTimeConflict, Field: "effectiveAt", Message: "a later balance observation would override this update; check the system clock and balance history"}
-		}
-	}
-	if err := s.repository.AppendAccountValue(ctx, value); err != nil {
-		return domain.AccountValue{}, err
-	}
-	s.invalidateAnalysis()
-	return value, nil
+	return domain.NewAccountValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
 }
 
 func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archived bool) error {
@@ -1250,11 +1202,7 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	if observationErr != nil {
 		return observationErr
 	}
-	if observation.ID != "" {
-		err = s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
-	} else {
-		err = s.repository.SetAccountArchive(ctx, household.ID, id, archived, now)
-	}
+	err = s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
 	if err == nil {
 		s.invalidateAnalysis()
 	}

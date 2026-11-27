@@ -47,8 +47,8 @@ func TestDataHealthRepairPreviewCancelAndVerifiedRetry(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	now := time.Date(2026, time.November, 4, 8, 0, 0, 0, time.UTC)
 	provider := &repairTestProvider{now: now}
-	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
-	service.SetClock(func() time.Time { return now })
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider))
+	testfixture.SetClock(service, func() time.Time { return now })
 	t.Cleanup(service.CancelMarketDataSyncAndWait)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic repair", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
@@ -57,16 +57,16 @@ func TestDataHealthRepairPreviewCancelAndVerifiedRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateAccount(ctx, application.AccountInput{
+	if _, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 		Name: "Synthetic yen", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "JPY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "JPY", "USD", "provider"); err != nil {
+	if _, err := testfixture.SetFXPreference(service, ctx, "JPY", "USD", "provider"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	ref := marketdata.NewService(service, nil)

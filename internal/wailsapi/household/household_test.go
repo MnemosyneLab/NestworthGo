@@ -2,6 +2,7 @@ package household_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func TestCompleteOnboardingValidationError(t *testing.T) {
 
 func TestCompleteOnboardingDefaultsToLedgerCivilDate(t *testing.T) {
 	app := wailstest.NewService(t)
-	app.SetClock(func() time.Time { return time.Date(2026, 11, 21, 17, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 11, 21, 17, 0, 0, 0, time.UTC) })
 	svc := household.NewService(app)
 	ctx := t.Context()
 	if err := svc.CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic Wails", BaseCurrency: "SGD", MemberNames: []string{"Owner"}, Timezone: "Asia/Singapore"}); err != nil {

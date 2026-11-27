@@ -14,6 +14,7 @@ func TestV22PriorityUpgradePreservesLegacyRowsAndRecovery(t *testing.T) {
 	}
 	if _, err = seed.SQL.Exec(`DROP TABLE investment_review_rule_priorities; PRAGMA user_version=22;
  INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','USD','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');
+ INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');
  INSERT INTO investment_review_rules(id,household_id,name,enabled,severity,evaluator,row_revision,current_condition_version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','Synthetic priority',0,'warning','legacy_v1',1,1,'2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');`); err != nil {
 		t.Fatal(err)
 	}

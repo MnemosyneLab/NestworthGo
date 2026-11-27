@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -69,8 +70,8 @@ func TestLinkedAddProductMatchesWails(t *testing.T) {
 			ctx := t.Context()
 			app, storage, paths, ids := openExistingBuyFixture(t)
 			ref, refStorage, refPaths, refIDs := openExistingBuyFixture(t)
-			app.SetClock(linkedContractClock)
-			ref.SetClock(linkedContractClock)
+			testfixture.SetClock(app, linkedContractClock)
+			testfixture.SetClock(ref, linkedContractClock)
 			api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 			session := startTestHoldingReconciliation(t, api, ids.account)
 			refSession := startTestHoldingReconciliation(t, refAPI, refIDs.account)
@@ -220,8 +221,8 @@ func TestLinkedAddProductMatchesWails(t *testing.T) {
 			}
 			reopened, _ := reopenBaselineProfile(t, paths)
 			reference, _ := reopenBaselineProfile(t, refPaths)
-			reopened.SetClock(linkedContractClock)
-			reference.SetClock(linkedContractClock)
+			testfixture.SetClock(reopened, linkedContractClock)
+			testfixture.SetClock(reference, linkedContractClock)
 			for _, copy := range []struct {
 				app       *application.Service
 				account   domain.AccountID

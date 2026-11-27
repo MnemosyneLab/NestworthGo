@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
@@ -17,7 +18,7 @@ func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	clock := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
@@ -28,7 +29,7 @@ func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

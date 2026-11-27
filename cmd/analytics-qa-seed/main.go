@@ -276,8 +276,8 @@ func main() {
 
 	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
-	repo := sqlite.NewRepository(database)
-	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo})
+	repo := testfixture.Repository(database)
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
 	ctx := context.Background()
 
 	commit, dirty := gitIdentity()
@@ -330,18 +330,18 @@ func main() {
 	}
 
 	// 2) Create accounts before CaptureSyntheticOrigin so origin captures cash components.
-	cash := must(svc.CreateAccount(ctx, application.AccountInput{
+	cash := must(testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: "AUD Cash", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "10000",
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{m1},
 	}))
-	broker := must(svc.CreateAccount(ctx, application.AccountInput{
+	broker := must(testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: "US Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "USD",
 		IncludeInNetWorth: true, IncludeInPortfolio: true,
 		OwnerIDs: []domain.MemberID{m1},
 	}))
-	sgBroker := must(svc.CreateAccount(ctx, application.AccountInput{
+	sgBroker := must(testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: "SG Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "SGD",
 		IncludeInNetWorth: true, IncludeInPortfolio: true,
@@ -353,15 +353,15 @@ func main() {
 	add(report, "accounts", "PASS", fmt.Sprintf("cash=%s us_broker=%s sg_broker=%s", cash.Account.ID, broker.Account.ID, sgBroker.Account.ID))
 
 	// 3) Instruments (manual quote source): AAPL stock, QQQ US ETF, ES3 SGD ETF.
-	aapl := must(svc.CreateInstrument(ctx, application.InstrumentInput{
+	aapl := must(testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{
 		Name: "Apple Inc", Type: "stock", QuoteCurrency: "USD", Symbol: "AAPL",
 		MarketCode: "XNAS", CountryCode: "US", QuoteSource: "manual",
 	}))
-	qqq := must(svc.CreateInstrument(ctx, application.InstrumentInput{
+	qqq := must(testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{
 		Name: "Invesco QQQ Trust", Type: "etf", QuoteCurrency: "USD", Symbol: "QQQ",
 		MarketCode: "XNAS", CountryCode: "US", QuoteSource: "manual",
 	}))
-	es3 := must(svc.CreateInstrument(ctx, application.InstrumentInput{
+	es3 := must(testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{
 		Name: "SPDR STI ETF", Type: "etf", QuoteCurrency: "SGD", Symbol: "ES3",
 		MarketCode: "XSES", CountryCode: "SG", QuoteSource: "manual",
 	}))
@@ -392,7 +392,7 @@ func main() {
 	prefsOK := true
 	prefNotes := make([]string, 0, len(pairs))
 	for _, p := range pairs {
-		pref := must(svc.SetFXPreference(ctx, p.Base, p.Quote, "manual"))
+		pref := must(testfixture.SetFXPreference(svc, ctx, p.Base, p.Quote, "manual"))
 		prefNotes = append(prefNotes, p.Base+"/"+p.Quote+"="+string(pref.SourceKind))
 		if pref.SourceKind != domain.QuoteSourceManual {
 			prefsOK = false
@@ -406,7 +406,7 @@ func main() {
 	}
 
 	// 5) CaptureSyntheticOrigin AFTER accounts exist → non-empty history_origin_components.
-	origin := must(svc.CaptureSyntheticOrigin(ctx, "Asia/Singapore"))
+	origin := must(testfixture.CaptureSyntheticOrigin(svc, ctx, "Asia/Singapore"))
 	compCount := countQuery(database.SQL, `SELECT COUNT(*) FROM history_origin_components`)
 	report.IDs["history_origin_id"] = string(origin.ID)
 	if compCount <= 0 {

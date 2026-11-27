@@ -23,7 +23,7 @@ func TestReviewCertifiedFutureActivationAndPublicationFence(t *testing.T) {
 					t.Fatal(err)
 				}
 				account := overviewAccount(t, f.s, owner, "Synthetic certified receiver", "brokerage", "asset", "holdings", "CNY", "")
-				target, err := f.s.CreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
+				target, err := f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
 				if err != nil {
 					t.Fatal(err)
 				}

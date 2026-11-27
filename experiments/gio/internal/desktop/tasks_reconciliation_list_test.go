@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 	}
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	seed.SetClock(clock)
+	testfixture.SetClock(seed, clock)
 	api := reconciliation.NewService(seed)
 	complete := func(account domain.AccountID, partial bool) domain.ReconciliationSession {
 		t.Helper()
@@ -82,7 +83,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 	}
 
 	app, _ := reopenBaselineProfile(t, paths)
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	accounts := newAccountsPage(ctx, app, clock, func() {})
 	tasks := newTasksPage(ctx, app, func() {})
 	c := &holdingReconciliation{service: reconciliation.NewService(app), ledger: app, clock: clock}

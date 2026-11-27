@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestMarketComparisonSharedValidationDatesAndDecimalEdges(t *testing.T) {
@@ -123,14 +124,14 @@ func TestMarketComparisonProviderManualSourcesAndIncompleteBasis(t *testing.T) {
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
 	if e = s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic comparison", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
 		t.Fatal(e)
 	}
-	i, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic source comparison", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, e := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic source comparison", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -210,14 +211,14 @@ func TestMarketComparisonFinalCaptureBudgetEscapedEvidence(t *testing.T) {
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
 	if e = s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic byte budget", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
 		t.Fatal(e)
 	}
-	i, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic budget", Type: "stock", QuoteCurrency: "USD", QuoteSource: "agent"})
+	i, e := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic budget", Type: "stock", QuoteCurrency: "USD", QuoteSource: "agent"})
 	if e != nil {
 		t.Fatal(e)
 	}

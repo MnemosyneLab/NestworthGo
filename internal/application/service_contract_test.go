@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
@@ -17,7 +18,7 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 		t.Fatalf("open database: %v", err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	clock := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -33,7 +34,7 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 		t.Fatalf("group: %v", err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	withRefs, err := service.CreateAccount(ctx, AccountInput{Name: "Reserve", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InstitutionID: institution.ID.String(), GroupID: group.ID.String(), IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "10"})
+	withRefs, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Reserve", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InstitutionID: institution.ID.String(), GroupID: group.ID.String(), IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "10"})
 	if err != nil {
 		t.Fatalf("account with references: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 			t.Fatalf("account UpdatedAt = %s, want injected clock %s", account.Account.UpdatedAt, clock)
 		}
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Other", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "5"}); err != nil {
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Other", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "5"}); err != nil {
 		t.Fatalf("other account: %v", err)
 	}
 	institutionID, _ := domain.ParseInstitutionID(institution.ID.String())
@@ -112,7 +113,7 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 	if len(filtered) != 1 || filtered[0].Account.ID != withRefs.Account.ID {
 		t.Fatalf("filtered accounts = %#v", filtered)
 	}
-	if _, err := service.AppendAccountValue(ctx, withRefs.Account.ID, "12", "2026-08-22"); err != nil {
+	if _, err := service.fixtureAppendAccountValue(ctx, withRefs.Account.ID, "12", "2026-08-22"); err != nil {
 		t.Fatalf("append value: %v", err)
 	}
 	latest, err := service.ListAccounts(ctx, domain.AccountFilter{})

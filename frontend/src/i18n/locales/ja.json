@@ -1079,7 +1079,7 @@
     "noAutomaticRepair": "この範囲は自動修復できません。プロバイダーの状態または対応範囲を確認してください。現在の相場を更新しても、過去のデータ不足は解消されません。",
     "noExecutableWork": "実行できる修復作業はありません。前提条件を解消するか、後で対応範囲を再確認してください。",
     "viewPeriodGaps": "この期間の不足データを表示",
-    "manualDateZone": "日付には履歴のタイムゾーンを使用します（履歴開始前は UTC）。",
+    "manualDateZone": "日付には帳簿のタイムゾーンを使用します。",
     "analyze": "分析",
     "analyzeObject": "{{name}} を分析",
     "viewReturn": "収益を表示",

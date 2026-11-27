@@ -6,6 +6,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 )
 
@@ -46,7 +47,7 @@ func (upcomingFailRepo) ReadLiquiditySnapshot(context.Context) (domain.Liquidity
 	return domain.LiquiditySnapshot{}, errors.New("synthetic read failure")
 }
 func TestUpcomingWirePropagatesReadFailure(t *testing.T) {
-	s := NewService(application.NewService(upcomingFailRepo{}))
+	s := NewService(testfixture.NewService(upcomingFailRepo{}))
 	_, e := s.UpcomingActions(context.Background())
 	if e == nil {
 		t.Fatal("failure became empty list")

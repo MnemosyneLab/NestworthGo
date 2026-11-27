@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
@@ -22,13 +23,13 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ownership: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: ownership.Shares(), InitialAmount: "1000"}); err != nil {
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: ownership.Shares(), InitialAmount: "1000"}); err != nil {
 		t.Fatalf("create asset account: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "250"}); err != nil {
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "250"}); err != nil {
 		t.Fatalf("create liability account: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Excluded", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000"}); err != nil {
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Excluded", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000"}); err != nil {
 		t.Fatalf("create excluded account: %v", err)
 	}
 	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{})
@@ -38,7 +39,7 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	if len(accounts) < 1 {
 		t.Fatal("expected account for update")
 	}
-	if _, err := service.UpdateAccount(ctx, accounts[0].Account.ID, AccountInput{AccountType: "investment_account", BalanceSheetRole: "asset", TrackingMode: "manual_value"}); err == nil {
+	if _, err := service.fixtureUpdateAccount(ctx, accounts[0].Account.ID, AccountInput{AccountType: "investment_account", BalanceSheetRole: "asset", TrackingMode: "manual_value"}); err == nil {
 		t.Fatal("tracking mode change was accepted")
 	}
 	result, err := service.Overview(ctx, domain.AccountFilter{})
@@ -61,7 +62,7 @@ func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T)
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "overview-headlines", []string{"Owner"})
 	setClock(time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC))
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		OwnerIDs: []domain.MemberID{owner},
@@ -69,15 +70,15 @@ func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T)
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "NVIDIA", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "NVIDIA", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-08-24"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-08-24"); err != nil {
 		t.Fatalf("AppendAccountCashValue: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24T12:00:00Z", false); err != nil {
@@ -156,7 +157,7 @@ func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
 		t.Fatalf("open database: %v", err)
 	}
 	defer database.Close()
-	base := sqlite.NewRepository(database)
+	base := repos.New(database)
 	ctx := context.Background()
 	service := NewService(base)
 	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
@@ -174,7 +175,7 @@ func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
 	if _, err := service.CreateGroup(ctx, "Emergency"); err != nil {
 		t.Fatalf("CreateGroup: %v", err)
 	}
-	if _, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"}); err != nil {
+	if _, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"}); err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
 
@@ -187,7 +188,7 @@ func TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "type-edit", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -195,14 +196,14 @@ func TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "2500", "CNY", "2026-08-01"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "2500", "CNY", "2026-08-01"); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	before, err := service.ListActivities(ctx, 20)
 	if err != nil {
 		t.Fatalf("list activities: %v", err)
 	}
-	updated, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "investment_account"})
+	updated, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "investment_account"})
 	if err != nil {
 		t.Fatalf("compatible type edit: %v", err)
 	}
@@ -229,7 +230,7 @@ func TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "type-reject", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -237,13 +238,13 @@ func TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "cash_on_hand"}); err == nil {
+	if _, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "cash_on_hand"}); err == nil {
 		t.Fatal("incompatible type edit was accepted")
 	}
-	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{BalanceSheetRole: "liability"}); err == nil {
+	if _, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{BalanceSheetRole: "liability"}); err == nil {
 		t.Fatal("role edit was accepted")
 	}
-	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{TrackingMode: "manual_value"}); err == nil {
+	if _, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{TrackingMode: "manual_value"}); err == nil {
 		t.Fatal("tracking edit was accepted")
 	}
 }
@@ -252,14 +253,14 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-buckets", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "招行", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "800",
 	}); err != nil {
 		t.Fatalf("bank: %v", err)
 	}
-	brokerage, err := service.CreateAccount(ctx, AccountInput{
+	brokerage, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -267,20 +268,20 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("brokerage: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"}); err != nil {
 		t.Fatalf("holding: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "200", "CNY", "2026-08-01"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, brokerage.Account.ID, "200", "CNY", "2026-08-01"); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-01", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "150",
@@ -330,7 +331,7 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-by-account-type", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	bank, err := service.CreateAccount(ctx, AccountInput{
+	bank, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "招商银行综合账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -338,21 +339,21 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bank: %v", err)
 	}
-	fund, err := service.CreateInstrument(ctx, InstrumentInput{Name: "招银理财A", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	fund, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "招银理财A", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("fund: %v", err)
 	}
-	gold, err := service.CreateInstrument(ctx, InstrumentInput{Name: "黄金", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	gold, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "黄金", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("gold: %v", err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: fund.ID.String(), Quantity: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: fund.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatalf("fund holding: %v", err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: gold.ID.String(), Quantity: "2"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: gold.ID.String(), Quantity: "2"}); err != nil {
 		t.Fatalf("gold holding: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, bank.Account.ID, "50000", "CNY", "2026-08-01"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, bank.Account.ID, "50000", "CNY", "2026-08-01"); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "200000", "2026-08-01", false); err != nil {
@@ -390,7 +391,7 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
 	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "empty-owners", []string{"Alice", "Bob"})
-	_, err := service.CreateAccount(ctx, AccountInput{
+	_, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
 	})
@@ -406,7 +407,7 @@ func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
 func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "empty-owner-update", []string{"Alice"})
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
 		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
@@ -414,7 +415,7 @@ func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	_, err = service.UpdateAccount(ctx, account.Account.ID, AccountInput{Ownership: []domain.OwnershipShare{}})
+	_, err = service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{Ownership: []domain.OwnershipShare{}})
 	if err == nil {
 		t.Fatal("UpdateAccount with empty ownership succeeded")
 	}
@@ -427,7 +428,7 @@ func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
 func TestUpdateAccountOmittingOwnershipPreservesCustomSplit(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "preserve-split", []string{"Alice", "Bob"})
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
 		OwnerIDs:             []domain.MemberID{bootstrap.Members[0].ID, bootstrap.Members[1].ID},
@@ -436,7 +437,7 @@ func TestUpdateAccountOmittingOwnershipPreservesCustomSplit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	updated, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{Name: "Joint renamed"})
+	updated, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{Name: "Joint renamed"})
 	if err != nil {
 		t.Fatalf("name-only update: %v", err)
 	}

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"sync"
 	"testing"
@@ -349,8 +350,8 @@ func seedMovementAccounts(t *testing.T, service *application.Service, includeEur
 	if source == "" {
 		t.Fatal("synthetic Harbor Checking is missing")
 	}
-	service.SetClock(func() time.Time { return accountTestClock.Add(-72 * time.Hour) })
-	defer service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-72 * time.Hour) })
+	defer testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	create := func(name, currency, starting string, include bool) domain.AccountID {
 		t.Helper()
 		row, err := service.CreateAccount(ctx, application.AccountInput{Name: name,

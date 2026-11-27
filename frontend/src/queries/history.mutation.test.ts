@@ -8,9 +8,6 @@ import { Service as HistoryService } from "../../bindings/github.com/waltwang/ne
 
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
-    StartHistory: vi.fn(async () => ({})),
-    StartHistoryWithCosts: vi.fn(async () => ({})),
-    StartHistoryOnDate: vi.fn(async () => ({})),
     RecordChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
     FixChange: vi.fn(async () => ({ activity: { id: "a2" }, effects: [], resulting: [] })),
   },

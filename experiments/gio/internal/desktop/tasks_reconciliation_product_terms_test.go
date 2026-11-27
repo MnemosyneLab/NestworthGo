@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -24,8 +25,8 @@ func TestLinkedLockedProductTermsMatchesWails(t *testing.T) {
 	ref, refStorage, refPaths, refIDs := openExistingBuyFixture(t)
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
 	refID := seedTestLockedProductWithUnlock(t, ref, refIDs.account, nil, "2026-11-22")
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	refSession := startTestHoldingReconciliation(t, refAPI, refIDs.account)

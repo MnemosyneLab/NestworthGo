@@ -24,9 +24,9 @@ func TestValuationReceiptReopen(t *testing.T) {
 			db, err := sqlite.Open(path)
 			requireValuationTest(t, err)
 			t.Cleanup(func() { _ = db.Close() })
-			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+			app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 			now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-			app.SetClock(func() time.Time { return now })
+			testfixture.SetClock(app, func() time.Time { return now })
 			accountID, productID := seedValuationReceipt(t, ctx, app)
 			now = now.Add(24 * time.Hour)
 
@@ -105,8 +105,8 @@ func TestValuationReceiptReopen(t *testing.T) {
 			reopened, err := sqlite.Open(path)
 			requireValuationTest(t, err)
 			defer reopened.Close()
-			reopenedApp := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(reopened)})
-			reopenedApp.SetClock(func() time.Time { return now })
+			reopenedApp := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(reopened)})
+			testfixture.SetClock(reopenedApp, func() time.Time { return now })
 			detail, err := reopenedApp.Product(ctx, productID)
 			requireValuationTest(t, err)
 			if detail.CurrentValue == nil || detail.CurrentValue.Amount().String() != amount || detail.CurrentValue.Currency() != "USD" {
@@ -127,11 +127,11 @@ func TestValuationReceiptReopen(t *testing.T) {
 func seedValuationReceipt(t *testing.T, ctx context.Context, app *application.Service) (string, domain.ProductContractID) {
 	t.Helper()
 	requireValuationTest(t, app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic household", BaseCurrency: "USD", MemberNames: []string{"Owner"}}))
-	_, err := app.CaptureSyntheticOrigin(ctx, "UTC")
+	_, err := testfixture.CaptureSyntheticOrigin(app, ctx, "UTC")
 	requireValuationTest(t, err)
 	bootstrap, err := app.Bootstrap(ctx)
 	requireValuationTest(t, err)
-	account, err := app.CreateAccount(ctx, application.AccountInput{
+	account, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 		Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	})
 	requireValuationTest(t, err)

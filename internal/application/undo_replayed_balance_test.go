@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestUndoBalanceAndCashAfterBackfill(t *testing.T) {
@@ -21,12 +22,12 @@ func TestUndoBalanceAndCashAfterBackfill(t *testing.T) {
 					if mode == "holdings" {
 						kind, initial = "brokerage", ""
 					}
-					a, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: kind, BalanceSheetRole: "asset", TrackingMode: mode, DefaultCurrency: "CNY", InitialAmount: initial, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+					a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: kind, BalanceSheetRole: "asset", TrackingMode: mode, DefaultCurrency: "CNY", InitialAmount: initial, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 					if err != nil {
 						t.Fatal(err)
 					}
 					if mode == "holdings" {
-						if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
+						if _, err := s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -119,7 +120,7 @@ func TestUndoBalanceAndCashAfterBackfill(t *testing.T) {
 						t.Fatal(err)
 					}
 					defer reopened.Close()
-					restartedRepo := sqlite.NewRepository(reopened)
+					restartedRepo := repos.New(reopened)
 					restarted := NewService(restartedRepo)
 					restarted.setClock(func() time.Time { return historicalInsertionTime(29) })
 					replayed, err := restarted.RecordUndoChangeGuardedAt(ctx, adjusted.Activity.ID, preview.Activity.EffectiveAt, mutation, hash, token)
@@ -141,7 +142,7 @@ func TestUndoBalanceAndCashAfterBackfill(t *testing.T) {
 func TestUndoReplayedBalanceCommitIsAtomic(t *testing.T) {
 	t.Parallel()
 	ctx, s, repo, db, boot, setNow := historicalInsertionFixture(t)
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +202,7 @@ func TestHistoricalUndoPreservesLaterAbsoluteObservation(t *testing.T) {
 	for _, earlier := range []bool{false, true} {
 		t.Run(map[bool]string{false: "current", true: "before_later_observation"}[earlier], func(t *testing.T) {
 			ctx, s, repo, db, boot, setNow := historicalInsertionFixture(t)
-			a, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+			a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -253,7 +254,7 @@ func TestHistoricalUndoPreservesLaterAbsoluteObservation(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			restarted := NewService(sqlite.NewRepository(db))
+			restarted := NewService(repos.New(db))
 			restarted.setClock(func() time.Time { return historicalInsertionTime(30) })
 			retry, err := restarted.RecordUndoChangeGuardedAt(ctx, first.Activity.ID, at, mutation, hash, token)
 			if err != nil || retry.Activity.ID != committed.Activity.ID || len(retry.Resulting) != 1 || retry.Resulting[0].Amount != wantAt {

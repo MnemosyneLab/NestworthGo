@@ -17,7 +17,7 @@ func historyOriginQuery(ctx context.Context, query queryer, householdID domain.H
 	row := query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String())
 	origin, err := scanHistoryOrigin(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	if err != nil {
 		return nil, err
@@ -262,73 +262,17 @@ func historyOriginDataQuery(ctx context.Context, query queryer, originID domain.
 	return data, nil
 }
 
-func (r *Repository) CaptureSyntheticOrigin(ctx context.Context, data domain.HistoryOriginData) (domain.HistoryOrigin, error) {
-	if err := validateHistoryOriginData(data); err != nil {
-		return domain.HistoryOrigin{}, err
-	}
-	var result domain.HistoryOrigin
-	err := r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var existingID string
-		if err := tx.QueryRowContext(ctx, `SELECT id FROM history_origins WHERE household_id = ?`, data.Origin.HouseholdID.String()).Scan(&existingID); err == nil {
-			parsedID, parseErr := domain.ParseHistoryOriginID(existingID)
-			if parseErr != nil {
-				return parseErr
-			}
-			_, scanErr := scanHistoryOrigin(tx.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE id = ?`, parsedID.String()), &result)
-			return scanErr
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		var householdID string
-		if err := tx.QueryRowContext(ctx, `SELECT id FROM households WHERE id = ?`, data.Origin.HouseholdID.String()).Scan(&householdID); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrNotFound, Message: "Household was not found"}
-			}
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origins(id, household_id, timezone, started_at, created_at) VALUES(?, ?, ?, ?, ?)`, data.Origin.ID.String(), data.Origin.HouseholdID.String(), data.Origin.Timezone, formatTimestamp(data.Origin.StartedAt), formatTimestamp(data.Origin.CreatedAt)); err != nil {
-			return err
-		}
-		for _, component := range data.Components {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, unit_cost, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), nullableUnitPrice(component.UnitCost), formatTimestamp(component.CreatedAt)); err != nil {
-				return err
-			}
-		}
-		for _, state := range data.AccountStates {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInPortfolio), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
-				return err
-			}
-		}
-		for _, ownership := range data.Ownership {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_ownership(origin_id, account_id, member_id, share_bps) VALUES(?, ?, ?, ?)`, data.Origin.ID.String(), ownership.AccountID.String(), ownership.MemberID.String(), ownership.ShareBPS); err != nil {
-				return err
-			}
-		}
-		for _, preference := range data.InstrumentPreferences {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_instrument_preferences(origin_id, instrument_id, source_kind, created_at) VALUES(?, ?, ?, ?)`, data.Origin.ID.String(), preference.InstrumentID.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt)); err != nil {
-				return err
-			}
-		}
-		for _, preference := range data.FXPreferences {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_fx_preferences(origin_id, currency_a, currency_b, source_kind, created_at) VALUES(?, ?, ?, ?, ?)`, data.Origin.ID.String(), preference.CurrencyA.String(), preference.CurrencyB.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt)); err != nil {
-				return err
-			}
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 0, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt), domain.MarketDataResolverPolicy); err != nil {
-			return err
-		}
-		result = data.Origin
-		return nil
-	})
-	return result, err
-}
-
-func (r *Repository) CreateOnboardingWithHistory(ctx context.Context, household domain.Household, members []domain.Member, data domain.HistoryOriginData) error {
+func (r *Repository) InitializeLedger(ctx context.Context, household domain.Household, members []domain.Member, origin domain.HistoryOrigin) error {
 	if len(members) == 0 {
 		return &domain.Error{Code: domain.ErrValidation, Field: "members", Message: "at least one member is required"}
 	}
-	data.Origin.HouseholdID = household.ID
-	if err := validateHistoryOriginData(data); err != nil {
+	if origin.HouseholdID != household.ID {
+		return &domain.Error{Code: domain.ErrIntegrity, Message: "origin does not belong to the new household"}
+	}
+	if _, err := domain.ParseHistoryOriginID(origin.ID.String()); err != nil {
+		return err
+	}
+	if _, err := domain.NewHistoryOrigin(origin.HouseholdID, origin.Timezone, origin.StartedAt, origin.CreatedAt); err != nil {
 		return err
 	}
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
@@ -346,68 +290,18 @@ func (r *Repository) CreateOnboardingWithHistory(ctx context.Context, household 
 				return err
 			}
 		}
-		return insertHistoryOriginTx(ctx, tx, data)
+		return insertEmptyHistoryOriginTx(ctx, tx, origin)
 	})
 }
 
-func insertHistoryOriginTx(ctx context.Context, tx *sql.Tx, data domain.HistoryOriginData) error {
-	if _, err := tx.ExecContext(ctx, `INSERT INTO history_origins(id, household_id, timezone, started_at, created_at) VALUES(?, ?, ?, ?, ?)`, data.Origin.ID.String(), data.Origin.HouseholdID.String(), data.Origin.Timezone, formatTimestamp(data.Origin.StartedAt), formatTimestamp(data.Origin.CreatedAt)); err != nil {
+// Only an empty origin can be created in the product; the persisted
+// populated origins of existing ledgers remain readable for replay.
+func insertEmptyHistoryOriginTx(ctx context.Context, tx *sql.Tx, origin domain.HistoryOrigin) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES(?,?,?,?,?)`, origin.ID.String(), origin.HouseholdID.String(), origin.Timezone, formatTimestamp(origin.StartedAt), formatTimestamp(origin.CreatedAt)); err != nil {
 		return err
 	}
-	for _, component := range data.Components {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, unit_cost, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), nullableUnitPrice(component.UnitCost), formatTimestamp(component.CreatedAt)); err != nil {
-			return err
-		}
-	}
-	for _, state := range data.AccountStates {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInPortfolio), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
-			return err
-		}
-	}
-	for _, ownership := range data.Ownership {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_ownership(origin_id, account_id, member_id, share_bps) VALUES(?, ?, ?, ?)`, data.Origin.ID.String(), ownership.AccountID.String(), ownership.MemberID.String(), ownership.ShareBPS); err != nil {
-			return err
-		}
-	}
-	for _, preference := range data.InstrumentPreferences {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_instrument_preferences(origin_id, instrument_id, source_kind, created_at) VALUES(?, ?, ?, ?)`, data.Origin.ID.String(), preference.InstrumentID.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt)); err != nil {
-			return err
-		}
-	}
-	for _, preference := range data.FXPreferences {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_fx_preferences(origin_id, currency_a, currency_b, source_kind, created_at) VALUES(?, ?, ?, ?, ?)`, data.Origin.ID.String(), preference.CurrencyA.String(), preference.CurrencyB.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt)); err != nil {
-			return err
-		}
-	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 0, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt), domain.MarketDataResolverPolicy)
+	_, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 0, ?)`, origin.HouseholdID.String(), formatTimestamp(origin.CreatedAt), domain.MarketDataResolverPolicy)
 	return err
-}
-
-func validateHistoryOriginData(data domain.HistoryOriginData) error {
-	if _, err := domain.ParseHistoryOriginID(data.Origin.ID.String()); err != nil {
-		return &domain.Error{Code: domain.ErrValidation, Field: "originId", Message: "origin ID is required"}
-	}
-	if _, err := domain.NewHistoryOrigin(data.Origin.HouseholdID, data.Origin.Timezone, data.Origin.StartedAt, data.Origin.CreatedAt); err != nil {
-		return err
-	}
-	for index := range data.Components {
-		component := data.Components[index]
-		component.OriginID = data.Origin.ID
-		if err := component.Validate(); err != nil {
-			return err
-		}
-		data.Components[index].OriginID = data.Origin.ID
-	}
-	sharesByAccount := make(map[domain.AccountID][]domain.OwnershipShare)
-	for _, ownership := range data.Ownership {
-		sharesByAccount[ownership.AccountID] = append(sharesByAccount[ownership.AccountID], domain.OwnershipShare{MemberID: ownership.MemberID, ShareBPS: ownership.ShareBPS})
-	}
-	for _, shares := range sharesByAccount {
-		if _, err := domain.ParseOwnership(shares); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func scanHistoryOrigin(row interface{ Scan(...any) error }, destination ...*domain.HistoryOrigin) (domain.HistoryOrigin, error) {
@@ -422,6 +316,9 @@ func scanHistoryOrigin(row interface{ Scan(...any) error }, destination ...*doma
 	parsedHousehold, err := domain.ParseHouseholdID(householdID)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
+	}
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored ledger timezone is invalid"}
 	}
 	started, err := time.Parse(time.RFC3339Nano, startedAt)
 	if err != nil {

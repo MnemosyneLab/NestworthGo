@@ -1087,7 +1087,7 @@
     "noAutomaticRepair": "此涵蓋範圍不支援自動修復。請檢查行情服務狀態或支援範圍；重新整理目前報價不能補齊這段歷史缺口。",
     "noExecutableWork": "目前沒有可執行的修復工作。請解決前置問題，或稍後重新檢查涵蓋情況。",
     "viewPeriodGaps": "查看此期間的缺口",
-    "manualDateZone": "日期使用 History 帳本時區（開始 History 前使用 UTC）。",
+    "manualDateZone": "日期使用帳本時區。",
     "noGroup": "未指定分組",
     "analyze": "分析",
     "analyzeObject": "分析 {{name}}",

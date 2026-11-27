@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"os/exec"
 	"strconv"
@@ -24,7 +25,7 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
 	app, session := reopenBaselineProfile(t, paths)
-	app.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
+	testfixture.SetClock(app, func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic receipts", BaseCurrency: "USD", MemberNames: []string{"Example owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 		{"Harbor Checking", "bank_account", "balance", "100"},
 		{"Cash Studio", "brokerage", "holdings", ""},
 	} {
-		row, err := app.CreateAccount(ctx, application.AccountInput{
+		row, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 			Name: item.name, AccountType: item.typ, TrackingMode: item.mode, BalanceSheetRole: "asset",
 			DefaultCurrency: "USD", InitialAmount: item.initial, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true,
 		})
@@ -45,13 +46,13 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 		}
 		if item.mode == "holdings" {
 			for currency, amount := range map[string]string{"USD": "200", "EUR": "15"} {
-				if _, err := app.AppendAccountCashValue(ctx, row.Account.ID, amount, currency, ""); err != nil {
+				if _, err := testfixture.AppendAccountCashValue(app, ctx, row.Account.ID, amount, currency, ""); err != nil {
 					t.Fatal(err)
 				}
 			}
 		}
 	}
-	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {

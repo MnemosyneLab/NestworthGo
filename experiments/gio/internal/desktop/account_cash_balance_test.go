@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -186,7 +187,7 @@ func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
 				t.Fatalf("incorrect cash effect: %+v", e)
 			}
 		}
-		app.SetClock(func() time.Time { return accountTestClock.Add(72 * time.Hour) })
+		testfixture.SetClock(app, func() time.Time { return accountTestClock.Add(72 * time.Hour) })
 		result, err := app.AssetChange(ctx, domain.AnalysisQuery{
 			Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-11-21", To: "2026-11-22",
 			Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true,
@@ -234,8 +235,8 @@ func cashBalanceHarness(t *testing.T, ledger interface {
 
 func advanceCashTargetClock(gio, wails *application.Service, offset time.Duration) {
 	clock := func() time.Time { return accountTestClock.Add(2*time.Minute + 3456*time.Millisecond + offset) }
-	gio.SetClock(clock)
-	wails.SetClock(clock)
+	testfixture.SetClock(gio, clock)
+	testfixture.SetClock(wails, clock)
 }
 
 func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *pilot.Session, pilot.Paths, domain.AccountID) {
@@ -243,7 +244,7 @@ func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *p
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
 	service, session := reopenBaselineProfile(t, paths)
-	service.SetClock(func() time.Time { return accountTestClock.Add(-72 * time.Hour) })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-72 * time.Hour) })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic cash balance", BaseCurrency: "USD", MemberNames: []string{"Ana Example"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -251,13 +252,13 @@ func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *p
 	if err != nil {
 		t.Fatal(err)
 	}
-	record, err := service.CreateAccount(ctx, application.AccountInput{Name: "Cash Studio", AccountType: "cash_on_hand", BalanceSheetRole: "asset",
+	record, err := testfixture.CreateAccount(service, ctx, application.AccountInput{Name: "Cash Studio", AccountType: "cash_on_hand", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true, IncludeInPortfolio: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	id := record.Account.ID
-	if _, err := service.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(service, ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualFXQuote(ctx, "EUR", "USD", "1.2", "2026-11-18T16:00:00Z"); err != nil {
@@ -265,17 +266,17 @@ func seedCashTargetFixture(t *testing.T, started bool) (*application.Service, *p
 	}
 	if started {
 		for code, amount := range map[string]string{"USD": "100", "EUR": "20.5"} {
-			if _, err := service.AppendAccountCashValue(ctx, id, amount, code, ""); err != nil {
+			if _, err := testfixture.AppendAccountCashValue(service, ctx, id, amount, code, ""); err != nil {
 				t.Fatal(err)
 			}
 		}
-		service.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
-		if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+		testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
+		if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 		advanceCashTargetClock(service, service, 0)
 	} else {
-		service.SetClock(func() time.Time { return time.Date(2026, 11, 22, 0, 2, 3, 456000000, time.UTC) })
+		testfixture.SetClock(service, func() time.Time { return time.Date(2026, 11, 22, 0, 2, 3, 456000000, time.UTC) })
 	}
 	return service, session, paths, id
 }

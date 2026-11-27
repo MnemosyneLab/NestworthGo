@@ -1,11 +1,11 @@
 package preferences
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"path/filepath"
 	"testing"
 
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -19,7 +19,7 @@ func TestWindowSizePersistsWithoutOverwritingPreferences(t *testing.T) {
 	}
 	defer db.Close()
 	ctx := t.Context()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	service, err := Open(path, db, app)
 	if err != nil {
 		t.Fatal(err)

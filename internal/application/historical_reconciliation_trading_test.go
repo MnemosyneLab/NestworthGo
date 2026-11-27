@@ -35,7 +35,7 @@ func TestHistoricalReconciliationTradingLedgers(t *testing.T) {
 			ctx := t.Context()
 			s, db, owner, now := overviewFixture(t)
 			broker := overviewAccount(t, s, owner, "Synthetic brokerage", "brokerage", "asset", "holdings", tc.currency, "")
-			if _, err := s.AppendAccountCashValue(ctx, broker.Account.ID, "10000", tc.currency, ""); err != nil {
+			if _, err := s.fixtureAppendAccountCashValue(ctx, broker.Account.ID, "10000", tc.currency, ""); err != nil {
 				t.Fatal(err)
 			}
 			instrumentType := "mutual_fund"
@@ -46,7 +46,7 @@ func TestHistoricalReconciliationTradingLedgers(t *testing.T) {
 			var err error
 			createInstrument := func() {
 				t.Helper()
-				instrument, err = s.CreateInstrument(ctx, InstrumentInput{Name: tc.name, Type: instrumentType, QuoteCurrency: tc.currency, QuoteSource: "manual"})
+				instrument, err = s.fixtureCreateInstrument(ctx, InstrumentInput{Name: tc.name, Type: instrumentType, QuoteCurrency: tc.currency, QuoteSource: "manual"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -60,14 +60,14 @@ func TestHistoricalReconciliationTradingLedgers(t *testing.T) {
 			var holding domain.Holding
 			costs := map[domain.HoldingID]string{}
 			if !tc.newPosition {
-				holding, err = s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: tc.quantity})
+				holding, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: tc.quantity})
 				if err != nil {
 					t.Fatal(err)
 				}
 				costs[holding.ID] = tc.openingPrice
 			}
 			if tc.currency == "USD" {
-				if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+				if _, err = s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 					t.Fatal(err)
 				}
 				if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
@@ -200,11 +200,11 @@ func TestHistoricalReconciliationSplitAndQuantityMismatch(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	a := overviewAccount(t, s, owner, "Synthetic split", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic split", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic split", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "100"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,14 +248,14 @@ func TestHistoricalReconciliationTradingCorrectionUndoAndSeparateIncome(t *testi
 	ctx := t.Context()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic corrections", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "1000", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "1000", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}

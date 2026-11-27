@@ -67,10 +67,10 @@ func TestArchivedProviderFactsRemainReadableWithoutRefreshOrFallback(t *testing.
 			t.Fatal("retired binding planned a network fetch")
 		}
 	}
-	if _, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Rejected", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: source, ProviderSymbol: "AAPL", MarketCode: "US"}); err == nil {
+	if _, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Rejected", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: source, ProviderSymbol: "AAPL", MarketCode: "US"}); err == nil {
 		t.Fatal("retired source was selectable")
 	}
-	if _, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL"}); err != nil {
+	if _, err := service.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "AAPL"}); err != nil {
 		t.Fatal(err)
 	}
 	after, err := repo.ListInstrumentQuotes(ctx, instrument.ID)

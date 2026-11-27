@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func comparisonSelectionFixture(t *testing.T) (*Service, *sqlite.DB, domain.Instrument) {
@@ -19,13 +20,13 @@ func comparisonSelectionFixture(t *testing.T) (*Service, *sqlite.DB, domain.Inst
 		t.Fatal(e)
 	}
 	t.Cleanup(func() { db.Close() })
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	s.SetClock(func() time.Time { return now })
 	if e = s.completeBaselineFixture(t.Context(), OnboardingInput{HouseholdName: "Synthetic selection", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); e != nil {
 		t.Fatal(e)
 	}
-	i, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic selection target", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, e := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic selection target", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -105,7 +106,7 @@ func TestMarketComparisonChartUsesOriginalNAVAndConversionOrdering(t *testing.T)
 				wantID = imported.QuoteIDs[0]
 				seedComparisonProvider(t, db, i, "close", domain.YahooRawClosePriceBasis, "2026-09-28", "2026-09-28T15:00:00.000Z", "", 1)
 			} else {
-				metal, e := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic converted metal", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "manual", MetalTemplate: "gold", QuantityUnit: "g"})
+				metal, e := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic converted metal", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "manual", MetalTemplate: "gold", QuantityUnit: "g"})
 				if e != nil {
 					t.Fatal(e)
 				}

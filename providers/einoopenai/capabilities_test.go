@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -73,17 +74,17 @@ func ledgerSessionDatabase(t *testing.T) (*application.Service, *observedSession
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(db)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
 	app.SetLiveDatabasePath(path)
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic AI acceptance", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}, Timezone: "UTC", HistoryStartDate: "2026-09-01"}); err != nil {
 		t.Fatal(err)
 	}
 	members, _ := app.ListMembers(t.Context(), false)
-	account, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic checking 合成账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "0", OwnerIDs: []domain.MemberID{members[0].ID}})
+	account, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "Synthetic checking 合成账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "0", OwnerIDs: []domain.MemberID{members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

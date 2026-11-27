@@ -3,6 +3,7 @@ package application
 import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -39,7 +40,7 @@ func TestProductP2ReservationEditInvalidatesPreview(t *testing.T) {
 func TestProductP2MulticurrencyPreviewUsesProductCurrency(t *testing.T) {
 	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
-	if _, e := s.AppendAccountCashValue(ctx, a, "777", "EUR", ""); e != nil {
+	if _, e := s.fixtureAppendAccountCashValue(ctx, a, "777", "EUR", ""); e != nil {
 		t.Fatal(e)
 	}
 	c := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: a.String(), Currency: "USD", Principal: "1000", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Second", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}, Policy: depositPolicy()}}
@@ -235,7 +236,7 @@ func TestProductP2BackupLifecycleAndCorruption(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, err := sqlite.NewRepository(db).ReadLiquiditySnapshot(ctx)
+		got, err := repos.New(db).ReadLiquiditySnapshot(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -259,7 +260,7 @@ func TestProductP2BackupLifecycleAndCorruption(t *testing.T) {
 		if !reflect.DeepEqual(got, want) {
 			t.Fatal("restored liquidity snapshot differs, including cash and valuation facts")
 		}
-		restored := NewService(sqlite.NewRepository(db))
+		restored := NewService(repos.New(db))
 		restored.setClock(s.clock)
 		gotOverview, err := restored.LiquidityOverview(ctx, LiquidityOverviewQuery{IncludeEarlyWithdrawal: true})
 		if err != nil {

@@ -13,7 +13,7 @@ func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-today", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
-	brokerage, err := service.CreateAccount(ctx, AccountInput{
+	brokerage, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -21,11 +21,11 @@ func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 	if err != nil {
 		t.Fatalf("brokerage: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-incomplete-gap", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -134,7 +134,7 @@ func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testin
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-long-history", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC))
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -211,7 +211,7 @@ func TestExplicitTrendWindowExcludesCurrentAndLaterDays(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-explicit", []string{"Owner"})
 	setClock(time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",

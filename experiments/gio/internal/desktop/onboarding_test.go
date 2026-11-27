@@ -17,7 +17,6 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -71,8 +70,8 @@ func reopenOnboardingProfile(t *testing.T, paths pilot.Paths) (*application.Serv
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	service := application.NewService(sqlite.NewRepository(session.DB))
-	service.SetClock(func() time.Time { return onboardingTestTime })
+	service := testfixture.NewService(testfixture.Repository(session.DB))
+	testfixture.SetClock(service, func() time.Time { return onboardingTestTime })
 	return service, session
 }
 
@@ -84,8 +83,8 @@ func reopenBaselineProfile(t *testing.T, paths pilot.Paths) (*application.Servic
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(session.DB)})
-	service.SetClock(func() time.Time { return onboardingTestTime })
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(session.DB)})
+	testfixture.SetClock(service, func() time.Time { return onboardingTestTime })
 	return service, session
 }
 

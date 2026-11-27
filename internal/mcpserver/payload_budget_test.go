@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"bytes"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"io"
 	"net/http"
 	"sort"
@@ -42,7 +43,7 @@ func newPayloadHousehold(t *testing.T, large bool) payloadHousehold {
 	}
 	now := origin
 	app := wailstest.NewService(t)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "SYNTHETIC payload regression", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner", "Synthetic co-owner"}, Timezone: "UTC", HistoryStartDate: origin.Format(time.DateOnly)}); err != nil {
 		t.Fatal(err)
 	}

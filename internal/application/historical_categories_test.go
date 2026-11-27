@@ -158,7 +158,7 @@ func TestHistoricalOverviewP1ReadOnlyWireAndFrozenEvidence(t *testing.T) {
 	if _, err := s.AppendManualFXQuote(ctx, "CNY", "USD", "0.125", "2026-08-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
@@ -244,11 +244,11 @@ func TestHistoricalOverviewP1MissingDetailsAndExplicitHoldingIDs(t *testing.T) {
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	broker := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Unpriced", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Unpriced", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}

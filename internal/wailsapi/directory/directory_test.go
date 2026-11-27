@@ -13,7 +13,7 @@ import (
 
 func newOnboardedServices(t *testing.T) *directory.Service {
 	t.Helper()
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
 	}); err != nil {

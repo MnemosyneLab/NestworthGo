@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type accountingGainFixture struct {
@@ -32,7 +33,7 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	f := &accountingGainFixture{db: db, repo: sqlite.NewRepository(db), now: time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)}
+	f := &accountingGainFixture{db: db, repo: repos.New(db), now: time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)}
 	f.service = NewService(f.repo)
 	f.service.setClock(func() time.Time { return f.now })
 	ctx := context.Background()
@@ -43,12 +44,12 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.instrument, err = f.service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: quoteCurrency, QuoteSource: "manual"})
+	f.instrument, err = f.service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: quoteCurrency, QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"A", "B", "C"} {
-		account, err := f.service.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{f.boot.Members[0].ID}})
+		account, err := f.service.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{f.boot.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -57,12 +58,12 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 		if name == "A" {
 			q = quantity
 		}
-		holding, err := f.service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: q})
+		holding, err := f.service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: q})
 		if err != nil {
 			t.Fatal(err)
 		}
 		f.holdings = append(f.holdings, holding)
-		if _, err := f.service.AppendAccountCashValue(ctx, account.Account.ID, "1000000000", quoteCurrency, "2026-09-25"); err != nil {
+		if _, err := f.service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "1000000000", quoteCurrency, "2026-09-25"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -73,7 +74,7 @@ func newAccountingGainFixtureCurrency(t *testing.T, quantity, cost, quoteCurrenc
 		if _, err := f.service.AppendManualFXQuote(ctx, quoteCurrency, "CNY", "6", "2026-09-25T12:00:00Z"); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := f.service.SetFXPreference(ctx, quoteCurrency, "CNY", "manual"); err != nil {
+		if _, err := f.service.fixtureSetFXPreference(ctx, quoteCurrency, "CNY", "manual"); err != nil {
 			t.Fatal(err)
 		}
 	}

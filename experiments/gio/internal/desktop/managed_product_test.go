@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -27,7 +28,7 @@ type managedProductFixture struct {
 
 func seedManagedProducts(ctx context.Context, app *application.Service, at time.Time) (managedProductFixture, error) {
 	fixture := managedProductFixture{ids: make(map[string]domain.ProductContractID)}
-	app.SetClock(func() time.Time { return at.Add(-72 * time.Hour) })
+	testfixture.SetClock(app, func() time.Time { return at.Add(-72 * time.Hour) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic term deposits", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {
@@ -37,7 +38,7 @@ func seedManagedProducts(ctx context.Context, app *application.Service, at time.
 	if err != nil {
 		return fixture, err
 	}
-	bank, err := app.CreateAccount(ctx, application.AccountInput{
+	bank, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 		Name: "Harbor Deposit Bank", AccountType: "bank_account", TrackingMode: "holdings",
 		BalanceSheetRole: "asset", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 		IncludeInNetWorth: true, IncludeInPortfolio: true,
@@ -46,13 +47,13 @@ func seedManagedProducts(ctx context.Context, app *application.Service, at time.
 		return fixture, err
 	}
 	fixture.account = bank.Account.ID
-	if _, err := app.AppendAccountCashValue(ctx, fixture.account, "3000", "USD", ""); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(app, ctx, fixture.account, "3000", "USD", ""); err != nil {
 		return fixture, err
 	}
-	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 		return fixture, err
 	}
-	app.SetClock(func() time.Time { return at })
+	testfixture.SetClock(app, func() time.Time { return at })
 
 	api := liquidityapi.NewService(app)
 	record := func(command liquidityapi.ProductCommandRequest) (liquidityapi.ProductOperationReceiptDTO, error) {

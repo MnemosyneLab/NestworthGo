@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *testing.T) {
@@ -16,11 +17,11 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -46,15 +47,20 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: holdingsAccount.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: holdingsAccount.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: "700"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
-	updatedHolding, err := service.UpdateHoldingQuantity(ctx, holding.ID, "3.5")
+	added, _ := domain.ParseQuantity("0.5")
+	cost, _ := domain.ParseUnitPrice("700")
+	if _, err := service.RecordChange(ctx, domain.PositionAdjustmentInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Quantity: added, Added: true, UnitCost: &cost}); err != nil {
+		t.Fatal(err)
+	}
+	updatedHolding, err := service.repository.Holding(ctx, holding.ID)
 	if err != nil || updatedHolding.Quantity.Canonical() != "3.5" {
 		t.Fatalf("updated holding = %+v, err = %v", updatedHolding, err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, holdingsAccount.Account.ID, "5000", "SGD", "2026-08-23"); err != nil {
+	if _, err := service.AppendAccountCashValue(ctx, holdingsAccount.Account.ID, "5000", "SGD", ""); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	quote, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "700", "2026-08-23", false)
@@ -102,12 +108,12 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 		t.Fatalf("FX preference = %+v, err = %v", pref, err)
 	}
 	if err := service.ArchiveHolding(ctx, holding.ID, true); err == nil {
-		t.Fatal("nonzero holding archived before History")
+		t.Fatal("nonzero holding archived with positive quantity")
 	}
 	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err == nil {
-		t.Fatal("instrument with units archived before History")
+		t.Fatal("instrument with units archived with positive quantity")
 	}
-	if _, err := service.UpdateHoldingQuantity(ctx, holding.ID, "0"); err != nil {
+	if _, err := service.RecordChange(ctx, domain.PositionAdjustmentInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Quantity: updatedHolding.Quantity, Added: false}); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.ArchiveHolding(ctx, holding.ID, true); err != nil {
@@ -135,7 +141,7 @@ func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "holding-history-boundary", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -143,11 +149,11 @@ func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("account: %v", err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
@@ -157,16 +163,12 @@ func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
 	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
-	if _, err := service.UpdateHolding(ctx, holding.ID, HoldingUpdateInput{Quantity: "3", QuantitySet: true}); err == nil {
+	if _, err := service.fixtureUpdateHolding(ctx, holding.ID, HoldingUpdateInput{Quantity: "3", QuantitySet: true}); err == nil {
 		t.Fatal("UpdateHolding accepted a quantity mutation")
 	} else if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrInvalidChange {
 		t.Fatalf("UpdateHolding error = %v, want invalid change", err)
 	}
-	if _, err := service.UpdateHoldingQuantity(ctx, holding.ID, "3"); err == nil {
-		t.Fatal("UpdateHoldingQuantity accepted a post-history mutation")
-	} else if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrConflict {
-		t.Fatalf("UpdateHoldingQuantity error = %v, want conflict", err)
-	}
+
 }
 
 func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
@@ -176,16 +178,16 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bound", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bound", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "provider"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "provider"); err != nil {
 		t.Fatalf("select provider: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "123", "2026-08-23", false); err != nil {
@@ -195,7 +197,7 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 	if err != nil || len(items) != 1 || items[0].QuoteSource != domain.QuoteSourceProvider {
 		t.Fatalf("manual observation changed provider selection = %+v, err = %v", items, err)
 	}
-	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
 		t.Fatalf("select manual source: %v", err)
 	}
 	items, err = service.ListInstruments(ctx, false)
@@ -211,7 +213,7 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
@@ -219,7 +221,7 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 		t.Fatal(err)
 	}
 	note := "keep me"
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "Bound", Type: "stock", QuoteCurrency: "USD", Symbol: "QQQ", MarketCode: "nasdaq",
 		CountryCode: "us", ISIN: "us0000000001", Note: &note, SortOrder: 7,
 		QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ",
@@ -227,14 +229,14 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 	if err != nil {
 		t.Fatal(err)
 	}
-	partial, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{Name: "Renamed"})
+	partial, err := service.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{Name: "Renamed"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if partial.Symbol == nil || *partial.Symbol != "QQQ" || partial.Note == nil || *partial.Note != note || partial.SortOrder != 7 || partial.QuoteSource != domain.QuoteSourceProvider {
 		t.Fatalf("partial update did not preserve omitted fields: %+v", partial)
 	}
-	cleared, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{
+	cleared, err := service.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{
 		Replace: true, Name: "Manual", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", SortOrder: 0,
 	})
 	if err != nil {
@@ -252,14 +254,14 @@ func TestInstrumentPatchOmitsKeepAndNullClearsInsideTheWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	note := "keep me"
 	alias := "Alias"
-	created, err := service.CreateInstrument(ctx, InstrumentInput{
+	created, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "Bound", ShortName: &alias, Type: "stock", QuoteCurrency: "USD", Symbol: "QQQ", Note: &note, SortOrder: 7, QuoteSource: "manual",
 	})
 	if err != nil {
@@ -298,7 +300,7 @@ func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic patch", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
@@ -306,7 +308,7 @@ func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
 	for _, template := range []string{"gold", "silver"} {
 		for _, source := range []string{"manual", "agent", "provider"} {
 			t.Run(template+"/"+source, func(t *testing.T) {
-				created, err := service.CreateInstrument(ctx, InstrumentInput{Name: template + source, Type: "precious_metal", MetalTemplate: template, QuantityUnit: "g", QuoteCurrency: "USD", QuoteSource: source})
+				created, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: template + source, Type: "precious_metal", MetalTemplate: template, QuantityUnit: "g", QuoteCurrency: "USD", QuoteSource: source})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -334,7 +336,7 @@ func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
 			})
 		}
 	}
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"})
+	crypto, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +352,7 @@ func TestInstrumentPatchRejectsDefaultedClearsAtomically(t *testing.T) {
 	if err != nil || cleared.MarketCode != nil || cleared.ProviderKey != nil || cleared.ProviderSymbol != nil {
 		t.Fatalf("valid clear rejected: %+v %v", cleared, err)
 	}
-	ordinary, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Ordinary", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", MarketCode: "US", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTH"})
+	ordinary, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Ordinary", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", MarketCode: "US", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTH"})
 	if err != nil {
 		t.Fatal(err)
 	}

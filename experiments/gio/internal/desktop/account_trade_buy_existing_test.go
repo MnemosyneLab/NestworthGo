@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -57,8 +58,8 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.release) })
 	now := accountTestClock.Add(2345 * time.Millisecond)
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	accounts := newAccountsPage(ctx, app, clock, func() {})
 	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
@@ -305,7 +306,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(clock)
+	testfixture.SetClock(reopened, clock)
 	assertPosition(reopened, ids, "4", "100", "-8", "92", "252", 6)
 	r, err := reentry.Commit(ctx, reopened)
 	if err != nil || r.Activity.ID != reentryID {

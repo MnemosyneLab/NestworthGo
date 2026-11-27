@@ -83,8 +83,8 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	seed.SetClock(clock)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(seed, clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic Return Calendar", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
 	}); err != nil {
@@ -94,7 +94,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := seed.CreateAccount(ctx, application.AccountInput{
+	broker, err := testfixture.CreateAccount(seed, ctx, application.AccountInput{
 		Name: "Synthetic broker", AccountType: "brokerage", BalanceSheetRole: "asset",
 		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
@@ -102,13 +102,13 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := seed.CreateInstrument(ctx, application.InstrumentInput{
+	instrument, err := testfixture.CreateInstrument(seed, ctx, application.InstrumentInput{
 		Name: "Synthetic fund", Type: "stock", MarketCode: "US", QuoteCurrency: "USD", QuoteSource: "manual",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := seed.CreateHolding(ctx, application.HoldingInput{
+	holding, err := testfixture.CreateHolding(seed, ctx, application.HoldingInput{
 		AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10",
 	})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 	if _, err := seed.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-02-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
+	if _, err := testfixture.CaptureSyntheticOriginWithCosts(seed, ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -144,8 +144,8 @@ func TestReturnAnalysisCalendarAndDayMatchWails(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = copyDB.Close() })
 		provider := &unavailableOverviewProvider{}
-		s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)}, application.NewMarketDataRegistry(provider))
-		s.SetClock(clock)
+		s := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(copyDB)}, application.NewMarketDataRegistry(provider))
+		testfixture.SetClock(s, clock)
 		return s, provider
 	}
 	wails, wailsProvider := openCopy()

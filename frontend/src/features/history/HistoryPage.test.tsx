@@ -27,9 +27,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ai
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
 const historyOrigin = vi.fn();
-const startHistory = vi.fn();
-const startHistoryWithCosts = vi.fn();
-const startHistoryOnDate = vi.fn();
 const startingPointDraft = vi.fn();
 const listActivities = vi.fn();
 const listActivityPage = vi.fn();
@@ -73,9 +70,6 @@ vi.mock("@wailsio/runtime", () => ({
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: () => historyOrigin(),
-    StartHistory: (...args: unknown[]) => startHistory(...args),
-    StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
-    StartHistoryOnDate: (...args: unknown[]) => startHistoryOnDate(...args),
     StartingPointDraft: () => startingPointDraft(),
     Activity: (...args: unknown[]) => getActivity(...args),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
@@ -149,9 +143,6 @@ function renderPage(filters?: { kinds?: string[]; accountId?: string; instrument
 
 beforeEach(() => {
   historyOrigin.mockReset();
-  startHistory.mockReset();
-  startHistoryWithCosts.mockReset();
-  startHistoryOnDate.mockReset();
   startingPointDraft.mockReset();
   listActivities.mockReset();
   listActivityPage.mockReset();

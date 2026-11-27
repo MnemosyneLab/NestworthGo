@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock := func() time.Time { return accountTestClock }
-	service.SetClock(func() time.Time { return accountTestClock.AddDate(0, 0, -4) })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.AddDate(0, 0, -4) })
 	create := func(name, kind, mode, currency, amount string) domain.AccountID {
 		t.Helper()
 		record, err := service.CreateAccount(ctx, application.AccountInput{
@@ -41,7 +42,7 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 	adapter := historyapi.NewService(service)
 	funding, err := adapter.RecordChange(ctx, historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeMoneyAdded, AccountID: broker.String(), Amount: "100", Currency: "USD", Reason: "contribution",

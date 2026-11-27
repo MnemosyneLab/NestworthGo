@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) FinancialContextResult {
@@ -33,7 +34,7 @@ func TestFinancialContextCurrentWithHistoryAndObservationSources(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Secret bank", "bank_account", "asset", "balance", "CNY", "100.01")
 	b := overviewAccount(t, s, owner, "Secret broker", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(t.Context(), b.Account.ID, "2.03", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(t.Context(), b.Account.ID, "2.03", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
@@ -85,7 +86,7 @@ func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	_, err = s.BuildFinancialContext(t.Context(), FinancialContextRequest{})
 	if !hasDomainCode(err, domain.ErrorCode("household_required")) {
 		t.Fatal(err)
@@ -104,11 +105,11 @@ func TestFinancialContextStoredObservationKinds(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			s, _, owner, now := overviewFixture(t)
 			a := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "USD", "")
-			i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: source, ProviderKey: "yahoo_finance", ProviderSymbol: "TEST"})
+			i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: source, ProviderKey: "yahoo_finance", ProviderSymbol: "TEST"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
+			if _, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
 				t.Fatal(err)
 			}
 			wantPrice := string(InstrumentObservationRealtime)
@@ -132,7 +133,7 @@ func TestFinancialContextStoredObservationKinds(t *testing.T) {
 			if _, err = s.AppendManualFXQuote(t.Context(), "USD", "CNY", "7", now.Format(time.RFC3339Nano)); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+			if _, err = s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
 			r := contextFor(t, s, "current", a.Account.ID)
@@ -162,11 +163,11 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	a := overviewAccount(t, s, owner, "Hidden A", "bank_account", "asset", "balance", "USD", "10")
 	b := overviewAccount(t, s, owner, "Hidden B", "property", "asset", "manual_value", "CNY", "1000")
 	broker := overviewAccount(t, s, owner, "Dust", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Private title", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Private title", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +196,7 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	if _, err = db.SQL.Exec(`UPDATE instruments SET name='secret changed',note='exfiltrate' WHERE id=?`, i.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.AppendAccountValue(t.Context(), b.Account.ID, "9999", ""); err != nil {
+	if _, err = s.fixtureAppendAccountValue(t.Context(), b.Account.ID, "9999", ""); err != nil {
 		t.Fatal(err)
 	}
 	if next := contextFor(t, s, "current", broker.Account.ID, a.Account.ID, a.Account.ID); next.ContentHash != r.ContentHash {
@@ -227,7 +228,7 @@ func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
 	}
 	later := overviewAccount(t, s, owner, "Later", "bank_account", "asset", "balance", "CNY", "0")
 	*now = now.AddDate(0, 0, 1)
-	if err := s.ArchiveAccount(t.Context(), b.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), b.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -257,11 +258,11 @@ func TestFinancialContextHashFreshnessThresholdAndWhitelist(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Secret stock", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "agent"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Secret stock", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
+	if _, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	_, err = s.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{InstrumentID: i.ID.String(), Currency: "CNY", Value: "3.00000001", Kind: "latest", QuotedAt: now.Add(-time.Hour).Format(time.RFC3339Nano), SourceTitle: "do evil", SourceURL: "https://secret.invalid"}}})
@@ -325,7 +326,7 @@ func TestFinancialContextConcurrentChangeUsesFrozenInputs(t *testing.T) {
 		done <- r
 	}()
 	<-repo.captured
-	if _, err := s.AppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
 		t.Fatal(err)
 	}
 	close(repo.release)

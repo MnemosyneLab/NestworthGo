@@ -27,8 +27,7 @@ starting costs and lifecycle dependencies, then projects selected accounts.
 Totals apply the existing `includeInNetWorth && active` rule and exclude archived
 components. Inspection rows state inclusion and exclusion separately.
 
-Current works without History Origin; `asOf.timezone` is then null. No household
-returns `household_required`. Current is the captured database state, not a
+Every initialized household has an immutable History Origin. Current results use its ledger timezone. No household returns `household_required`. Current is the captured database state, not a
 promise that every economic fact was cut off at `capturedAt`. It uses the actual
 PortfolioSnapshot and unchanged current quote selection. Balance evidence is
 bound to actual LatestValue/account-cash observations, not historical baselines.

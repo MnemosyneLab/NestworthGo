@@ -24,7 +24,7 @@ func TestPostOriginBalanceEvidenceAtTimestampBoundaries(t *testing.T) {
 					if initial == "unknown" {
 						amount = "0"
 					}
-					a, err := s.CreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+					a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 					if err != nil {
 						t.Fatal(err)
 					}

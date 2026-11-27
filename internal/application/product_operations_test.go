@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestFixtureBOpeningReceiptUndoAndIdempotency(t *testing.T) {
@@ -149,7 +150,7 @@ func TestFixtureCRenewalFaultInjectionRollsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
@@ -468,11 +469,11 @@ func TestHoldingReservationUsesInstrumentCurrency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "CNY Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "CNY Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "150000", "CNY", ""); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "150000", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -604,7 +605,7 @@ func newProductTestServiceTZ(t *testing.T, clock time.Time, timezone string) (*S
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
@@ -622,11 +623,11 @@ func seedHoldingsCash(t *testing.T, service *Service, ctx context.Context, amoun
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, amount, "USD", ""); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, amount, "USD", ""); err != nil {
 		t.Fatal(err)
 	}
 	return account.Account.ID
@@ -722,11 +723,11 @@ func TestFixtureALiquidityOverviewTotals(t *testing.T) {
 	if _, err := service.RecordProductOperation(ctx, lockedCmd, domain.NewProductOperationID().String(), lockedPreview.ReviewedStateHash); err != nil {
 		t.Fatalf("open locked: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "H1", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "H1", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("stock instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: bank.String(), InstrumentID: stock.ID.String(), Quantity: "1", UnitCost: "3000"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: bank.String(), InstrumentID: stock.ID.String(), Quantity: "1", UnitCost: "3000"})
 	if err != nil {
 		t.Fatalf("stock holding: %v", err)
 	}
@@ -734,7 +735,7 @@ func TestFixtureALiquidityOverviewTotals(t *testing.T) {
 		t.Fatalf("stock quote: %v", err)
 	}
 	saveExplicitAccessPolicy(t, service, ctx, domain.HoldingSourceRef(bank, holding.ID), 2)
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Home", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}, InitialAmount: "100000",
 	}); err != nil {
@@ -757,7 +758,7 @@ func TestFixtureALiquidityOverviewTotals(t *testing.T) {
 	assertBucket(t, overviewEarly, "2026-09-20", "29950", "7000", "22950")
 	assertBucket(t, overviewEarly, "2026-09-27", "33200", "7000", "26200")
 
-	if _, err := service.AppendAccountCashValue(ctx, bank, "100", "EUR", ""); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, bank, "100", "EUR", ""); err != nil {
 		t.Fatalf("eur cash: %v", err)
 	}
 	eur, err := domain.ParseCurrency("EUR")
@@ -861,14 +862,14 @@ func TestRestrictedAccountCashIsUnknownUntilReviewed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "8000", "USD", ""); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "8000", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
 	overview, err := service.LiquidityOverview(ctx, LiquidityOverviewQuery{})
@@ -1066,7 +1067,7 @@ func TestLiquiditySnapshotRoundTripPreservesFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = restoredDB.Close() })
-	restored := NewService(sqlite.NewRepository(restoredDB))
+	restored := NewService(repos.New(restoredDB))
 	restored.setClock(func() time.Time { return time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC) })
 	copyDoc := decodeExport(t, restored)
 	if len(copyDoc.Facts.Liquidity["contracts"]) != 1 || len(copyDoc.Facts.Liquidity["operations"]) != 1 || len(copyDoc.Facts.Liquidity["reservations"]) != 1 {

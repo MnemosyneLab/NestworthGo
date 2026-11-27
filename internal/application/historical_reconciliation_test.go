@@ -54,7 +54,7 @@ func TestHistoricalReconciliationRetainedCorrectionsAndReversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -301,7 +301,7 @@ func TestHistoricalReconciliationSQLiteMultiCurrencyTransfer(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "CNY bank", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "USD bank", "bank_account", "asset", "balance", "USD", "10")
-	if _, err := s.SetFXPreference(ctx, "CNY", "USD", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "CNY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
@@ -351,11 +351,11 @@ func TestHistoricalReconciliationAgentCloseTimestampContinuity(t *testing.T) {
 			ctx := t.Context()
 			s, db, owner, now := overviewFixture(t)
 			broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic Agent close", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "agent"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic Agent close", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "agent"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+			holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 			if err != nil {
 				t.Fatal(err)
 			}

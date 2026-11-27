@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type coverageCancelPersister struct {
@@ -30,7 +31,7 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	fake := &syncFakeProvider{key: YahooFinanceProviderKey, history: func(_ context.Context, _ InstrumentMarketIdentity, _ DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		result := mappedYahooClose("2026-08-04", "5")
@@ -50,15 +51,15 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	cash, err := s.CreateAccount(t.Context(), AccountInput{Name: "Cash", IncludeInNetWorth: true, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	cash, err := s.fixtureCreateAccount(t.Context(), AccountInput{Name: "Cash", IncludeInNetWorth: true, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := s.CreateAccount(t.Context(), AccountInput{Name: "Broker", IncludeInNetWorth: true, IncludeInPortfolio: true, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	broker, err := s.fixtureCreateAccount(t.Context(), AccountInput{Name: "Broker", IncludeInNetWorth: true, IncludeInPortfolio: true, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTHETIC", MarketCode: "US"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "SYNTHETIC", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +67,7 @@ func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T
 	if err := repo.AppendInstrumentQuote(t.Context(), domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrument.ID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: YahooFinanceProviderKey, QuotedAt: now, CreatedAt: now}); err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "5"})
+	holding, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "5"})
 	if err != nil {
 		t.Fatal(err)
 	}

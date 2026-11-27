@@ -3,6 +3,7 @@ package builtinai
 import (
 	"context"
 	"encoding/json"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -24,7 +25,7 @@ func TestContextUsesEffectiveBuiltInAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	appports.Wire(app)
 	app.SetLiveDatabasePath(path)
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic metadata", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}, Timezone: "UTC", HistoryStartDate: "2026-01-01"}); err != nil {

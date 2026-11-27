@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -32,7 +33,7 @@ type balanceTargetTestService struct {
 
 func (s *balanceTargetTestService) AppendAccountValue(ctx context.Context, id domain.AccountID, amount, day string) (domain.AccountValue, error) {
 	s.appends++
-	v, err := s.Service.AppendAccountValue(ctx, id, amount, day)
+	v, err := testfixture.AppendAccountValue(s.Service, ctx, id, amount, day)
 	if err == nil && s.lostAppend {
 		return domain.AccountValue{}, errors.New("test: lost acknowledgement from unkeyed append")
 	}
@@ -280,7 +281,7 @@ func assertBankObservations(t *testing.T, session *pilot.Session, bank domain.Ac
 
 func setBalanceTargetClock(offset time.Duration, ledgers ...*application.Service) {
 	for _, ledger := range ledgers {
-		ledger.SetClock(func() time.Time { return accountTestClock.Add(offset) })
+		testfixture.SetClock(ledger, func() time.Time { return accountTestClock.Add(offset) })
 	}
 }
 
@@ -299,7 +300,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	}
 	create := func(name, kind, role, amount string) domain.AccountID {
 		t.Helper()
-		row, err := app.CreateAccount(ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role,
+		row, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role,
 			TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: amount, IncludeInNetWorth: true,
 			OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 		if err != nil {
@@ -311,7 +312,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	create("Synthetic Card", "credit_card", "liability", "30")
 	if started {
 		setBalanceTargetClock(-48*time.Hour, app)
-		if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -338,7 +339,7 @@ func TestBalanceTargetRejectsClockRollback(t *testing.T) {
 			before := readBankRecord(t, app, id).LatestValue
 			now := accountTestClock.Add(time.Minute)
 			clock := func() time.Time { return now }
-			app.SetClock(clock)
+			testfixture.SetClock(app, clock)
 			plan, err := reviewBalanceTarget(t.Context(), app, id, tc.target, clock)
 			if err != nil {
 				t.Fatal(err)

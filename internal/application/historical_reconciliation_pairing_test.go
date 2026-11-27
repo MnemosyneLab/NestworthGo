@@ -208,15 +208,15 @@ func TestHistoricalReconciliationPositionTransferIsNeutral(t *testing.T) {
 			}
 			a := overviewAccount(t, s, owner, "Synthetic from", "brokerage", "asset", "holdings", currency, "")
 			z := overviewAccount(t, s, owner, "Synthetic to", "brokerage", "asset", "holdings", currency, "")
-			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic transferred fund", Type: "etf", QuoteCurrency: currency, QuoteSource: "manual"})
+			i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic transferred fund", Type: "etf", QuoteCurrency: currency, QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+			h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			to, err := s.CreateHolding(ctx, HoldingInput{AccountID: z.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
+			to, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: z.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -224,7 +224,7 @@ func TestHistoricalReconciliationPositionTransferIsNeutral(t *testing.T) {
 				t.Fatal(err)
 			}
 			if foreign {
-				if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+				if _, err = s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 					t.Fatal(err)
 				}
 				if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {

@@ -340,7 +340,7 @@ func buildTimezoneSpringDB(dbPath, timezone string, at time.Time) (persistedTZ, 
 		return "", "", err
 	}
 	defer database.Close()
-	svc := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(database)})
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(database)})
 	ctx := context.Background()
 	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Timezone R4 " + timezone,
@@ -355,7 +355,7 @@ func buildTimezoneSpringDB(dbPath, timezone string, at time.Time) (persistedTZ, 
 		return "", "", err
 	}
 	owner := bootstrap.Members[0].ID
-	cash, err := svc.CreateAccount(ctx, application.AccountInput{
+	cash, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: "AUD Cash", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "1000",
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner},
@@ -363,7 +363,7 @@ func buildTimezoneSpringDB(dbPath, timezone string, at time.Time) (persistedTZ, 
 	if err != nil {
 		return "", "", err
 	}
-	origin, err := svc.CaptureSyntheticOrigin(ctx, timezone)
+	origin, err := testfixture.CaptureSyntheticOrigin(svc, ctx, timezone)
 	if err != nil {
 		return "", "", err
 	}

@@ -7,16 +7,17 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
-func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *testing.T) {
+func TestSyntheticOriginPreservesExistingFinancialFacts(t *testing.T) {
 	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/history.db")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	service := NewService(repository)
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
@@ -28,7 +29,7 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "10000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "10000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,30 +60,5 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 	}
 	if retried.ID != origin.ID || retried.Timezone != origin.Timezone {
 		t.Fatalf("retry origin = %+v, first = %+v", retried, origin)
-	}
-}
-
-func TestStartHistoryRequiresConfirmedIANAZone(t *testing.T) {
-	t.Parallel()
-	database, err := sqlite.Open(t.TempDir() + "/history-timezone.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
-	ctx := context.Background()
-	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "History", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
-		t.Fatal(err)
-	}
-	_, err = service.CaptureSyntheticOrigin(ctx, "system")
-	if err == nil || err.(*domain.Error).Code != domain.ErrHistoryTimezoneRequired {
-		t.Fatalf("timezone error = %v", err)
-	}
-	var origins int
-	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM history_origins").Scan(&origins); err != nil {
-		t.Fatal(err)
-	}
-	if origins != 0 {
-		t.Fatalf("invalid timezone created %d origins", origins)
 	}
 }

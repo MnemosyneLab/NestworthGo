@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/testfixture/storage"
 )
 
 // completeBaselineFixture is exclusively a test construction mechanism for
@@ -30,7 +31,7 @@ func (s *Service) completeBaselineFixture(ctx context.Context, input OnboardingI
 		member.SortOrder = index
 		members = append(members, member)
 	}
-	if err := s.repository.CreateOnboarding(ctx, household, members); err != nil {
+	if err := storage.ForPath(s.repository.Path()).CreateOnboarding(ctx, household, members); err != nil {
 		return err
 	}
 	return s.ensureDefaultDirectory(ctx, household)

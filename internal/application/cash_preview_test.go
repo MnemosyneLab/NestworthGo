@@ -3,13 +3,14 @@ package application
 import (
 	"errors"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/testfixture/storage"
 	"testing"
 	"time"
 )
 
 func TestCashPlanExpiryAndImmutableReason(t *testing.T) {
 	s, ctx, bootstrap, _ := newOnboardedService(t, "cash-plan", []string{"Owner"})
-	record, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	record, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,7 @@ func TestCashPreviewRejectsLaterEffectiveWinningObservation(t *testing.T) {
 	for _, started := range []bool{true} {
 		t.Run(map[bool]string{false: "future-baseline", true: "history-clock-rollback"}[started], func(t *testing.T) {
 			s, ctx, bootstrap, setClock := newOnboardedService(t, "cash-order", []string{"Owner"})
-			account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -71,7 +72,7 @@ func TestCashPreviewRejectsLaterEffectiveWinningObservation(t *testing.T) {
 				setClock(original.Add(24 * time.Hour))
 				target, winning = "40", "100"
 			} else {
-				if _, err := s.AppendAccountCashValue(ctx, account.Account.ID, "500", "CNY", later.Format(time.RFC3339Nano)); err != nil {
+				if _, err := s.fixtureAppendAccountCashValue(ctx, account.Account.ID, "500", "CNY", later.Format(time.RFC3339Nano)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -110,7 +111,7 @@ func TestCashConfirmationRechecksLaterWinnerUnderWriteGate(t *testing.T) {
 	for _, started := range []bool{true} {
 		t.Run(map[bool]string{false: "baseline", true: "history"}[started], func(t *testing.T) {
 			s, ctx, bootstrap, _ := newOnboardedService(t, "cash-confirm-order", []string{"Owner"})
-			account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -131,7 +132,7 @@ func TestCashConfirmationRechecksLaterWinnerUnderWriteGate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := s.repository.AppendAccountCashValue(ctx, row); err != nil {
+			if err := storage.ForPath(s.repository.Path()).AppendAccountCashValue(ctx, row); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := s.ConfirmCashBalance(ctx, plan); !hasDomainCode(err, domain.ErrCashBalanceTimeConflict) {
@@ -147,7 +148,7 @@ func TestCashConfirmationRechecksLaterWinnerUnderWriteGate(t *testing.T) {
 
 func TestCashPreviewRejectsWinningRowWithLaterAuditTime(t *testing.T) {
 	s, ctx, bootstrap, _ := newOnboardedService(t, "cash-audit-order", []string{"Owner"})
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestCashPreviewRejectsWinningRowWithLaterAuditTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.repository.AppendAccountCashValue(ctx, row); err != nil {
+	if err := storage.ForPath(s.repository.Path()).AppendAccountCashValue(ctx, row); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.PreviewCashBalance(ctx, account.Account.ID, "80", "CNY", nil); !hasDomainCode(err, domain.ErrCashBalanceTimeConflict) {

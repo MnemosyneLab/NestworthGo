@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestCorrectionTransferFeeIntent(t *testing.T) {
@@ -20,7 +21,7 @@ func TestCorrectionTransferFeeIntent(t *testing.T) {
 						t.Fatal(err)
 					}
 					defer db.Close()
-					repo := sqlite.NewRepository(db)
+					repo := repos.New(db)
 					s := NewService(repo)
 					now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 					s.setClock(func() time.Time { return now })
@@ -29,7 +30,7 @@ func TestCorrectionTransferFeeIntent(t *testing.T) {
 					}
 					boot, _ := s.Bootstrap(ctx)
 					create := func(name, amount string) domain.AccountID {
-						a, e := s.CreateAccount(ctx, AccountInput{Name: name, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: map[string]string{"A": "USD", "B": destinationCurrency.String()}[name], InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+						a, e := s.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: map[string]string{"A": "USD", "B": destinationCurrency.String()}[name], InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 						if e != nil {
 							t.Fatal(e)
 						}
@@ -107,7 +108,7 @@ func TestCorrectionSoldOutArchivedPosition(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			repo := sqlite.NewRepository(db)
+			repo := repos.New(db)
 			s := NewService(repo)
 			now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 			s.setClock(func() time.Time { return now })
@@ -115,18 +116,18 @@ func TestCorrectionSoldOutArchivedPosition(t *testing.T) {
 				t.Fatal(err)
 			}
 			boot, _ := s.Bootstrap(ctx)
-			account, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+			account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-09-25"); err != nil {
+			if _, err := s.fixtureAppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-09-25"); err != nil {
 				t.Fatal(err)
 			}
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+			holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -153,7 +154,7 @@ func TestCorrectionSoldOutArchivedPosition(t *testing.T) {
 				if err := s.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
 					t.Fatal(err)
 				}
-				if err := s.ArchiveAccount(ctx, account.Account.ID, true); err != nil {
+				if err := s.fixtureArchiveAccount(ctx, account.Account.ID, true); err != nil {
 					t.Fatal(err)
 				}
 			}

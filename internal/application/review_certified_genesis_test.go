@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func unpublishedCertifiedFixture(t *testing.T) (seriesZeroFixture, *sqlite.Repository) {
@@ -14,7 +15,7 @@ func unpublishedCertifiedFixture(t *testing.T) (seriesZeroFixture, *sqlite.Repos
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic genesis", syntheticHistoricalReviewSpec())
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -54,7 +55,7 @@ func TestReviewCertifiedGenesisRequiresPrivateLifecycleProof(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+				r = repos.New(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -82,7 +83,7 @@ func TestReviewCertifiedGenesisRequiresPrivateLifecycleProof(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "c2-history-erased":
-				c2 := NewService(sqlite.NewRepository(f.db))
+				c2 := NewService(repos.New(f.db))
 				c2.fxProviderKey = "synthetic-pinned"
 				c2.setClock(func() time.Time { return *f.now })
 				if _, err := c2.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -121,7 +122,7 @@ func TestReviewCertifiedCapturedGenesisCannotSurvivePublicationAndErasure(t *tes
 	if !p.Capture.Certified.InitialPublication {
 		t.Fatal("fixture did not capture genesis")
 	}
-	c2 := NewService(sqlite.NewRepository(f.db))
+	c2 := NewService(repos.New(f.db))
 	c2.fxProviderKey = "synthetic-pinned"
 	c2.setClock(func() time.Time { return *f.now })
 	if _, err := c2.ReconcileInvestmentReviewsV2(t.Context()); err != nil {

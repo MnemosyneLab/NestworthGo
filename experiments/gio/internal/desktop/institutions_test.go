@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -234,7 +234,7 @@ func newDirectoryFixture(t *testing.T) (context.Context, func() (*application.Se
 			}
 		}
 		t.Cleanup(close)
-		return application.NewService(sqlite.NewRepository(session.DB)), close
+		return testfixture.NewService(testfixture.Repository(session.DB)), close
 	}
 	return ctx, open
 }

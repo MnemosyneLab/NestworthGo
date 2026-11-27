@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 	"time"
@@ -53,8 +54,8 @@ func TestLinkedCashTransferMatchesWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, refStorage, refPaths, refIDs := openExistingBuyFixture(t)
 	peers, refPeers := seedLinkedTransferPeers(t, app), seedLinkedTransferPeers(t, ref)
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session, refSession := startTestHoldingReconciliation(t, api, ids.account), startTestHoldingReconciliation(t, refAPI, refIDs.account)
 	before, err := app.ListActivities(ctx, 100)
@@ -216,7 +217,7 @@ func TestLinkedCashTransferMatchesWails(t *testing.T) {
 		account domain.AccountID
 		peers   linkedTransferPeers
 	}{{reopened, ids.account, peers}, {reference, refIDs.account, refPeers}} {
-		copy.app.SetClock(linkedContractClock)
+		testfixture.SetClock(copy.app, linkedContractClock)
 		assertNativeTradeCash(t, copy.app, copy.account, map[domain.CurrencyCode]string{"USD": "168.0988"})
 		for _, row := range []struct {
 			id     domain.AccountID

@@ -26,7 +26,7 @@ func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(session.DB)}).ListActivityPage(ctx, query)
+		page, err := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(session.DB)}).ListActivityPage(ctx, query)
 		closeErr := session.Close()
 		if err != nil || closeErr != nil {
 			t.Fatalf("read activity page: %v; close: %v", err, closeErr)
@@ -87,7 +87,7 @@ func TestOpenEarlierInstitutionsFixtureWithEmptyHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	service := testfixture.NewService(testfixture.Repository(db))
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Ordinary household", BaseCurrency: "USD", MemberNames: []string{"Sample member"},
 	}); err != nil {
@@ -105,7 +105,7 @@ func TestOpenEarlierInstitutionsFixtureWithEmptyHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	reopenedService := application.NewService(sqlite.NewRepository(reopened.DB))
+	reopenedService := testfixture.NewService(testfixture.Repository(reopened.DB))
 	after, err := reopenedService.HistoryOrigin(ctx)
 	if err != nil || after == nil || after.ID != origin.ID {
 		t.Fatalf("empty ledger origin changed: %+v %v", after, err)

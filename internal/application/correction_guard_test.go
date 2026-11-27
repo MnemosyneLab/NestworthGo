@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func guardedCorrectionFixture(t *testing.T) (*Service, *sqlite.DB, domain.MoneyAddedInput, domain.ActivityID, *time.Time) {
@@ -17,7 +18,7 @@ func guardedCorrectionFixture(t *testing.T) (*Service, *sqlite.DB, domain.MoneyA
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
@@ -28,7 +29,7 @@ func guardedCorrectionFixture(t *testing.T) (*Service, *sqlite.DB, domain.MoneyA
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +106,7 @@ func TestGuardedFixRejectsStalePreviewAndReplaysAfterRestart(t *testing.T) {
 	if count := activityCount(t, database); count != 4 {
 		t.Fatalf("activities = %d, want original, extra, inverse, replacement", count)
 	}
-	restarted := NewService(sqlite.NewRepository(database))
+	restarted := NewService(repos.New(database))
 	restarted.setClock(func() time.Time { return *now })
 	replay, err := restarted.RecordFixChangeGuarded(ctx, originalID, replacement, id, hash, token)
 	if err != nil || replay.Activity.ID != fixed.Activity.ID || activityCount(t, database) != 4 {
@@ -154,7 +155,7 @@ func TestGuardedUndoUsesCurrentStateAndDurableReplay(t *testing.T) {
 	if undo.Resulting[0].Amount != "1010" || activityCount(t, database) != 3 {
 		t.Fatalf("undo resulting = %+v", undo.Resulting)
 	}
-	restarted := NewService(sqlite.NewRepository(database))
+	restarted := NewService(repos.New(database))
 	restarted.setClock(func() time.Time { return *now })
 	replay, err := restarted.RecordUndoChangeGuarded(ctx, originalID, id, hash, token)
 	if err != nil || replay.Activity.ID != undo.Activity.ID || activityCount(t, database) != 3 {

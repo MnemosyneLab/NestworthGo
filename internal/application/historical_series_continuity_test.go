@@ -14,11 +14,11 @@ func TestHistoricalSeriesConnectsYahooAndAgentCloses(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "SYNTHETIC"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "SYNTHETIC"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}

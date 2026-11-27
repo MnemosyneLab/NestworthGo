@@ -10,7 +10,7 @@ import (
 
 func TestReviewSuppressionV2ReceiptKeepsAbsoluteCivilExpiry(t *testing.T) {
 	s, db, _, now := overviewFixture(t)
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestReviewSuppressionV2ReceiptKeepsAbsoluteCivilExpiry(t *testing.T) {
 
 func TestReviewSuppressionV2CustomRetryAfterExpiry(t *testing.T) {
 	s, _, _, now := overviewFixture(t)
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestReviewSuppressionV2CustomRetryAfterExpiry(t *testing.T) {
 
 func TestReviewSuppressionV2CanBeSetAgainAfterExpiryConcurrently(t *testing.T) {
 	s, _, _, now := overviewFixture(t)
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}

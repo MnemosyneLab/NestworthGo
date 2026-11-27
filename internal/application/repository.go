@@ -28,8 +28,7 @@ type Repository interface {
 // UpdatedAt. Omission handling and archive guards belong to the application.
 type DirectoryRepository interface {
 	Household(context.Context) (*domain.Household, error)
-	CreateOnboarding(context.Context, domain.Household, []domain.Member) error
-	CreateOnboardingWithHistory(context.Context, domain.Household, []domain.Member, domain.HistoryOriginData) error
+	InitializeLedger(context.Context, domain.Household, []domain.Member, domain.HistoryOrigin) error
 	ListMembers(context.Context, bool) ([]domain.Member, error)
 	Member(context.Context, domain.HouseholdID, domain.MemberID) (domain.Member, error)
 	CreateMember(context.Context, domain.Member) error
@@ -54,12 +53,8 @@ type DirectoryRepository interface {
 // AccountRepository owns Account identity, ownership, archive, and current
 // value observations.
 type AccountRepository interface {
-	CreateAccount(context.Context, domain.Account, domain.Ownership, *domain.AccountValue) error
 	CreateAccountWithHistory(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.AccountStateObservation, *domain.ActivityCommit, time.Time) error
-	UpdateAccount(context.Context, domain.Account, domain.Ownership) error
 	UpdateAccountWithObservation(context.Context, domain.Account, domain.Ownership, domain.AccountStateObservation) error
-	AppendAccountValue(context.Context, domain.AccountValue) error
-	SetAccountArchive(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time) error
 	SetAccountArchiveWithObservation(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time, domain.AccountStateObservation) error
 	ListAccountRecords(context.Context, domain.HouseholdID, domain.AccountFilter) ([]domain.AccountRecord, error)
 	AccountRecord(context.Context, domain.HouseholdID, domain.AccountID) (domain.AccountRecord, error)
@@ -87,23 +82,20 @@ type PortfolioRepository interface {
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
 	ReadPortfolioSnapshot(context.Context, domain.AccountFilter) (domain.PortfolioSnapshot, error)
 	ReadGainSnapshot(context.Context) (domain.GainSnapshot, error)
-	CreateInstrument(context.Context, domain.Instrument) error
 	CreateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
 	UpdateInstrument(context.Context, domain.Instrument) error
 	UpdateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
 	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
 	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
 	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
-	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, time.Time) error
 	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
-	CreateHolding(context.Context, domain.Holding) error
+	CreateEmptyHolding(context.Context, domain.Holding) error
 	CreateHoldingWithActivity(context.Context, domain.Holding, domain.ActivityCommit, time.Time) error
 	UpdateHolding(context.Context, domain.Holding) error
 	Holding(context.Context, domain.HoldingID) (domain.Holding, error)
 	ListHoldings(context.Context, domain.AccountID, bool) ([]domain.Holding, error)
 	ListHoldingsByAccounts(context.Context, []domain.AccountID) ([]domain.Holding, error)
 	SetHoldingArchive(context.Context, domain.HouseholdID, domain.HoldingID, bool, time.Time) error
-	AppendAccountCashValue(context.Context, domain.AccountCashValue) error
 	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
 	AppendInstrumentQuote(context.Context, domain.InstrumentQuote) error
 	AppendProviderInstrumentQuoteIfChanged(context.Context, domain.InstrumentQuote) (bool, error)
@@ -113,7 +105,6 @@ type PortfolioRepository interface {
 	AppendProviderFXQuoteIfChanged(context.Context, domain.FXQuote) (bool, error)
 	AppendFXQuoteAndSelectManual(context.Context, domain.FXQuote) error
 	ListFXQuotes(context.Context, domain.HouseholdID) ([]domain.FXQuote, error)
-	SetFXPreference(context.Context, domain.FXPreference) error
 	SetFXPreferenceWithObservation(context.Context, domain.FXPreference, domain.FXPreferenceObservation) error
 	FXPreference(context.Context, domain.HouseholdID, domain.CurrencyCode, domain.CurrencyCode) (domain.FXPreference, error)
 	ListFXPreferences(context.Context, domain.HouseholdID) ([]domain.FXPreference, error)
@@ -133,7 +124,6 @@ type HistoryRepository interface {
 	ListInstrumentPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentPreferenceObservation, error)
 	ListFXPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.FXPreferenceObservation, error)
 	LoadHistoricalSnapshotBatch(context.Context, domain.HouseholdID, time.Time) (domain.HistoricalSnapshotBatch, error)
-	CaptureSyntheticOrigin(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
 	CommitActivity(context.Context, domain.Activity, []domain.ActivityEffect, []domain.EndpointView, time.Time) error
 	CommitActivityBatch(context.Context, []domain.ActivityCommit, time.Time) error
 	LookupActivityMutation(context.Context, domain.HouseholdID, domain.MutationID) (*domain.ActivityMutationRecord, error)

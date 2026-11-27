@@ -45,9 +45,9 @@ func TestDefaultProfileOpensCopiedWailsLedger(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	now := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Pine Street Household", BaseCurrency: "AUD", MemberNames: []string{"Alex"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -55,12 +55,12 @@ func TestDefaultProfileOpensCopiedWailsLedger(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Pine Street checking", AccountType: "bank_account", BalanceSheetRole: "asset",
+	account, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Pine Street checking", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "123.45", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.CaptureSyntheticOrigin(ctx, "Australia/Sydney"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Australia/Sydney"); err != nil {
 		t.Fatal(err)
 	}
 	store := settings.NewStore(source.settings)
@@ -101,7 +101,7 @@ func TestDefaultProfileOpensCopiedWailsLedger(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = s.Close() })
-		return s, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(s.DB)})
+		return s, testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(s.DB)})
 	}
 	s, copied := open()
 	if second, err := OpenSession(ctx, paths); !errors.Is(err, backup.ErrAlreadyRunning) {

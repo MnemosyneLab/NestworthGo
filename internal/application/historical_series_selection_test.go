@@ -18,11 +18,11 @@ func seriesAgentSelectionFixture(t *testing.T, kind string, days ...string) (*Se
 	if kind == "nav" {
 		instrumentType = "mutual_fund"
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic US instrument", Type: instrumentType, MarketCode: "US", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic US instrument", Type: instrumentType, MarketCode: "US", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func seriesAgentSelectionFixture(t *testing.T, kind string, days ...string) (*Se
 	// Daily coverage assertions apply after an explicit switch out of manual
 	// carry-forward. Keep the manual origin for source/basis transition tests.
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	instrument, err = s.UpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"})
+	instrument, err = s.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}

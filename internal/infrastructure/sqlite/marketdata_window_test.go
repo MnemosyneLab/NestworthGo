@@ -60,9 +60,9 @@ func TestMarketSnapshotExplicitDatesUseMarketDateAndLocalInstants(t *testing.T) 
 			}
 		}
 	}
-	// No origin: explicitly verified UTC fallback, not the machine timezone.
+	// The existing UTC origin defines the civil date, not the machine timezone.
 	check([]string{"before", "start", "market_day"})
-	if _, err := db.SQL.ExecContext(t.Context(), `INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES(?,?,?,?,?)`, domain.NewHistoryOriginID().String(), household.ID.String(), "America/New_York", "2026-03-01T00:00:00Z", "2026-03-01T00:00:00Z"); err != nil {
+	if _, err := db.SQL.ExecContext(t.Context(), `UPDATE history_origins SET timezone=?,started_at=?,created_at=? WHERE household_id=?`, "America/New_York", "2026-03-01T00:00:00Z", "2026-03-01T00:00:00Z", household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	check([]string{"start", "end", "market_day"})

@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"testing"
@@ -24,14 +25,14 @@ func seedPagedProductHistory(t *testing.T, app *application.Service, account dom
 	id := seedTestLockedProductWithUnlock(t, app, account, nil, "2026-11-22")
 	for i := range 26 {
 		at := linkedContractClock().Add(time.Duration(i) * time.Minute)
-		app.SetClock(func() time.Time { return at })
+		testfixture.SetClock(app, func() time.Time { return at })
 		if _, err := app.AppendProductValuation(ctx, application.AppendProductValuationInput{ProductID: id, Amount: "123.4567", MutationID: domain.NewProductOperationID().String()}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	post := func(command application.ProductCommand, at time.Time) domain.ProductOperationID {
 		t.Helper()
-		app.SetClock(func() time.Time { return at })
+		testfixture.SetClock(app, func() time.Time { return at })
 		preview, err := app.PreviewProductOperation(ctx, command)
 		if err != nil {
 			t.Fatal(err)
@@ -104,7 +105,7 @@ func TestProductOperationHistoryMatchesWails(t *testing.T) {
 		t.Fatal("a failed page discarded loaded operations")
 	}
 	h.focused(&p.history.more)
-	app.SetClock(func() time.Time { return linkedContractClock().Add(time.Hour) })
+	testfixture.SetClock(app, func() time.Time { return linkedContractClock().Add(time.Hour) })
 	if _, err := app.AppendProductValuation(ctx, application.AppendProductValuationInput{ProductID: id, Amount: "124.0012", MutationID: domain.NewProductOperationID().String()}); err != nil {
 		t.Fatal(err)
 	}

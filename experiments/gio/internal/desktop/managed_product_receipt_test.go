@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -240,7 +241,7 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	clock := &atomic.Int64{}
 	clock.Store(accountTestClock.UnixNano())
 	now := func() time.Time { return time.Unix(0, clock.Load()).UTC() }
-	app.SetClock(now)
+	testfixture.SetClock(app, now)
 	reserveTermDeposit(t, app, id, "Rent reserve")
 	refRent := reserveTermDeposit(t, ref, refID, "Rent reserve")
 	refEmergency := reserveTermDeposit(t, ref, refID, "Emergency reserve")

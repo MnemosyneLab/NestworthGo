@@ -19,7 +19,7 @@ func TestMetalTemplatePreviewRefreshAndMissingFX(t *testing.T) {
 		err   error
 	}{quote: LatestInstrumentQuote{Price: raw, Currency: "USD", SourceKey: "fake", QuotedAt: s.clock()}}
 	input := InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "g"}
-	instrument, err := s.CreateInstrument(ctx, input)
+	instrument, err := s.fixtureCreateInstrument(ctx, input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestMetalTemplatePreviewRefreshAndMissingFX(t *testing.T) {
 	}
 	input.Replace = true
 	input.QuantityUnit = "troy_oz"
-	if _, err := s.UpdateInstrument(ctx, instrument.ID, input); err == nil {
+	if _, err := s.fixtureUpdateInstrument(ctx, instrument.ID, input); err == nil {
 		t.Fatal("unit change must be rejected")
 	}
 }
@@ -69,7 +69,7 @@ func TestMetalCurrencyVariantsAndRequiredFX(t *testing.T) {
 	_, s, _, _, _ := newRefreshFixture(t)
 	ctx := context.Background()
 	for _, unit := range []string{"g", "troy_oz"} {
-		if _, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: unit}); err != nil {
+		if _, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: unit}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -92,7 +92,7 @@ func TestMetalHistoryNeverUsesFutureFX(t *testing.T) {
 	t.Parallel()
 	_, s, _, _, _ := newRefreshFixture(t)
 	ctx := context.Background()
-	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	now := s.clock()

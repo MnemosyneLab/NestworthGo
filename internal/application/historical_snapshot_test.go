@@ -8,13 +8,14 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "exact-subcent", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -22,19 +23,19 @@ func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
-	first, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Dust A", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	first, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Dust A", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("first instrument: %v", err)
 	}
-	second, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Dust B", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	second, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Dust B", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("second instrument: %v", err)
 	}
-	firstHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: first.ID.String(), Quantity: "1"})
+	firstHolding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: first.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatalf("first holding: %v", err)
 	}
-	secondHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "1"})
+	secondHolding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatalf("second holding: %v", err)
 	}
@@ -106,7 +107,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -117,7 +118,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -159,14 +160,14 @@ func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "negative-net-worth", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "50",
 	}); err != nil {
 		t.Fatalf("asset: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "80",
@@ -221,7 +222,7 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "excluded-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	included, err := service.CreateAccount(ctx, AccountInput{
+	included, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -229,7 +230,7 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 	if err != nil {
 		t.Fatalf("included asset: %v", err)
 	}
-	excludedAsset, err := service.CreateAccount(ctx, AccountInput{
+	excludedAsset, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Hidden cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000",
@@ -237,7 +238,7 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 	if err != nil {
 		t.Fatalf("excluded asset: %v", err)
 	}
-	excludedLiability, err := service.CreateAccount(ctx, AccountInput{
+	excludedLiability, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Hidden card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "50",
@@ -287,7 +288,7 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "high-precision-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -295,11 +296,11 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "High precision ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "High precision ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "3.14159"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "3.14159"})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
@@ -340,7 +341,7 @@ func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "snapshot-classification", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	bank, err := service.CreateAccount(ctx, AccountInput{
+	bank, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "招行", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "800",
@@ -348,7 +349,7 @@ func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bank: %v", err)
 	}
-	brokerage, err := service.CreateAccount(ctx, AccountInput{
+	brokerage, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -356,15 +357,15 @@ func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("brokerage: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "200", "CNY", "2026-08-01"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, brokerage.Account.ID, "200", "CNY", "2026-08-01"); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-01", false); err != nil {
@@ -425,7 +426,7 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "backdated-dividend", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	brokerage, err := service.CreateAccount(ctx, AccountInput{
+	brokerage, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -433,15 +434,15 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("brokerage: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "50", "USD", "2026-08-01"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, brokerage.Account.ID, "50", "USD", "2026-08-01"); err != nil {
 		t.Fatalf("cash: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-01", false); err != nil {
@@ -488,7 +489,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		if err != nil {
 			t.Fatal(err)
 		}
-		service := NewService(sqlite.NewRepository(database))
+		service := NewService(repos.New(database))
 		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 		service.setClock(func() time.Time { return clock })
 		ctx := context.Background()
@@ -499,7 +500,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.CreateAccount(ctx, AccountInput{
+		if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 			Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 			DefaultCurrency: "CNY", IncludeInNetWorth: true,
 			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -535,7 +536,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 			t.Fatalf("migrated snapshot complete=%d hash=%s, want incomplete %s", storedComplete, storedHash, first.ContentHash)
 		}
 
-		service = NewService(sqlite.NewRepository(reopened))
+		service = NewService(repos.New(reopened))
 		service.setClock(func() time.Time { return clock })
 		rebuilt, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
 		if err != nil || !rebuilt.Complete {
@@ -562,7 +563,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		if err != nil {
 			t.Fatal(err)
 		}
-		service := NewService(sqlite.NewRepository(database))
+		service := NewService(repos.New(database))
 		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 		service.setClock(func() time.Time { return clock })
 		ctx := context.Background()
@@ -573,7 +574,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.CreateAccount(ctx, AccountInput{
+		if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 			Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 			DefaultCurrency: "CNY", IncludeInNetWorth: true,
 			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
@@ -584,7 +585,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 			t.Fatal(err)
 		}
 		clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-		account, err := service.CreateAccount(ctx, AccountInput{
+		account, err := service.fixtureCreateAccount(ctx, AccountInput{
 			Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 			DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
@@ -592,11 +593,11 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 		if err != nil {
 			t.Fatal(err)
 		}
-		instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Unquoted", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Unquoted", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {
+		if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {
 			t.Fatal(err)
 		}
 		clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -616,7 +617,7 @@ func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompletenes
 			t.Fatal(err)
 		}
 		defer reopened.Close()
-		service = NewService(sqlite.NewRepository(reopened))
+		service = NewService(repos.New(reopened))
 		service.setClock(func() time.Time { return clock })
 		rebuilt, _, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-02")
 		if err != nil || rebuilt.Complete {

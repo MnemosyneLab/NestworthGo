@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -26,7 +27,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, ids.foreign, "5", "AUD", ""); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(service, ctx, ids.foreign, "5", "AUD", ""); err != nil {
 		t.Fatal(err)
 	}
 	cash := domain.AccountCashSourceRef(ids.foreign, "EUR")
@@ -55,10 +56,10 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 	}
 	t.Cleanup(func() { _ = referenceDB.Close() })
 	clock := func() time.Time { return accountTestClock }
-	reference := application.NewService(sqlite.NewRepository(referenceDB))
-	reference.SetClock(clock)
+	reference := testfixture.NewService(testfixture.Repository(referenceDB))
+	testfixture.SetClock(reference, clock)
 	service, _ = reopenBaselineProfile(t, paths)
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 	p := newOverviewPage(ctx, service, clock, func() {})
 	tasks := newTasksPage(ctx, service, func() {})
 	funds := newAvailableFundsPage(ctx, service, func() {})
@@ -173,7 +174,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 	}
 	h.focused(tasks.upcomingLinks.buttons[shortKey])
 	// Keep the visible shortfall row stale while the source goes away.
-	if err := service.ArchiveAccount(ctx, ids.bank, true); err != nil {
+	if err := testfixture.ArchiveAccount(service, ctx, ids.bank, true); err != nil {
 		t.Fatal(err)
 	}
 	click("Check reservations · Harbor Savings")

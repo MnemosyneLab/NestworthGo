@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"sync"
@@ -27,7 +28,7 @@ type fundsFixture struct {
 
 func seedAvailableFunds(ctx context.Context, app *application.Service, at time.Time, populated bool) (fundsFixture, error) {
 	var ids fundsFixture
-	app.SetClock(func() time.Time { return at })
+	testfixture.SetClock(app, func() time.Time { return at })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic funds", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil || !populated {
@@ -67,7 +68,7 @@ func seedAvailableFunds(ctx context.Context, app *application.Service, at time.T
 		return ids, err
 	}
 	ids.instrument = instrument.ID
-	if _, err = app.CreateHolding(ctx, application.HoldingInput{AccountID: ids.broker.String(), InstrumentID: ids.instrument.String(), Quantity: "2"}); err != nil {
+	if _, err = app.CreateHolding(ctx, application.HoldingInput{AccountID: ids.broker.String(), InstrumentID: ids.instrument.String(), Quantity: "2", UnitCost: "10"}); err != nil {
 		return ids, err
 	}
 	api := liquidityapi.NewService(app)
@@ -244,7 +245,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(reopened, func() time.Time { return accountTestClock })
 	report, err := readAvailableFunds(ctx, reopened)
 	if err != nil {
 		t.Fatal(err)

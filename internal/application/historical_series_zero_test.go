@@ -35,11 +35,11 @@ func newSeriesZeroFixture(t *testing.T, fx bool, zone, first, quantity string, d
 		currency = "USD"
 	}
 	fixture.account = overviewAccount(t, s, owner, "Synthetic zero exposure", "brokerage", "asset", "holdings", currency, "")
-	fixture.instrument, err = s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: currency, QuoteSource: "manual"})
+	fixture.instrument, err = s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: currency, QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.holding, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: fixture.account.Account.ID.String(), InstrumentID: fixture.instrument.ID.String(), Quantity: quantity})
+	fixture.holding, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: fixture.account.Account.ID.String(), InstrumentID: fixture.instrument.ID.String(), Quantity: quantity})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func newSeriesZeroFixture(t *testing.T, fx bool, zone, first, quantity string, d
 		t.Fatal(err)
 	}
 	if fx {
-		if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+		if _, err := s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := s.AppendManualFXQuote(t.Context(), "USD", "CNY", "2", now.Format(time.RFC3339)); err != nil {
@@ -201,11 +201,11 @@ func TestHistoricalSeriesZeroEvidenceMemoryResets(t *testing.T) {
 				f.day(t, zero)
 				f.quantity(t, false)
 				if !gap {
-					if _, err := f.s.UpdateAccount(t.Context(), f.account.Account.ID, AccountInput{IncludeInNetWorth: false, IncludeInNetWorthSet: true}); err != nil {
+					if _, err := f.s.fixtureUpdateAccount(t.Context(), f.account.Account.ID, AccountInput{IncludeInNetWorth: false, IncludeInNetWorthSet: true}); err != nil {
 						t.Fatal(err)
 					}
 					f.day(t, "2026-08-03")
-					if _, err := f.s.UpdateAccount(t.Context(), f.account.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
+					if _, err := f.s.fixtureUpdateAccount(t.Context(), f.account.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -236,7 +236,7 @@ func TestHistoricalSeriesKnownZeroAllowsFXSourcePreferenceChange(t *testing.T) {
 	f.agent(t) // Agent FX supplements the saved manual preference on day A.
 	f.day(t, "2026-08-02")
 	f.quantity(t, false)
-	if _, err := f.s.SetFXPreference(t.Context(), "USD", "CNY", "agent"); err != nil {
+	if _, err := f.s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "agent"); err != nil {
 		t.Fatal(err)
 	}
 	f.day(t, "2026-08-03")

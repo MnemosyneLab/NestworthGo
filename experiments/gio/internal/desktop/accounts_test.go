@@ -46,9 +46,9 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	db, err := sqlite.Open(filepath.Join(data, "nestworth.db"))
 	check(err)
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
-	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
-	service.SetClock(func() time.Time { return accountTestClock.Add(-4 * time.Hour) })
+	repo := testfixture.Repository(db)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-4 * time.Hour) })
 	check(service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Account Test Household", BaseCurrency: "AUD", MemberNames: []string{"Ana Example", "Bea Example"},
 	}))
@@ -64,7 +64,7 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	check(err)
 	create := func(name string, kind domain.AccountType, mode domain.TrackingMode, currency, amount string, bank domain.InstitutionID) domain.AccountID {
 		t.Helper()
-		record, err := service.CreateAccount(ctx, application.AccountInput{
+		record, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 			Name: name, AccountType: kind.String(), BalanceSheetRole: "asset", TrackingMode: string(mode), DefaultCurrency: currency,
 			InitialAmount: amount, InstitutionID: bank.String(), GroupID: group.ID.String(), IncludeInNetWorth: true,
 			OwnerIDs: []domain.MemberID{core.Members[0].ID, core.Members[1].ID},
@@ -79,17 +79,17 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 	ids.mixed = create("Mixed brokerage", domain.TypeBrokerage, domain.TrackingHoldings, "USD", "", pacific.ID)
 	ids.archived = create("Legacy savings", domain.TypeBankAccount, domain.TrackingBalance, "AUD", "123", legacy.ID)
 	unpriced := create("Unpriced portfolio", domain.TypeBrokerage, domain.TrackingHoldings, "USD", "", "")
-	_, err = service.AppendAccountCashValue(ctx, ids.mixed, "15", "USD", "")
+	_, err = testfixture.AppendAccountCashValue(service, ctx, ids.mixed, "15", "USD", "")
 	check(err)
-	_, err = service.AppendAccountCashValue(ctx, ids.mixed, "30", "SGD", "")
+	_, err = testfixture.AppendAccountCashValue(service, ctx, ids.mixed, "30", "SGD", "")
 	check(err)
-	inst, err := service.CreateInstrument(ctx, application.InstrumentInput{
+	inst, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 		Name: "Synthetic equity", Symbol: "DEMO", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
 	})
 	check(err)
-	_, err = service.CreateHolding(ctx, application.HoldingInput{AccountID: ids.mixed.String(), InstrumentID: inst.ID.String(), Quantity: "2"})
+	mixedHolding, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{AccountID: ids.mixed.String(), InstrumentID: inst.ID.String(), Quantity: "2"})
 	check(err)
-	_, err = service.CreateHolding(ctx, application.HoldingInput{AccountID: unpriced.String(), InstrumentID: inst.ID.String(), Quantity: "1"})
+	unpricedHolding, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{AccountID: unpriced.String(), InstrumentID: inst.ID.String(), Quantity: "1"})
 	check(err)
 	rate, err := domain.ParseFxRate("1.5")
 	check(err)
@@ -98,10 +98,12 @@ func seedAccountFixture(t *testing.T, root string) accountFixture {
 		ID: domain.NewFXQuoteID(), HouseholdID: core.Household.ID, BaseCurrency: "USD", QuoteCurrency: "AUD", Rate: rate,
 		SourceKind: domain.QuoteSourceProvider, SourceKey: application.FrankfurterProviderKey, QuotedAt: at, CreatedAt: at,
 	}))
-	check(service.ArchiveAccount(ctx, ids.archived, true))
+	check(testfixture.ArchiveAccount(service, ctx, ids.archived, true))
 	check(service.ArchiveInstitution(ctx, legacy.ID, true))
 	check(service.ArchiveGroup(ctx, group.ID, true))
 	check(service.ArchiveMember(ctx, core.Members[1].ID, true))
+	_, err = testfixture.CaptureSyntheticOriginWithCosts(service, ctx, "Asia/Singapore", map[domain.HoldingID]string{mixedHolding.ID: "10", unpricedHolding.ID: "10"})
+	check(err)
 	saved := settings.Default()
 	saved.Currency, saved.Language, saved.Timezone = "AUD", settings.LanguageEnglish, "Asia/Singapore"
 	saved.QuoteCacheTTL = settings.QuoteCacheTTL1h
@@ -134,8 +136,8 @@ func openAccountTestFixture(t *testing.T) (accountFixture, *application.Service,
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = rdb.Close() })
-	wails := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(rdb)}, application.NewMarketDataRegistry(&unavailableOverviewProvider{}))
-	wails.SetClock(func() time.Time { return accountTestClock })
+	wails := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(rdb)}, application.NewMarketDataRegistry(&unavailableOverviewProvider{}))
+	testfixture.SetClock(wails, func() time.Time { return accountTestClock })
 	wails.SetQuoteCacheTTL(time.Hour)
 	if err := wails.SetFXProvider(application.FrankfurterProviderKey); err != nil {
 		t.Fatal(err)
@@ -151,8 +153,8 @@ func openAccountTestFixture(t *testing.T) (accountFixture, *application.Service,
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	gio := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(session.DB)})
-	gio.SetClock(func() time.Time { return accountTestClock })
+	gio := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(session.DB)})
+	testfixture.SetClock(gio, func() time.Time { return accountTestClock })
 	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, gio)
 	if err != nil {
 		t.Fatal(err)

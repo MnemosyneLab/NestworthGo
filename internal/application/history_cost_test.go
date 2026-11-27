@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T) {
@@ -18,7 +19,7 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
@@ -27,23 +28,23 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	priced, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Priced ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	priced, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Priced ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	unpriced, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Empty ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	unpriced, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Empty ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	positive, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
+	positive, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: unpriced.ID.String(), Quantity: "0"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: unpriced.ID.String(), Quantity: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, priced.ID, "100", "2026-08-24", false); err != nil {
@@ -87,7 +88,7 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer database.Close()
-			service := NewService(sqlite.NewRepository(database))
+			service := NewService(repos.New(database))
 			now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 			service.setClock(func() time.Time { return now })
 			ctx := context.Background()
@@ -98,11 +99,11 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -118,7 +119,7 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 			service.setClock(func() time.Time {
 				return now.Add(time.Duration(clockReads.Add(1)) * time.Millisecond)
 			})
-			holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: tc.unitCost})
+			holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: tc.unitCost})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -163,7 +164,7 @@ func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T)
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	ctx := context.Background()
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
@@ -172,28 +173,28 @@ func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	initial, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Initial ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	initial, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Initial ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: initial.ID.String(), Quantity: "0"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: initial.ID.String(), Quantity: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	created, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Already Existed ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	created, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Already Existed ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, created.ID, "100", "2026-08-24", false); err != nil {
 		t.Fatal(err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: created.ID.String(), Quantity: "3", UnitCost: "77.25"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: created.ID.String(), Quantity: "3", UnitCost: "77.25"})
 	if err != nil {
 		t.Fatal(err)
 	}

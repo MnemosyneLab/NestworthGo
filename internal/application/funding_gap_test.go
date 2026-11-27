@@ -13,17 +13,17 @@ func TestFundingGapAttributionAcrossPurchasesAndResolution(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	account := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, account.Account.ID, "0", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, account.Account.ID, "0", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
 	instruments := make([]domain.Instrument, 3)
 	holdings := make([]domain.Holding, 3)
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Older ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Older ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	instruments[0] = instrument
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestFundingGapAttributionAcrossPurchasesAndResolution(t *testing.T) {
 	*now = time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
 	// The current ledger can fund both buys, while closed days before August 6
 	// cannot. No real data or provider is involved.
-	if _, err := s.AppendAccountCashValue(ctx, account.Account.ID, "300", "CNY", "2026-08-06T12:00:00Z"); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, account.Account.ID, "300", "CNY", "2026-08-06T12:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
 	var firstActivity domain.ActivityID

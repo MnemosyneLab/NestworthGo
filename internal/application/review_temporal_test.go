@@ -10,11 +10,12 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func temporalCapture(t *testing.T, f seriesZeroFixture) domain.ReviewProjectionCapture {
 	t.Helper()
-	c, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	c, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +28,7 @@ func temporalPublicationOracle(t *testing.T, f seriesZeroFixture, capture domain
 	if err != nil {
 		t.Fatal(err)
 	}
-	full, err := fullReviewOracle(sqlite.NewRepository(f.db)).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	full, err := fullReviewOracle(repos.New(f.db)).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 				}
 				other := overviewAccount(t, f.s, owner, "Synthetic temporal receiving account", "brokerage", "asset", "holdings", "CNY", "")
 				var err error
-				destination, err = f.s.CreateHolding(t.Context(), HoldingInput{AccountID: other.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
+				destination, err = f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: other.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -202,7 +203,7 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 				if position.Quantity != want {
 					t.Fatalf("position=%s want=%s at=%s", position.Quantity, want, now)
 				}
-				if err := sqlite.NewRepository(f.db).PublishReviewProjection(t.Context(), stage, now); err != nil {
+				if err := repos.New(f.db).PublishReviewProjection(t.Context(), stage, now); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -218,7 +219,7 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 			}
 			run := f
 			run.db = reopened
-			run.s = NewService(sqlite.NewRepository(reopened))
+			run.s = NewService(repos.New(reopened))
 			run.s.setClock(func() time.Time { return *run.now })
 			fresh := temporalCapture(t, run)
 			if !fresh.TemporalFullRecompute || fresh.PublishedTemporal.Eligible(*run.now, fresh.Temporal) || fresh.SourceRevision.Token != before.SourceRevision.Token {
@@ -232,7 +233,7 @@ func TestReviewTemporalPreexistingFutureQuantityLifecycleOracle(t *testing.T) {
 				t.Fatal("rollback across activation reused old epoch evidence")
 			}
 			rollback := temporalPublicationOracle(t, f, back)
-			if err := sqlite.NewRepository(f.db).PublishReviewProjection(t.Context(), rollback, *f.now); err != nil {
+			if err := repos.New(f.db).PublishReviewProjection(t.Context(), rollback, *f.now); err != nil {
 				t.Fatal(err)
 			}
 			if oldEpisode != "" {
@@ -255,7 +256,7 @@ func TestReviewTemporalFinalClockRejectsActivationDuringFullRecheck(t *testing.T
 	*f.now = at.Add(-time.Nanosecond)
 	saveSyntheticReviewRule(t, f, "Synthetic publication boundary", syntheticHistoricalReviewSpec())
 	comparisons := 0
-	repo := &temporalRecheckFaultRepository{Repository: sqlite.NewRepository(f.db), faults: faults, afterRecheck: func() { comparisons++; *f.now = at }}
+	repo := &temporalRecheckFaultRepository{Repository: repos.New(f.db), faults: faults, afterRecheck: func() { comparisons++; *f.now = at }}
 	capture := temporalCapture(t, f)
 	stage := temporalPublicationOracle(t, f, capture)
 	err := repo.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time {
@@ -305,7 +306,7 @@ func TestReviewTemporalFutureQuotesOriginAndHoldingFrontiers(t *testing.T) {
 				t.Fatal("uncut future source omitted")
 			}
 			stage := temporalPublicationOracle(t, f, before)
-			temporalConflict(t, sqlite.NewRepository(f.db).PublishReviewProjection(t.Context(), stage, at))
+			temporalConflict(t, repos.New(f.db).PublishReviewProjection(t.Context(), stage, at))
 			for _, now := range []time.Time{at, at.Add(time.Nanosecond)} {
 				*f.now = now
 				current := temporalCapture(t, f)
@@ -472,7 +473,7 @@ func TestReviewTemporalRollbackRestartFloorAndRestoreForceFullOracle(t *testing.
 	defer reopened.Close()
 	run := f
 	run.db = reopened
-	run.s = NewService(sqlite.NewRepository(reopened))
+	run.s = NewService(repos.New(reopened))
 	run.s.setClock(func() time.Time { return *run.now })
 	for _, now := range []time.Time{published.Add(time.Second), published.Add(-time.Nanosecond)} {
 		*run.now = now

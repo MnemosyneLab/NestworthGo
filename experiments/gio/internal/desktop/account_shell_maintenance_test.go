@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -20,7 +21,7 @@ func TestValuedAndHoldingsMaintenanceMatchesWailsWithoutRewritingFacts(t *testin
 	ctx := t.Context()
 	root := createFixtureRoot(t)
 	seed, prepared := openBankFixture(t, root)
-	seed.SetClock(func() time.Time { return accountTestClock.Add(-time.Hour) })
+	testfixture.SetClock(seed, func() time.Time { return accountTestClock.Add(-time.Hour) })
 	core, err := seed.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)

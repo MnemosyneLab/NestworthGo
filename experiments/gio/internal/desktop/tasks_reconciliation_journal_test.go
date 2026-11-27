@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -34,7 +35,7 @@ func TestReconciliationJournalPagesAndReceiptBackMatchWails(t *testing.T) {
 	ctx := t.Context()
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	api := reconciliation.NewService(app)
 	wailsHistory := historyapi.NewService(app)
 	act := func(in application.ReconciliationAction) domain.ReconciliationSession {

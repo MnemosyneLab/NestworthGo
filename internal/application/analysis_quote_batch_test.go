@@ -52,7 +52,7 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, broker.Account.ID, "100", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, broker.Account.ID, "100", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
 	var cleared domain.Holding
@@ -62,7 +62,7 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 		if i == 1 {
 			currency = "USD"
 		}
-		instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: fmt.Sprintf("Synthetic %02d", i), Type: "etf", QuoteCurrency: currency, QuoteSource: "manual"})
+		instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: fmt.Sprintf("Synthetic %02d", i), Type: "etf", QuoteCurrency: currency, QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 			t.Fatal(err)
 		}
 		if i < 2 {
-			h, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+			h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func TestAnalysisQuoteBatchInputsResultsAndSQLCount(t *testing.T) {
 	if _, err := s.AppendManualFXQuote(ctx, "USD", "CNY", "7.12345678", "2026-08-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {

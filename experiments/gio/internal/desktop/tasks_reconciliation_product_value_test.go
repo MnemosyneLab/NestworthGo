@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -40,7 +41,7 @@ func seedTestLockedProduct(t *testing.T, service *application.Service, account d
 
 func seedTestLockedProductWithUnlock(t *testing.T, service *application.Service, account domain.AccountID, maturityInterest *string, unlock string) domain.ProductContractID {
 	t.Helper()
-	service.SetClock(func() time.Time { return accountTestClock.Add(-time.Minute) })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-time.Minute) })
 	days, calendar, fee := 0, "calendar", "0"
 	request := application.ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &application.RecordExistingProductCommand{
 		AccountID: account.String(), Currency: "USD", Principal: "125.25", TotalCostBasis: "120", CurrentValue: "123.4567", CashExcludesProduct: true,
@@ -61,7 +62,7 @@ func seedTestLockedProductWithUnlock(t *testing.T, service *application.Service,
 	if err != nil || len(receipt.ProductIDs) != 1 {
 		t.Fatalf("synthetic product: %+v / %v", receipt, err)
 	}
-	service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	return receipt.ProductIDs[0]
 }
 

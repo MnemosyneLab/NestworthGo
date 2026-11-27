@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
@@ -16,7 +17,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	svc := NewService(repo)
 	ctx := context.Background()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
@@ -37,7 +38,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	opened := "2026-09-27"
-	account, err := svc.CreateAccount(ctx, AccountInput{Name: "Backdated bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OpenedOn: &opened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := svc.fixtureCreateAccount(ctx, AccountInput{Name: "Backdated bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OpenedOn: &opened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	zeroOpened := "2026-09-28"
-	zeroAccount, err := svc.CreateAccount(ctx, AccountInput{Name: "Empty account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OpenedOn: &zeroOpened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	zeroAccount, err := svc.fixtureCreateAccount(ctx, AccountInput{Name: "Empty account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OpenedOn: &zeroOpened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

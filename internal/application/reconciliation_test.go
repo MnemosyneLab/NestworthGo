@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReconciliationBuildsAndCommitsCurrentTargetsWithoutCashTrade(t *testing.T) {
@@ -19,7 +20,7 @@ func TestReconciliationBuildsAndCommitsCurrentTargetsWithoutCashTrade(t *testing
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	service.SetClock(func() time.Time { return now })
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
@@ -30,26 +31,26 @@ func TestReconciliationBuildsAndCommitsCurrentTargetsWithoutCashTrade(t *testing
 		t.Fatal(err)
 	}
 	owner := bootstrap.Members[0].ID
-	bank, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{owner}})
+	bank, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{owner}})
+	broker, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, broker.Account.ID, "100", "USD", "2026-01-02"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, broker.Account.ID, "100", "USD", "2026-01-02"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "25"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "25"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,22 +106,22 @@ func TestReconciliationRejectsMissingCostAndDuplicateTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	service.SetClock(func() time.Time { return now })
 	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	bank, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	bank, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	broker, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestReconciliationRejectsMissingCostAndDuplicateTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}

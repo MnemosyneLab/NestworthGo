@@ -66,7 +66,7 @@ func TestReadOnlyFinancialAttributionDoesNotMaintainSnapshots(t *testing.T) {
 func TestReadOnlyAttributionPriceReturnMissingAndBudget(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestReadOnlyAttributionPriceReturnMissingAndBudget(t *testing.T) {
 		}
 	}
 	*now = now.AddDate(0, 0, -2)
-	holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	holding, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}

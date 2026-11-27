@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestCompleteOnboardingCreatesEmptyHistoryAndRecordsAfterReopen(t *testing.T) {
@@ -28,7 +29,7 @@ func TestCompleteOnboardingCreatesEmptyHistoryAndRecordsAfterReopen(t *testing.T
 				t.Fatal(err)
 			}
 			defer func() { _ = db.Close() }()
-			repo := sqlite.NewRepository(db)
+			repo := repos.New(db)
 			svc := NewService(repo)
 			svc.SetClock(func() time.Time { return now })
 			request := OnboardingInput{HouseholdName: "Synthetic QA", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}, Timezone: tc.timezone, HistoryStartDate: tc.day}
@@ -123,7 +124,7 @@ func TestCompleteOnboardingCreatesEmptyHistoryAndRecordsAfterReopen(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			svc = NewService(sqlite.NewRepository(db))
+			svc = NewService(repos.New(db))
 			svc.SetClock(func() time.Time { return now.Add(time.Minute) })
 			reopened, err := svc.HistoryOrigin(ctx)
 			if err != nil || reopened == nil || reopened.ID != origin.ID || !reopened.StartedAt.Equal(origin.StartedAt) {
@@ -152,7 +153,7 @@ func TestCompleteOnboardingOriginFailureRollsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	svc := NewService(sqlite.NewRepository(db))
+	svc := NewService(repos.New(db))
 	svc.SetClock(func() time.Time { return time.Date(2026, 11, 21, 17, 0, 0, 0, time.UTC) })
 	req := OnboardingInput{HouseholdName: "Synthetic QA", BaseCurrency: "USD", MemberNames: []string{"Owner"}, Timezone: "Asia/Singapore", HistoryStartDate: "2026-11-23"}
 	if err := svc.CompleteOnboarding(ctx, req); err == nil {

@@ -21,11 +21,11 @@ func openStage6Database(t *testing.T, path string, clock func() time.Time, provi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo}, providers...)
+	repo := testfixture.Repository(db)
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo}, providers...)
 	appports.AttachSQLiteHistory(svc, repo)
 	svc.SetLiveDatabasePath(db.Path)
-	svc.SetClock(clock)
+	testfixture.SetClock(svc, clock)
 	return db, repo, svc
 }
 
@@ -72,11 +72,11 @@ func seedStage6Snapshots(t *testing.T, start time.Time, closedDays int, dirty bo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CreateAccount(ctx, application.AccountInput{Name: "Synthetic cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD",
+	if _, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{Name: "Synthetic cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD",
 		InitialAmount: "125.25", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bs.Members[0].ID}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = start.AddDate(0, 0, closedDays)
@@ -110,7 +110,7 @@ func seedStage6LockedSettlement(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	seedTestLockedProductWithUnlock(t, svc, ids.account, nil, "2026-11-22")
-	svc.SetClock(func() time.Time { return time.Date(2026, time.November, 23, 17, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(svc, func() time.Time { return time.Date(2026, time.November, 23, 17, 0, 0, 0, time.UTC) })
 	startTestHoldingReconciliation(t, reconciliation.NewService(svc), ids.account)
 	return stage6SeedBytes(t, db)
 }
@@ -124,7 +124,7 @@ func seedStage6LinkedCashTransfer(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	seedLinkedTransferPeers(t, svc)
-	svc.SetClock(linkedContractClock)
+	testfixture.SetClock(svc, linkedContractClock)
 	startTestHoldingReconciliation(t, reconciliation.NewService(svc), ids.account)
 	return stage6SeedBytes(t, db)
 }
@@ -138,7 +138,7 @@ func seedStage6StandaloneLockedLifecycle(t *testing.T, maturityInterest *string)
 		t.Fatal(err)
 	}
 	id := seedTestLockedProductWithUnlock(t, app, seeded.account, maturityInterest, "2026-11-22")
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	reserveTermDeposit(t, app, id, "Synthetic redemption reserve")
 	return stage6SeedBytes(t, db)
 }
@@ -152,7 +152,7 @@ func seedStage6ReconciliationSelection(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	ids := seedReconciliationSelection(t, app, seeded.account)
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	startTestHoldingReconciliation(t, reconciliation.NewService(app), ids.unrelated)
 	return stage6SeedBytes(t, db)
 }
@@ -166,7 +166,7 @@ func seedStage6LinkedDebtValue(t *testing.T) []byte {
 		t.Fatal(err)
 	}
 	ids := seedReconciliationDebtAccounts(t, app, seeded.account)
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	startDebtValueReconciliation(t, reconciliation.NewService(app), ids)
 	return stage6SeedBytes(t, db)
 }

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -19,8 +20,8 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	boot, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)

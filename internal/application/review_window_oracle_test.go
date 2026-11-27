@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewWindowGapFallsBackToFullOracle(t *testing.T) {
@@ -25,7 +25,7 @@ func TestReviewWindowGapFallsBackToFullOracle(t *testing.T) {
 	if _, err := f.db.SQL.Exec(`DELETE FROM investment_review_daily_inputs WHERE on_date='2026-08-29'`); err != nil {
 		t.Fatal(err)
 	}
-	repository := sqlite.NewRepository(f.db)
+	repository := repos.New(f.db)
 	candidate, err := repository.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)

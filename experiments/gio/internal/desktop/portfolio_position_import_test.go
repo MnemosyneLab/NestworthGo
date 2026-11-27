@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	second := create("Second desk", "brokerage", "holdings")
 	create("Synthetic wallet", "cash_on_hand", "balance")
 	clock := func() time.Time { return accountTestClock }
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 
 	portfolio := newPortfolioPage(ctx, service, func() {})
 	f := &accountInvestment{service: service}

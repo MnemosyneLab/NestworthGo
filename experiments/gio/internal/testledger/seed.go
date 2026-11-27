@@ -20,8 +20,8 @@ func Seed(ctx context.Context, database, preferences string) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, db.Close()) }()
-	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	service.SetClock(HistoryStart)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(service, HistoryStart)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Harbor Sample Household",
 		BaseCurrency:  "USD",

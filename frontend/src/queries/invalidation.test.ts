@@ -62,8 +62,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
-    StartHistory: vi.fn(async () => ({ id: "origin-1" })),
-    StartHistoryWithCosts: vi.fn(async () => ({ id: "origin-1" })),
     StartingPointDraft: vi.fn(async () => []),
     RecordChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
     UndoChange: vi.fn(async () => ({ activity: { id: "a2" }, effects: [], resulting: [] })),

@@ -14,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func suffixQuote(t *testing.T, f seriesZeroFixture, id domain.InstrumentID, on, price string) {
@@ -41,11 +42,11 @@ func suffixFixtureWithDB(t *testing.T, policy domain.ReviewTriggerPolicy, db *sq
 	} else {
 		f = newSeriesZeroFixture(t, false, zone, "2026-10-01", "1", db)
 	}
-	second, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic independent stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	second, err := f.s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic independent stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.s.CreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
+	if _, err = f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	for day := 1; day <= 11; day++ {
@@ -59,7 +60,7 @@ func suffixFixtureWithDB(t *testing.T, policy domain.ReviewTriggerPolicy, db *sq
 	spec.TriggerPolicy = policy
 	spec.Schedule.Timezone = zone
 	saveSyntheticReviewRule(t, f, "Synthetic dependency suffix", spec)
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -158,7 +159,7 @@ func testReviewDependencySuffixFullDurableOracle(t *testing.T, extended bool) {
 						t.Fatal(err)
 					}
 					t.Cleanup(func() { db.Close() })
-					r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+					r = repos.New(db).WithDefaultReviewOptimizations()
 				}
 				stage := assertSuffixOracle(t, f, r, want)
 				if scenario == "restart" || scenario == "missing-row" {
@@ -286,7 +287,7 @@ func TestReviewDependencySuffixAuthorityAndRollback(t *testing.T) {
 			case "legacy-publisher":
 				err = r.PublishReviewProjection(ctx, p, *f.now)
 			case "disabled-publisher":
-				err = sqlite.NewRepository(f.db).PublishReviewProjection(ctx, p, *f.now)
+				err = repos.New(f.db).PublishReviewProjection(ctx, p, *f.now)
 			default:
 				err = certifiedPublish(ctx, f, r, p, clock)
 			}
@@ -513,7 +514,7 @@ func suffixFullReference(t *testing.T, f seriesZeroFixture) *sqlite.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	r := fullReviewOracle(sqlite.NewRepository(db))
+	r := fullReviewOracle(repos.New(db))
 	c, err := r.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)

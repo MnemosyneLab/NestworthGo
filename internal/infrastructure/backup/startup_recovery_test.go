@@ -338,7 +338,7 @@ func recoveryDatabase(t *testing.T, household string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001',?,'CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
+	if _, err := db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001',?,'CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -362,7 +362,7 @@ func recoveryWALDatabase(t *testing.T, household string) map[string][]byte {
 	if err := db.CheckpointWAL(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001',?,'CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
+	if _, err := db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001',?,'CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household); err != nil {
 		t.Fatal(err)
 	}
 	// Copy the idle, synthetic file group while its session is still open;

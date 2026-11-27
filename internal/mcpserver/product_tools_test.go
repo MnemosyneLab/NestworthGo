@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"io"
 	"net/http"
 	"reflect"
@@ -221,7 +222,7 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 		t.Fatal(seen)
 	}
 	// Advancing beyond maturity changes only the display/forecast, never cash.
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC) })
 	if product := read("510", "1000", "open"); product["displayState"] != "due_unconfirmed" {
 		t.Fatal("maturity was mistaken for actual settlement", product)
 	}

@@ -88,14 +88,11 @@ func (s *Service) SetReviewSuppressionV2(ctx context.Context, in SetReviewSuppre
 	if household == nil {
 		return empty, &domain.Error{Code: domain.ErrUnavailable, Message: "household is unavailable"}
 	}
-	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
+	origin, err := s.requireHistoryOrigin(ctx, household.ID)
 	if err != nil {
 		return empty, err
 	}
-	timezone := "UTC"
-	if origin != nil {
-		timezone = origin.Timezone
-	}
+	timezone := origin.Timezone
 	if in.Mode == "permanent" {
 		if in.Days != 0 || in.UntilOn != "" {
 			return empty, &domain.Error{Code: domain.ErrValidation, Field: "untilOn", Message: "permanent ignore has no resume date"}

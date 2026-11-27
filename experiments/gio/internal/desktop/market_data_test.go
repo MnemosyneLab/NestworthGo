@@ -43,9 +43,9 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	provider := &unavailableOverviewProvider{}
-	service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}, application.NewMarketDataRegistry(provider))
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}, application.NewMarketDataRegistry(provider))
 	now := time.Date(2026, time.November, 4, 8, 0, 0, 0, time.UTC)
-	service.SetClock(func() time.Time { return now })
+	testfixture.SetClock(service, func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic market data", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -53,19 +53,19 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateAccount(ctx, application.AccountInput{
+	if _, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 		Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "JPY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{
+	instrument, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 		Name: "Synthetic market fund", Symbol: "QA-FUND", Type: "etf", MarketCode: "US", QuoteCurrency: "USD", QuoteSource: "manual",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateInstrument(ctx, application.InstrumentInput{
+	if _, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 		Name: "Unquoted bond", Type: "bond", QuoteCurrency: "EUR", QuoteSource: "manual",
 	}); err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12.34567891", "2026-11-03", true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(service, ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "EUR", "0.92345678", now.Format(time.RFC3339)); err != nil {

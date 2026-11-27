@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestMCPPositionTransferCreatesDestinationAtomically(t *testing.T) {
 	costPlan := reconciliationPreview(t, c, map[string]any{"holdingId": source, "totalCost": "240", "currency": "USD"})
 	reconciliationCommit(t, c, uuid.NewString(), costPlan["planId"].(string))
 	assertReconciliationCost(t, fx, source, "8", "30", "240")
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
 	before := ledgerActivityCount(t, fx.app)
 	request := map[string]any{
 		"kind": "position_transfer", "fromHoldingId": source,

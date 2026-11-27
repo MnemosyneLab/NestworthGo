@@ -32,14 +32,14 @@ func TestReplaceDerivedDataPreservesAbsoluteTargetAndRollsBackFailedPublication(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repo.CreateAccount(ctx, account, ownership, &initialValue); err != nil {
+	if err := fixtureWriter(repo).CreateAccount(ctx, account, ownership, &initialValue); err != nil {
 		t.Fatal(err)
 	}
 	originID := domain.NewHistoryOriginID()
-	if _, err := db.SQL.ExecContext(ctx, `INSERT INTO history_origins(id, household_id, timezone, started_at, created_at) VALUES(?, ?, 'UTC', ?, ?)`, originID.String(), household.ID.String(), formatTimestamp(now), formatTimestamp(now)); err != nil {
+	if _, err := db.SQL.ExecContext(ctx, `UPDATE history_origins SET id=?,timezone='UTC',started_at=?,created_at=? WHERE household_id=?`, originID.String(), formatTimestamp(now), formatTimestamp(now), household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 3, ?)`, household.ID.String(), formatTimestamp(now), domain.MarketDataResolverPolicy); err != nil {
+	if _, err := db.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from=NULL,last_completed_closed_on=NULL,updated_at=?,input_generation=3,resolver_policy_version=? WHERE household_id=?`, formatTimestamp(now), domain.MarketDataResolverPolicy, household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	insertEvent := func(kind domain.ActivityKind, amount, resulting string) (domain.Activity, domain.ActivityEffect) {

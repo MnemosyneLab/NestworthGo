@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"io"
 	"os"
 	"path/filepath"
@@ -566,7 +567,7 @@ func TestCloudCandidateThroughExplicitJournalInstallAndRollback(t *testing.T) {
 			if _, err := db.SQL.Exec(`UPDATE app_configuration SET value='original-local' WHERE key='restore-value'`); err != nil {
 				t.Fatal(err)
 			}
-			app := application.NewService(sqlite.NewRepository(db))
+			app := testfixture.NewService(testfixture.Repository(db))
 			recovery := application.NewRecovery(m.path, backup.NewRuntime(), app)
 			recovery.SetBeforeRestore(m.PauseForRestore)
 			defer recovery.Shutdown()
@@ -767,7 +768,7 @@ func TestShutdownDrainsApplicationWriterBeforeFinalRemoteConfirmation(t *testing
 		t.Fatal(err)
 	}
 	waitState(t, m, "recent-backup-confirmed")
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	entered, release := make(chan struct{}), make(chan struct{})
 	defer func() {
 		select {

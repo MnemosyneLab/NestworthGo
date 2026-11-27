@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -179,7 +179,7 @@ func runCO03Probe() error {
 		out.Detail = "sqlite_ro_fallback: " + lockNote
 	}
 
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	query := domain.AnalysisQuery{
 		Scope:       domain.AnalysisScope{Kind: domain.ScopeHousehold},

@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *testing.T) {
@@ -18,7 +19,7 @@ func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *test
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	ctx := context.Background()
@@ -29,10 +30,10 @@ func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic USD", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "100", Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}}); err != nil {
+	if _, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic USD", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "100", Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetFXPreference(ctx, "CNY", "USD", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "CNY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AppendManualFXQuote(ctx, "CNY", "USD", "1.123456789012", "2026-08-01"); err != nil {
@@ -95,7 +96,7 @@ func TestHistoricalSnapshotInverseFXPrecisionAcrossStorageTrendAndHealth(t *test
 		t.Fatalf("reopen: %v", err)
 	}
 	defer reopened.Close()
-	stored, err = sqlite.NewRepository(reopened).ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
+	stored, err = repos.New(reopened).ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(stored) == 0 {
 		t.Fatalf("reopened snapshots: %d %v", len(stored), err)
 	}

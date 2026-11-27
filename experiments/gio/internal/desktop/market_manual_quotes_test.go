@@ -27,12 +27,12 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := testfixture.Repository(db)
 	provider := &unavailableOverviewProvider{}
-	svc := application.NewService(&testfixture.BaselineRepository{Repository: repo}, application.NewMarketDataRegistry(provider))
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo}, application.NewMarketDataRegistry(provider))
 	now := time.Date(2026, 11, 21, 8, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	svc.SetClock(clock)
+	testfixture.SetClock(svc, clock)
 	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic manual quotes", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -41,27 +41,27 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 		t.Fatal(err)
 	}
 	owner := []domain.MemberID{bs.Members[0].ID}
-	broker, err := svc.CreateAccount(ctx, application.AccountInput{Name: "Synthetic broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: owner})
+	broker, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{Name: "Synthetic broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: owner})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, code := range []string{"JPY", "SGD"} {
-		if _, err := svc.CreateAccount(ctx, application.AccountInput{Name: "Synthetic " + code, AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: code, InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: owner}); err != nil {
+		if _, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{Name: "Synthetic " + code, AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: code, InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: owner}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := svc.SetFXPreference(ctx, code, "USD", "manual"); err != nil {
+		if _, err := testfixture.SetFXPreference(svc, ctx, code, "USD", "manual"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	instrument, err := svc.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic manual fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{Name: "Synthetic manual fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := svc.CreateHolding(ctx, application.HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "1"})
+	holding, err := testfixture.CreateHolding(svc, ctx, application.HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+	if _, err := testfixture.CaptureSyntheticOriginWithCosts(svc, ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 4)
@@ -197,8 +197,8 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	restarted := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(reopened)}, application.NewMarketDataRegistry(provider))
-	restarted.SetClock(clock)
+	restarted := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(reopened)}, application.NewMarketDataRegistry(provider))
+	testfixture.SetClock(restarted, clock)
 	wails := quoteapi.NewService(restarted)
 	price, err := wails.CurrentInstrumentQuote(ctx, instrument.ID.String())
 	if err != nil || price == nil || price.UnitPrice != "12.34567891" || price.SourceKind != "manual" || price.QuotedAt != "2026-11-23T16:00:00.000Z" {
@@ -237,9 +237,9 @@ func TestMarketDataManualQuoteRetryBlocksOverlapAndHonorsCommittedReceipt(t *tes
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	svc := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	clock := func() time.Time { return time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC) }
-	svc.SetClock(clock)
+	testfixture.SetClock(svc, clock)
 	if err := svc.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic manual retry", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}

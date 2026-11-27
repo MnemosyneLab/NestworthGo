@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -41,8 +42,8 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 	adapter := historyapi.NewService(ref)
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	fault := &cashMovementFault{Service: app, loseAttempt: 2, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
@@ -198,7 +199,7 @@ func TestLedgerCustodyTransferMatchesWailsAndRestoresScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(clock)
+	testfixture.SetClock(reopened, clock)
 	retry, err := plan.Commit(ctx, reopened)
 	if err != nil || retry.Activity.ID != id {
 		t.Fatalf("reopened receipt did not deduplicate: %+v / %v", retry, err)

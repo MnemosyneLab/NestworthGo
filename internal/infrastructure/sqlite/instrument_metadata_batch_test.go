@@ -15,7 +15,7 @@ func TestInstrumentMetadataTransactionFaultRollsBackEveryRow(t *testing.T) {
 	second.ID = domain.NewInstrumentID()
 	second.Name = "Second"
 	second.ProviderKey, second.ProviderSymbol = nil, nil
-	if err := repository.CreateInstrument(t.Context(), second); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(t.Context(), second); err != nil {
 		t.Fatal(err)
 	}
 	before, err := repository.ReadInstrumentMetadata(t.Context(), true)

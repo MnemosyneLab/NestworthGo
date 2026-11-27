@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -39,8 +40,8 @@ func TestTasksHoldingReconciliationCostCorrection(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	reference, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	reference.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(reference, clock)
 	api, ref := reconciliation.NewService(app), reconciliation.NewService(reference)
 	changing := &lostHoldingReviewReceipt{holdingReconcileAPI: api}
 	tasks := newTasksPage(ctx, app, func() {})
@@ -224,8 +225,8 @@ func TestTasksHoldingReconciliationQuantityTargetsMatchWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	start := func(api *reconciliation.Service, account domain.AccountID) domain.ReconciliationSession {
 		t.Helper()

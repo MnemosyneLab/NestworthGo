@@ -367,8 +367,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	seed.SetClock(clock)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(seed, clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Wealth History", BaseCurrency: "AUD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -382,14 +382,14 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		{Name: "Local debt", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "25.10"},
 	} {
 		input.IncludeInNetWorth, input.OwnerIDs = true, []domain.MemberID{bootstrap.Members[0].ID}
-		if _, err := seed.CreateAccount(ctx, input); err != nil {
+		if _, err := testfixture.CreateAccount(seed, ctx, input); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := seed.SetFXPreference(ctx, "USD", "AUD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(seed, ctx, "USD", "AUD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(seed, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -416,8 +416,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = copyDB.Close() })
 		provider := &unavailableOverviewProvider{}
-		s := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)}, application.NewMarketDataRegistry(provider))
-		s.SetClock(clock)
+		s := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(copyDB)}, application.NewMarketDataRegistry(provider))
+		testfixture.SetClock(s, clock)
 		return s, provider
 	}
 	wails, wailsProvider := openCopy()

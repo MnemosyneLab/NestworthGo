@@ -688,7 +688,7 @@ func analysisCurrencyResidualResult(t *testing.T, currency domain.CurrencyCode, 
 func TestAnalysisReviewServiceLoadsClosedSnapshots(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "analysis-service-closed-snapshots", []string{"Owner"})
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name:               "Bank",
 		AccountType:        "bank_account",
 		BalanceSheetRole:   "asset",

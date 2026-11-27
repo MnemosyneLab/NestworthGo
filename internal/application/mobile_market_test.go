@@ -50,7 +50,7 @@ func TestMobileMarketJobsDedupeAcrossEntrypointsAndKeepPartialResults(t *testing
 	var first domain.Instrument
 	for _, symbol := range []string{"AAA", "BBB"} {
 		key := "fake"
-		i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic " + symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: key, ProviderSymbol: symbol})
+		i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic " + symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: key, ProviderSymbol: symbol})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,7 +108,7 @@ func TestMobileReadsSharedDesktopLatestAndRequestsCancellationWithoutDuplicateWo
 	provider := &mobileBlockingProvider{refreshFakeProvider: fake, entered: make(chan struct{}), release: make(chan struct{})}
 	s.SetMarketDataRegistry(NewMarketDataRegistryWithDefault("fake", provider))
 	for _, symbol := range []string{"AAA", "BBB"} {
-		_, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic " + symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: symbol})
+		_, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic " + symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: symbol})
 		if err != nil {
 			t.Fatal(err)
 		}

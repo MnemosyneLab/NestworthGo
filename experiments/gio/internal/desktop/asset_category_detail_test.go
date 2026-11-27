@@ -46,17 +46,17 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 	db, err := sqlite.Open(path)
 	check(err)
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	seed.SetClock(clock)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(seed, clock)
 	check(seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic asset categories", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}))
 	boot, err := seed.Bootstrap(ctx)
 	check(err)
-	bank, err := seed.CreateAccount(ctx, application.AccountInput{
+	bank, err := testfixture.CreateAccount(seed, ctx, application.AccountInput{
 		Name: "Synthetic expense account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "USD", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 	})
 	check(err)
-	_, err = seed.CaptureSyntheticOrigin(ctx, "UTC")
+	_, err = testfixture.CaptureSyntheticOrigin(seed, ctx, "UTC")
 	check(err)
 	now = now.AddDate(0, 0, 1)
 	amount, err := domain.ParseMoney("25.1234", "USD")
@@ -77,8 +77,8 @@ func TestAssetCategoryRecordsMatchWailsAndRestoreOriginFocus(t *testing.T) {
 		copyDB, err := sqlite.Open(copyPath)
 		check(err)
 		t.Cleanup(func() { _ = copyDB.Close() })
-		service := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(copyDB)})
-		service.SetClock(clock)
+		service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(copyDB)})
+		testfixture.SetClock(service, clock)
 		return service
 	}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *testing.T) {
@@ -17,7 +18,7 @@ func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *tes
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	originNow := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := originNow
 	service.setClock(func() time.Time { return clock })
@@ -29,7 +30,7 @@ func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +86,7 @@ func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	originNow := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	clock := originNow
 	service.setClock(func() time.Time { return clock })
@@ -97,7 +98,7 @@ func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +181,7 @@ func TestFixMutationRetryRecoversPostcommitSnapshotDomainError(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	repo := &fixSnapshotFailureRepository{Repository: sqlite.NewRepository(database)}
+	repo := &fixSnapshotFailureRepository{Repository: repos.New(database)}
 	service := NewService(repo)
 	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
@@ -192,7 +193,7 @@ func TestFixMutationRetryRecoversPostcommitSnapshotDomainError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Synthetic Cash", IncludeInNetWorth: true, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic Cash", IncludeInNetWorth: true, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

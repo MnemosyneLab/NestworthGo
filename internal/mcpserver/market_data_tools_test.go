@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ import (
 
 func TestAgentSkippedMidnightImportHTTP(t *testing.T) {
 	s, app, _ := fixture(t)
-	app.SetClock(func() time.Time { return time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC) })
 	instrument, err := app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)

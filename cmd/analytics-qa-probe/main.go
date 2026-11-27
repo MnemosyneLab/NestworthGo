@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"strings"
@@ -202,7 +203,7 @@ func runCashIncludeProbe() error {
 	}
 	defer database.Close()
 
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 
 	out.IncludeCashTrue = analyzeMode(ctx, svc, from, to, salaryDate, true)
@@ -364,7 +365,7 @@ func runLegacyProbe() {
 		panic(err)
 	}
 	defer database.Close()
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 
 	from := "2026-07-26"

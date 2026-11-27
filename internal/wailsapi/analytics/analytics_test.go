@@ -2,20 +2,22 @@ package analytics_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
+func TestExistingHistoryUnknownCostKeepsQuotedValue(t *testing.T) {
 	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
@@ -41,13 +43,17 @@ func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	// Prehistory APIs allow quantities before Starting Point cost capture.
+	// The synthetic existing origin has a quantity but no initial cost.
 	// A missing cost is unavailable, while a quoted market value remains valid.
-	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
+	rawHolding, err := testfixture.CreateHolding(app, ctx, application.HoldingInput{
 		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
 	})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
+	}
+	holdingDTO := wire.FromHolding(rawHolding)
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "UTC"); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
@@ -152,17 +158,18 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
+	rawHolding, err := testfixture.CreateHolding(app, ctx, application.HoldingInput{
 		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
 	})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
+	holdingDTO := wire.FromHolding(rawHolding)
 	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 	historyService := history.NewService(app)
-	if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "UTC"); err != nil {
 		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	if _, err := historyService.RecordChange(ctx, history.ChangeCommandRequest{

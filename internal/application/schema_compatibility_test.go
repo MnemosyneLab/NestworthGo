@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"github.com/waltwang/nestworth-go/internal/testutil"
 )
 
@@ -19,7 +20,7 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 10, 1, 4, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	ctx := t.Context()
@@ -81,7 +82,7 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 	}
 	// Alias edits must leave financial history intact and survive a schema22
 	// snapshot/reopen. This preserves the current-data part of the retired test.
-	service := NewService(sqlite.NewRepository(upgraded))
+	service := NewService(repos.New(upgraded))
 	service.setClock(func() time.Time { return now })
 	loaded, err := service.Product(ctx, product.Contract.ID)
 	if err != nil {
@@ -111,7 +112,7 @@ func TestSchema21UpgradePreservesFinancialRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	alias, err := sqlite.NewRepository(reopened).Instrument(ctx, product.Contract.HouseholdID, product.Contract.InstrumentID)
+	alias, err := repos.New(reopened).Instrument(ctx, product.Contract.HouseholdID, product.Contract.InstrumentID)
 	if err != nil || alias.ShortName != "存款 🌿" {
 		t.Fatalf("snapshot alias lost: %+v %v", alias, err)
 	}

@@ -44,7 +44,7 @@ func TestAnalysisQuoteBatchMatchesLegacyCandidates(t *testing.T) {
 	db, repo, household, _, instrument := seedPortfolioRepository(t)
 	second := instrument
 	second.ID, second.Name = domain.NewInstrumentID(), "No quotes"
-	if err := repo.CreateInstrument(t.Context(), second); err != nil {
+	if err := fixtureWriter(repo).CreateInstrument(t.Context(), second); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)

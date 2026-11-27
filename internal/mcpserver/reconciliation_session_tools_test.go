@@ -212,19 +212,19 @@ func TestReconciliationSessionCivilDateFiltersAndPaging(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+			app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 			now, _ := time.Parse(time.RFC3339, tc.instants[0])
-			app.SetClock(func() time.Time { return now })
+			testfixture.SetClock(app, func() time.Time { return now })
 			if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 				t.Fatal(err)
 			}
 			if tc.zone != "" {
-				if _, err = app.CaptureSyntheticOrigin(ctx, tc.zone); err != nil {
+				if _, err = testfixture.CaptureSyntheticOrigin(app, ctx, tc.zone); err != nil {
 					t.Fatal(err)
 				}
 			}
 			bootstrap, _ := app.Bootstrap(ctx)
-			account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}

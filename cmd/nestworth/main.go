@@ -208,7 +208,7 @@ func run() error {
 			}
 			service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
 			service.SetUILanguage(string(settings.ResolveLanguage(preference.Language, string(systemLanguage))))
-			if _, err := service.BootstrapLedger(context.Background()); err != nil {
+			if _, err := service.Bootstrap(context.Background()); err != nil {
 				slog.Error("bootstrap failed at startup")
 				startupErr = err
 				_ = database.Close()

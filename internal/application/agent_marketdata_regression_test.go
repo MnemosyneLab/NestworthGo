@@ -14,7 +14,7 @@ func TestAgentFXRetractionRestoresConvertedMetalRevision(t *testing.T) {
 	s, ctx, _, setClock := newOnboardedService(t, "agent-metal-fx-rollback", nil)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	setClock(now)
-	_, err := s.SetFXPreference(ctx, "USD", "CNY", "manual")
+	_, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestAgentFXRetractionRestoresConvertedMetalRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "g"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "g"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestAgentMixedQuotesAgreeAcrossCurrentAndPortfolio(t *testing.T) {
 	t.Parallel()
 	s, ctx, _, setClock := newOnboardedService(t, "agent-selection-consistency", nil)
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "ABC", MarketCode: "US"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "ABC", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestAgentLastFXRetractionMakesConvertedMetalUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "g"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "g"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestAgentMixedFXAgreeAcrossCurrentAndPortfolio(t *testing.T) {
 	t.Parallel()
 	s, ctx, bootstrap, setClock := newOnboardedService(t, "agent-fx-selection", nil)
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
-	_, err := s.SetFXPreference(ctx, "USD", "CNY", "provider")
+	_, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "provider")
 	if err != nil {
 		t.Fatal(err)
 	}

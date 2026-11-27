@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestSkillScaleExamplesActualCalls(t *testing.T) {
 	if _, err := fx.app.SaveLiquidityPolicy(t.Context(), application.SavePolicyInput{Source: source, Policy: application.ProductPolicyInput{AccessKind: "on_request", SettlementDays: &zero, DayBasis: &calendar, EarlyKind: "not_allowed"}}); err != nil {
 		t.Fatal(err)
 	}
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
 	quotes := []application.AgentMarketDataItem{}
 	for n := 0; n < 43; n++ {
 		quotes = append(quotes, application.AgentMarketDataItem{InstrumentID: fund.ID.String(), Currency: "USD", Value: "1", Kind: "nav", Date: time.Date(2026, 9, 1+n, 0, 0, 0, 0, time.UTC).Format(time.DateOnly), Timezone: "UTC", SourceTitle: "Synthetic NAV"})

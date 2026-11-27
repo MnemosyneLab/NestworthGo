@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -29,20 +30,20 @@ func seedStage6Market(t *testing.T, start time.Time, withInstrument bool) ([]byt
 		t.Fatal(err)
 	}
 	for _, currency := range []string{"JPY", "SGD"} {
-		_, err := svc.CreateAccount(ctx, application.AccountInput{
+		_, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{
 			Name: "Synthetic " + currency, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 			DefaultCurrency: currency, InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := svc.SetFXPreference(ctx, currency, "USD", "provider"); err != nil {
+		if _, err := testfixture.SetFXPreference(svc, ctx, currency, "USD", "provider"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	var id domain.InstrumentID
 	if withInstrument {
-		instrument, err := svc.CreateInstrument(ctx, application.InstrumentInput{
+		instrument, err := testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{
 			Name: "Synthetic provider fund", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
 			ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "DEMO", MarketCode: "US",
 		})
@@ -51,7 +52,7 @@ func seedStage6Market(t *testing.T, start time.Time, withInstrument bool) ([]byt
 		}
 		id = instrument.ID
 	}
-	if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return stage6SeedBytes(t, db), id

@@ -13,6 +13,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	modernsqlite "modernc.org/sqlite"
 )
 
@@ -35,7 +36,7 @@ func (p *reviewStaticOnlyProjectionPort) PublishReviewProjection(ctx context.Con
 func TestReviewTemporalRequiresFinalClockAwarePublicationPort(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-03")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	port := &reviewStaticOnlyProjectionPort{Repository: repo, delegate: repo}
 	service := NewService(port)
 	service.setClock(func() time.Time { return *f.now })
@@ -77,7 +78,7 @@ func TestReviewTemporalCrashPublicationChild(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), id, now)
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +127,7 @@ func TestReviewTemporalCrashBeforeCommitRollsBackCompletePublication(t *testing.
 	}
 	run := f
 	run.db = db
-	run.s = NewService(sqlite.NewRepository(db))
+	run.s = NewService(repos.New(db))
 	run.s.setClock(func() time.Time { return *run.now })
 	capture := temporalCapture(t, run)
 	if !capture.TemporalFullRecompute {
@@ -212,7 +213,7 @@ func TestReviewTemporalFutureSourceEditsRetainFullOracleFallback(t *testing.T) {
 			}
 			*f.now = at
 			observation := reviewsource.Compare(capture, check)
-			repo := sqlite.NewRepository(f.db)
+			repo := repos.New(f.db)
 			temporalConflict(t, repo.PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now }))
 			if mode == "untracked-future" && observation.Verdict != reviewsource.Untracked {
 				t.Fatal("damaged future quote trigger was not exposed by full oracle")
@@ -232,7 +233,7 @@ func TestReviewTemporalLogicalAsOfDoesNotExtendValidityPastCommit(t *testing.T) 
 	saveSyntheticReviewRule(t, f, "Synthetic as-of", syntheticHistoricalReviewSpec())
 	capture := temporalCapture(t, f)
 	stage := temporalPublicationOracle(t, f, capture)
-	if err := sqlite.NewRepository(f.db).PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { *f.now = at; return before }); err != nil {
+	if err := repos.New(f.db).PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { *f.now = at; return before }); err != nil {
 		t.Fatal(err)
 	}
 	var evaluated string

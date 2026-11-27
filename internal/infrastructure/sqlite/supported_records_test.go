@@ -18,6 +18,9 @@ func TestSupportedLegacyReviewRecordSurvivesUpgrade(t *testing.T) {
 	if _, err := seed.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES(?,'Synthetic','USD','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, household.String()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := seed.Exec(`INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES(?,?,'UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, domain.NewHistoryOriginID().String(), household.String()); err != nil {
+		t.Fatal(err)
+	}
 	rule := string(legacyReviewRuleID(household))
 	if _, err := seed.Exec(`INSERT INTO investment_review_rules(id,household_id,name,enabled,severity,evaluator,row_revision,current_condition_version,created_at,updated_at) VALUES(?,?,'Legacy investment review',0,'warning','legacy_v1',1,1,'2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, rule, household.String()); err != nil {
 		t.Fatal(err)

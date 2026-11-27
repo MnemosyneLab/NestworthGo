@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -273,8 +274,8 @@ func newPersistentProductFixture(t *testing.T, clock func() time.Time) (ledgerFi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(db)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
 	app.SetLiveDatabasePath(path)
@@ -307,10 +308,10 @@ func TestProductHTTPRestartUnknownAndRestore(t *testing.T) {
 	}
 	uncommitted := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
 	fx.service.Close()
-	app := application.NewService(repo)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	s := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(db))
 	t.Cleanup(s.Close)
 	if err := s.Resume(); err != nil {
@@ -453,11 +454,11 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restored.Close()
-	repo := sqlite.NewRepository(restored)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(restored)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	s := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(restored))
 	t.Cleanup(s.Close)
 	if err := s.Resume(); err != nil {
@@ -561,7 +562,7 @@ func TestProductHTTPLifecycleWithLegacySnapshotCoordination(t *testing.T) {
 	}
 	productJSONEqual(t, afterState, beforeState)
 	// The financial time remains frozen even though actual recording is later.
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 1, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 9, 29, 12, 1, 0, 0, time.UTC) })
 	receipt := productCommitHTTP(t, c, warm["planId"].(string), uuid.NewString())
 	frozen, err := time.Parse(time.RFC3339Nano, warm["preview"].(map[string]any)["effectiveAt"].(string))
 	if err != nil {

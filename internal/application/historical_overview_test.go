@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.DB, domain.MemberID, *time.Time) {
@@ -23,7 +24,7 @@ func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.D
 		}
 	}
 	t.Cleanup(func() { db.Close() })
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	if err := s.completeBaselineFixture(context.Background(), OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
@@ -38,7 +39,7 @@ func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.D
 
 func overviewAccount(t *testing.T, s *Service, owner domain.MemberID, name, kind, role, mode, currency, amount string) domain.AccountRecord {
 	t.Helper()
-	a, err := s.CreateAccount(context.Background(), AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency, InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner}})
+	a, err := s.fixtureCreateAccount(context.Background(), AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency, InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,15 +74,15 @@ func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err := s.AppendAccountValue(ctx, home.Account.ID, "1200", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, home.Account.ID, "1200", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if err := s.ArchiveAccount(ctx, debt.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(ctx, debt.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	newAccount := overviewAccount(t, s, owner, "New zero", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.UpdateAccount(ctx, home.Account.ID, AccountInput{Name: "Renamed home"}); err != nil {
+	if _, err := s.fixtureUpdateAccount(ctx, home.Account.ID, AccountInput{Name: "Renamed home"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -141,11 +142,11 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 		t.Fatal(err)
 	}
 	broker := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Dust", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Dust", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +204,7 @@ func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err = s.AppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
+	if _, err = s.fixtureAppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -308,11 +309,11 @@ func TestHistoricalOverviewPriceGapsBackfillClearingAndArchive(t *testing.T) {
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,11 +559,11 @@ func TestHistoricalOverviewMidnightDSTIncludesBothEconomicDays(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 9, 5, 15, 0, 0, 0, time.UTC)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.Add(24 * time.Hour)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.Add(4 * 24 * time.Hour)

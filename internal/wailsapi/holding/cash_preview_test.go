@@ -3,6 +3,7 @@ package holding_test
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"sync"
 	"testing"
 	"time"
@@ -23,9 +24,6 @@ func TestCashPreviewConfirmation(t *testing.T) {
 				t.Fatal(err)
 			}
 			if started {
-				if _, err := fx.app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
-					t.Fatal(err)
-				}
 			}
 			before, _ := s.ListAccountCashValues(ctx, fx.accountID)
 			reason := "Statement balance"
@@ -51,7 +49,7 @@ func TestCashPreviewConfirmation(t *testing.T) {
 					t.Fatal(err)
 				}
 				confirmedAt = at.Add(time.Minute)
-				fx.app.SetClock(func() time.Time { return confirmedAt })
+				testfixture.SetClock(fx.app, func() time.Time { return confirmedAt })
 			}
 			var wg sync.WaitGroup
 			for i := 0; i < 2; i++ {

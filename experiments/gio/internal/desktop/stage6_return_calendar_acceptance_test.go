@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"path/filepath"
 	"reflect"
@@ -49,7 +50,7 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 	}
 	createBroker := func(name string) domain.AccountID {
 		t.Helper()
-		record, err := svc.CreateAccount(ctx, application.AccountInput{
+		record, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{
 			Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 			DefaultCurrency: "EUR", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bs.Members[0].ID},
 		})
@@ -59,7 +60,7 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 		return record.Account.ID
 	}
 	harbor, other := createBroker("Harbor Brokerage"), createBroker("Second Brokerage")
-	fund, err := svc.CreateInstrument(ctx, application.InstrumentInput{
+	fund, err := testfixture.CreateInstrument(svc, ctx, application.InstrumentInput{
 		Name: "Synthetic euro fund", Symbol: "EURO", Type: "stock", MarketCode: "DE", QuoteCurrency: "EUR", QuoteSource: "manual",
 	})
 	if err != nil {
@@ -70,7 +71,7 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 		account        domain.AccountID
 		quantity, cost string
 	}{{harbor, "10", "100"}, {other, "20", "200"}} {
-		holding, err := svc.CreateHolding(ctx, application.HoldingInput{
+		holding, err := testfixture.CreateHolding(svc, ctx, application.HoldingInput{
 			AccountID: position.account.String(), InstrumentID: fund.ID.String(), Quantity: position.quantity,
 		})
 		if err != nil {
@@ -78,10 +79,10 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 		}
 		costs[holding.ID] = position.cost
 	}
-	if _, err := svc.AppendAccountCashValue(ctx, harbor, "40", "EUR", ""); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(svc, ctx, harbor, "40", "EUR", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(svc, ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.AppendManualFXQuote(ctx, "EUR", "USD", "1.25", start.Format(time.DateOnly)); err != nil {
@@ -90,7 +91,7 @@ func seedStage6ReturnCalendar(t *testing.T, start time.Time) ([]byte, domain.Acc
 	if _, err := svc.AppendManualInstrumentQuote(ctx, fund.ID, "10", start.Format(time.DateOnly), false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CaptureSyntheticOriginWithCosts(ctx, "Asia/Singapore", costs); err != nil {
+	if _, err := testfixture.CaptureSyntheticOriginWithCosts(svc, ctx, "Asia/Singapore", costs); err != nil {
 		t.Fatal(err)
 	}
 	now = start.AddDate(0, 0, 1)

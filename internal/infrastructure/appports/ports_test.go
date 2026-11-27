@@ -38,7 +38,7 @@ func TestRestorePreviewExpiresAndDeletesStagedFile(t *testing.T) {
 	backupPath, live := writeTestBackup(t, dir)
 	clock := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
-	recovery.SetClock(func() time.Time { return clock })
+	testfixture.SetClock(recovery, func() time.Time { return clock })
 	t.Cleanup(recovery.Shutdown)
 	preview, err := recovery.InspectBackup(context.Background(), backupPath)
 	if err != nil {
@@ -60,7 +60,7 @@ func TestRestorePreviewReuseAndEviction(t *testing.T) {
 	backupPath, live := writeTestBackup(t, dir)
 	clock := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
-	recovery.SetClock(func() time.Time { return clock })
+	testfixture.SetClock(recovery, func() time.Time { return clock })
 	t.Cleanup(recovery.Shutdown)
 	first, err := recovery.InspectBackup(context.Background(), backupPath)
 	if err != nil {
@@ -145,8 +145,8 @@ func newWiredService(t *testing.T, name string, members []string) (*application.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repo := sqlite.NewRepository(database)
-	service := application.NewService(&testfixture.BaselineRepository{Repository: repo})
+	repo := testfixture.Repository(database)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
 	Wire(service)
 	AttachSQLiteHistory(service, repo)
 	service.SetLiveDatabasePath(path)

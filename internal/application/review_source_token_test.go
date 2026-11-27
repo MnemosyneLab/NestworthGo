@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewHistoricalSourceTokenDetectsQuoteDeletionWithoutGenerationBump(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	cutoff := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
 	before, err := repo.LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
 	if err != nil {

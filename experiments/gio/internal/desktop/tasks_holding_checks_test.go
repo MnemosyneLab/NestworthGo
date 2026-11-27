@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -36,8 +37,8 @@ func TestHoldingCheckAndClosureMatchWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	api, reference := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	wails := startTestHoldingReconciliation(t, reference, refIDs.account)

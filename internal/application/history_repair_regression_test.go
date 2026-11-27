@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // Reproduce entering yesterday's deposit and first buy into an account created
@@ -18,7 +19,7 @@ func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	service := NewService(repo)
 	ctx := context.Background()
 	clock := time.Date(2026, 9, 14, 1, 0, 0, 0, time.UTC)
@@ -34,11 +35,11 @@ func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 9, 15, 10, 0, 0, 0, time.UTC)
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +92,7 @@ func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
 		t.Fatalf("repeat=%d %v", n, err)
 	}
 	// Only the immutable creation state can be extended back, not this edit.
-	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{IncludeInNetWorth: false, IncludeInNetWorthSet: true}); err != nil {
+	if _, err := service.fixtureUpdateAccount(ctx, account.Account.ID, AccountInput{IncludeInNetWorth: false, IncludeInNetWorthSet: true}); err != nil {
 		t.Fatal(err)
 	}
 	snap, _, err := service.BuildDailyValuationSnapshot(ctx, "2026-09-14")
@@ -158,7 +159,7 @@ func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	ctx := context.Background()
 	clock := time.Date(2026, 9, 14, 8, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
@@ -169,7 +170,7 @@ func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

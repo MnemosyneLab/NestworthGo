@@ -1,26 +1,10 @@
-package application
-
-// Synthetic existing-history fixture construction. No normal desktop, mobile,
-// or MCP entry point exposes these methods. They stage populated immutable
-// origins for replay/accounting tests and synthetic QA seed commands, preserving
-// the exact baseline financial facts of those fixtures.
-//
-// New ledgers use CompleteOnboarding, which atomically installs an empty origin.
+package storage
 
 import (
-	"context"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"strings"
 	"time"
-
-	"github.com/waltwang/nestworth-go/internal/domain"
 )
-
-// CaptureSyntheticOrigin captures the selected current state as one immutable Starting
-// point. The repository owns one transaction and returns an existing origin
-// on an idempotent retry.
-func (s *Service) CaptureSyntheticOrigin(ctx context.Context, timezone string) (domain.HistoryOrigin, error) {
-	return s.CaptureSyntheticOriginWithCosts(ctx, timezone, nil)
-}
 
 func snapshotHasStartingAssets(snapshot domain.PortfolioSnapshot) bool {
 	for _, record := range snapshot.Accounts {
@@ -41,43 +25,29 @@ func snapshotHasStartingAssets(snapshot domain.PortfolioSnapshot) bool {
 	return false
 }
 
-// CaptureSyntheticOriginWithCosts captures the selected current state with optional
-// per-Holding cost overrides. A missing override keeps the selected current
-// quote as the default, preserving the synthetic fixture’s chosen opening facts.
-func (s *Service) CaptureSyntheticOriginWithCosts(ctx context.Context, timezone string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {
-	return s.CaptureSyntheticOriginOnDate(ctx, timezone, "", costOverrides)
+func fixtureStartInstant(startDate, timezone string, now time.Time) (time.Time, error) {
+	if strings.TrimSpace(startDate) == "" {
+		return now, nil
+	}
+	location, err := time.LoadLocation(strings.TrimSpace(timezone))
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
+	}
+	day := strings.TrimSpace(startDate)
+	if len(day) != len("2006-01-02") || day > now.In(location).Format("2006-01-02") {
+		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "startDate", Message: "start date must be a valid day no later than today"}
+	}
+	label, err := time.Parse(time.DateOnly, day)
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "startDate", Message: "start date must be a valid day"}
+	}
+	return domain.ResolveCivilDateStart(label, location)
 }
 
-// CaptureSyntheticOriginOnDate allows a past empty starting point. Existing balances or
-// positions can only be captured at the current instant, since they do not
-// establish what was held on a date in the past.
-func (s *Service) CaptureSyntheticOriginOnDate(ctx context.Context, timezone, startDate string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {
-	ctx, unlock, err := s.beginLedgerWrite(ctx)
-	if err != nil {
-		return domain.HistoryOrigin{}, err
-	}
-	defer unlock()
-	data, err := s.prepareHistoryStart(ctx, timezone, startDate, costOverrides)
-	if err != nil {
-		return domain.HistoryOrigin{}, err
-	}
-	return s.saveHistoryStart(ctx, data)
-}
-
-func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate string, costOverrides map[domain.HoldingID]string) (domain.HistoryOriginData, error) {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil {
-		return domain.HistoryOriginData{}, err
-	}
-	if bootstrap.Household == nil {
-		return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	now := s.clock()
-	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
-	if err != nil {
-		return domain.HistoryOriginData{}, err
-	}
-	startedAt, err := historyStartInstant(startDate, timezone, now)
+// BuildOrigin captures explicitly supplied synthetic baseline facts. It does
+// not read, modify or infer any actual user's ledger.
+func BuildOrigin(household domain.HouseholdID, snapshot domain.PortfolioSnapshot, timezone, startDate string, now time.Time, costOverrides map[domain.HoldingID]string, selectQuote func(domain.Instrument, []domain.InstrumentQuote) *domain.InstrumentQuote) (domain.HistoryOriginData, error) {
+	startedAt, err := fixtureStartInstant(startDate, timezone, now)
 	if err != nil {
 		return domain.HistoryOriginData{}, err
 	}
@@ -92,7 +62,7 @@ func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate s
 			return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrConflict, Field: "startDate", Message: "a past start requires zero account balances, cash, and holdings"}
 		}
 	}
-	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, startedAt, now)
+	origin, err := domain.NewHistoryOrigin(household, timezone, startedAt, now)
 	if err != nil {
 		return domain.HistoryOriginData{}, err
 	}
@@ -133,7 +103,7 @@ func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate s
 				}
 				unitCost = &cost
 			} else {
-				quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
+				quote := selectQuote(instrument, snapshot.InstrumentQuotes)
 				if quote == nil {
 					return domain.HistoryOriginData{}, &domain.Error{Code: domain.ErrCostBasisRequired, Field: "unitCost", Message: "a selected Instrument quote is required to start a positive Holding"}
 				}
@@ -149,12 +119,4 @@ func (s *Service) prepareHistoryStart(ctx context.Context, timezone, startDate s
 		data.FXPreferences = append(data.FXPreferences, domain.HistoryOriginFXPreference{OriginID: origin.ID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, CreatedAt: now})
 	}
 	return data, nil
-}
-
-func (s *Service) saveHistoryStart(ctx context.Context, data domain.HistoryOriginData) (domain.HistoryOrigin, error) {
-	result, err := s.repository.CaptureSyntheticOrigin(ctx, data)
-	if err == nil {
-		s.invalidateAnalysis()
-	}
-	return result, err
 }

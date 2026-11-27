@@ -2,6 +2,7 @@ package einoopenai
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"net/http"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ func TestFakeProviderUsesAuthoritativeReadOnlyPeriodReturn(t *testing.T) {
 	app, _, _ := ledgerSession(t)
 	members, _ := app.ListMembers(t.Context(), false)
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic period broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 	if err != nil {
 		t.Fatal(err)

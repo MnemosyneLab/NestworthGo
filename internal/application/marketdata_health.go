@@ -374,7 +374,7 @@ func classifyInstrumentHealth(need InstrumentRepairNeed, label string, blocked m
 
 func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain.HistoryOrigin, plan HistoryRepairPlan, instruments []domain.Instrument, covered map[string]struct{}) ([]HealthIssue, error) {
 	if origin == nil {
-		return nil, nil
+		return nil, missingHistoryOrigin()
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
@@ -512,11 +512,12 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		}
 		coverageByPair[fxPairKey(item.BaseCurrency, item.QuoteCurrency)] = item
 	}
-	location := time.UTC
-	if origin != nil {
-		if loaded, locErr := time.LoadLocation(origin.Timezone); locErr == nil {
-			location = loaded
-		}
+	if origin == nil {
+		return nil, covered, missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return nil, covered, err
 	}
 	var issues []HealthIssue
 	for _, preference := range prefs {

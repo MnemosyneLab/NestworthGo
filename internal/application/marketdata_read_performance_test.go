@@ -13,6 +13,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	sqlitedriver "modernc.org/sqlite"
 )
 
@@ -56,7 +57,7 @@ func marketReadFixture(t testing.TB, count, quotes int) (*Service, *marketReadDr
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	start := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return start })
@@ -72,7 +73,7 @@ func marketReadFixture(t testing.TB, count, quotes int) (*Service, *marketReadDr
 			input.ProviderSymbol = fmt.Sprintf("S%d", i)
 			input.MarketCode = "US"
 		}
-		instrument, err := s.CreateInstrument(ctx, input)
+		instrument, err := s.fixtureCreateInstrument(ctx, input)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,7 +119,8 @@ func TestMarketDataHealthReadQueries(t *testing.T) {
 		queries, quoteQueries int64
 	}{
 		// Closure coverage adds three bounded reads, independent of instrument count.
-		{1, 50, 2}, {50, 180, 84}, {200, 580, 334},
+		// Origin reads no longer load unrelated directory rows.
+		{1, 44, 2}, {50, 174, 84}, {200, 574, 334},
 	} {
 		t.Run(fmt.Sprint(fixture.instruments), func(t *testing.T) {
 			s, d := marketReadFixture(t, fixture.instruments, 8)

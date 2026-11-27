@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func importReviewDailyClose(t *testing.T, f seriesZeroFixture, on, value string) string {
@@ -57,7 +57,7 @@ func reviewTruthAt(t *testing.T, f seriesZeroFixture, rule domain.ReviewRule, on
 
 func assertReviewSourceInvalidated(t *testing.T, f seriesZeroFixture) {
 	t.Helper()
-	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestReviewHistoricalQuoteActivityAndFXCorrectionsInvalidateAndRecompute(t *
 
 	t.Run("FX correction at its original economic date", func(t *testing.T) {
 		f := newSeriesZeroFixture(t, true, "UTC", "2026-08-01", "1")
-		if _, err := f.s.SetFXPreference(t.Context(), "USD", "CNY", "agent"); err != nil {
+		if _, err := f.s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "agent"); err != nil {
 			t.Fatal(err)
 		}
 		importReviewDailyClose(t, f, "2026-08-01", "100")
@@ -339,7 +339,7 @@ func TestReviewPublicationFailureAfterFinancialCommitDoesNotHalfWrite(t *testing
 // intentionally has no weekend closure and agent preference excludes manual anchors.
 func requireDailyReviewPrices(t *testing.T, f *seriesZeroFixture) {
 	t.Helper()
-	instrument, err := f.s.UpdateInstrument(t.Context(), f.instrument.ID, InstrumentInput{Type: "crypto", QuoteSource: "agent"})
+	instrument, err := f.s.fixtureUpdateInstrument(t.Context(), f.instrument.ID, InstrumentInput{Type: "crypto", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}

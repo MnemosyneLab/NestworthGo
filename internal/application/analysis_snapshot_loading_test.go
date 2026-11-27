@@ -33,45 +33,45 @@ func TestAnalysisAccountSnapshotLoading(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	selected := overviewAccount(t, s, owner, "Selected", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, selected.Account.ID, "100", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, selected.Account.ID, "100", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
 	var others []domain.AccountRecord
 	for i := 0; i < 12; i++ {
 		others = append(others, overviewAccount(t, s, owner, fmt.Sprintf("Unrelated %d", i), "bank_account", "asset", "balance", "CNY", "100"))
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.CreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"}); err != nil {
+	if _, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-01"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err = s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	priced, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic held", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	priced, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic held", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, priced.ID, "5", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	held, err := s.CreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
+	held, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	peer := overviewAccount(t, s, owner, "Outside broker", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err = s.AppendAccountCashValue(ctx, peer.Account.ID, "100", "CNY", ""); err != nil {
+	if _, err = s.fixtureAppendAccountCashValue(ctx, peer.Account.ID, "100", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
-	peerHeld, err := s.CreateHolding(ctx, HoldingInput{AccountID: peer.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
+	peerHeld, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: peer.Account.ID.String(), InstrumentID: priced.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestAnalysisAccountSnapshotLoading(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 3)
-	if err = s.ArchiveAccount(ctx, others[len(others)-1].Account.ID, true); err != nil {
+	if err = s.fixtureArchiveAccount(ctx, others[len(others)-1].Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.ensureClosedDaySnapshots(ctx, "2026-08-01", "2026-08-03"); err != nil {
@@ -480,10 +480,10 @@ func TestAnalysisAccountSnapshotsOutsideFundingGap(t *testing.T) {
 	ctx := t.Context()
 	selected := overviewAccount(t, s, owner, "Healthy broker", "brokerage", "asset", "holdings", "CNY", "")
 	outside := overviewAccount(t, s, owner, "Late funded bank", "bank_account", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, selected.Account.ID, "100", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, selected.Account.ID, "100", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic opening", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic opening", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -494,7 +494,7 @@ func TestAnalysisAccountSnapshotsOutsideFundingGap(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: selected.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +505,7 @@ func TestAnalysisAccountSnapshotsOutsideFundingGap(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err = s.AppendAccountCashValue(ctx, outside.Account.ID, "150", "CNY", "2026-08-08T12:00:00Z"); err != nil {
+	if _, err = s.fixtureAppendAccountCashValue(ctx, outside.Account.ID, "150", "CNY", "2026-08-08T12:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
 	command := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: outside.Account.ID.String(), Currency: "CNY", Principal: "100", EffectiveAt: "2026-08-01T12:00:00Z", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Synthetic late deposit", StartOn: "2026-08-01", MaturityOn: strPtr("2026-12-20"), InterestMode: "simple_act_365", AnnualRatePercent: strPtr("3"), InterestPaidThroughOn: strPtr("2026-08-01")}, Policy: depositPolicy()}}

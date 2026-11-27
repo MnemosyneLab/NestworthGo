@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"testing"
@@ -305,9 +306,9 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 func TestPortfolioMyHoldingsUnknownCostKeepsValue(t *testing.T) {
 	ctx := t.Context()
 	service, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
-	service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
-		HouseholdName: "Synthetic prehistory holdings", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
+		HouseholdName: "Synthetic existing history holdings", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -328,9 +329,12 @@ func TestPortfolioMyHoldingsUnknownCostKeepsValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, application.HoldingInput{
+	if _, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{
 		AccountID: broker.Account.ID.String(), InstrumentID: fund.ID.String(), Quantity: "4",
 	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "10", accountTestClock.Format(time.RFC3339), false); err != nil {

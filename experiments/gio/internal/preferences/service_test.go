@@ -22,14 +22,14 @@ func TestPreferencesPreserveUneditedValuesOnSaveAndCredentialsOnReset(t *testing
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	ctx := t.Context()
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Preferences QA", BaseCurrency: "USD", MemberNames: []string{"Member"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Tokyo"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Tokyo"); err != nil {
 		t.Fatal(err)
 	}
 	other := settings.Default()
@@ -96,7 +96,7 @@ func TestPreferencesPreserveUneditedValuesOnSaveAndCredentialsOnReset(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err = Open(path, db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
+	service, err = Open(path, db, testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestPreferencesBeforeOnboarding(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service, err := Open(filepath.Join(dir, "settings.json"), db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
+	service, err := Open(filepath.Join(dir, "settings.json"), db, testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestMarketCredentialAndDiagnosticLoggingUseProfileStorage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	service, err := Open(path, db, app)
 	if err != nil {
 		t.Fatal(err)
@@ -205,7 +205,7 @@ func TestFailedPublicationRestoresDurableTimezone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service, err := Open(path, db, application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)}))
+	service, err := Open(path, db, testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}))
 	if err != nil {
 		t.Fatal(err)
 	}

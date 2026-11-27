@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func attributionFor(t *testing.T, s *Service, left, right string, ids ...domain.AccountID) FinancialComparisonResult {
@@ -117,7 +117,7 @@ func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
 	if _, err := db.SQL.Exec("UPDATE accounts SET name='do not execute',note='private note' WHERE id=?", b.Account.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AppendAccountValue(t.Context(), b.Account.ID, "99", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), b.Account.ID, "99", ""); err != nil {
 		t.Fatal(err)
 	}
 	if next := attributionFor(t, s, "2026-08-01", "2026-08-02", a.Account.ID); next.ContentHash != oldHash {
@@ -157,7 +157,7 @@ func TestFinancialAttributionMissingFXInclusionAndUnsupported(t *testing.T) {
 	if set.Content.Attribution.InvestmentReturn != nil {
 		t.Fatal("summed account rates")
 	}
-	if err := s.ArchiveAccount(t.Context(), a.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), a.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	// The historical values coincide, but the present analysis universe excludes A.
@@ -180,7 +180,7 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Private fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Private fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,10 +195,10 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 		}
 	}
 	*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+	h, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +262,7 @@ func TestFinancialAttributionSerializesConcurrentRevision(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	port := &blockingAttributionRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
 	// Both services must share the same application's coordinator in this test.
 	s.repository = port
@@ -275,7 +275,10 @@ func TestFinancialAttributionSerializesConcurrentRevision(t *testing.T) {
 	}()
 	<-port.captured
 	wrote := make(chan error, 1)
-	go func() { _, err := s.AppendAccountValue(context.Background(), a.Account.ID, "200", ""); wrote <- err }()
+	go func() {
+		_, err := s.fixtureAppendAccountValue(context.Background(), a.Account.ID, "200", "")
+		wrote <- err
+	}()
 	select {
 	case err := <-wrote:
 		t.Fatal("writer escaped gate", err)
@@ -405,7 +408,7 @@ func TestFinancialAttributionConcurrentExternalRevisionIsRejected(t *testing.T) 
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	port := &blockingAttributionRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
 	s.repository = port
 	done := make(chan FinancialComparisonResult, 1)
@@ -451,11 +454,11 @@ func TestFinancialAttributionInteriorInclusionAndCloseBoundaries(t *testing.T) {
 	wantOverviewAmount(t, r.Content.Left.Summary.NetWorth.Value, "105")
 	wantOverviewAmount(t, r.Content.Attribution.ExplainedDelta.Value, "6")
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	if err := s.ArchiveAccount(t.Context(), a.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), a.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
-	if err := s.ArchiveAccount(t.Context(), a.Account.ID, false); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), a.Account.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)

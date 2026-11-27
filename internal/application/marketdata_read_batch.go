@@ -98,12 +98,12 @@ func (s *Service) ReadMarketDataBatch(ctx context.Context, in MarketReadRequest)
 	if err != nil {
 		return MarketReadResult{}, err
 	}
-	location := time.UTC
-	if snapshot.Origin != nil {
-		location, err = time.LoadLocation(snapshot.Origin.Timezone)
-		if err != nil {
-			return MarketReadResult{}, err
-		}
+	if snapshot.Origin == nil {
+		return MarketReadResult{}, missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(snapshot.Origin.Timezone)
+	if err != nil {
+		return MarketReadResult{}, err
 	}
 	result := MarketReadResult{CapturedAt: now, Timezone: location.String(), Targets: []MarketReadResultTarget{}}
 	r, _ := in.TrendRange()

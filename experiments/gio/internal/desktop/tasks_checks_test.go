@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -27,7 +28,7 @@ type taskChecksFixture struct {
 }
 
 func seedTaskChecks(ctx context.Context, service *application.Service, base managedProductFixture, at time.Time) (out taskChecksFixture, err error) {
-	service.SetClock(func() time.Time { return at.Add(-20 * time.Hour) })
+	testfixture.SetClock(service, func() time.Time { return at.Add(-20 * time.Hour) })
 	boot, err := service.Bootstrap(ctx)
 	if err != nil {
 		return out, err
@@ -63,7 +64,7 @@ func seedTaskChecks(ctx context.Context, service *application.Service, base mana
 		return out, err
 	}
 	out.card = card.Account.ID
-	service.SetClock(func() time.Time { return at })
+	testfixture.SetClock(service, func() time.Time { return at })
 	api := liquidityapi.NewService(service)
 	if _, err := api.CreateReviewRuleV2(ctx, application.SaveReviewRuleV2Input{
 		RuleID: string(domain.NewReviewRuleID()), MutationID: domain.NewMutationID().String(),
@@ -208,8 +209,8 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	}
 
 	late := func() time.Time { return accountTestClock.Add(24 * time.Hour) }
-	app.SetClock(late)
-	ref.SetClock(late)
+	testfixture.SetClock(app, late)
+	testfixture.SetClock(ref, late)
 	click("Reload")
 	label("The published review is out of date.")
 	checkReview(*tasks.review, wailsReview(ref), "stale")
@@ -269,8 +270,8 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
 	reopenedRef, _ := reopenBaselineProfile(t, refPaths)
-	reopened.SetClock(late)
-	reopenedRef.SetClock(late)
+	testfixture.SetClock(reopened, late)
+	testfixture.SetClock(reopenedRef, late)
 	checkReview(wailsReview(reopened), wailsReview(reopenedRef), "stale")
 	reopenedSessions, _, err := readTaskReconciliation(ctx, reopened, false)
 	if err != nil || len(reopenedSessions) != 2 || !slices.ContainsFunc(reopenedSessions, func(row taskStatement) bool { return row.session.ID == fixture.paused }) {

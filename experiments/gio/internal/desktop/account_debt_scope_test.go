@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func addDebtScopeAccount(t *testing.T, app *application.Service, name, kind, rol
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := app.CreateAccount(t.Context(), application.AccountInput{
+	account, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{
 		Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency,
 		InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 	})
@@ -36,12 +37,12 @@ func TestCashAccountDebtPaymentUsesHoldingsCash(t *testing.T) {
 		id := addDebtScopeAccount(t, svc, "Synthetic Brokerage", "brokerage", "asset", "holdings", "USD", "")
 		cash = append(cash, id)
 		for _, code := range []string{"USD", "EUR"} {
-			if _, err := svc.AppendAccountCashValue(ctx, id, "25.125", code, ""); err != nil {
+			if _, err := testfixture.AppendAccountCashValue(svc, ctx, id, "25.125", code, ""); err != nil {
 				t.Fatal(err)
 			}
 		}
 		setBalanceTargetClock(-24*time.Hour, svc)
-		if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 		setBalanceTargetClock(0, svc)
@@ -98,7 +99,7 @@ func TestLiabilityReasonsAndCorrectionMatchWails(t *testing.T) {
 		setBalanceTargetClock(-48*time.Hour, svc)
 		loans = append(loans, addDebtScopeAccount(t, svc, "Synthetic Loan", "loan", "liability", "balance", "USD", "50"))
 		setBalanceTargetClock(-24*time.Hour, svc)
-		if _, err := svc.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 	}

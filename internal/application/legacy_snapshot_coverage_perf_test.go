@@ -5,6 +5,7 @@ package application
 import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"testing"
 	"time"
 )
@@ -16,7 +17,7 @@ func perfCoverageService(b *testing.B) *Service {
 		b.Fatal(err)
 	}
 	b.Cleanup(func() { db.Close() })
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
 	if err := s.completeBaselineFixture(b.Context(), OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
@@ -26,7 +27,7 @@ func perfCoverageService(b *testing.B) *Service {
 	if err != nil {
 		b.Fatal(err)
 	}
-	if _, err := s.CreateAccount(b.Context(), AccountInput{Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
+	if _, err := s.fixtureCreateAccount(b.Context(), AccountInput{Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
 		b.Fatal(err)
 	}
 	if _, err := s.CaptureSyntheticOrigin(b.Context(), "UTC"); err != nil {

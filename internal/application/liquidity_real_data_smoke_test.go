@@ -13,6 +13,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // This opt-in test accepts a standalone SQLite backup, never the application's
@@ -45,7 +46,7 @@ func TestRealDataLiquiditySmoke(t *testing.T) {
 	realDataSmokeRequire(t, "open copied database", err)
 	t.Cleanup(func() { realDataSmokeRequire(t, "close copied database", db.Close()) })
 	ctx := context.Background()
-	repository := sqlite.NewRepository(db)
+	repository := repos.New(db)
 	service := NewService(repository)
 	now := time.Now().UTC().Truncate(time.Second)
 	service.setClock(func() time.Time { return now })

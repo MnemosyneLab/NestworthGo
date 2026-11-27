@@ -1,5 +1,11 @@
 # Gio desktop migration roadmap
 
+> Current onboarding always creates History atomically. Earlier checkpoints in this
+> document describe the then-current implementation and verified results; their
+> references to a ledger without History or a separate Starting Point action are
+> historical evidence, not a supported workflow. Existing positions use the
+> normal recorded-change/record-existing entry points.
+
 ## Target and starting point
 
 A household should be able to complete the same desktop journeys with Gio as
@@ -916,7 +922,7 @@ apply to these operations.
 
 #### Start history for an existing household
 
-Wails exposes [Start History](../../../frontend/src/features/history/StartHistoryForm.tsx)
+Wails exposes Start History (retired)
 in [History](../../../frontend/src/features/history/HistoryPage.tsx) and in
 [account action sheets](../../../frontend/src/features/accounts/AccountActionSheets.tsx)
 when an event needs a Starting Point. Its Go adapter calls `StartHistoryOnDate`.
@@ -1504,7 +1510,7 @@ the entered basis and preserves any market quote separately. An explicit
 cost also allows capture when a market quote is missing. The review includes the quantity, original
 cost, cash and capture date. A populated start captures the current instant in
 the selected History timezone. Confirmation stores opening facts. Later sales
-use the shared cost replay from those facts. [Wails Starting Point form](../../../frontend/src/features/history/StartHistoryForm.tsx) · [Shared Starting Point planner](../../../internal/application/history.go)
+use the shared cost replay from those facts. Wails Starting Point form (retired) · [Shared Starting Point planner](../../../internal/application/history.go)
 
 | Check | Evidence |
 | --- | --- |
@@ -2180,8 +2186,7 @@ session in progress for a separate Finish action.
 #### Read-only Available Funds
 
 **Available funds** opens the Today horizon used by the default Wails query.
-The report uses the civil day in the ledger's History timezone, with UTC as
-the shared default before History. Both shells use the same Go projection
+The report uses the civil day in the ledger's History timezone. Both shells use the same Go projection
 for funding sources, normal access, fees, reservations and coverage. Gio
 displays each native currency separately and labels the converted base-currency
 total. A complete total, a known subtotal and an unavailable amount are
@@ -3068,7 +3073,7 @@ instrument row while the broader Wails instrument editor remains open work.
 list. A Data Health manual entry starts with the finding's instrument or
 ordered currency pair and its date within the selected focus. Unfocused
 entry leaves the date blank to use the current time. Date-only input uses
-the saved History timezone, or UTC before History.
+the saved History timezone.
 
 Saving uses the same application operations as Wails. The domain validates
 the canonical decimal, including a real zero instrument price and a positive
@@ -3134,8 +3139,7 @@ estimate separately because newly fetched inputs can dirty additional days.
 currency pair, including objects without saved observations. The Wails quote
 series APIs supply the canonical values, filtered observations and chart
 points. The date shortcuts and adjacent windows use the recorded History
-timezone, with UTC before History to match the shared query's civil-date
-boundaries. Quote history may predate the household's Starting Point.
+timezone to match the shared query's civil-date boundaries. Quote history may predate the household's Starting Point.
 **Show all dates** is available when the selected source has older or newer
 local observations outside an empty window.
 

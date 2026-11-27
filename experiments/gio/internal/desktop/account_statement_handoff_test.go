@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"path/filepath"
 	"reflect"
@@ -41,7 +42,7 @@ func seedStage6CardStatement(t *testing.T, start time.Time) ([]byte, cardStateme
 	}
 	create := func(name, kind, role, amount string) domain.AccountID {
 		t.Helper()
-		record, err := app.CreateAccount(ctx, application.AccountInput{
+		record, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 			Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: "balance",
 			DefaultCurrency: "USD", InitialAmount: amount, OwnerIDs: []domain.MemberID{state.Members[0].ID}, IncludeInNetWorth: true,
 		})
@@ -52,7 +53,7 @@ func seedStage6CardStatement(t *testing.T, start time.Time) ([]byte, cardStateme
 	}
 	card := create(stage6CardStatementCard, "credit_card", "liability", "30")
 	create("Synthetic Statement Bank", "bank_account", "asset", "100")
-	if _, err := app.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

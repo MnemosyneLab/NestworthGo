@@ -20,7 +20,7 @@ import (
 func newTestService(t *testing.T) *settings.Service {
 	t.Helper()
 	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	return settings.NewService(store, app)
 }
 
@@ -38,7 +38,7 @@ func defaultDTO() settings.SettingsDTO {
 
 func TestLoadReturnsDefaultsWhenNoFileExists(t *testing.T) {
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewBaselineService(t))
+	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewService(t))
 	want := defaultDTO()
 	want.LogFilePath = filepath.Join(filepath.Dir(settingsPath), "logs", "nestworth.log")
 	value, err := service.Load()
@@ -93,7 +93,7 @@ func TestSaveRejectsUnsupportedFXProvider(t *testing.T) {
 
 func TestResetRestoresDefaults(t *testing.T) {
 	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewBaselineService(t))
+	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewService(t))
 	want := defaultDTO()
 	want.LogFilePath = filepath.Join(filepath.Dir(settingsPath), "logs", "nestworth.log")
 	updated := defaultDTO()
@@ -138,7 +138,7 @@ func TestResetExplicitlyRecoversMalformedSettings(t *testing.T) {
 
 func TestSaveReturnsBusyDuringExclusive(t *testing.T) {
 	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	service := settings.NewService(store, app)
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -287,7 +287,7 @@ func TestFollowSystemLanguagePersistsPreferenceAndSeedsLocalizedDirectory(t *tes
 	} {
 		t.Run(string(test.language), func(t *testing.T) {
 			store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
-			ledger := wailstest.NewBaselineService(t)
+			ledger := wailstest.NewService(t)
 			var changes []appsettings.Language
 			service := settings.NewServiceWithLanguage(store, ledger, test.language, func(language appsettings.Language) {
 				changes = append(changes, language)

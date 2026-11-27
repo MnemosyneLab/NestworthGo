@@ -13,14 +13,14 @@ func TestDisplayFractionalLeavesAgreeAcrossValuationSurfaces(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s, _, owner, now := overviewFixture(t)
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fractional NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fractional NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	costs := map[domain.HoldingID]string{}
 	for n := 0; n < 2; n++ {
 		a := overviewAccount(t, s, owner, "Synthetic fractional account", "brokerage", "asset", "holdings", "CNY", "")
-		h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
+		h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -152,7 +152,7 @@ func TestEstimatedChangesRequireCompatibleScopeAndBasis(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s, _, owner, now := overviewFixture(t)
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic scope", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: false, OwnerIDs: []domain.MemberID{owner}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic scope", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: false, OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestEstimatedChangesRequireCompatibleScopeAndBasis(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	if _, err = s.UpdateAccount(ctx, a.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
+	if _, err = s.fixtureUpdateAccount(ctx, a.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)

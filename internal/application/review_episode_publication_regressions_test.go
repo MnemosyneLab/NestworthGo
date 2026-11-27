@@ -145,14 +145,14 @@ func TestReviewPublicationRetainsLegacyAcknowledgedEpisodeWithoutTriggerEvidence
 	// Reconcile a separate instrument/rule in the same household after the
 	// unavailable episode was retained. Its group must still publish normally.
 	f.day(t, "2026-10-12")
-	other, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Unrelated synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	other, err := f.s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Unrelated synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.s.AppendManualInstrumentQuote(t.Context(), other.ID, "100", f.now.Format(time.RFC3339), false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.s.CreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: other.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
+	if _, err := f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: other.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	otherSpec := syntheticHistoricalReviewSpec()

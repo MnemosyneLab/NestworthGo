@@ -10,6 +10,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestGuardedHistoricalChangeRejectsStalePreviewAndReplaysAfterRestart(t *testing.T) {
@@ -19,7 +20,7 @@ func TestGuardedHistoricalChangeRejectsStalePreviewAndReplaysAfterRestart(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	now := start
 	service.setClock(func() time.Time { return now })
@@ -31,7 +32,7 @@ func TestGuardedHistoricalChangeRejectsStalePreviewAndReplaysAfterRestart(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestGuardedHistoricalChangeRejectsStalePreviewAndReplaysAfterRestart(t *tes
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	restarted := NewService(sqlite.NewRepository(reopened))
+	restarted := NewService(repos.New(reopened))
 	restarted.setClock(func() time.Time { return now })
 	replayed, err := restarted.RecordChangeGuarded(ctx, backdated, id, hash, token)
 	if err != nil {
@@ -123,18 +124,18 @@ func hasDomainCode(err error, code domain.ErrorCode) bool {
 func TestGuardedBackdatedFirstBuyPreviewsWithoutPersistingHolding(t *testing.T) {
 	t.Parallel()
 	ctx, service, _, _, bootstrap, setNow := historicalInsertionFixture(t)
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-09-25"); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "First ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "First ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	archived, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Archived ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	archived, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Archived ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +179,7 @@ func TestGuardedBackdatedFirstBuyPreviewsWithoutPersistingHolding(t *testing.T) 
 func TestConcurrentGuardedCommitsAllowOneMutationAndReplayItsID(t *testing.T) {
 	t.Parallel()
 	ctx, service, repo, _, bootstrap, setNow := historicalInsertionFixture(t)
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

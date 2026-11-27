@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -36,9 +37,9 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	provider := &unavailableOverviewProvider{}
-	service := application.NewService(sqlite.NewRepository(db), application.NewMarketDataRegistry(provider))
+	service := testfixture.NewService(testfixture.Repository(db), application.NewMarketDataRegistry(provider))
 	now := time.Date(2026, time.November, 4, 8, 0, 0, 0, time.UTC)
-	service.SetClock(func() time.Time { return now })
+	testfixture.SetClock(service, func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Data Health", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -46,13 +47,13 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateAccount(ctx, application.AccountInput{
+	if _, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 		Name: "Synthetic yen", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "JPY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "JPY", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(service, ctx, "JPY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	market := &marketDataPage{ctx: ctx, reader: service, invalidate: func() {}}

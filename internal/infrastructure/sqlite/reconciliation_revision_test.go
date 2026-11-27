@@ -33,9 +33,6 @@ func TestReconciliationProductValuationPreservesChecksInFreshAndUpgradedSchemas(
 			if err := s.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
-				t.Fatal(err)
-			}
 			bootstrap, err := s.Bootstrap(ctx)
 			if err != nil {
 				t.Fatal(err)

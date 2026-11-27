@@ -131,13 +131,9 @@ func (r *Repository) ReadMarketDataSnapshot(ctx context.Context, in domain.Marke
 	if err != nil {
 		return out, err
 	}
-	location := time.UTC
-	if out.Origin != nil {
-		l, err := time.LoadLocation(out.Origin.Timezone)
-		if err != nil {
-			return out, err
-		}
-		location = l
+	location, err := time.LoadLocation(out.Origin.Timezone)
+	if err != nil {
+		return out, err
 	}
 	trend, err := in.TrendRange()
 	if err != nil {

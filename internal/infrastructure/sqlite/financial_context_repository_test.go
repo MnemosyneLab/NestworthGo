@@ -117,6 +117,9 @@ func BenchmarkFinancialContextInputs(b *testing.B) {
 			if _, err = db.SQL.Exec(`INSERT INTO households(id,singleton_key,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001',1,'Synthetic','USD','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
 				b.Fatal(err)
 			}
+			if _, err := db.SQL.Exec(`INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
+				b.Fatal(err)
+			}
 			if _, err = db.SQL.Exec(`WITH RECURSIVE x(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM x WHERE n<?) INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,quote_source,icon_key,created_at,updated_at) SELECT printf('00000000-0000-4000-8000-%012d',n+1),'00000000-0000-4000-8000-000000000001','Synthetic','crypto','USD','manual','crypto-generic','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z' FROM x`, n); err != nil {
 				b.Fatal(err)
 			}

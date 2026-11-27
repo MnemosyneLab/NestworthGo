@@ -6,13 +6,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestMobileReceiptsSurviveVerifiedSQLiteReopen(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	account := overviewAccount(t, s, owner, "Synthetic restart cash", "bank_account", "asset", "balance", "CNY", "100")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic restart NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic restart NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func TestMobileReceiptsSurviveVerifiedSQLiteReopen(t *testing.T) {
 		t.Fatalf("verified reopen: %v", err)
 	}
 	defer reopened.Close()
-	fresh := NewService(sqlite.NewRepository(reopened))
+	fresh := NewService(repos.New(reopened))
 	got, err := fresh.LookupMobileRecord(ctx, recordID)
 	if err != nil || got == nil || got.Activity.ID != record.Activity.ID {
 		t.Fatalf("ledger receipt after reopen %v %+v", err, got)

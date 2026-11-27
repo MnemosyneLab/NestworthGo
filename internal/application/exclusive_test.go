@@ -10,6 +10,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func isBackupRestoreBusy(err error) bool {
@@ -97,7 +98,7 @@ func TestWithWriteReleasesAfterCanceledAnalysisCallback(t *testing.T) {
 func TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "exclusive-writers", []string{"Alice"})
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true,
 		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
@@ -183,7 +184,7 @@ func TestOrdinaryWritesRemainSerializedUnderRace(t *testing.T) {
 		}(i)
 		go func(i int) {
 			defer group.Done()
-			_, err := service.CreateAccount(ctx, AccountInput{
+			_, err := service.fixtureCreateAccount(ctx, AccountInput{
 				Name: "Cash " + string(rune('A'+i)), AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 				DefaultCurrency: "CNY", InitialAmount: "1", IncludeInNetWorth: true,
 				OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
@@ -209,7 +210,7 @@ func TestExclusiveBackupRejectsInFlightRefreshPersist(t *testing.T) {
 	t.Cleanup(func() { _ = database.Close() })
 	fake := newRefreshFakeProvider()
 	blocking := &blockingMarketDataRegistry{delegate: NewMarketDataRegistry(fake), entered: make(chan struct{}), release: make(chan struct{})}
-	service := NewService(sqlite.NewRepository(database), blocking)
+	service := NewService(repos.New(database), blocking)
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
@@ -220,15 +221,19 @@ func TestExclusiveBackupRejectsInFlightRefreshPersist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "700"}); err != nil {
 		t.Fatal(err)
 	}
 	price, _ := domain.ParseUnitPrice("700")

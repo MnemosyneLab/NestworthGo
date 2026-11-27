@@ -65,7 +65,7 @@ func seedInstrumentPerformance(t *testing.T, latest time.Time) ([]byte, instrume
 	if _, err := app.AppendManualInstrumentQuote(ctx, manual.ID, "1234.56789123", latest.Add(23*time.Hour).Format(time.RFC3339), false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: full.ID.String(), Quantity: "3"}); err != nil {
+	if _, err := app.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: full.ID.String(), Quantity: "3", UnitCost: "10"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.AppendManualFXQuote(ctx, "EUR", "USD", "1.2", latest.Format(time.DateOnly)); err != nil {

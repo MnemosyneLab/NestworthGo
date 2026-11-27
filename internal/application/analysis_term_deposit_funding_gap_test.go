@@ -23,12 +23,12 @@ func TestReturnAnalysisSurvivesTermDepositStartBeforeFundingCash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	accountRecord, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	accountRecord, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	account := accountRecord.Account.ID
-	if _, err := service.AppendAccountCashValue(ctx, account, "150000", "USD", "2026-10-08T04:00:00Z"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account, "150000", "USD", "2026-10-08T04:00:00Z"); err != nil {
 		t.Fatalf("funding cash: %v", err)
 	}
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{

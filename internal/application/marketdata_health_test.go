@@ -116,11 +116,11 @@ func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *test
 	if err != nil || len(accounts) == 0 {
 		t.Fatalf("accounts = %d err=%v", len(accounts), err)
 	}
-	manual, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ABC Bank Wealth", Type: "bank_investment_product", QuoteCurrency: "SGD", QuoteSource: "manual"})
+	manual, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "ABC Bank Wealth", Type: "bank_investment_product", QuoteCurrency: "SGD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -161,14 +161,14 @@ func TestManualPriceRepairKeepsOutdatedSnapshotIssueUntilRebuild(t *testing.T) {
 	ctx := context.Background()
 	service, db, owner, now := overviewFixture(t)
 	account := overviewAccount(t, service, owner, "Synthetic brokerage", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
@@ -390,19 +390,19 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 	cryptoProvider := &countingProvider{inner: cryptoInner}
 	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
-	etf, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQ", MarketCode: "US"})
+	etf, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQ", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
+	crypto, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	gold, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "XAUUSD", MarketCode: "US"})
+	gold, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "XAUUSD", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	unknown, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Unknown Market", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "FOO", MarketCode: "ZZ"})
+	unknown, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Unknown Market", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "FOO", MarketCode: "ZZ"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
 	cryptoProvider := &countingProvider{inner: cryptoInner}
 	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
+	crypto, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func addSyncHoldings(t *testing.T, service *Service, instruments ...domain.Instr
 		t.Fatal(err)
 	}
 	for _, instrument := range instruments {
-		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+		if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 			t.Fatal(err)
 		}
 	}

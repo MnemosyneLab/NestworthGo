@@ -114,30 +114,6 @@ func (r *Repository) Household(ctx context.Context) (*domain.Household, error) {
 	return scanHousehold(row)
 }
 
-func (r *Repository) CreateOnboarding(ctx context.Context, household domain.Household, members []domain.Member) error {
-	if len(members) == 0 {
-		return &domain.Error{Code: domain.ErrValidation, Field: "members", Message: "at least one member is required"}
-	}
-	operation := func(tx *sql.Tx) error {
-		var existing string
-		if err := tx.QueryRowContext(ctx, `SELECT id FROM households WHERE singleton_key = 1`).Scan(&existing); err == nil {
-			return &domain.Error{Code: domain.ErrConflict, Message: "a Household already exists"}
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO households(id, singleton_key, name, base_currency, created_at, updated_at) VALUES(?, 1, ?, ?, ?, ?)`, household.ID.String(), household.Name, household.BaseCurrency.String(), formatTimestamp(household.CreatedAt), formatTimestamp(household.UpdatedAt)); err != nil {
-			return err
-		}
-		for index, member := range members {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, icon_key, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, member.ID.String(), household.ID.String(), member.Name, nullableString(member.IconKey), nullableString(member.Note), index, formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt)); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	return r.database.WithTx(ctx, operation)
-}
-
 func (r *Repository) ListMembers(ctx context.Context, includeArchived bool) ([]domain.Member, error) {
 	return listMembersQuery(ctx, r.database.SQL, includeArchived)
 }
@@ -293,20 +269,14 @@ func (r *Repository) setArchive(ctx context.Context, table, householdID, id stri
 	return requireAffected(result, table)
 }
 
-func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		return insertAccountCore(ctx, tx, account, ownership, initial, false)
-	})
-}
-
-func insertAccountCore(ctx context.Context, tx *sql.Tx, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, requireInitial bool) error {
+func insertAccountCore(ctx context.Context, tx *sql.Tx, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue) error {
 	if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
 		return err
 	}
 	if account.TrackingMode == domain.TrackingHoldings && initial != nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
 	}
-	if requireInitial && account.TrackingMode != domain.TrackingHoldings && initial == nil {
+	if account.TrackingMode != domain.TrackingHoldings && initial == nil {
 		return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
 	}
 	if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
@@ -330,7 +300,7 @@ func insertAccountCore(ctx context.Context, tx *sql.Tx, account domain.Account, 
 // reconstruction never has to infer the initial metadata from today's row.
 func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, observation domain.AccountStateObservation, commit *domain.ActivityCommit, asOf time.Time) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := insertAccountCore(ctx, tx, account, ownership, initial, true); err != nil {
+		if err := insertAccountCore(ctx, tx, account, ownership, initial); err != nil {
 			return err
 		}
 		if observation.AccountID != account.ID || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
@@ -371,29 +341,6 @@ func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domai
 	})
 }
 
-func (r *Repository) UpdateAccount(ctx context.Context, account domain.Account, ownership domain.Ownership) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var currentInstitution, currentGroup sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT institution_id, group_id FROM accounts WHERE id = ? AND household_id = ?`, account.ID.String(), account.HouseholdID.String()).Scan(&currentInstitution, &currentGroup); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-			}
-			return err
-		}
-		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
-			return err
-		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), accountIconValue(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
-		if err != nil {
-			return err
-		}
-		if err := requireAffected(result, "account"); err != nil {
-			return err
-		}
-		return replaceOwnership(ctx, tx, account.ID, ownership, true)
-	})
-}
-
 func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account domain.Account, ownership domain.Ownership, observation domain.AccountStateObservation) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		var currentInstitution, currentGroup sql.NullString
@@ -421,18 +368,6 @@ func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account d
 		}
 		return appendAccountStateObservationTx(ctx, tx, observation)
 	})
-}
-
-func (r *Repository) AppendAccountValue(ctx context.Context, value domain.AccountValue) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error { return insertAccountValue(ctx, tx, value) })
-}
-
-func (r *Repository) SetAccountArchive(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, archived bool, now time.Time) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE accounts SET archived_at = ?, updated_at = ? WHERE id = ? AND household_id = ?`, archiveValue(archived, now), formatTimestamp(now), id.String(), householdID.String())
-	if err != nil {
-		return err
-	}
-	return requireAffected(result, "account")
 }
 
 func (r *Repository) SetAccountArchiveWithObservation(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, archived bool, now time.Time, observation domain.AccountStateObservation) error {

@@ -21,17 +21,17 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 		t.Fatal(e)
 	}
 	defer db.Close()
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	if e = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); e != nil {
 		t.Fatal(e)
 	}
 	b, _ := app.Bootstrap(ctx)
-	a, e := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, e := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = app.CaptureSyntheticOrigin(ctx, "UTC"); e != nil {
+	if _, e = testfixture.CaptureSyntheticOrigin(app, ctx, "UTC"); e != nil {
 		t.Fatal(e)
 	}
 	service := NewService(app)
@@ -40,8 +40,8 @@ func TestDesktopReconciliationDurableIdentityAndReceiptWithoutBody(t *testing.T)
 		t.Fatal(e)
 	}
 	// Drop the adapter and application, then read the same registered identity.
-	app = application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
+	app = testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	service = NewService(app)
 	v, e := service.Commit(ctx, p.PlanID)
 	if e != nil {
@@ -150,13 +150,13 @@ func TestDesktopReconciliationOptionalReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
+	app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	if err = app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, _ := app.Bootstrap(ctx)
-	account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

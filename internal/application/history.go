@@ -11,23 +11,34 @@ import (
 // HistoryOrigin returns the immutable Starting point. A fresh database has
 // no household or origin; initialized sessions validate the origin at bootstrap.
 func (s *Service) HistoryOrigin(ctx context.Context) (*domain.HistoryOrigin, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.repository.Household(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if bootstrap.Household == nil {
+	if household == nil {
 		return nil, nil
 	}
-	return s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	return s.requireHistoryOrigin(ctx, household.ID)
+}
+
+func (s *Service) requireHistoryOrigin(ctx context.Context, id domain.HouseholdID) (*domain.HistoryOrigin, error) {
+	origin, err := s.repository.HistoryOrigin(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if origin == nil {
+		return nil, missingHistoryOrigin()
+	}
+	return origin, nil
+}
+
+func missingHistoryOrigin() error {
+	return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 }
 
 // historyStartInstant resolves an explicitly chosen day in the immutable
-// History timezone. Synthetic baseline fixtures may omit the day to capture
-// at the fixture clock instant; onboarding always supplies a civil date.
+// History timezone.
 func historyStartInstant(startDate, timezone string, now time.Time) (time.Time, error) {
-	if strings.TrimSpace(startDate) == "" {
-		return now, nil
-	}
 	location, err := time.LoadLocation(strings.TrimSpace(timezone))
 	if err != nil {
 		return time.Time{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}

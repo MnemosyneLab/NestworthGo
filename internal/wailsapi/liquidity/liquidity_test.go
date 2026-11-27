@@ -2,6 +2,7 @@ package liquidity_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 func TestLiquidityOverviewAndProductLifecycle(t *testing.T) {
 	app := wailstest.NewService(t)
 	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return clock })
+	testfixture.SetClock(app, func() time.Time { return clock })
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "Funds", BaseCurrency: "USD", MemberNames: []string{"Owner"}, Timezone: "UTC",

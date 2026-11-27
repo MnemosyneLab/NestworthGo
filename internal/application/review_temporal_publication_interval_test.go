@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewTemporalPublicationPersistsIntervalIntersection(t *testing.T) {
@@ -74,7 +74,7 @@ func TestReviewTemporalPublicationPersistsIntervalIntersection(t *testing.T) {
 			if scenario == "expired-untracked" {
 				*f.now = t1
 			}
-			err = sqlite.NewRepository(f.db).PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now })
+			err = repos.New(f.db).PublishReviewProjectionWithClock(t.Context(), stage, func() time.Time { return *f.now })
 			if scenario == "earlier-tracked" || scenario == "quantity-untracked" || scenario == "expired-untracked" {
 				temporalConflict(t, err)
 				for _, table := range []string{"investment_review_daily_inputs", "investment_review_daily_results", "investment_review_episodes", "review_temporal_checkpoints"} {

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,7 +30,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 		t.Fatalf("unexpected synthetic source accounts: %v, %v", rows, err)
 	}
 	bank := rows[0].Account.ID
-	seed.SetClock(func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
+	testfixture.SetClock(seed, func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
 	if _, err := seed.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +339,7 @@ func TestHoldingsCashFlowsKeepWailsOpeningReconciliation(t *testing.T) {
 		t.Helper()
 		paths := prepareOnboardingProfile(t)
 		seed, _ := reopenOnboardingProfile(t, paths)
-		seed.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
+		testfixture.SetClock(seed, func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 		if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 			HouseholdName: "Synthetic cash baseline", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}, Timezone: "Asia/Singapore",
 		}); err != nil {
@@ -369,7 +370,7 @@ func TestHoldingsCashFlowsKeepWailsOpeningReconciliation(t *testing.T) {
 		if err != nil || openingReplay.ID != initial.ID {
 			t.Fatalf("opening replay changed the reconciliation: %+v, %v", openingReplay, err)
 		}
-		seed.SetClock(func() time.Time { return accountTestClock })
+		testfixture.SetClock(seed, func() time.Time { return accountTestClock })
 		return seed, id, initial
 	}
 	gio, id, initial := prepareBaseline()

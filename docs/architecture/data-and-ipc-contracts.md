@@ -268,9 +268,8 @@ unmount.
 
 Every newly created household contains an empty immutable History Origin, committed atomically with the household and initial members. The origin defaults to the current civil day in the resolved ledger timezone (UTC when a noninteractive caller omits it); the caller may select an earlier valid day. Financial mutations use `PreviewChange` followed by
 `RecordChange`. `CreateHolding` is for creating an initial position,
-`UpdateHolding` is metadata-only, and `UpdateHoldingQuantity` is a deprecated
-pre-history compatibility path. `AppendAccountValue` is for bootstrap/import
-baseline data; a user value correction is a `value_update` history change.
+`UpdateHolding` is metadata-only; quantity changes use the recorded change workflow.
+`AppendAccountValue` records a `value_update` reconciliation history change.
 `HistoryMutationAllowed` is a frontend preflight only; the backend enforces
 the same rule again in the record/mutation command.
 

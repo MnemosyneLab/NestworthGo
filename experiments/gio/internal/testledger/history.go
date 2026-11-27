@@ -2,6 +2,7 @@ package testledger
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -17,7 +18,7 @@ func seedHistory(ctx context.Context, service *application.Service, bankID domai
 	if err != nil {
 		return err
 	}
-	account, err := service.CreateAccount(ctx, application.AccountInput{
+	account, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 		Name: "Harbor Checking", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "250",
 		IncludeInNetWorth: true, IncludeInLiquidAssets: true, InstitutionID: bankID.String(),
@@ -26,7 +27,7 @@ func seedHistory(ctx context.Context, service *application.Service, bankID domai
 	if err != nil {
 		return err
 	}
-	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "Asia/Singapore"); err != nil {
 		return err
 	}
 
@@ -43,7 +44,7 @@ func seedHistory(ctx context.Context, service *application.Service, bankID domai
 		{11, 16, "1.28", "Bank interest", domain.ReasonInterest},
 	} {
 		instant := time.Date(2026, time.November, entry.day, entry.hourUTC, 30, 0, 0, time.UTC)
-		service.SetClock(func() time.Time { return instant })
+		testfixture.SetClock(service, func() time.Time { return instant })
 		money, err := domain.ParseMoney(entry.amount, "USD")
 		if err != nil {
 			return err

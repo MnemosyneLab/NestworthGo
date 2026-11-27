@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"strings"
@@ -372,7 +373,7 @@ func TestSkillFinancialContextRowFXAndTimeMeanings(t *testing.T) {
 	t.Parallel()
 	app := wailstest.NewBaselineService(t)
 	now := time.Now().UTC().Truncate(time.Second)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic CNY", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
 	}

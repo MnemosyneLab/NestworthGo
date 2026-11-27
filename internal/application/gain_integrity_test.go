@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
@@ -58,7 +58,7 @@ func TestCurrentFixtureSupportsRepositoryGainReads(t *testing.T) {
 	t.Parallel()
 	database := seedGainCurrentFixture(t)
 	defer database.Close()
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	ctx := context.Background()
 	snapshot, err := repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {

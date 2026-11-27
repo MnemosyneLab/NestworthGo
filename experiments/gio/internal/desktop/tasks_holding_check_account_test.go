@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 
@@ -15,8 +16,8 @@ func TestConfirmHoldingAccountMatchesWails(t *testing.T) {
 	ctx := t.Context()
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, refStorage, refPaths, refIDs := openExistingBuyFixture(t)
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	api, reference := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	wails := startTestHoldingReconciliation(t, reference, refIDs.account)
@@ -126,9 +127,9 @@ func TestConfirmHoldingAccountMatchesWails(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
-	reopened.SetClock(linkedContractClock)
+	testfixture.SetClock(reopened, linkedContractClock)
 	referenceApp, _ := reopenBaselineProfile(t, refPaths)
-	referenceApp.SetClock(linkedContractClock)
+	testfixture.SetClock(referenceApp, linkedContractClock)
 	got, err := reconciliation.NewService(reopened).Get(ctx, session.ID)
 	want, refErr := reconciliation.NewService(referenceApp).Get(ctx, wails.ID)
 	if err != nil || refErr != nil || got.Status != "in_progress" || got.Counts.Confirmed != 3 || got.Counts != want.Counts {
@@ -154,7 +155,7 @@ func TestConfirmHoldingAccountMatchesWails(t *testing.T) {
 
 func TestConfirmHoldingAccountRejectsExistingException(t *testing.T) {
 	app, _, _, ids := openExistingBuyFixture(t)
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	api := reconciliation.NewService(app)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	a, item := testHoldingCheckpoint(t, session, ids.holding)

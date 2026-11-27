@@ -31,7 +31,7 @@ func TestMobileDailyRecordsKeepSemanticsAndDurableReceipts(t *testing.T) {
 	setClock(now)
 	create := func(name, kind, role, mode, value string) domain.AccountID {
 		t.Helper()
-		a, err := s.CreateAccount(ctx, AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: "CNY", InitialAmount: value, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+		a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: "CNY", InitialAmount: value, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -41,7 +41,7 @@ func TestMobileDailyRecordsKeepSemanticsAndDurableReceipts(t *testing.T) {
 	card := create("Card", "credit_card", "liability", "balance", "100")
 	other := create("Other", "bank_account", "asset", "balance", "0")
 	broker := create("Broker", "brokerage", "asset", "holdings", "")
-	if _, err := s.AppendAccountCashValue(ctx, broker, "10", "CNY", "2026-08-24"); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, broker, "10", "CNY", "2026-08-24"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Shanghai"); err != nil {
@@ -104,7 +104,7 @@ func TestMobilePreviewCASAndConcurrentReplay(t *testing.T) {
 	s, ctx, b, setClock := newOnboardedService(t, "mobile-cas", []string{"Owner"})
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	setClock(now)
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestMobilePreviewCASAndConcurrentReplay(t *testing.T) {
 func TestMobileManualQuoteAtomicReceiptAndSourceFence(t *testing.T) {
 	s, ctx, _, setClock := newOnboardedService(t, "mobile-quotes", []string{"Owner"})
 	setClock(time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC))
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestMobileManualQuoteAtomicReceiptAndSourceFence(t *testing.T) {
 	if _, err = s.ConfirmMobileQuote(ctx, changed); err == nil {
 		t.Fatal("operation ID changed payload")
 	}
-	if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err = s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	fx, err := s.PreviewMobileQuote(ctx, MobileQuoteInput{OperationID: uuid.NewString(), Currency: "USD", QuoteCurrency: "CNY", Value: "7.12345678", QuotedAt: "2026-08-23"}, "synthetic-device")

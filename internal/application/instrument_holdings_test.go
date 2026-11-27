@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type holdingsSnapshotCounter struct {
@@ -26,7 +27,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := &holdingsSnapshotCounter{Repository: sqlite.NewRepository(db)}
+	repo := &holdingsSnapshotCounter{Repository: repos.New(db)}
 	app := NewService(repo)
 	ctx := context.Background()
 	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
@@ -37,7 +38,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	createAccount := func(name string) domain.AccountID {
-		record, err := app.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		record, err := app.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +46,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	}
 	a, b, archived := createAccount("A"), createAccount("B"), createAccount("Archived")
 	createInstrument := func() domain.InstrumentID {
-		instrument, err := app.CreateInstrument(ctx, InstrumentInput{Name: "Same name", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+		instrument, err := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Same name", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +54,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	}
 	id, other := createInstrument(), createInstrument()
 	createHolding := func(account domain.AccountID, instrument domain.InstrumentID, quantity string) domain.HoldingID {
-		h, err := app.CreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: instrument.String(), Quantity: quantity})
+		h, err := app.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: instrument.String(), Quantity: quantity})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +68,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 	if err := seedLegacyHoldingArchive(t, app, archivedHolding); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.ArchiveAccount(ctx, archived, true); err != nil {
+	if err := app.fixtureArchiveAccount(ctx, archived, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.AppendManualInstrumentQuote(ctx, id, "100", "2026-09-19T00:00:00Z", false); err != nil {

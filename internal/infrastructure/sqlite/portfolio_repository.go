@@ -112,21 +112,6 @@ func readPortfolioSnapshotQueryMode(ctx context.Context, query queryer, filter d
 	}, nil
 }
 
-func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Instrument) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := ensureHousehold(ctx, tx, instrument.HouseholdID); err != nil {
-			return err
-		}
-		if err := validateInstrumentBinding(instrument); err != nil {
-			return err
-		}
-		if err := insertInstrumentTx(ctx, tx, instrument); err != nil {
-			return err
-		}
-		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
-	})
-}
-
 func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instrument domain.Instrument, observation domain.InstrumentPreferenceObservation) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if err := ensureHousehold(ctx, tx, instrument.HouseholdID); err != nil {
@@ -153,7 +138,7 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, short_name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, instrument.ShortName, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, short_name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ? AND quote_source = ?`, instrument.Name, instrument.ShortName, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String(), string(instrument.QuoteSource))
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -257,7 +242,7 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 		var timezone string
 		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 			}
 			return err
 		}
@@ -270,33 +255,6 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 			return err
 		}
 		return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(now, timezone), timezone, now)
-	})
-}
-
-func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, source domain.QuoteSourceKind, now time.Time) error {
-	parsedSource, err := domain.ParseQuoteSourceKind(string(source))
-	if err != nil {
-		return err
-	}
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var providerKey, providerSymbol sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT provider_key, provider_symbol FROM instruments WHERE id = ? AND household_id = ? AND archived_at IS NULL`, id.String(), householdID.String()).Scan(&providerKey, &providerSymbol); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrNotFound, Message: "instrument was not found"}
-			}
-			return err
-		}
-		if parsedSource == domain.QuoteSourceProvider && (!providerKey.Valid || strings.TrimSpace(providerKey.String) == "" || !providerSymbol.Valid || strings.TrimSpace(providerSymbol.String) == "") {
-			return &domain.Error{Code: domain.ErrValidation, Field: "provider", Message: "provider key and symbol are required when Provider is selected"}
-		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET quote_source = ?, updated_at = ? WHERE id = ? AND household_id = ? AND archived_at IS NULL`, string(parsedSource), formatTimestamp(now), id.String(), householdID.String())
-		if err != nil {
-			return mapPortfolioWriteError(err, "instrument")
-		}
-		if err := requireAffected(result, "instrument"); err != nil {
-			return err
-		}
-		return nil
 	})
 }
 
@@ -330,9 +288,19 @@ func (r *Repository) SetInstrumentQuoteSourceWithObservation(ctx context.Context
 	})
 }
 
-func (r *Repository) CreateHolding(ctx context.Context, holding domain.Holding) error {
+func (r *Repository) CreateEmptyHolding(ctx context.Context, holding domain.Holding) error {
+	if !holding.Quantity.IsZero() {
+		return &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "nonzero holdings require an activity"}
+	}
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if err := validateHoldingReferences(ctx, tx, holding.AccountID, holding.InstrumentID, nil); err != nil {
+			return err
+		}
+		var timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT o.timezone FROM accounts a JOIN history_origins o ON o.household_id=a.household_id WHERE a.id=?`, holding.AccountID.String()).Scan(&timezone); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
+			}
 			return err
 		}
 		return insertHolding(ctx, tx, holding)
@@ -385,7 +353,7 @@ func (r *Repository) UpdateHolding(ctx context.Context, holding domain.Holding) 
 		if archived.Valid || accountArchived.Valid {
 			return &domain.Error{Code: domain.ErrConflict, Message: "holding is no longer active"}
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE holdings SET quantity = ?, note = ?, sort_order = ?, updated_at = ? WHERE id = ? AND account_id = ? AND archived_at IS NULL`, holding.Quantity.Canonical(), nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.UpdatedAt), holding.ID.String(), holding.AccountID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE holdings SET note = ?, sort_order = ?, updated_at = ? WHERE id = ? AND account_id = ? AND archived_at IS NULL`, nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.UpdatedAt), holding.ID.String(), holding.AccountID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "holding")
 		}
@@ -474,7 +442,7 @@ func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.H
 		var timezone string
 		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return nil
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 			}
 			return err
 		}
@@ -487,27 +455,6 @@ func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.H
 			return err
 		}
 		return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(now, timezone), timezone, now)
-	})
-}
-
-func (r *Repository) AppendAccountCashValue(ctx context.Context, value domain.AccountCashValue) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var mode string
-		var archived sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT tracking_mode, archived_at FROM accounts WHERE id = ?`, value.AccountID.String()).Scan(&mode, &archived); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-			}
-			return err
-		}
-		if archived.Valid {
-			return &domain.Error{Code: domain.ErrConflict, Message: "account is no longer active"}
-		}
-		if mode != string(domain.TrackingHoldings) {
-			return &domain.Error{Code: domain.ErrValidation, Field: "trackingMode", Message: "cash observations require a Holdings account"}
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, ?, ?, ?, ?, NULL, 'baseline')`, value.ID.String(), value.AccountID.String(), value.Amount.CanonicalAmount(), value.Amount.Currency().String(), formatTimestamp(value.EffectiveAt), formatTimestamp(value.CreatedAt))
-		return mapPortfolioWriteError(err, "cash value")
 	})
 }
 
@@ -611,16 +558,11 @@ func (r *Repository) AppendInstrumentQuoteAndSelectManual(ctx context.Context, q
 		if err := requireAffected(result, "instrument"); err != nil {
 			return err
 		}
-		if exists, err := historyOriginExistsTx(ctx, tx, quote.InstrumentID); err != nil {
+		effectiveAt, err := clampHistoryEffectiveAtTx(ctx, tx, quote.InstrumentID, quote.QuotedAt)
+		if err != nil {
 			return err
-		} else if exists {
-			effectiveAt, err := clampHistoryEffectiveAtTx(ctx, tx, quote.InstrumentID, quote.QuotedAt)
-			if err != nil {
-				return err
-			}
-			return appendInstrumentPreferenceObservationTx(ctx, tx, domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: quote.InstrumentID, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
 		}
-		return nil
+		return appendInstrumentPreferenceObservationTx(ctx, tx, domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: quote.InstrumentID, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
 	})
 }
 
@@ -700,16 +642,11 @@ func (r *Repository) AppendFXQuoteAndSelectManual(ctx context.Context, quote dom
 		if err := mapPortfolioWriteError(err, "FX preference"); err != nil {
 			return err
 		}
-		if exists, err := historyOriginExistsForHouseholdTx(ctx, tx, quote.HouseholdID); err != nil {
+		effectiveAt, err := clampFXHistoryEffectiveAtTx(ctx, tx, quote.HouseholdID, quote.QuotedAt)
+		if err != nil {
 			return err
-		} else if exists {
-			effectiveAt, err := clampFXHistoryEffectiveAtTx(ctx, tx, quote.HouseholdID, quote.QuotedAt)
-			if err != nil {
-				return err
-			}
-			return appendFXPreferenceObservationTx(ctx, tx, domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: quote.HouseholdID, CurrencyA: a, CurrencyB: b, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
 		}
-		return nil
+		return appendFXPreferenceObservationTx(ctx, tx, domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: quote.HouseholdID, CurrencyA: a, CurrencyB: b, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
 	})
 }
 
@@ -725,16 +662,6 @@ func listFXQuotesQuery(ctx context.Context, query queryer, householdID domain.Ho
 	}
 	defer rows.Close()
 	return scanFXQuotes(rows)
-}
-
-func (r *Repository) SetFXPreference(ctx context.Context, preference domain.FXPreference) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := ensureHousehold(ctx, tx, preference.HouseholdID); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO fx_preferences(household_id, currency_a, currency_b, source_kind, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(household_id, currency_a, currency_b) DO UPDATE SET source_kind = excluded.source_kind, updated_at = excluded.updated_at`, preference.HouseholdID.String(), preference.CurrencyA.String(), preference.CurrencyB.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt), formatTimestamp(preference.UpdatedAt))
-		return mapPortfolioWriteError(err, "FX preference")
-	})
 }
 
 func (r *Repository) SetFXPreferenceWithObservation(ctx context.Context, preference domain.FXPreference, observation domain.FXPreferenceObservation) error {
@@ -1500,7 +1427,7 @@ func markQuoteHistoryDirtyTx(ctx context.Context, tx *sql.Tx, instrumentID domai
 		return err
 	}
 	if !timezone.Valid || timezone.String == "" {
-		return nil
+		return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	household, err := domain.ParseHouseholdID(householdID)
 	if err != nil {
@@ -1513,27 +1440,11 @@ func markFXQuoteHistoryDirtyTx(ctx context.Context, tx *sql.Tx, householdID doma
 	var timezone string
 	if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil
+			return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		return err
 	}
 	return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(quotedAt, timezone), timezone, createdAt)
-}
-
-func historyOriginExistsTx(ctx context.Context, tx *sql.Tx, instrumentID domain.InstrumentID) (bool, error) {
-	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origins o JOIN instruments i ON i.household_id = o.household_id WHERE i.id = ?`, instrumentID.String()).Scan(&count); err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func historyOriginExistsForHouseholdTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID) (bool, error) {
-	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&count); err != nil {
-		return false, err
-	}
-	return count > 0, nil
 }
 
 func clampHistoryEffectiveAtTx(ctx context.Context, tx *sql.Tx, instrumentID domain.InstrumentID, requested time.Time) (time.Time, error) {

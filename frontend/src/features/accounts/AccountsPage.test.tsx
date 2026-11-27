@@ -23,8 +23,6 @@ const createAccount = vi.fn();
 const updateAccount = vi.fn();
 const archiveAccount = vi.fn().mockResolvedValue(undefined);
 const historyOrigin = vi.fn();
-const startHistory = vi.fn();
-const startHistoryOnDate = vi.fn();
 const listInstruments = vi.fn();
 const createInstrument = vi.fn();
 const holdingsByAccounts = vi.fn();
@@ -86,9 +84,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: () => historyOrigin(),
-    StartHistory: (...args: unknown[]) => startHistory(...args),
-    StartHistoryOnDate: (...args: unknown[]) => startHistoryOnDate(...args),
-    StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: vi.fn(),
@@ -236,8 +231,6 @@ beforeEach(() => {
   updateAccount.mockReset();
   archiveAccount.mockClear();
   historyOrigin.mockReset();
-  startHistory.mockReset();
-  startHistoryOnDate.mockReset();
   groupAmounts = {};
   useHoldingGroupStore.getState().reset();
   listInstruments.mockReset();
@@ -271,8 +264,6 @@ beforeEach(() => {
   createAccount.mockResolvedValue(emptyAccount);
   updateAccount.mockResolvedValue(emptyAccount);
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
-  startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-  startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   settingsLoad.mockResolvedValue({ timezone: "system", fxProvider: "frankfurter" });
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
@@ -1229,7 +1220,6 @@ describe("AccountsPage", () => {
         },
       ];
     });
-    startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     previewChange.mockResolvedValue({
       activity: { id: "a1", kind: "buy", effects: [] },
       effects: [],
@@ -1985,7 +1975,6 @@ it("retries a failed origin read without offering to start history", async () =>
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });
   await userEvent.click(screen.getByRole("button", { name: i18n.t("common.retryAction") }));
   expect(await screen.findByRole("form", { name: "Record change" })).toBeInTheDocument();
-  expect(startHistory).not.toHaveBeenCalled();
 });
 
 it("transfers a pension contribution from a bank without recording external income", async () => {

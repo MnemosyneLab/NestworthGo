@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -382,7 +383,7 @@ func TestLiquidityPolicyHTTPExamplesNullableModesAndGuards(t *testing.T) {
 		}
 	}
 	p = productDataPreviewHTTP(t, c, "preview_reset_liquidity_policy", liquidity.ResetPolicyRequest{Source: ref, ExpectedRevision: revision})
-	if err := fx.app.ArchiveAccount(t.Context(), domain.AccountID(fx.checking), true); err != nil {
+	if err := testfixture.ArchiveAccount(fx.app, t.Context(), domain.AccountID(fx.checking), true); err != nil {
 		t.Fatal(err)
 	}
 	if code := productDataCommitCode(t, c, "commit_plan", p["planId"].(string)); code != "stale_preview" {
@@ -421,10 +422,10 @@ func TestLiquidityPolicyHTTPPersistentRestartRestoreAndABA(t *testing.T) {
 	}
 	pending = productDataPreviewHTTP(t, c, "preview_save_liquidity_policy", input)
 	fx.service.Close()
-	app := application.NewService(repo)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	fx.app = app
 	fx.service = New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(db))
 	t.Cleanup(fx.service.Close)

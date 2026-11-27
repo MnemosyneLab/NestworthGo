@@ -14,7 +14,7 @@ import (
 
 func TestHistoricalCaptureCancellationAndRealErrors(t *testing.T) {
 	t.Parallel()
-	app := wailstest.NewBaselineService(t)
+	app := wailstest.NewService(t)
 	s := analytics.NewService(app)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
