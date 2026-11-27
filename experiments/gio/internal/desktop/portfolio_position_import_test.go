@@ -1,16 +1,22 @@
 package desktop
 
 import (
-	"github.com/waltwang/nestworth-go/internal/testfixture"
+	"fmt"
 	"image"
 	"testing"
 	"time"
 
+	"gioui.org/f32"
 	"gioui.org/io/key"
+	"gioui.org/io/pointer"
+	"gioui.org/layout"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing.T) {
@@ -72,7 +78,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	if d.instrument != ids.foreign || len(d.sources.Instruments) != 1 {
 		t.Fatal("the picker included a security already held by the selected account")
 	}
-	assertPageLabel(t, &h.router, "Only one unused security matches this account")
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.PositionImportSingleCandidate))
 	setBankField(h, "Existing quantity", &d.quantity, "4")
 	setBankField(h, "Original cost per unit · EUR", &d.unitCost, "7")
 	pick("Second desk · USD")
@@ -130,5 +136,114 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	record, err := reopened.Activity(ctx, id)
 	if err != nil || len(record.Effects) != 1 || record.Effects[0].HoldingID == nil || *record.Effects[0].HoldingID != rows[second][0].ID {
 		t.Fatalf("receipt did not retain its selected Holding: %+v / %v", record, err)
+	}
+}
+
+func TestPortfolioPositionImportSheetPreservesScrolledHoldingsAndFocus(t *testing.T) {
+	ctx := t.Context()
+	service, session, _, ids := openExistingBuyFixture(t)
+	t.Cleanup(func() { _ = session.Close() })
+	var symbols []string
+	for index := range 14 {
+		symbol := fmt.Sprintf("QA-SCROLL-%02d", index)
+		instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{
+			Name: "Synthetic scroll holding " + symbol, Symbol: symbol, Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.CreateHolding(ctx, application.HoldingInput{
+			AccountID: ids.account.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1",
+		}); err != nil {
+			t.Fatal(err)
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	portfolio := newPortfolioPage(ctx, service, func() {})
+	f := &accountInvestment{service: service}
+	portfolio.investment = f
+	ledger := newLedgerHistory(ctx, service, func() time.Time { return accountTestClock }, func() {})
+	h := newShellHarnessWithPages(t, ledgerPages{portfolio: portfolio, history: ledger, version: service.MobileDataVersion})
+	h.size = image.Pt(900, 600)
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	t.Cleanup(func() {
+		portfolio.workers.Wait()
+		ledger.model.Wait()
+		ledger.reads.workers.Wait()
+	})
+
+	// Keep a small tail below the real portfolio body so this compact test
+	// viewport exercises the shell's outer page scroll as well as its holdings list.
+	route := h.shell.routes[portfolioRoute]
+	body := route.body
+	route.body = func(gtx layout.Context, view ui.View) layout.Dimensions {
+		dims := body(gtx, view)
+		dims.Size.Y += gtx.Dp(320)
+		return dims
+	}
+	h.shell.routes[portfolioRoute] = route
+	finish := func() {
+		for range 4 {
+			h.frame()
+			portfolio.workers.Wait()
+			ledger.model.Wait()
+			ledger.reads.workers.Wait()
+		}
+	}
+	finish()
+	h.click("Investment assets", false)
+	finish()
+	portfolio.list.ScrollTo(8)
+	finish()
+	listBefore := portfolio.list.Position
+	if listBefore.First == 0 && listBefore.Offset == 0 {
+		t.Fatalf("fixture did not scroll the holdings list: %+v", listBefore)
+	}
+
+	h.router.Queue(pointer.Event{
+		Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(float32(h.size.X-20), 150), Scroll: f32.Pt(0, 23),
+	})
+	h.frame()
+	finish()
+	pageBefore := h.shell.stage.Position
+	if pageBefore.Offset == 0 {
+		t.Fatalf("fixture did not scroll the outer page: %+v", pageBefore)
+	}
+	var visibleSymbol string
+	for _, symbol := range symbols {
+		if node := findPageLabel(&h.router, symbol); node != nil && !node.Desc.Bounds.Empty() {
+			visibleSymbol = symbol
+			break
+		}
+	}
+	if visibleSymbol == "" {
+		t.Fatal("the scrolled holdings list has no visible synthetic security row")
+	}
+	rowBefore := findPageLabel(&h.router, visibleSymbol).Desc.Bounds
+	version := service.MobileDataVersion()
+	h.assertTitlebarAction("Record existing holding")
+	h.click("Record existing holding", false)
+	finish()
+	if f.draft == nil || !f.draft.contextualSheet {
+		t.Fatal("the titlebar action did not open the contextual sheet")
+	}
+	if portfolio.list.Position != listBefore || h.shell.stage.Position != pageBefore {
+		t.Fatalf("opening the import sheet changed background scroll: holdings %+v vs %+v, page %+v vs %+v",
+			portfolio.list.Position, listBefore, h.shell.stage.Position, pageBefore)
+	}
+
+	h.press(key.NameEscape)
+	finish()
+	if f.draft != nil || portfolio.list.Position != listBefore || h.shell.stage.Position != pageBefore {
+		t.Fatalf("Escape changed the background visit: draft %v, holdings %+v vs %+v, page %+v vs %+v",
+			f.draft != nil, portfolio.list.Position, listBefore, h.shell.stage.Position, pageBefore)
+	}
+	if after := findPageLabel(&h.router, visibleSymbol); after == nil || after.Desc.Bounds != rowBefore {
+		t.Fatalf("Escape moved the previously visible %s row: got %+v, want %+v", visibleSymbol, after, rowBefore)
+	}
+	h.focused(&f.importOpen)
+	if service.MobileDataVersion() != version {
+		t.Fatal("opening and dismissing the import sheet wrote to the ledger")
 	}
 }
