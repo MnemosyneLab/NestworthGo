@@ -21,11 +21,11 @@ func TestSourceTrackingProviderRefreshEvidence(t *testing.T) {
 	}
 	for i := 1; i < 100; i++ {
 		symbol := fmt.Sprintf("SYNTHETIC%d", i)
-		instrument, err := service.CreateInstrument(t.Context(), InstrumentInput{Name: symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: symbol})
+		instrument, err := service.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: symbol, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: symbol})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = service.CreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+		if _, err = service.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
 			t.Fatal(err)
 		}
 		fake.instruments[symbol] = struct {

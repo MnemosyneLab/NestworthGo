@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 type countedHealthReport struct {
@@ -31,13 +32,13 @@ func TestDataHealthManualFindingReturnsWithoutRescanUntilSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	clock := func() time.Time { return time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC) }
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic focused manual quote", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	asset, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic missing price", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	asset, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{Name: "Synthetic missing price", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}

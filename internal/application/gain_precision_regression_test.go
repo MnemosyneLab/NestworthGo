@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"testing"
 	"time"
 )
@@ -16,25 +17,25 @@ func TestInstrumentAggregationRoundsOnlyAfterSummation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := NewService(sqlite.NewRepository(db))
+	app := NewService(repos.New(db))
 	ctx := context.Background()
-	if err = app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic review", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err = app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic review", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := app.CreateInstrument(ctx, InstrumentInput{Name: "Exact fixture", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, err := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Exact fixture", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"A", "B"} {
-		a, err := app.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+		a, err := app.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
+		_, err = app.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,11 +67,11 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := NewService(sqlite.NewRepository(db))
+	app := NewService(repos.New(db))
 	ctx := context.Background()
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	app.setClock(func() time.Time { return now })
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Precision", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Precision", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
@@ -79,7 +80,7 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 	}
 	var instruments []domain.Instrument
 	for _, name := range []string{"X", "Y"} {
-		i, e := app.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+		i, e := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -89,17 +90,17 @@ func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"A", "B"} {
-		a, e := app.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+		a, e := app.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 		if e != nil {
 			t.Fatal(e)
 		}
 		for _, i := range instruments {
-			if _, e = app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"}); e != nil {
+			if _, e = app.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"}); e != nil {
 				t.Fatal(e)
 			}
 		}
 	}
-	if _, err = app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

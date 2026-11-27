@@ -8,6 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
@@ -18,9 +19,9 @@ func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { db.Close() })
-			app := application.NewService(sqlite.NewRepository(db))
+			app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 			now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-			app.SetClock(func() time.Time { return now })
+			testfixture.SetClock(app, func() time.Time { return now })
 			if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
@@ -28,11 +29,11 @@ func TestWarmWailsAnalysisPreservesGuardedPreview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cash, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			cash, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "Synthetic cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)

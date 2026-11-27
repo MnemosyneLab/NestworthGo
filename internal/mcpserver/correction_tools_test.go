@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -234,11 +235,11 @@ func TestMCPCorrectionRecoversAfterCommittedWriteButFailedSnapshotRebuild(t *tes
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repository := &failedCorrectionSnapshotRepository{Repository: sqlite.NewRepository(database)}
-	app := application.NewService(repository)
+	repository := &failedCorrectionSnapshotRepository{Repository: testfixture.Repository(database)}
+	app := testfixture.NewService(repository)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repository.Repository)
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Snapshot failure", BaseCurrency: "USD", MemberNames: []string{"Owner"}, Timezone: "UTC", HistoryStartDate: "2026-09-01"}); err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestMCPCorrectionRecoversAfterCommittedWriteButFailedSnapshotRebuild(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := app.CreateAccount(ctx, application.AccountInput{Name: "Checking", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+	account, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Checking", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

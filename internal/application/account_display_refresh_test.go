@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestAccountDisplayRefreshTargets(t *testing.T) {
@@ -52,7 +53,7 @@ func TestAccountDisplayRefreshTargets(t *testing.T) {
 				account.DefaultCurrency = "SGD"
 			}
 			record := domain.AccountRecord{Account: account}
-			snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
+			snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
 			if test.source == "value" {
 				record.LatestValue = &domain.AccountValue{Amount: amount}
 			}
@@ -105,31 +106,31 @@ func TestAccountDisplayRefreshToValuation(t *testing.T) {
 				}
 				t.Cleanup(func() { _ = database.Close() })
 				fake := newRefreshFakeProvider()
-				service := NewService(sqlite.NewRepository(database), NewMarketDataRegistry(fake))
+				service := NewService(repos.New(database), NewMarketDataRegistry(fake))
 				now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 				service.setClock(func() time.Time { return now })
-				if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Display refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+				if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Display refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 					t.Fatal(err)
 				}
 				bootstrap, err := service.Bootstrap(ctx)
 				if err != nil {
 					t.Fatal(err)
 				}
-				account, err := service.CreateAccount(ctx, AccountInput{Name: "USD account with SGD assets", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+				account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "USD account with SGD assets", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
 				if err != nil {
 					t.Fatal(err)
 				}
-				instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "SGD asset", Type: "stock", QuoteCurrency: "SGD", QuoteSource: "manual"})
+				instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "SGD asset", Type: "stock", QuoteCurrency: "SGD", QuoteSource: "manual"})
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"}); err != nil {
+				if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"}); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-23", false); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "10", "SGD", "2026-08-23"); err != nil {
+				if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "10", "SGD", "2026-08-23"); err != nil {
 					t.Fatal(err)
 				}
 				preferences, err := service.repository.ListFXPreferences(ctx, bootstrap.Household.ID)
@@ -141,7 +142,7 @@ func TestAccountDisplayRefreshToValuation(t *testing.T) {
 					if policy == "manual_pair" {
 						source = "manual"
 					}
-					if _, err := service.SetFXPreference(ctx, "SGD", "USD", source); err != nil {
+					if _, err := service.fixtureSetFXPreference(ctx, "SGD", "USD", source); err != nil {
 						t.Fatal(err)
 					}
 				}

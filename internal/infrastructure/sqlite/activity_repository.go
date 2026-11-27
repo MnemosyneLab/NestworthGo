@@ -468,7 +468,7 @@ func listActivitiesUntilQueryMode(ctx context.Context, query queryer, householdI
 	var originID string
 	err = query.QueryRowContext(ctx, `SELECT id FROM history_origins WHERE household_id=?`, householdID.String()).Scan(&originID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return activities, nil
+		return nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	if err != nil {
 		return nil, err

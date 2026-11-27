@@ -35,7 +35,6 @@ import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useActivity, useActivityPage, useDailySnapshotState, useHistoryOrigin, useRebuildHistoricalSnapshots, useUndoChange } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
-import { StartHistoryForm } from "@/features/history/StartHistoryForm";
 import { activityToRepeatDraft, activityToInitialCommand } from "@/features/history/activityToCommand";
 import { activitySentence } from "@/features/history/activitySentence";
 import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
@@ -425,7 +424,6 @@ export function HistoryPage({ navigationFilters, navigationActivityId, navigatio
           retryLabel={t("common.retryAction")}
         />
       )}
-      {!origin.isLoading && !origin.isError && !origin.data && <section data-assistant-module="starting-point"><StartHistoryForm /></section>}
       {origin.data && (!origin.isError || hasUnresolvedSheetConfirmation()) && (
         <>
           <Timeline key={navigationRequestId || JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} navigationActivityId={navigationActivityId} navigationRequestId={navigationRequestId} onFiltersChange={onFiltersChange} onNavigationActivityClose={onNavigationActivityClose} />

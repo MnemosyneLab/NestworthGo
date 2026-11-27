@@ -29,7 +29,6 @@ const (
 	HealthKindSnapshotMissing          = "snapshot_missing"
 	HealthKindSnapshotOutdated         = "snapshot_outdated"
 	HealthKindSyncFailure              = "sync_failure"
-	HealthKindHistoryNotStarted        = "history_not_started"
 
 	HealthSeverityBlocking = "blocking"
 	HealthSeverityWarning  = "warning"
@@ -93,21 +92,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 		return MarketDataHealthReport{}, err
 	}
 	if origin == nil {
-		issue := HealthIssue{
-			ID:        HealthKindHistoryNotStarted,
-			Kind:      HealthKindHistoryNotStarted,
-			Severity:  HealthSeverityInfo,
-			GroupKey:  HealthKindHistoryNotStarted,
-			TargetKey: "history",
-			Code:      string(domain.ErrHistoryNotStarted),
-			Reason:    "history_not_started",
-			Action:    HealthActionNone,
-		}
-		valuationIssues, err := s.scanValuationHealth(ctx, map[string]struct{}{}, map[string]struct{}{})
-		if err != nil {
-			return MarketDataHealthReport{}, err
-		}
-		return finishHealthReport(MarketDataHealthReport{Issues: append([]HealthIssue{issue}, valuationIssues...)}), nil
+		return MarketDataHealthReport{}, &domain.Error{Code: domain.ErrIntegrity, Message: "ledger history origin is missing"}
 	}
 
 	plan, err := s.PlanHistorySync(ctx, HistorySyncOptions{})
@@ -389,7 +374,7 @@ func classifyInstrumentHealth(need InstrumentRepairNeed, label string, blocked m
 
 func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain.HistoryOrigin, plan HistoryRepairPlan, instruments []domain.Instrument, covered map[string]struct{}) ([]HealthIssue, error) {
 	if origin == nil {
-		return nil, nil
+		return nil, missingHistoryOrigin()
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
@@ -527,11 +512,12 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		}
 		coverageByPair[fxPairKey(item.BaseCurrency, item.QuoteCurrency)] = item
 	}
-	location := time.UTC
-	if origin != nil {
-		if loaded, locErr := time.LoadLocation(origin.Timezone); locErr == nil {
-			location = loaded
-		}
+	if origin == nil {
+		return nil, covered, missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return nil, covered, err
 	}
 	var issues []HealthIssue
 	for _, preference := range prefs {

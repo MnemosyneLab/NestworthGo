@@ -219,7 +219,7 @@ func TestAvailableFundsReservationPanelScopedWriteAndReleasedHistory(t *testing.
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	rows, err := reopened.ListLiquidityReservations(ctx)
 	if err != nil {
 		t.Fatal(err)

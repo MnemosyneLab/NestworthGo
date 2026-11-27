@@ -21,15 +21,15 @@ func TestHoldingCostAvailabilityPreservesMarketValue(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, s, _, _, boot, _ := historicalInsertionFixture(t)
-			a, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+			a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: tc.quantity, UnitCost: tc.inputCost})
+			h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: tc.quantity, UnitCost: tc.inputCost})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -37,7 +37,7 @@ func TestHoldingCostAvailabilityPreservesMarketValue(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.history {
-				if _, err := s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: tc.historyCost}); err != nil {
+				if _, err := s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: tc.historyCost}); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -300,12 +301,12 @@ func openLocalApp(t *testing.T, path string) (*application.Service, *sqlite.DB) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repository := sqlite.NewRepository(db)
-	app := application.NewService(repository)
+	repository := testfixture.Repository(db)
+	app := testfixture.NewService(repository)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repository)
 	app.SetLiveDatabasePath(path)
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	return app, db
 }
 

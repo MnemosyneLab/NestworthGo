@@ -30,7 +30,7 @@ func TestHistoricalOverviewCancellationErrorRace(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic cancellation race", "bank_account", "asset", "balance", "CNY", "1")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -52,7 +52,7 @@ func TestHistoricalOverviewCancellationAfterRead(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic cancellation", "bank_account", "asset", "balance", "CNY", "0.0001")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 3)
@@ -84,7 +84,7 @@ func TestHistoricalOverviewCancelledCurrentSide(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic current", "bank_account", "asset", "balance", "CNY", "1")
-	origin, err := s.StartHistory(t.Context(), "UTC")
+	origin, err := s.CaptureSyntheticOrigin(t.Context(), "UTC")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestHistoricalOverviewCancellationWhileWaitingForConnection(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Synthetic queued read", "bank_account", "asset", "balance", "CNY", "7.0001")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)

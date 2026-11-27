@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,10 +86,10 @@ func directoryAtomicFixture(t *testing.T, dir string) (*Service, *sqlite.DB, *di
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := &directoryFaultRepository{Repository: sqlite.NewRepository(db)}
-	app := application.NewService(repo)
+	repo := &directoryFaultRepository{Repository: testfixture.Repository(db)}
+	app := testfixture.NewService(repo)
 	var ticks atomic.Int64
-	app.SetClock(func() time.Time {
+	testfixture.SetClock(app, func() time.Time {
 		return time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC).Add(time.Duration(ticks.Add(1)) * time.Second)
 	})
 	h, err := repo.Household(t.Context())

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -21,8 +22,8 @@ func TestStandaloneProductInterestMatchesWails(t *testing.T) {
 	const forecast, amount, remaining, day, minute = "9.8765", "3.4568", "6.4197", "2026-11-23", "18:00"
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, productOptional(forecast), "2026-11-22")
 	refID := seedTestLockedProductWithUnlock(t, ref, refIDs.account, productOptional(forecast), "2026-11-22")
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	before, err := app.ListActivities(ctx, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -108,8 +109,8 @@ func TestStandaloneProductInterestMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app       *application.Service
 		id        domain.ProductContractID
@@ -177,8 +178,8 @@ func TestStandaloneSimpleInterestPaidThroughMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app     *application.Service
 		id      domain.ProductContractID
@@ -200,8 +201,8 @@ func TestStandaloneProductTermsMatchWails(t *testing.T) {
 	ref, refStorage, refPaths, refIDs := openExistingBuyFixture(t)
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
 	refID := seedTestLockedProductWithUnlock(t, ref, refIDs.account, nil, "2026-11-22")
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	before, err := app.Product(ctx, id)
 	if err != nil {
 		t.Fatal(err)
@@ -273,8 +274,8 @@ func TestStandaloneProductTermsMatchWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app     *application.Service
 		id      domain.ProductContractID

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type storedReviewEpisodeEvidence struct {
@@ -140,7 +140,7 @@ func TestReviewEpisodeRetainsOriginalTriggerEvidenceWhileWindowAdvances(t *testi
 			// An ordinary continuation advances the current window and counts but
 			// keeps trigger metadata and the acknowledgement stable.
 			f.day(t, "2026-10-18")
-			capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+			capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 			if err != nil {
 				t.Fatal(err)
 			}

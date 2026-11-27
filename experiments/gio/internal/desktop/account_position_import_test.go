@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -22,8 +23,8 @@ func TestAccountPositionImportAfterHistoryMatchesWails(t *testing.T) {
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	adapter := historyapi.NewService(ref)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	fault := &cashMovementFault{Service: app, loseAttempt: 2, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
 	p := newAccountsPage(ctx, app, clock, func() {})
@@ -153,8 +154,8 @@ func TestAccountPositionImportAfterHistoryMatchesWails(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	posted, err := plan.Commit(ctx, reopened)
 	if err != nil || posted.Activity.ID != got.ID {
 		t.Fatalf("retry across reopen did not read the same receipt: %+v / %v", posted, err)

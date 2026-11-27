@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -50,8 +51,8 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			ref, refSession, refPaths, refIDs := openExistingBuyFixture(t)
 			now := linkedContractClock()
 			clock := func() time.Time { return now }
-			app.SetClock(clock)
-			ref.SetClock(clock)
+			testfixture.SetClock(app, clock)
+			testfixture.SetClock(ref, clock)
 			if existing {
 				bootstrap, err := app.Bootstrap(ctx)
 				if err != nil {
@@ -287,8 +288,8 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			if err := refSession.Close(); err != nil {
 				t.Fatal(err)
 			}
-			actual, _ := reopenOnboardingProfile(t, paths)
-			reference, _ := reopenOnboardingProfile(t, refPaths)
+			actual, _ := reopenBaselineProfile(t, paths)
+			reference, _ := reopenBaselineProfile(t, refPaths)
 			for _, copy := range []struct {
 				app     *application.Service
 				account domain.AccountID
@@ -296,7 +297,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				at      string
 				before  []domain.Activity
 			}{{actual, ids.account, plan, want.EffectiveAt, before}, {reference, refIDs.account, refPlan, want.EffectiveAt, nil}} {
-				copy.app.SetClock(clock)
+				testfixture.SetClock(copy.app, clock)
 				assertNativeTradeCash(t, copy.app, copy.account, map[domain.CurrencyCode]string{"USD": wantCash})
 				products, err := copy.app.ListProducts(ctx, nil, true)
 				if err != nil || len(products) != 1 {

@@ -4,7 +4,7 @@ import { Service as HistoryService } from "../../bindings/github.com/waltwang/ne
 import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
-import { invalidateActivityChange, invalidateHistoryReads, invalidateHistoryStart, invalidateMarketDataSync } from "@/queries/invalidation";
+import { invalidateActivityChange, invalidateHistoryReads, invalidateMarketDataSync } from "@/queries/invalidation";
 
 export function useHistoryOrigin() {
   return useQuery({
@@ -13,41 +13,10 @@ export function useHistoryOrigin() {
   });
 }
 
-export function useHistoryMutationAllowed() {
-  return useQuery({
-    queryKey: queryKeys.history.mutationAllowed,
-    queryFn: () => callService(() => HistoryService.HistoryMutationAllowed()),
-  });
-}
-
 export function useDailySnapshotState() {
   return useQuery({
     queryKey: queryKeys.history.snapshotState,
     queryFn: () => callService(() => HistoryService.DailySnapshotState("")),
-  });
-}
-
-export function useStartingPointDraft(enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.history.startingPointDraft,
-    queryFn: () => callService(() => HistoryService.StartingPointDraft()),
-    enabled,
-  });
-}
-
-export function useStartHistory() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ timezone, startDate, costOverrides }: { timezone: string; startDate?: string; costOverrides?: Record<string, string> }) =>
-      startDate
-        ? callService(() => HistoryService.StartHistoryOnDate(timezone, startDate, costOverrides ?? null))
-        : costOverrides
-          ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
-          : callService(() => HistoryService.StartHistory(timezone)),
-    onSuccess: (origin) => {
-      queryClient.setQueryData(queryKeys.history.origin, origin);
-      invalidateHistoryStart(queryClient);
-    },
   });
 }
 

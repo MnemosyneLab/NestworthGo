@@ -13,14 +13,14 @@ func TestDisplayFractionalLeavesAgreeAcrossValuationSurfaces(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s, _, owner, now := overviewFixture(t)
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fractional NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fractional NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	costs := map[domain.HoldingID]string{}
 	for n := 0; n < 2; n++ {
 		a := overviewAccount(t, s, owner, "Synthetic fractional account", "brokerage", "asset", "holdings", "CNY", "")
-		h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
+		h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -29,7 +29,7 @@ func TestDisplayFractionalLeavesAgreeAcrossValuationSurfaces(t *testing.T) {
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -69,7 +69,7 @@ func TestNativeDisplayRetainsUnverifiedNAVWhenFXMissing(t *testing.T) {
 	qs := qid.String()
 	reason := "historical market-data coverage is unverified"
 	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
-	p := domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "CNY"}, Instruments: []domain.Instrument{{ID: id, Type: domain.InstrumentMutualFund}}, Accounts: []domain.AccountRecord{{Account: account}}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "CNY"}, Instruments: []domain.Instrument{{ID: id, Type: domain.InstrumentMutualFund}}, Accounts: []domain.AccountRecord{{Account: account}}}
 	evidence := newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: p, InstrumentQuoteFacts: []domain.InstrumentQuote{{ID: qid, InstrumentID: id, SourceKind: domain.QuoteSourceAgent, EffectiveDate: "2026-10-09", QuotedAt: at, ValueEffectiveAt: at}}}, at.AddDate(0, 0, 3), 12*time.Hour)
 	item := domain.DailyValuationSnapshotItem{AccountID: account.ID, InstrumentID: &id, NativeCurrency: "USD", NativeAmount: "200", QuoteID: &qs, MissingReason: &reason}
 	for _, basis := range []domain.Valuation{domain.ValuationBase, domain.ValuationNative} {
@@ -112,7 +112,7 @@ func TestReadyTrendsIgnoreOversizedUnrelatedArchivedHistory(t *testing.T) {
 	ctx := t.Context()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic visible cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -152,15 +152,15 @@ func TestEstimatedChangesRequireCompatibleScopeAndBasis(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	s, _, owner, now := overviewFixture(t)
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic scope", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: false, OwnerIDs: []domain.MemberID{owner}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic scope", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: false, OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	if _, err = s.UpdateAccount(ctx, a.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
+	if _, err = s.fixtureUpdateAccount(ctx, a.Account.ID, AccountInput{IncludeInNetWorth: true, IncludeInNetWorthSet: true}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
@@ -310,7 +310,7 @@ func TestEstimatedRowsAndAccountsRejectProvisionalSourceBasisChange(t *testing.T
 func TestAnalysisBalanceDisplayMemoRetainsExactAndIsolatesCopies(t *testing.T) {
 	t.Parallel()
 	a := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
-	p := domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "CNY"}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "CNY"}}
 	e := snapshotDisplayEvidence{balances: map[balanceDisplayKey]balanceDisplayValue{}}
 	item := domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeCurrency: "CNY", NativeAmount: "0.00006", BaseAmountExact: "0.00006", Complete: true}
 	first, exact, err := analysisDisplayEnding(item, true, a, AnalysisInputs{Portfolio: p}, domain.AnalysisQuery{Valuation: domain.ValuationBase}, e, "2026-10-12")

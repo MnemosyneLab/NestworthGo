@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -154,9 +155,9 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	repo := sqlite.NewRepository(db)
-	seed := application.NewService(repo)
-	seed.SetClock(clock)
+	repo := testfixture.Repository(db)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
+	testfixture.SetClock(seed, clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Overview", BaseCurrency: "AUD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 	} {
 		input.IncludeInNetWorth = true
 		input.OwnerIDs = []domain.MemberID{bootstrap.Members[0].ID}
-		if _, err := seed.CreateAccount(ctx, input); err != nil {
+		if _, err := testfixture.CreateAccount(seed, ctx, input); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -220,8 +221,8 @@ func TestOverviewMatchesWailsWithPersistedFXAndAnUnavailableProvider(t *testing.
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		s := application.NewService(sqlite.NewRepository(db), registry...)
-		s.SetClock(clock)
+		s := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)}, registry...)
+		testfixture.SetClock(s, clock)
 		s.SetQuoteCacheTTL(time.Hour)
 		return s
 	}
@@ -333,8 +334,8 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
-	service.SetClock(func() time.Time { return now })
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(service, func() time.Time { return now })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic allocation paths", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
 	}); err != nil {
@@ -346,7 +347,7 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 	}
 	makeAccount := func(name, accountType, tracking, amount string) domain.AccountID {
 		t.Helper()
-		record, err := service.CreateAccount(ctx, application.AccountInput{
+		record, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 			Name: name, AccountType: accountType, TrackingMode: tracking, BalanceSheetRole: "asset",
 			DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: amount, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 		})
@@ -357,14 +358,14 @@ func TestOverviewSankeyPreservesBothPathsToOneAccountAndSmallFlow(t *testing.T) 
 	}
 	mixed := makeAccount("Mixed holdings", "brokerage", "holdings", "")
 	small := makeAccount("Small flow", "bank_account", "balance", "0.25")
-	if _, err := service.AppendAccountCashValue(ctx, mixed, "123.45", "USD", now.Format(time.RFC3339Nano)); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(service, ctx, mixed, "123.45", "USD", now.Format(time.RFC3339Nano)); err != nil {
 		t.Fatal(err)
 	}
-	fund, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Sample equity", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	fund, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{Name: "Sample equity", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, application.HoldingInput{AccountID: mixed.String(), InstrumentID: fund.ID.String(), Quantity: "2"}); err != nil {
+	if _, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{AccountID: mixed.String(), InstrumentID: fund.ID.String(), Quantity: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "45.67", now.Format(time.RFC3339Nano), false); err != nil {

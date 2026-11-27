@@ -9,6 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
@@ -18,7 +19,7 @@ func TestReviewPublicationIsAtomicAndSameDayIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	var firstChanges int
 	for attempt := 0; attempt < 2; attempt++ {
 		capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
@@ -119,7 +120,7 @@ func TestReviewPublicationRejectsDeletedFinancialSource(t *testing.T) {
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +150,7 @@ func TestReviewProjectionCacheProjectsTargetQuotesWithoutRetainingDailyQuoteCopi
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic cached daily amount", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
 		t.Fatal(err)
 	}
-	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +184,7 @@ func TestReviewProjectionReplaysOnlyNewDateSlotsAndPreservesAcknowledgement(t *t
 		t.Fatal(err)
 	}
 	f.day(t, "2026-08-03")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +225,7 @@ func TestReviewIncrementalReplayPreservesFullDailyTrueSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +275,7 @@ func TestReviewIncrementalReplayTThenUDoesNotOpenStaleEpisode(t *testing.T) {
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily amount", Enabled: true, Severity: "warning", Spec: spec}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +311,7 @@ func TestReviewProjectionReplayInvalidatesPersistedCacheOnSourceChange(t *testin
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -388,7 +389,7 @@ func TestReviewCorrectedPositionHistoryDropsObsoleteEpochStreak(t *testing.T) {
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_evaluation_state WHERE rule_id=? AND instrument_id=? AND position_epoch_id=?`, string(rule.ID), f.instrument.ID.String(), obsoleteEpoch).Scan(&obsoleteStateCount); err != nil || obsoleteStateCount != 0 {
 		t.Fatalf("obsolete position epoch retained evaluation state: rows=%d err=%v", obsoleteStateCount, err)
 	}
-	recaptured, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	recaptured, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +413,7 @@ func TestReviewProjectionReplayInvalidatesPersistedCacheOnFXProviderChange(t *te
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -495,7 +496,7 @@ func TestReviewPublicationRejectsConcurrentAcknowledgement(t *testing.T) {
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -529,7 +530,7 @@ func TestReviewPublicationRejectsConcurrentIgnoreAndMidnight(t *testing.T) {
 	if _, err := f.s.CreateReviewRuleV2(t.Context(), SaveReviewRuleV2Input{RuleID: string(domain.NewReviewRuleID()), MutationID: string(domain.NewMutationID()), Name: "Synthetic daily cost", Enabled: true, Severity: "warning", Spec: syntheticHistoricalReviewSpec()}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -603,7 +604,7 @@ func TestReviewPublicationRebuyOpensNewEpisodeWithoutDiscardingRollingVotes(t *t
 	if err := f.db.SQL.QueryRow(`SELECT hit_count FROM investment_review_evaluation_state WHERE episode_id=?`, current).Scan(&hitCount); err != nil || hitCount != 5 {
 		t.Fatalf("historical rolling T days were reset at re-buy: %d %v", hitCount, err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	listed, err := repo.ListReviewSuppressionsV2(t.Context(), f.account.Account.HouseholdID, "", 10)
 	if err != nil || len(listed) != 1 || listed[0].ID != ignore.ID {
 		t.Fatalf("permanent ignore was overwritten: %+v %v", listed, err)
@@ -632,8 +633,8 @@ func TestReviewSuppressionExpirySurvivesRestoredProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restored.Close()
-	service := NewService(sqlite.NewRepository(restored))
-	repo := sqlite.NewRepository(restored)
+	service := NewService(repos.New(restored))
+	repo := repos.New(restored)
 	for _, tc := range []struct {
 		at     time.Time
 		active bool
@@ -661,7 +662,7 @@ func TestReviewReportRevisionChangesAtSuppressionDayNotEveryMinute(t *testing.T)
 	if _, err := f.s.SetReviewSuppressionV2(t.Context(), SetReviewSuppressionV2Input{SuppressionID: string(domain.NewReviewSuppressionID()), MutationID: string(domain.NewMutationID()), InstrumentID: f.instrument.ID.String(), Mode: "until_date", Days: 7}); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	read := func(at time.Time) string {
 		page, err := repo.ListReviewAlertGroupsV2(t.Context(), f.account.Account.HouseholdID, domain.ReviewAlertFilter{}, "", 1, at)
 		if err != nil {
@@ -777,11 +778,11 @@ func TestReviewAlertPageCursorExpiresOnHandlingChange(t *testing.T) {
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	second, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Distinct security", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	second, err := f.s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Distinct security", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondHolding, err := f.s.CreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "0"})
+	secondHolding, err := f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: second.ID.String(), Quantity: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -933,7 +934,7 @@ func TestReviewAtomicSameDayTransferKeepsEpisodeAndAcknowledgement(t *testing.T)
 		t.Fatal(err)
 	}
 	other := overviewAccount(t, f.s, domain.MemberID(owner), "Synthetic receiving account", "brokerage", "asset", "holdings", "CNY", "")
-	destination, err := f.s.CreateHolding(t.Context(), HoldingInput{AccountID: other.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
+	destination, err := f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: other.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -959,7 +960,7 @@ func TestReviewTargetRemovalClosesOldEpisodesAndReentryOpensFreshOne(t *testing.
 	for _, initial := range []string{"explicit", "all_current"} {
 		t.Run(initial, func(t *testing.T) {
 			f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
-			other, err := f.s.CreateInstrument(t.Context(), InstrumentInput{Name: "Other synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			other, err := f.s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Other synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}

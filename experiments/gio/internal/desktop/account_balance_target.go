@@ -17,17 +17,17 @@ import (
 
 type balanceTargetLedger interface {
 	WithRead(context.Context, func(context.Context) error) error
-	WithWrite(context.Context, func(context.Context) error) error
+
 	HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	ListAccounts(context.Context, domain.AccountFilter) ([]domain.AccountRecord, error)
-	AppendAccountValue(context.Context, domain.AccountID, string, string) (domain.AccountValue, error)
+
 	PreviewChangeGuardedWith(context.Context, func(context.Context) (any, error)) (domain.ChangePreview, string, error)
 	RecordChangeGuarded(context.Context, any, string, string, string) (domain.ChangePreview, error)
 }
 
 type balanceTargetPlan struct {
-	account                      domain.AccountID
-	observation                  domain.AccountValueID
+	account domain.AccountID
+
 	currency                     domain.CurrencyCode
 	before, target, after, delta string
 	at                           time.Time
@@ -37,12 +37,12 @@ type balanceTargetPlan struct {
 }
 
 type balanceTargetReceipt struct {
-	account     domain.AccountID
-	observation domain.AccountValueID
-	activity    domain.ActivityID
+	account domain.AccountID
+
+	activity domain.ActivityID
 }
 
-func (r balanceTargetReceipt) known() bool { return r.observation != "" || r.activity != "" }
+func (r balanceTargetReceipt) known() bool { return r.activity != "" }
 
 type balanceTargetDraft struct {
 	account                                      domain.Account
@@ -60,7 +60,7 @@ type accountBalanceTarget struct {
 	draft        *balanceTargetDraft
 	saved        balanceTargetReceipt
 	savedMessage i18n.MessageID
-	unverified   domain.AccountID
+
 	open, view   widget.Clickable
 	entry        *widget.Clickable
 	openActivity func(domain.ActivityID, event.Tag)
@@ -120,19 +120,10 @@ func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id do
 			return err
 		}
 		previous := row.LatestValue.Amount
-		plan = balanceTargetPlan{account: id, observation: row.LatestValue.ID, currency: money.Currency(),
+		plan = balanceTargetPlan{account: id, currency: money.Currency(),
 			before: previous.CanonicalAmount(), target: money.CanonicalAmount()}
 		if origin == nil {
-			if plan.before == plan.target {
-				return &domain.Error{Code: domain.ErrNoChange}
-			}
-			plan.after = plan.target
-			if row.Account.IsLiability() {
-				// Observations store the debt magnitude even when excluded
-				// from net worth. Sign only the review's display amounts.
-				plan.before, plan.after = previous.Amount().Neg().String(), money.Amount().Neg().String()
-			}
-			return nil
+			return &domain.Error{Code: domain.ErrMissingHistoryOrigin}
 		}
 		request := historyapi.ChangeCommandRequest{
 			Kind: historyapi.ChangeValueUpdate, AccountID: id.String(), NewValue: plan.target, NewValueCurrency: money.Currency().String(),
@@ -164,29 +155,8 @@ func reviewBalanceTarget(ctx context.Context, service balanceTargetLedger, id do
 
 func (plan balanceTargetPlan) commit(ctx context.Context, service balanceTargetLedger) (balanceTargetReceipt, error) {
 	receipt := balanceTargetReceipt{account: plan.account}
-	if plan.command != nil {
-		result, err := service.RecordChangeGuarded(ctx, plan.command, plan.mutation, plan.payloadHash, plan.token)
-		receipt.activity = result.Activity.ID
-		return receipt, err
-	}
-	err := service.WithWrite(ctx, func(ctx context.Context) error {
-		// The legacy append has no mutation receipt. Keep its baseline-only
-		// decision and the reviewed observation under the same write permit.
-		origin, err := service.HistoryOrigin(ctx)
-		if err != nil {
-			return err
-		}
-		row, err := readBalanceTarget(ctx, service, plan.account)
-		if err != nil {
-			return err
-		}
-		if origin != nil || row.LatestValue.ID != plan.observation || row.Account.DefaultCurrency != plan.currency {
-			return &domain.Error{Code: domain.ErrStalePreview}
-		}
-		result, err := service.AppendAccountValue(ctx, plan.account, plan.target, "")
-		receipt.observation = result.ID
-		return err
-	})
+	result, err := service.RecordChangeGuarded(ctx, plan.command, plan.mutation, plan.payloadHash, plan.token)
+	receipt.activity = result.Activity.ID
 	return receipt, err
 }
 
@@ -202,7 +172,6 @@ func (p *accountsPage) previewBalanceTarget() {
 func (p *accountsPage) confirmBalanceTarget() {
 	f, d := p.balanceTarget, p.balanceTarget.draft
 	plan := *d.review
-	f.unverified = ""
 	d.confirming = runHistoryRead(&p.workers, p.invalidate, func() (balanceTargetReceipt, error) {
 		return plan.commit(p.ctx, f.service)
 	})
@@ -236,13 +205,8 @@ func (p *accountsPage) pollBalanceTarget() balanceTargetReceipt {
 		switch {
 		case d.problem != i18n.NoMessage:
 			d.review, d.uncertain, d.focus = nil, false, true
-		case d.review.command != nil:
-			d.uncertain = true
 		default:
-			// An unkeyed append may already have committed. Return to the
-			// account and read its latest observation without reissuing it.
-			f.unverified, f.saved, f.draft = d.account.ID, balanceTargetReceipt{}, nil
-			return balanceTargetReceipt{account: d.account.ID}
+			d.uncertain = true
 		}
 	default:
 	}

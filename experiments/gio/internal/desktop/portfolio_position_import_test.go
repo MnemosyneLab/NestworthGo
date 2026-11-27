@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	second := create("Second desk", "brokerage", "holdings")
 	create("Synthetic wallet", "cash_on_hand", "balance")
 	clock := func() time.Time { return accountTestClock }
-	service.SetClock(clock)
+	testfixture.SetClock(service, clock)
 
 	portfolio := newPortfolioPage(ctx, service, func() {})
 	f := &accountInvestment{service: service}
@@ -104,7 +105,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	rows, err := reopened.HoldingsByAccounts(ctx, []domain.AccountID{ids.account, second})
 	if err != nil || len(rows[ids.account]) != 1 || len(rows[second]) != 1 ||
 		rows[second][0].InstrumentID != ids.foreign || rows[second][0].Quantity.Canonical() != "1.125" {

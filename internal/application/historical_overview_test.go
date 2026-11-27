@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.DB, domain.MemberID, *time.Time) {
@@ -23,10 +24,10 @@ func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.D
 		}
 	}
 	t.Cleanup(func() { db.Close() })
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(context.Background(), OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(context.Background(), OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := s.Bootstrap(context.Background())
@@ -38,7 +39,7 @@ func overviewFixture(t *testing.T, databases ...*sqlite.DB) (*Service, *sqlite.D
 
 func overviewAccount(t *testing.T, s *Service, owner domain.MemberID, name, kind, role, mode, currency, amount string) domain.AccountRecord {
 	t.Helper()
-	a, err := s.CreateAccount(context.Background(), AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency, InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner}})
+	a, err := s.fixtureCreateAccount(context.Background(), AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency, InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,19 +70,19 @@ func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	home := overviewAccount(t, s, owner, "Home", "property", "asset", "manual_value", "CNY", "1000")
 	debt := overviewAccount(t, s, owner, "Loan", "loan", "liability", "balance", "CNY", "250")
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err := s.AppendAccountValue(ctx, home.Account.ID, "1200", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, home.Account.ID, "1200", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if err := s.ArchiveAccount(ctx, debt.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(ctx, debt.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	newAccount := overviewAccount(t, s, owner, "New zero", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.UpdateAccount(ctx, home.Account.ID, AccountInput{Name: "Renamed home"}); err != nil {
+	if _, err := s.fixtureUpdateAccount(ctx, home.Account.ID, AccountInput{Name: "Renamed home"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -141,18 +142,18 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 		t.Fatal(err)
 	}
 	broker := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Dust", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Dust", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "0.00006", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -193,7 +194,7 @@ func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -203,7 +204,7 @@ func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err = s.AppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
+	if _, err = s.fixtureAppendAccountValue(ctx, a.Account.ID, "150", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -228,7 +229,7 @@ func TestHistoricalOverviewDateValidationAndDST(t *testing.T) {
 		t.Fatal("history not started accepted")
 	}
 	*now = time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
-	if _, err := s.StartHistory(ctx, "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
@@ -273,7 +274,7 @@ func TestHistoricalOverviewCurrentIsCapturedWithHistoricalInputs(t *testing.T) {
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -308,18 +309,18 @@ func TestHistoricalOverviewPriceGapsBackfillClearingAndArchive(t *testing.T) {
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "5", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	// Simulate a retained position whose old pricing evidence is unavailable.
@@ -386,7 +387,7 @@ func TestHistoricalOverviewInternalTransferAndDebtPrincipalAreNeutral(t *testing
 	a := overviewAccount(t, s, owner, "Bank A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Bank B", "bank_account", "asset", "balance", "CNY", "0")
 	d := overviewAccount(t, s, owner, "Debt", "loan", "liability", "balance", "CNY", "50")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -431,7 +432,7 @@ func TestHistoricalOverviewSameDayComparisonSharesOneUnmodifiedBatch(t *testing.
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Balance", "bank_account", "asset", "balance", "CNY", "10")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -477,7 +478,7 @@ func TestHistoricalOverviewMarketDateCloseAndCoverage(t *testing.T) {
 	batch := domain.HistoricalSnapshotBatch{
 		Origin:                    domain.HistoryOrigin{StartedAt: originAt, Timezone: "Asia/Singapore"},
 		OriginData:                domain.HistoryOriginData{Components: []domain.HistoryOriginComponent{{Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}},
-		Portfolio:                 domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}},
+		Portfolio:                 domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}},
 		InstrumentQuoteFacts:      []domain.InstrumentQuote{quote("180", "2026-09-08", cutoff.Add(-20*time.Hour))},
 		InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}},
 	}
@@ -528,7 +529,7 @@ func TestHistoricalOverviewCivilDayBoundaries(t *testing.T) {
 				t.Fatal(err)
 			}
 			*now = day.AddDate(0, 0, -2).Add(12 * time.Hour)
-			if _, err := s.StartHistory(context.Background(), tc.zone); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(context.Background(), tc.zone); err != nil {
 				t.Fatal(err)
 			}
 			*now = day.AddDate(0, 0, 3).Add(12 * time.Hour)
@@ -554,15 +555,15 @@ func TestHistoricalOverviewMidnightDSTIncludesBothEconomicDays(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	*now = time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := s.StartHistory(ctx, "America/Santiago"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "America/Santiago"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 9, 5, 15, 0, 0, 0, time.UTC)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.Add(24 * time.Hour)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.Add(4 * 24 * time.Hour)
@@ -605,7 +606,7 @@ func TestHistoricalOverviewMissingFXStaysWithItsComponent(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			batch := domain.HistoricalSnapshotBatch{Portfolio: domain.PortfolioSnapshot{
+			batch := domain.HistoricalSnapshotBatch{Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 				Household:        &domain.Household{BaseCurrency: "CNY"},
 				Accounts:         []domain.AccountRecord{{Account: domain.Account{ID: aid, Name: "Broker", AccountType: "brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}}},
 				Instruments:      []domain.Instrument{{ID: i1, Name: "Archived", Type: "stock", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}, {ID: i2, Name: "Zero", Type: "stock", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}, {ID: i3, Name: "Included", Type: "stock", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}},

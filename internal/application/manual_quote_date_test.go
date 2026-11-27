@@ -14,11 +14,11 @@ func TestManualQuoteDatesUseHistoryTimezone(t *testing.T) {
 		t.Run(zone, func(t *testing.T) {
 			service, ctx, _, setClock := newOnboardedService(t, "manual-date", nil)
 			setClock(time.Date(2026, time.November, 2, 12, 0, 0, 0, time.UTC))
-			instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Manual", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Manual", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.StartHistory(ctx, zone); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, zone); err != nil {
 				t.Fatal(err)
 			}
 			location, err := time.LoadLocation(zone)
@@ -64,11 +64,11 @@ func TestManualQuoteDateOnlyUsesFirstActualInstantAfterSkippedMidnight(t *testin
 		t.Run(test.zone+"/"+test.date, func(t *testing.T) {
 			service, ctx, _, setClock := newOnboardedService(t, "manual-date-gap", nil)
 			setClock(time.Date(2026, time.November, 2, 12, 0, 0, 0, time.UTC))
-			instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-midnight quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-midnight quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.StartHistory(ctx, test.zone); err != nil {
+			if _, err := service.CaptureSyntheticOrigin(ctx, test.zone); err != nil {
 				t.Fatal(err)
 			}
 			want, err := time.Parse(time.RFC3339, test.want)
@@ -91,11 +91,11 @@ func TestManualQuotesRejectEntirelySkippedCivilDateWithoutWriting(t *testing.T) 
 	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "manual-date-skipped", nil)
 	setClock(time.Date(2026, time.November, 2, 12, 0, 0, 0, time.UTC))
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-day quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic skipped-day quote", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "Pacific/Apia"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Pacific/Apia"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2011-12-30", false); err == nil {
@@ -129,33 +129,33 @@ func TestManualFutureQuotesCannotEnterCurrentValuation(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "manual-future-date", nil)
 	now := time.Date(2026, time.October, 17, 12, 0, 0, 0, time.UTC)
 	setClock(now)
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Synthetic Holdings", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD Instrument", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD Instrument", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-10-17T11:00:00Z", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-10-17T11:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	before, err := service.Overview(ctx, domain.AccountFilter{})

@@ -184,7 +184,7 @@ func TestLinkedLockedProductInterestMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	links, err := reconciliation.NewService(reopened).Links(ctx, session.ID)
 	if err != nil || !reflect.DeepEqual(links, savedLinks) {
 		t.Fatalf("reopen did not preserve both links: %v", err)

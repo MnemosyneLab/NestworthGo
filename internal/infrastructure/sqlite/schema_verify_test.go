@@ -108,12 +108,12 @@ func TestVerifyRejectsArchivedHoldingOnNonHoldingsAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateAccount(ctx, balance, ownership, &value); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(ctx, balance, ownership, &value); err != nil {
 		t.Fatal(err)
 	}
 	archivedAt := now.UTC().Format(time.RFC3339Nano)
 	if _, err := database.SQL.Exec(
-		`INSERT INTO holdings(id, account_id, instrument_id, quantity, sort_order, created_at, updated_at, archived_at) VALUES (?, ?, ?, '1', 0, ?, ?, ?)`,
+		`INSERT INTO holdings(id, account_id, instrument_id, quantity, sort_order, created_at, updated_at, archived_at) VALUES (?, ?, ?, '0', 0, ?, ?, ?)`,
 		domain.NewHoldingID().String(), balance.ID.String(), instrument.ID.String(), archivedAt, archivedAt, archivedAt,
 	); err != nil {
 		t.Fatalf("insert archived holding: %v", err)

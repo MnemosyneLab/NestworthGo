@@ -17,7 +17,7 @@ func TestMarketReadSnapshotConcurrentPairsReadOnlyAndBudget(t *testing.T) {
 	second := first
 	second.ID = domain.NewInstrumentID()
 	second.Name = "Second target"
-	if err := repository.CreateInstrument(t.Context(), second); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(t.Context(), second); err != nil {
 		t.Fatal(err)
 	}
 	database.SQL.SetMaxOpenConns(2)

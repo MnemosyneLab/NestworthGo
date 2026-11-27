@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+
 	"image"
 	"slices"
 	"testing"
@@ -299,66 +300,6 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	reveal("Unrealized gain or loss · US$0.00")
 	if !portfolio.holdings.visit.showZero {
 		t.Fatal("keyboard could not reveal a known zero holding")
-	}
-}
-
-func TestPortfolioMyHoldingsUnknownCostKeepsValue(t *testing.T) {
-	ctx := t.Context()
-	service, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
-	service.SetClock(func() time.Time { return accountTestClock })
-	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
-		HouseholdName: "Synthetic prehistory holdings", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	boot, err := service.Bootstrap(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	broker, err := service.CreateAccount(ctx, application.AccountInput{
-		Name: "Synthetic Brokerage", AccountType: "brokerage", TrackingMode: "holdings", BalanceSheetRole: "asset",
-		DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true, IncludeInPortfolio: true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fund, err := service.CreateInstrument(ctx, application.InstrumentInput{
-		Name: "Unknown Cost Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.CreateHolding(ctx, application.HoldingInput{
-		AccountID: broker.Account.ID.String(), InstrumentID: fund.ID.String(), Quantity: "4",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "10", accountTestClock.Format(time.RFC3339), false); err != nil {
-		t.Fatal(err)
-	}
-	p := newPortfolioPage(ctx, service, func() {})
-	h := newShellHarnessWithPages(t, ledgerPages{portfolio: p})
-	h.size = image.Pt(1100, 950)
-	h.shell.prefs.saved.Language = settings.LanguageEnglish
-	h.frame()
-	h.click("Investment assets", false)
-	p.workers.Wait()
-	h.frame()
-	wails, err := analytics.NewService(service).InstrumentHoldingGroups(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, ref := p.current.groups[0].Instruments[0].Amounts, wails[0].Instruments[0].Amounts
-	if got.CurrentValue == nil || ref.CurrentValue == nil || got.CurrentValue.Amount != "40" || ref.CurrentValue.Amount != "40" ||
-		got.TotalCost != nil || ref.TotalCost != nil || got.UnrealizedGain != nil || ref.UnrealizedGain != nil ||
-		got.CostMissingReason == "" || got.CostMissingReason != ref.CostMissingReason || got.GainMissingReason != ref.GainMissingReason {
-		t.Fatalf("unknown cost and gain replaced or hid market value: Gio %+v, Wails %+v", got, ref)
-	}
-	for _, label := range []string{"Acquisition cost is unavailable.", "Cost basis · Unavailable", "Native market value · US$40.00", "Unrealized gain or loss · Unavailable"} {
-		assertPageLabel(t, &h.router, label)
-	}
-	if findPageLabel(&h.router, "Native market value · USD US$40.00") != nil {
-		t.Fatal("holdings duplicated the USD prefix")
 	}
 }
 

@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestSourceJournalShadowPreservesFingerprintAndPublication(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	saveSyntheticReviewRule(t, f, "Synthetic source shadow", syntheticHistoricalReviewSpec())
 	f.day(t, "2026-10-03")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	before, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestSourceJournalEqualityDoesNotCertifyFutureActivation(t *testing.T) {
 	// Persist through the public command at its effective instant, then inspect
 	// the already-persisted future event at T-1ns and T. No DML occurs between.
 	f.quantity(t, false)
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	id := f.account.Account.HouseholdID
 	before, err := repo.CaptureReviewProjection(t.Context(), id, at.Add(-time.Nanosecond))
 	if err != nil {
@@ -100,7 +100,7 @@ func TestSourceJournalEqualityDoesNotCertifyFutureActivation(t *testing.T) {
 func TestSourceJournalTracksReplayLatestValuesAndAgentWithdrawal(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-03")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	household := f.account.Account.HouseholdID
 	capture := func() string {
 		t.Helper()
@@ -205,7 +205,7 @@ func TestSourceJournalPairedFullOracle(t *testing.T) {
 						}
 					}
 				}
-				repo := sqlite.NewRepository(run.db)
+				repo := repos.New(run.db)
 				capture, err := repo.CaptureReviewProjection(t.Context(), run.householdID, *run.now)
 				if err != nil {
 					t.Fatal(err)
@@ -242,7 +242,7 @@ func TestSourceJournalStaleFloorStillUsesFullFingerprintOracle(t *testing.T) {
 	if _, err := source.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(source.db)
+	repo := repos.New(source.db)
 	before, err := repo.CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 	if err != nil {
 		t.Fatal(err)

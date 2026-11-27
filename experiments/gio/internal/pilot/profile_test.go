@@ -2,13 +2,12 @@ package pilot
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func TestProfilePathsFromEnv(t *testing.T) {
@@ -55,7 +54,7 @@ func TestFirstLaunchStartsOnboardingAndUsesCanonicalInstanceLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	core, err := application.NewService(sqlite.NewRepository(session.DB)).Bootstrap(t.Context())
+	core, err := testfixture.NewService(testfixture.Repository(session.DB)).Bootstrap(t.Context())
 	if err != nil || core.Household != nil || len(core.Members) != 0 {
 		t.Fatalf("a fresh profile should require onboarding: %+v, %v", core, err)
 	}

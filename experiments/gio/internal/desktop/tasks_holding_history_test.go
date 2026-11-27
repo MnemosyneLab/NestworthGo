@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -72,8 +73,8 @@ func TestHoldingReconciliationDatedHistoryHandoffMatchesWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	api := reconciliation.NewService(app)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	wailsSession := startTestHoldingReconciliation(t, reconciliation.NewService(ref), refIDs.account)
@@ -200,7 +201,7 @@ func TestHoldingReconciliationDatedHistoryHandoffMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	got, err := reopened.Activity(ctx, id)
 	if err != nil || got.EffectiveLocalDate != day || !got.EffectiveAt.Equal(wantedAt) ||
 		len(got.Effects) != 1 || *got.Effects[0].HoldingID != ids.holding || got.Effects[0].CostUnitPrice.Canonical() != "13.12345678" {

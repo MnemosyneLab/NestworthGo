@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -23,13 +24,13 @@ func TestLinkedValuationVerificationCompatibility(t *testing.T) {
 	db, err := sqlite.Open(path)
 	requireValuationTest(t, err)
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	accountID, productID := seedValuationReceipt(t, ctx, app)
 	boot, err := app.Bootstrap(ctx)
 	requireValuationTest(t, err)
-	other, err := app.CreateAccount(ctx, application.AccountInput{
+	other, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 		Name: "Other synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 	})

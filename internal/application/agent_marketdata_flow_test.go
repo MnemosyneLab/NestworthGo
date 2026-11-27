@@ -147,7 +147,7 @@ func TestAgentDailyDatesSkipProviderSyncAndWithdrawalsReopenDates(t *testing.T) 
 		t.Fatal(err)
 	}
 	assertInstrumentFetchDates(t, plan, instrument.ID, map[string]bool{d1: true, d2: true, d3: false})
-	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "agent"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "agent"); err != nil {
 		t.Fatal(err)
 	}
 	preview, err = service.PreviewMarketDataSync(ctx, SyncRequest{Scope: SyncScopeInstrument, InstrumentID: instrument.ID.String(), ForceRecheck: true})
@@ -172,7 +172,7 @@ func TestCompleteAgentFXWithNoProviderKeyHasNoProviderBlocker(t *testing.T) {
 	if err != nil || bootstrap.Household == nil {
 		t.Fatalf("household: %+v, %v", bootstrap, err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "SGD", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "SGD", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	items := []AgentMarketDataItem{}
@@ -202,7 +202,7 @@ func TestAgentFXSuppliesMetalConversionWithoutFXProviderCall(t *testing.T) {
 	if err != nil || latest.Inserted != 1 {
 		t.Fatalf("Agent FX import: %+v, %v", latest, err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	metal := domain.Instrument{HouseholdID: instrument.HouseholdID, Type: domain.InstrumentPreciousMetal, QuoteCurrency: "CNY", MetalTemplate: "gold", QuantityUnit: "g"}
@@ -229,7 +229,7 @@ func TestAgentFXSuppliesMetalConversionWithoutFXProviderCall(t *testing.T) {
 	if latestCalls != 1 {
 		t.Fatalf("stale Agent FX provider calls=%d, want 1", latestCalls)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "agent"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "agent"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{

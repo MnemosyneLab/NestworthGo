@@ -3,6 +3,7 @@ package pilot
 import (
 	"archive/zip"
 	"bytes"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
@@ -27,10 +27,10 @@ func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	repo := sqlite.NewRepository(session.DB)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(session.DB)
+	app := testfixture.NewService(repo)
 	now := testledger.HistoryStart().AddDate(0, 0, 21)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	core, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
 		t.Fatalf("expected synthetic checking: %+v / %v", accounts, err)
 	}
 	bank := accounts[0]
-	reserve, err := app.CreateAccount(ctx, application.AccountInput{
+	reserve, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 		Name: "Synthetic reserve", AccountType: "bank_account", TrackingMode: "balance", BalanceSheetRole: "asset",
 		DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{core.Members[0].ID}, IncludeInNetWorth: true,
 	})
@@ -103,7 +103,7 @@ func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	restored := application.NewService(sqlite.NewRepository(reopened.DB))
+	restored := testfixture.NewService(testfixture.Repository(reopened.DB))
 	pending, err := reopened.CashReceipts.Pending(ctx)
 	if err != nil || len(pending) != 1 || pending[0].MutationID != id || pending[0].MatchesLedger {
 		t.Fatalf("sidecar did not stay unconfirmed across same-household restore: %+v / %v", pending, err)
@@ -116,7 +116,7 @@ func TestCashReceiptRemainsUnconfirmedAfterOlderRestore(t *testing.T) {
 	if err != nil || receipt != nil {
 		t.Fatalf("older database contained a later receipt: %+v / %v", receipt, err)
 	}
-	before, err := sqlite.NewRepository(reopened.DB).AccountRecord(ctx, core.Household.ID, bank.Account.ID)
+	before, err := testfixture.Repository(reopened.DB).AccountRecord(ctx, core.Household.ID, bank.Account.ID)
 	if err != nil || before.LatestValue.ID != bank.LatestValue.ID {
 		t.Fatalf("older bank value not retained: %+v / %v", before.LatestValue, err)
 	}

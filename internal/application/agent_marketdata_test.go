@@ -12,7 +12,7 @@ func newAgentMarketDataFixture(t *testing.T) (*Service, domain.Instrument, func(
 	t.Helper()
 	service, ctx, _, setClock := newOnboardedService(t, "agent-market-data", []string{"Owner"})
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{
 		Name: "Private Fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent",
 	})
 	if err != nil {
@@ -38,7 +38,7 @@ func TestAgentMarketDataDateBoundaryAndAtomicValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Inserted != 1 || result.Replayed || result.SnapshotStatus != "not_started" {
+	if result.Inserted != 1 || result.Replayed || result.SnapshotStatus != "rebuilt_check_health" {
 		t.Fatalf("unexpected import receipt: %+v", result)
 	}
 	quote, err := service.CurrentInstrumentQuote(ctx, instrument.ID)
@@ -222,7 +222,7 @@ func TestAgentMarketDataEquityClosePerformance(t *testing.T) {
 				t.Run(endpoint, func(t *testing.T) {
 					service, ctx, _, setClock := newOnboardedService(t, "agent-close-performance", []string{"Owner"})
 					setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
-					instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic equity", Type: kind, QuoteCurrency: "USD", QuoteSource: "agent"})
+					instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic equity", Type: kind, QuoteCurrency: "USD", QuoteSource: "agent"})
 					if err != nil {
 						t.Fatal(err)
 					}

@@ -56,12 +56,6 @@ export function invalidateHistoryReads(queryClient: QueryClient) {
   invalidate(queryClient, queryKeys.history.all);
 }
 
-export function invalidateHistoryStart(queryClient: QueryClient) {
-  invalidateHistoryReads(queryClient);
-  invalidateHoldingReads(queryClient);
-  invalidateCurrentValuation(queryClient);
-}
-
 export function invalidateAccountChange(queryClient: QueryClient, accountId?: string) {
   invalidate(queryClient,["reconciliation"]);
   invalidateAccountReads(queryClient);

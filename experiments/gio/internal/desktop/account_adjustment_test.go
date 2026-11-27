@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -19,8 +20,8 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	boot, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +120,7 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	row, err := reopened.Activity(ctx, addID)
 	if err != nil || len(row.Effects) != 1 || *row.Effects[0].HoldingID != ids.holding ||
 		row.Effects[0].CostUnitPrice == nil || row.Effects[0].CostUnitPrice.Canonical() != "18.12345678" {

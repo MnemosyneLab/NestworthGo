@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ func seedBankExpenseAmendments(t *testing.T, start time.Time) ([]byte, bankExpen
 	}
 	create := func(name, kind string) domain.AccountID {
 		t.Helper()
-		record, err := app.CreateAccount(ctx, application.AccountInput{
+		record, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 			Name: name, AccountType: kind, BalanceSheetRole: "asset", TrackingMode: "balance",
 			DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{state.Members[0].ID}, IncludeInNetWorth: true,
 		})
@@ -56,7 +57,7 @@ func seedBankExpenseAmendments(t *testing.T, start time.Time) ([]byte, bankExpen
 	}
 	bank := create(bankExpenseAccount, "bank_account")
 	wallet := create("Synthetic Expense Wallet", "digital_wallet")
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	api := historyapi.NewService(app)

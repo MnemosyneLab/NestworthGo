@@ -6,6 +6,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // Full-oracle comparison exercises changed direct-FX suffixes and unsupported
@@ -128,7 +129,7 @@ func TestReviewDependencyFXRawMutationFullFallback(t *testing.T) {
 					t.Fatal(e)
 				}
 				t.Cleanup(func() { reopened.Close() })
-				r = sqlite.NewRepository(reopened).WithDefaultReviewOptimizations()
+				r = repos.New(reopened).WithDefaultReviewOptimizations()
 			}
 			stage := assertSuffixOracle(t, f, r, false)
 			after, err := domain.ReviewNonQuoteFingerprint(stage.Capture.Historical)

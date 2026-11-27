@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -35,8 +36,8 @@ func seedDividend(ctx context.Context, service *application.Service, now time.Ti
 	if err != nil {
 		return ids, err
 	}
-	service.SetClock(func() time.Time { return now.AddDate(0, 0, 2) })
-	defer service.SetClock(func() time.Time { return now })
+	testfixture.SetClock(service, func() time.Time { return now.AddDate(0, 0, 2) })
+	defer testfixture.SetClock(service, func() time.Time { return now })
 	for _, date := range []string{"2026-11-20", "2026-11-21", "2026-11-22"} {
 		if _, err := service.AppendManualInstrumentQuote(ctx, ids.instrument, "40", date, false); err != nil {
 			return ids, err
@@ -48,7 +49,7 @@ func seedDividend(ctx context.Context, service *application.Service, now time.Ti
 func openDividendFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, saleFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, storage := reopenOnboardingProfile(t, paths)
+	service, storage := reopenBaselineProfile(t, paths)
 	ids, err := seedDividend(t.Context(), service, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -208,8 +209,8 @@ func TestCashDividendGioPreviewReplayAndWailsParity(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	frozen := fault.attempts[1]
 	replay, err := reopened.RecordChangeGuarded(ctx, frozen.command, frozen.mutation, frozen.hash, frozen.token)
 	if err != nil || replay.Activity.ID != fault.firstActivity {
@@ -265,8 +266,8 @@ func assertDividendState(t *testing.T, app *application.Service, ids saleFixture
 	}
 	// Analysis only accepts closed days. Move the fixture clock forward
 	// after verifying the original as-of value.
-	app.SetClock(func() time.Time { return accountTestClock.AddDate(0, 0, 2) })
-	defer app.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(app, func() time.Time { return accountTestClock.AddDate(0, 0, 2) })
+	defer testfixture.SetClock(app, func() time.Time { return accountTestClock })
 	analysis, err := app.Analyze(ctx, domain.AnalysisQuery{
 		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: day, To: day,
 		Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true,

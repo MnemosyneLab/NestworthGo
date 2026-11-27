@@ -37,7 +37,7 @@ func TestCreateMemberAssignsUniqueSortOrderUnderConcurrency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMember (seed): %v", err)
 	}
-	if err := repository.CreateOnboarding(ctx, household, []domain.Member{seedMember}); err != nil {
+	if err := fixtureWriter(repository).CreateOnboarding(ctx, household, []domain.Member{seedMember}); err != nil {
 		t.Fatalf("CreateOnboarding: %v", err)
 	}
 
@@ -92,10 +92,10 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, holding); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, holding); err != nil {
 		t.Fatalf("create holding: %v", err)
 	}
-	if err := repository.CreateHolding(ctx, holding); err == nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, holding); err == nil {
 		t.Fatal("duplicate active holding succeeded")
 	}
 	cash, err := domain.ParseMoney("5000", domain.CurrencyCode("SGD"))
@@ -106,7 +106,7 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.AppendAccountCashValue(ctx, cashValue); err != nil {
+	if err := fixtureWriter(repository).AppendAccountCashValue(ctx, cashValue); err != nil {
 		t.Fatalf("append cash: %v", err)
 	}
 	price, err := domain.ParseUnitPrice("700")
@@ -135,7 +135,7 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.SetFXPreference(ctx, preference); err != nil {
+	if err := fixtureWriter(repository).SetFXPreference(ctx, preference); err != nil {
 		t.Fatalf("set FX preference: %v", err)
 	}
 	snapshot, err := repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
@@ -158,7 +158,7 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 		t.Fatal("nonzero instrument archive accepted")
 	}
 	zero, _ := domain.ParseQuantity("0")
-	if err := repository.UpdateHolding(ctx, holding.ReplaceQuantity(zero, now)); err != nil {
+	if err := fixtureWriter(repository).UpdateHolding(ctx, holding.ReplaceQuantity(zero, now)); err != nil {
 		t.Fatal(err)
 	}
 	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, true, now); err != nil {
@@ -168,7 +168,7 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, replacement); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, replacement); err != nil {
 		t.Fatalf("create replacement holding: %v", err)
 	}
 	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, false, now); err == nil {
@@ -189,7 +189,7 @@ func TestPortfolioSnapshotLoadsOnlyLatestCashAndQuoteCandidates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := repository.AppendAccountCashValue(ctx, value); err != nil {
+		if err := fixtureWriter(repository).AppendAccountCashValue(ctx, value); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -274,7 +274,7 @@ func TestListAccountCashValuesExcludesHistoricalReplayProjections(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.AppendAccountCashValue(ctx, baseline); err != nil {
+	if err := fixtureWriter(repository).AppendAccountCashValue(ctx, baseline); err != nil {
 		t.Fatalf("append baseline: %v", err)
 	}
 
@@ -421,14 +421,14 @@ func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateAccount(ctx, balance, ownership, &value); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(ctx, balance, ownership, &value); err != nil {
 		t.Fatal(err)
 	}
 	instrument, err := domain.NewInstrument(domain.InstrumentInput{HouseholdID: household.ID, Name: "Cash proxy", Type: domain.InstrumentOther, QuoteCurrency: domain.CurrencyCode("CNY")}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateInstrument(ctx, instrument); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(ctx, instrument); err != nil {
 		t.Fatal(err)
 	}
 	quantity, _ := domain.ParseQuantity("0")
@@ -436,7 +436,7 @@ func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, holding); err == nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, holding); err == nil {
 		t.Fatal("holding on a Balance account succeeded")
 	}
 	database.Close()
@@ -454,16 +454,16 @@ func TestArchivedHoldingAndAccountRejectFinalWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, holding); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, holding); err != nil {
 		t.Fatal(err)
 	}
 	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, true, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.UpdateHolding(ctx, holding.ReplaceQuantity(quantity, now)); !hasDomainErrorCode(err, domain.ErrConflict) {
+	if err := fixtureWriter(repository).UpdateHolding(ctx, holding.ReplaceQuantity(quantity, now)); !hasDomainErrorCode(err, domain.ErrConflict) {
 		t.Fatalf("archived holding update error = %v, want conflict", err)
 	}
-	if err := repository.SetAccountArchive(ctx, household.ID, account.ID, true, now); err != nil {
+	if err := fixtureWriter(repository).SetAccountArchive(ctx, household.ID, account.ID, true, now); err != nil {
 		t.Fatal(err)
 	}
 	money, err := domain.ParseMoney("1", domain.CurrencyCode("CNY"))
@@ -474,7 +474,7 @@ func TestArchivedHoldingAndAccountRejectFinalWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.AppendAccountCashValue(ctx, cash); !hasDomainErrorCode(err, domain.ErrConflict) {
+	if err := fixtureWriter(repository).AppendAccountCashValue(ctx, cash); !hasDomainErrorCode(err, domain.ErrConflict) {
 		t.Fatalf("archived account cash error = %v, want conflict", err)
 	}
 }
@@ -502,7 +502,7 @@ func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, 
 		database.Close()
 		t.Fatal(err)
 	}
-	if err := repository.CreateOnboarding(context.Background(), household, []domain.Member{member}); err != nil {
+	if err := fixtureWriter(repository).CreateOnboarding(context.Background(), household, []domain.Member{member}); err != nil {
 		database.Close()
 		t.Fatalf("onboarding: %v", err)
 	}
@@ -511,7 +511,7 @@ func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, 
 		database.Close()
 		t.Fatal(err)
 	}
-	if err := repository.CreateAccount(context.Background(), account, ownership, nil); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(context.Background(), account, ownership, nil); err != nil {
 		database.Close()
 		t.Fatalf("holdings account: %v", err)
 	}
@@ -520,7 +520,7 @@ func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, 
 		database.Close()
 		t.Fatal(err)
 	}
-	if err := repository.CreateInstrument(context.Background(), instrument); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(context.Background(), instrument); err != nil {
 		database.Close()
 		t.Fatalf("instrument: %v", err)
 	}
@@ -548,7 +548,7 @@ func TestCreateAccountPersistsMultiCurrencyCashOnHand(t *testing.T) {
 	if initial != nil {
 		t.Fatal("holdings cash on hand must not carry an initial Account Value")
 	}
-	if err := repository.CreateAccount(ctx, account, ownership, nil); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(ctx, account, ownership, nil); err != nil {
 		t.Fatalf("CreateAccount cash_on_hand holdings: %v", err)
 	}
 	loaded, err := repository.AccountRecord(ctx, household.ID, account.ID)
@@ -584,7 +584,7 @@ func TestCreateAccountMapsIllegalCombinationToDomainError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = repository.CreateAccount(ctx, account, ownership, &value)
+	err = fixtureWriter(repository).CreateAccount(ctx, account, ownership, &value)
 	var domainErr *domain.Error
 	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrValidation {
 		t.Fatalf("CreateAccount error = %v, want validation", err)
@@ -652,7 +652,7 @@ func TestMalformedInstitutionIDReturnsIntegrityError(t *testing.T) {
 
 func TestUpdateAccountRejectsEmptyOwnership(t *testing.T) {
 	_, repository, _, account, _ := seedPortfolioRepository(t)
-	err := repository.UpdateAccount(context.Background(), account, domain.Ownership{})
+	err := fixtureWriter(repository).UpdateAccount(context.Background(), account, domain.Ownership{})
 	if err == nil {
 		t.Fatal("UpdateAccount accepted empty ownership")
 	}
@@ -662,7 +662,7 @@ func TestSaveSnapshotRejectsDanglingQuoteProvenance(t *testing.T) {
 	database, repository, household, account, _ := seedPortfolioRepository(t)
 	ctx := context.Background()
 	cutoff := time.Date(2026, 8, 22, 23, 59, 59, 999000000, time.UTC)
-	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at) VALUES(?, ?, NULL, ?)`, household.ID.String(), "2026-08-20", formatTimestamp(cutoff)); err != nil {
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from=?,last_completed_closed_on=NULL,updated_at=? WHERE household_id=?`, "2026-08-20", formatTimestamp(cutoff), household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	missingQuote := domain.NewInstrumentQuoteID().String()

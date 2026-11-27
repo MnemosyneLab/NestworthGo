@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type refreshFakeProvider struct {
@@ -127,29 +128,29 @@ func newRefreshFixture(t *testing.T) (*sqlite.DB, *Service, *refreshFakeProvider
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	fake := newRefreshFakeProvider()
-	service := NewService(sqlite.NewRepository(database), NewMarketDataRegistry(fake))
+	service := NewService(repos.New(database), NewMarketDataRegistry(fake))
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "10", "USD", "2026-08-23"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "10", "USD", "2026-08-23"); err != nil {
 		t.Fatal(err)
 	}
 	price, _ := domain.ParseUnitPrice("700")
@@ -162,7 +163,7 @@ func newRefreshFixture(t *testing.T) (*sqlite.DB, *Service, *refreshFakeProvider
 		quote LatestFXQuote
 		err   error
 	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "CNY", SourceKey: "fake", QuotedAt: now}, err: nil}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	return database, service, fake, account, instrument
@@ -176,29 +177,29 @@ func newRefreshFixtureWithoutFXPreference(t *testing.T) (*sqlite.DB, *Service, *
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	fake := newRefreshFakeProvider()
-	service := NewService(sqlite.NewRepository(database), NewMarketDataRegistry(fake))
+	service := NewService(repos.New(database), NewMarketDataRegistry(fake))
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "10", "USD", "2026-08-23"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "10", "USD", "2026-08-23"); err != nil {
 		t.Fatal(err)
 	}
 	price, _ := domain.ParseUnitPrice("700")
@@ -255,7 +256,7 @@ func TestRefreshFXRequestsAndPersistsDirectNonBasePair(t *testing.T) {
 		quote LatestFXQuote
 		err   error
 	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "EUR", SourceKey: fake.Key(), QuotedAt: now}, err: nil}
-	if _, err := service.SetFXPreference(context.Background(), "USD", "EUR", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(context.Background(), "USD", "EUR", "provider"); err != nil {
 		t.Fatalf("SetFXPreference: %v", err)
 	}
 	result, err := service.RefreshFX(context.Background(), "USD", "EUR")
@@ -424,7 +425,7 @@ func TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs(t *testing.T) {
 		quote LatestFXQuote
 		err   error
 	}{err: &domain.Error{Code: domain.ErrProviderRateLimit, Message: "provider rate limit reached"}}
-	if _, err := service.SetFXPreference(context.Background(), "EUR", "USD", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(context.Background(), "EUR", "USD", "provider"); err != nil {
 		t.Fatalf("SetFXPreference(extra): %v", err)
 	}
 	fake.fx["USD/CNY"] = struct {
@@ -446,10 +447,10 @@ func TestRefreshSkipsManualTargetsAndStopsAfterRateLimit(t *testing.T) {
 	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
-	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	result, err := service.RefreshAll(ctx)
@@ -463,11 +464,11 @@ func TestRefreshSkipsManualTargetsAndStopsAfterRateLimit(t *testing.T) {
 	}
 
 	first := instrument
-	second, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ES3", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "ES3"})
+	second, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "ES3", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "ES3"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.SetInstrumentQuoteSource(ctx, first.ID, "provider"); err != nil {
+	if err := service.fixtureSetInstrumentQuoteSource(ctx, first.ID, "provider"); err != nil {
 		t.Fatal(err)
 	}
 	rateID, rateSymbol := first.ID, "QQQ"
@@ -511,7 +512,7 @@ func TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider(t *testing.T) {
 	if err := service.SetFXProvider(other.Key()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(context.Background(), "USD", "CNY", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(context.Background(), "USD", "CNY", "provider"); err != nil {
 		t.Fatal(err)
 	}
 

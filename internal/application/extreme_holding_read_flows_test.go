@@ -12,7 +12,7 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "extreme-holding-read-flows", []string{"Owner"})
 	setClock(time.Date(2026, time.August, 1, 12, 0, 0, 0, time.UTC))
 	owner := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Synthetic brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -23,18 +23,18 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 
 	addHolding := func(name, quantity, unitPrice string) domain.Holding {
 		t.Helper()
-		instrument, createErr := service.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		instrument, createErr := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
-		holding, createErr := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: quantity})
+		holding, createErr := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: quantity, UnitCost: "0"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
 		if _, createErr = service.AppendManualInstrumentQuote(ctx, instrument.ID, unitPrice, "2026-08-01", false); createErr != nil {
 			t.Fatal(createErr)
 		}
-		if createErr = service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); createErr != nil {
+		if createErr = service.fixtureSetInstrumentQuoteSource(ctx, instrument.ID, "manual"); createErr != nil {
 			t.Fatal(createErr)
 		}
 		return holding
@@ -65,6 +65,12 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 	}
 
 	ordinary := addHolding("Ordinary synthetic holding", "2", "2")
+	// This regression compares a valid ledger's health before and after
+	// a deliberately extreme synthetic quantity; it must not rely on a
+	// history-less household being a usable ledger.
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
 	saveScheduledPolicy(ordinary)
 	controlOverview, err := service.Overview(ctx, domain.AccountFilter{})
 	if err != nil {

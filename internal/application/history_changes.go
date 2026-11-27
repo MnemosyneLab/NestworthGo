@@ -351,7 +351,7 @@ func (s *Service) rebuildCorrectionSnapshots(ctx context.Context, from string) e
 
 func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveAt, createdAt time.Time) (time.Time, time.Time, error) {
 	if origin == nil {
-		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording an observation"}
+		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	if effectiveAt.IsZero() {
 		effectiveAt = s.clock()
@@ -460,7 +460,7 @@ func (s *Service) accountStateObservation(ctx context.Context, account domain.Ac
 		return domain.AccountStateObservation{}, err
 	}
 	if origin == nil {
-		return domain.AccountStateObservation{}, nil
+		return domain.AccountStateObservation{}, onboardingRequired()
 	}
 	now := s.clock().UTC()
 	observation := domain.AccountStateObservation{ID: domain.NewAccountStateObservationID(), AccountID: account.ID, EffectiveAt: now, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInPortfolio: account.IncludeInPortfolio, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now, Ownership: ownership.Shares()}
@@ -480,7 +480,7 @@ func (s *Service) instrumentPreferenceObservation(ctx context.Context, instrumen
 		return domain.InstrumentPreferenceObservation{}, err
 	}
 	if origin == nil {
-		return domain.InstrumentPreferenceObservation{}, nil
+		return domain.InstrumentPreferenceObservation{}, onboardingRequired()
 	}
 	now := s.clock().UTC()
 	observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: now, CreatedAt: now}
@@ -494,7 +494,7 @@ func (s *Service) fxPreferenceObservation(ctx context.Context, preference domain
 		return domain.FXPreferenceObservation{}, err
 	}
 	if origin == nil {
-		return domain.FXPreferenceObservation{}, nil
+		return domain.FXPreferenceObservation{}, onboardingRequired()
 	}
 	now := s.clock().UTC()
 	observation := domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: preference.HouseholdID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, EffectiveAt: now, CreatedAt: now}

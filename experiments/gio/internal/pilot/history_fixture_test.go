@@ -9,6 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestPilotHistoryPagesAfterReopen(t *testing.T) {
@@ -25,7 +26,7 @@ func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		page, err := application.NewService(sqlite.NewRepository(session.DB)).ListActivityPage(ctx, query)
+		page, err := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(session.DB)}).ListActivityPage(ctx, query)
 		closeErr := session.Close()
 		if err != nil || closeErr != nil {
 			t.Fatalf("read activity page: %v; close: %v", err, closeErr)
@@ -72,7 +73,7 @@ func TestPilotHistoryPagesAfterReopen(t *testing.T) {
 	}
 }
 
-func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
+func TestOpenEarlierInstitutionsFixtureWithEmptyHistory(t *testing.T) {
 	_, paths := testPaths(t)
 	ctx := t.Context()
 	if err := os.Mkdir(paths.data, 0o700); err != nil {
@@ -86,11 +87,15 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := application.NewService(sqlite.NewRepository(db))
+	service := testfixture.NewService(testfixture.Repository(db))
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Ordinary household", BaseCurrency: "USD", MemberNames: []string{"Sample member"},
 	}); err != nil {
 		t.Fatal(err)
+	}
+	origin, err := service.HistoryOrigin(ctx)
+	if err != nil || origin == nil {
+		t.Fatalf("expected initialized origin: %+v %v", origin, err)
 	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
@@ -100,7 +105,12 @@ func TestOpenEarlierInstitutionsFixtureWithoutHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	page, err := application.NewService(sqlite.NewRepository(reopened.DB)).ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
+	reopenedService := testfixture.NewService(testfixture.Repository(reopened.DB))
+	after, err := reopenedService.HistoryOrigin(ctx)
+	if err != nil || after == nil || after.ID != origin.ID {
+		t.Fatalf("empty ledger origin changed: %+v %v", after, err)
+	}
+	page, err := reopenedService.ListActivityPage(ctx, domain.ActivityQuery{Limit: 2})
 	if err != nil || len(page.Activities) != 0 || page.HasMore || page.Next != nil {
 		t.Fatalf("expected existing history to remain empty, got %+v and %v", page, err)
 	}

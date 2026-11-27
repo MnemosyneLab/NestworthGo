@@ -137,7 +137,7 @@ func TestProductHistoryReadAndFinalRevalidation(t *testing.T) {
 		t.Fatal("stale allowed metadata bypassed final validation")
 	}
 	assertCash(t, s, ctx, account, "99999.9999")
-	if err := s.ArchiveAccount(ctx, account, true); err != nil {
+	if err := s.fixtureArchiveAccount(ctx, account, true); err != nil {
 		t.Fatal(err)
 	}
 	assertHistoryUndo(t, s, ctx, id, settled.OperationID, UndoArchivedTarget)

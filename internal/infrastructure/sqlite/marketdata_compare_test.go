@@ -18,7 +18,7 @@ func TestMarketComparisonSnapshotReadOnlyAndConcurrent(t *testing.T) {
 	second := first
 	second.ID = domain.NewInstrumentID()
 	second.Name = "Second comparison target"
-	if err := r.CreateInstrument(t.Context(), second); err != nil {
+	if err := fixtureWriter(r).CreateInstrument(t.Context(), second); err != nil {
 		t.Fatal(err)
 	}
 	db.SQL.SetMaxOpenConns(2)
@@ -130,7 +130,7 @@ func TestMarketComparisonSnapshotBudgetsAndSQLFailure(t *testing.T) {
 			case "sql":
 				_, e = db.SQL.ExecContext(t.Context(), `DROP TABLE agent_quote_records`)
 			case "timezone":
-				_, e = db.SQL.ExecContext(t.Context(), `INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES(?,?,?,?,?)`, domain.NewHistoryOriginID().String(), h.ID.String(), "Invalid/Zone", formatTimestamp(now), formatTimestamp(now))
+				_, e = db.SQL.ExecContext(t.Context(), `UPDATE history_origins SET timezone=? WHERE household_id=?`, "Invalid/Zone", h.ID.String())
 			}
 			if e != nil {
 				t.Fatal("invalid synthetic setup", e)

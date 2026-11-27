@@ -21,7 +21,7 @@ func TestCompleteDailySnapshotRangePreservesRemainingDirtyRange(t *testing.T) {
 	_, repository, household, _, _ := seedPortfolioRepository(t)
 	ctx := context.Background()
 	updatedAt := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
-	if _, err := repository.database.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, dirty_to, updated_at) VALUES(?, ?, ?, ?)`, household.ID.String(), "2026-10-01", "2026-11-14", formatTimestamp(updatedAt)); err != nil {
+	if _, err := repository.database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from=?, dirty_to=?, updated_at=? WHERE household_id=?`, "2026-10-01", "2026-11-14", formatTimestamp(updatedAt), household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -69,14 +69,14 @@ func TestListHoldingsByAccountsReturnsHoldingsInOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateAccount(ctx, secondAccount, ownership, nil); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(ctx, secondAccount, ownership, nil); err != nil {
 		t.Fatalf("second account: %v", err)
 	}
 	otherInstrument, err := domain.NewInstrument(domain.InstrumentInput{HouseholdID: first.HouseholdID, Name: "SPY", Type: domain.InstrumentETF, QuoteCurrency: domain.CurrencyCode("USD")}, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateInstrument(ctx, otherInstrument); err != nil {
+	if err := fixtureWriter(repository).CreateInstrument(ctx, otherInstrument); err != nil {
 		t.Fatal(err)
 	}
 
@@ -84,14 +84,14 @@ func TestListHoldingsByAccountsReturnsHoldingsInOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, firstHolding); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, firstHolding); err != nil {
 		t.Fatal(err)
 	}
 	secondHolding, err := domain.NewHoldingForAccount(secondAccount, otherInstrument, mustBatchQuantity(t, "1"), nil, 0, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, secondHolding); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, secondHolding); err != nil {
 		t.Fatal(err)
 	}
 
@@ -125,7 +125,7 @@ func TestSaveDailyValuationSnapshotAndMarkCompletedAdvancesStateAtomically(t *te
 	ctx := context.Background()
 	localDate := "2026-08-22"
 	cutoff := time.Date(2026, 8, 22, 23, 59, 59, 999000000, time.UTC)
-	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at) VALUES(?, ?, NULL, ?)`, household.ID.String(), "2026-08-20", formatTimestamp(cutoff)); err != nil {
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from=?,last_completed_closed_on=NULL,updated_at=? WHERE household_id=?`, "2026-08-20", formatTimestamp(cutoff), household.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	snapshot := domain.DailyValuationSnapshot{

@@ -3,6 +3,7 @@ package pilot
 import (
 	"bytes"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,16 +28,16 @@ func TestProfileReconcilesAnInterruptedWailsRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	app := application.NewService(sqlite.NewRepository(session.DB))
+	app := testfixture.NewService(testfixture.Repository(session.DB))
 	now := testledger.HistoryStart().AddDate(0, 0, 20)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	app.SetBackup(backup.NewRuntime())
 	app.SetLiveDatabasePath(paths.database)
 	core, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	reserve, err := app.CreateAccount(ctx, application.AccountInput{
+	reserve, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 		Name: "Recovery Sample Reserve", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "42.25",
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{core.Members[0].ID},
@@ -55,7 +56,7 @@ func TestProfileReconcilesAnInterruptedWailsRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
-	if _, err := app.AppendAccountValue(ctx, reserve.Account.ID, "99.50", ""); err != nil {
+	if _, err := testfixture.AppendAccountValue(app, ctx, reserve.Account.ID, "99.50", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {
@@ -76,7 +77,7 @@ func TestProfileReconcilesAnInterruptedWailsRestore(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = reopened.Close() })
-		record, err := sqlite.NewRepository(reopened.DB).AccountRecord(ctx, core.Household.ID, reserve.Account.ID)
+		record, err := testfixture.Repository(reopened.DB).AccountRecord(ctx, core.Household.ID, reserve.Account.ID)
 		if err != nil || record.LatestValue == nil || record.LatestValue.Amount.CanonicalAmount() != "42.25" {
 			t.Fatalf("expected value from the installed backup: %+v, %v", record.LatestValue, err)
 		}

@@ -24,11 +24,11 @@ Health destinations carry object IDs, the affected date range and the reason. In
 
 Overview prioritizes actionable prerequisites. Snapshot details show the affected dates and dependencies. An actionable price or FX gap opens the manual quote form directly from Overview or Data Health, with the instrument or pair and first missing date filled in. Saving closes the form and refreshes the underlying issue. The FX form expresses its direction as an equation such as `1 AUD = [rate] SGD`, and FX history labels the selected direction.
 
-Manual quote forms send a date-only value unchanged. The backend interprets it in the immutable History timezone, or UTC before History starts. Explicit RFC3339 timestamps keep their original instant. Historical quote views keep the requested gap range visible. Refreshing the latest quotes is a separate Market Data action.
+Manual quote forms send a date-only value unchanged. The backend interprets it in the immutable History timezone. Explicit RFC3339 timestamps keep their original instant. Historical quote views keep the requested gap range visible. Refreshing the latest quotes is a separate Market Data action.
 
 Targeted market-data repair previews the backend's actual work before starting. Its scope is all repair work for the selected object, not only the originating date range. Provider prerequisites and unresolved items remain visible. Unsupported/non-executable issues do not offer targeted repair, and empty previews cannot be confirmed. A filtered Data Health page explicitly labels Repair all as household-wide. Focused scans retain blocked snapshots and show the other household prerequisites even when their dates fall outside the selected range. Snapshot rebuilding is a separate action and cannot manufacture missing or unpublished market prices. Rebuilds run in transactions of at most 31 days; a retry resumes at the failed chunk.
 
-Manual-value accounts with observations older than 180 days receive a warning. This is a reminder, not an expiry policy: their values remain included. Accounts lacking an observation are actionable even before History starts. Editing values/quotes invalidates health queries so returning to the source reflects a fresh scan.
+Manual-value accounts with observations older than 180 days receive a warning. This is a reminder, not an expiry policy: their values remain included. Accounts lacking an observation are actionable. Editing values/quotes invalidates health queries so returning to the source reflects a fresh scan.
 
 ## Upcoming actions navigation
 

@@ -17,7 +17,7 @@ import { ShareBar } from "@/components/ui/share-bar";
 import { TONE_CLASSES, toneForKey, type Tone } from "@/lib/tone";
 import { activityStyle } from "@/lib/activityStyle";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, ArrowLeftRight, Wallet, History, PencilLine, HeartPulse, CircleDollarSign, type LucideIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowLeftRight, Wallet, PencilLine, HeartPulse, CircleDollarSign, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
@@ -62,7 +62,6 @@ type OverviewReadModel = {
   byInstitution?: BreakdownDTO[];
   byGroup?: BreakdownDTO[];
   byAccountType?: BreakdownDTO[];
-  historyStarted?: boolean;
   recentActivities?: ActivityDTO[];
   accountLabels?: OverviewLabel[];
   instrumentLabels?: OverviewInstrumentLabel[];
@@ -282,9 +281,7 @@ export function OverviewPage({
   const hasLiabilities = isPositiveCanonical(data.liabilities);
   const showLiabilityComposition = hasLiabilities && (data.liabilitiesByType ?? []).length > 0;
   const showAssetComposition = (data.assetsByType ?? []).length > 0;
-  const historyReady = data.historyStarted;
-  const historyNotStarted = !data.historyStarted;
-  const noNextSteps = missingManualPrices === 0 && missingAgentPrices === 0 && missingProviderPrices === 0 && missingValues === 0 && missingFx === 0 && !historyNotStarted && !(historyReady && recent.length === 0) && healthKnown && healthIssueCount === 0;
+  const noNextSteps = missingManualPrices === 0 && missingAgentPrices === 0 && missingProviderPrices === 0 && missingValues === 0 && missingFx === 0 && recent.length !== 0 && healthKnown && healthIssueCount === 0;
   const missingFocus = (item: OverviewMissingInput): HealthFocus => ({
     instrumentId: item.instrumentId ?? undefined, accountId: item.kind === "account_value" ? item.accountId : undefined,
     currencyA: item.kind === "fx_rate" ? item.baseCurrency : undefined, currencyB: item.kind === "fx_rate" ? item.quoteCurrency : undefined,
@@ -300,7 +297,7 @@ export function OverviewPage({
         actionLabel={health.isError ? t("common.retryAction") : undefined} onAction={() => void health.refetch()} />,
     );
   }
-  const rootIssues = healthKnown && navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed && issue.kind !== "history_not_started" && !issue.kind.startsWith("snapshot")) : [];
+  const rootIssues = healthKnown && navigation ? (health.data?.issues ?? []).filter((issue) => !issue.collapsed && !issue.kind.startsWith("snapshot")) : [];
   const listedIssues = [
     ...rootIssues.filter(issue => issue.action !== "none" && issue.action !== "repair"),
     ...rootIssues.filter(issue => issue.action === "none" || issue.action === "repair"),
@@ -337,10 +334,7 @@ export function OverviewPage({
       todoRows.push(<TodoRow key="values" icon={Wallet} tone={5} text={t("overview.reviewValuesNext", { count: missingValues })} actionLabel={t("overview.openAccounts")} onAction={onOpenAccounts} />);
     }
   }
-  if (historyNotStarted) {
-    todoRows.unshift(<TodoRow key="start-history" icon={History} tone={6} text={t("overview.startHistoryNext")} actionLabel={t("history.startButton")} onAction={onOpenHistory} />);
-  }
-  if (historyReady && recent.length === 0) {
+  if (recent.length === 0) {
     todoRows.push(<TodoRow key="record-change" icon={CircleDollarSign} tone={2} text={t("overview.recordChangeNext")} actionLabel={t("overview.openHistory")} onAction={onOpenHistory} />);
   }
 

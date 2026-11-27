@@ -81,7 +81,7 @@ func TestAnalysisReviewCases01And02And17bIdentity(t *testing.T) {
 		analysisEffect(t, activityID, 1, from.ID, "100", "CNY", domain.EffectRemoved, domain.EffectTargetAccountValue, domain.ClassificationInternalTransfer),
 		analysisEffect(t, activityID, 2, to.ID, "100", "CNY", domain.EffectAdded, domain.EffectTargetAccountValue, domain.ClassificationInternalTransfer),
 	}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: from}, {Account: to}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{transfer}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: from}, {Account: to}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{transfer}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestAnalysisReviewCases01And02And17bIdentity(t *testing.T) {
 	debtCurrent := analysisSnapshot("2026-08-02", analysisItem(t, debt.ID, "CNY", "500", "500", nil, nil, "", ""))
 	interestID := domain.NewActivityID()
 	interest := domain.Activity{ID: interestID, Kind: domain.ActivityValueUpdate, Reason: domain.ReasonInterest, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{analysisEffect(t, interestID, 1, debt.ID, "500", "CNY", domain.EffectAdded, domain.EffectTargetAccountValue, domain.ClassificationRemeasurement)}}
-	debtInput := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{debtPrevious, debtCurrent}, Activities: []domain.Activity{interest}}
+	debtInput := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{debtPrevious, debtCurrent}, Activities: []domain.Activity{interest}}
 	debtResult, err := ComputeAnalysis(debtInput, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func TestAnalysisReviewCases09And26And32FXPaths(t *testing.T) {
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "110", "792", nil, nil, "", closeFXID))
 	activityID := domain.NewActivityID()
 	income := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonIncome, EffectiveAt: eventFX.QuotedAt, EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{analysisEffect(t, activityID, 1, account.ID, "10", "USD", domain.EffectAdded, domain.EffectTargetAccountCash, domain.ClassificationIncome)}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{income}, FXQuotes: []domain.FXQuote{openFX, eventFX, closeFX}, InstrumentQuotes: []domain.InstrumentQuote{openPrice, closePrice}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{income}, FXQuotes: []domain.FXQuote{openFX, eventFX, closeFX}, InstrumentQuotes: []domain.InstrumentQuote{openPrice, closePrice}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestAnalysisReviewCases23And27And34And36Boundaries(t *testing.T) {
 	activityID := domain.NewActivityID()
 	quantity := mustQuantity(t, "300")
 	activity := domain.Activity{ID: activityID, Kind: domain.ActivityPositionTransfer, Reason: domain.ReasonReconciliation, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Direction: domain.EffectAdded, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationRemeasurement, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -236,7 +236,7 @@ func TestAnalysisReviewCase36UnexplainedQuantityChange(t *testing.T) {
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "11000", "11000", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +270,7 @@ func TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative(t *testi
 		{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Direction: domain.EffectRemoved, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationInternalTransfer, HoldingID: &fromHolding, InstrumentID: &instrumentID, Quantity: &quantity},
 		{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 2, Direction: domain.EffectAdded, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationInternalTransfer, HoldingID: &toHolding, InstrumentID: &instrumentID, Quantity: &quantity},
 	}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: source}, {Account: receiver}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: fromHolding, AccountID: source.ID, InstrumentID: instrumentID}, {ID: toHolding, AccountID: receiver.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openingQuote, quote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: source}, {Account: receiver}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: fromHolding, AccountID: source.ID, InstrumentID: instrumentID}, {ID: toHolding, AccountID: receiver.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openingQuote, quote}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -310,7 +310,7 @@ func TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResid
 	closeFX := domain.FXQuote{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: func() domain.FxRate { value, _ := domain.ParseFxRate("7.2"); return value }(), QuotedAt: closeQuote.QuotedAt}
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "100", "700", &holdingID, &instrumentID, openQuote.ID.String(), openFX.ID.String()))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "220", "1584", &holdingID, &instrumentID, closeQuote.ID.String(), closeFX.ID.String()))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}, FXQuotes: []domain.FXQuote{openFX, closeFX}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}, FXQuotes: []domain.FXQuote{openFX, closeFX}}
 	query := analysisBaseQuery(domain.ValuationBase)
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -342,7 +342,7 @@ func TestAnalysisReviewCase17CashInterestIsSignedSpending(t *testing.T) {
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "500", "500", nil, nil, "", ""))
 	activityID := domain.NewActivityID()
 	activity := domain.Activity{ID: activityID, Kind: domain.ActivityCashOut, Reason: domain.ReasonInterest, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{analysisEffect(t, activityID, 1, account.ID, "500", "CNY", domain.EffectRemoved, domain.EffectTargetAccountValue, domain.ClassificationExternalOutflow)}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -375,7 +375,7 @@ func TestAnalysisReviewCase04SameDayBuyUsesTradePath(t *testing.T) {
 		{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Direction: domain.EffectAdded, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationTradePrincipal, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity},
 		{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 2, Direction: domain.EffectRemoved, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationTradePrincipal, AccountID: &account.ID, Money: &gross},
 	}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{closeQuote}, FXQuotes: []domain.FXQuote{openFX, eventFX, closeFX}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{closeQuote}, FXQuotes: []domain.FXQuote{openFX, eventFX, closeFX}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -399,7 +399,7 @@ func TestAnalysisReviewCase38GiftIsIncomeNotExternalFlow(t *testing.T) {
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "200", "200", nil, nil, "", ""))
 	activityID := domain.NewActivityID()
 	activity := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonGift, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{analysisEffect(t, activityID, 1, account.ID, "100", "CNY", domain.EffectAdded, domain.EffectTargetAccountValue, domain.ClassificationExternalInflow)}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"testing"
@@ -23,7 +24,7 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	clock := func() time.Time { return now }
 	seed := func(service *application.Service, other domain.InstrumentID) domain.AccountID {
 		t.Helper()
-		service.SetClock(clock)
+		testfixture.SetClock(service, clock)
 		boot, err := service.Bootstrap(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -166,7 +167,7 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	record, err := reopened.Activity(ctx, inID)
 	if err != nil || len(record.Effects) != 2 || *record.Effects[0].HoldingID != otherHolding || *record.Effects[1].HoldingID != ids.holding {
 		t.Fatalf("incoming transfer did not retain both exact holdings: %+v / %v", record, err)

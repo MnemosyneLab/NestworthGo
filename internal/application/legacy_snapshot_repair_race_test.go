@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestLegacyRepairRevisionRestartsFromEarlierDirtyPrefix(t *testing.T) {
@@ -25,7 +26,7 @@ func TestLegacyRepairRevisionRestartsFromEarlierDirtyPrefix(t *testing.T) {
 				}
 			}
 			income(s, 2)
-			writer := NewService(sqlite.NewRepository(db))
+			writer := NewService(repos.New(db))
 			writer.setClock(s.clock)
 			r.batches, r.saves = 0, 0
 			revised := false
@@ -61,7 +62,7 @@ func TestLegacyRepairRevisionRestartsFromEarlierDirtyPrefix(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { _ = reopened.Close() })
-				s = NewService(sqlite.NewRepository(reopened))
+				s = NewService(repos.New(reopened))
 				s.setClock(writer.clock)
 			}
 			if _, err := s.RebuildDirtySnapshots(t.Context()); err != nil {

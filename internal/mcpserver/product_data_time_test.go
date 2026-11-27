@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"testing"
 	"time"
@@ -139,11 +140,11 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 					t.Fatal("legitimate timestamp rejected by normal startup:", err)
 				}
 				defer opened.Close()
-				repo := sqlite.NewRepository(opened)
-				app := application.NewService(repo)
+				repo := testfixture.Repository(opened)
+				app := testfixture.NewService(repo)
 				appports.Wire(app)
 				appports.AttachSQLiteHistory(app, repo)
-				app.SetClock(clock)
+				testfixture.SetClock(app, clock)
 				s := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(opened))
 				defer s.Close()
 				if err := s.Resume(); err != nil {

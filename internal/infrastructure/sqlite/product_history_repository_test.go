@@ -11,18 +11,35 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/testfixture/storage"
 )
 
 func seedProductHistory(t *testing.T) (*DB, *Repository, *application.Service, domain.ProductContractID) {
 	t.Helper()
-	db, repo, _, account, _ := seedPortfolioRepository(t)
+	db, repo, household, account, _ := seedPortfolioRepository(t)
 	app := application.NewService(repo)
 	now := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	app.SetClock(func() time.Time { return now })
-	if _, err := app.AppendAccountCashValue(t.Context(), account.ID, "1000", "USD", ""); err != nil {
+	money, err := domain.ParseMoney("1000", "USD")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+	cash, err := domain.NewAccountCashValue(account, money, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fixtureWriter(repo).AppendAccountCashValue(t.Context(), cash); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := repo.ReadPortfolioSnapshot(t.Context(), domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := storage.BuildOrigin(household.ID, snapshot, "UTC", "", now, nil, storage.SelectQuote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixtureWriter(repo).CaptureSyntheticOrigin(t.Context(), data); err != nil {
 		t.Fatal(err)
 	}
 	maturity, zero, calendar := "2026-12-20", 0, "calendar"

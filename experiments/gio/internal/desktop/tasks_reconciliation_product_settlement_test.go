@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -24,8 +25,8 @@ func TestLinkedLockedProductSettlementMatchesWails(t *testing.T) {
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
 	refID := seedTestLockedProductWithUnlock(t, ref, refIDs.account, nil, "2026-11-22")
 	clock := func() time.Time { return time.Date(2026, time.November, 23, 17, 0, 0, 0, time.UTC) }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session := startTestHoldingReconciliation(t, api, ids.account)
 	refSession := startTestHoldingReconciliation(t, refAPI, refIDs.account)
@@ -177,8 +178,8 @@ func TestLinkedLockedProductSettlementMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reference, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	reference, _ := reopenBaselineProfile(t, refPaths)
 	links, err := reconciliation.NewService(reopened).Links(ctx, session.ID)
 	if err != nil || !reflect.DeepEqual(links, saved) {
 		t.Fatalf("reopen lost the settlement links: %+v %v", links, err)

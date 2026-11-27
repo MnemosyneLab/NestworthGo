@@ -193,17 +193,13 @@ unavailable acquisition cost and unrealized gain. `HoldingGainView` exposes
 nullable average/total cost plus a cost missing reason; instrument, account and
 currency aggregates preserve that absence while retaining independently known
 market values. Explicit zero-cost acquisition evidence remains valid. This
-includes the supported prehistory API state: `CreateHolding` saves quantity
-before history starts, while its cost is captured by `StartHistoryWithCosts`
-(or the selected quote at ordinary `StartHistory`). Normal history start rejects
-positive holdings without cost evidence; a supplied prehistory `UnitCost` alone
-does not create a persisted cost event. No native onboarding reachability is
-implied by the API regression.
+applies to dated existing-position imports: quantity and native per-unit
+acquisition cost are recorded together as an adjustment, not a Buy. New
+households always have an empty starting point.
 
 For a materialized legacy snapshot whose positive quantity lacks acquisition
 cost, a `cost_basis_required` replay error leaves quoted market values available
-while cost, unrealized gain and realized gain remain unavailable. A successful
-empty prehistory replay still has a known zero realized result. This read fallback
+while cost, unrealized gain and realized gain remain unavailable. An empty historical replay still has a known zero realized result. This read fallback
 does not change write validation or strict realized-period replay, and integrity,
 arithmetic and repository failures still propagate.
 

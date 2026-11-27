@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -26,8 +27,8 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.allow) })
 	t.Cleanup(release)
 	now := accountTestClock.Add(37*time.Second + 425*time.Millisecond)
-	app.SetClock(func() time.Time { return now })
-	ref.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
+	testfixture.SetClock(ref, func() time.Time { return now })
 	p, h, finish := liabilityPostingHarness(t, fault, "Synthetic Card", image.Pt(1120, 820), func() time.Time { return now })
 	click := func(text string) { h.click(text, false); finish() }
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
@@ -152,8 +153,8 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, after := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(func() time.Time { return now })
+	reopened, after := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, func() time.Time { return now })
 	replay, err := plan.Commit(ctx, reopened)
 	if err != nil || replay.Activity.ID != id {
 		t.Fatalf("reopen did not replay original receipt: %+v, %v", replay.Activity, err)

@@ -149,7 +149,7 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 		return HistoricalOverviewResult{}, err
 	}
 	if origin == nil {
-		return HistoricalOverviewResult{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history has not started"}
+		return HistoricalOverviewResult{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	now := s.clock()
 	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, now)

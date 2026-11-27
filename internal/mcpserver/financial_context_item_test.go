@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"strings"
 	"sync"
@@ -238,20 +239,20 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
 			now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-			app.SetClock(func() time.Time { return now })
+			testfixture.SetClock(app, func() time.Time { return now })
 			members, err := app.ListMembers(t.Context(), false)
 			if err != nil {
 				t.Fatal(err)
 			}
 			note := "PRIVATE NOTE https://private.invalid"
-			account, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "PRIVATE NAME", Note: &note, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "EUR", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+			account, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "PRIVATE NAME", Note: &note, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "EUR", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = app.AppendAccountValue(t.Context(), account.Account.ID, "100", ""); err != nil {
+			if _, err = testfixture.AppendAccountValue(app, t.Context(), account.Account.ID, "100", ""); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err = testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			now = now.AddDate(0, 0, 2)
@@ -281,7 +282,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 			if before.Position.Complete || len(before.Positions) != 1 || *before.Positions[0].NativeAmount != "100" || before.Positions[0].BaseAmount != nil || len(before.Gaps) != 1 || before.Gaps[0].Code != "missing_fx" {
 				t.Fatal(before)
 			}
-			if _, err = app.AppendAccountValue(t.Context(), account.Account.ID, "200", ""); err != nil {
+			if _, err = testfixture.AppendAccountValue(app, t.Context(), account.Account.ID, "200", ""); err != nil {
 				t.Fatal(err)
 			}
 			after := decodeItem(t, call(t, client, "get_financial_context_item", args, false))
@@ -322,7 +323,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 			}
 			call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: capture.ContextID, Ref: account.Account.ID.String()}, true)
 			call(t, client, "get_financial_context_item", map[string]any{"contextId": capture.ContextID, "ref": before.Ref, "disclosure": "named"}, true)
-			if _, err = app.AppendAccountValue(t.Context(), account.Account.ID, "300", ""); err != nil {
+			if _, err = testfixture.AppendAccountValue(app, t.Context(), account.Account.ID, "300", ""); err != nil {
 				t.Fatal(err)
 			}
 			frozenNamed := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: namedItem.Ref}, false))
@@ -389,7 +390,7 @@ func TestFinancialContextItemSkillPagination(t *testing.T) {
 func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixture(t)
-	if _, err := fx.app.CreateHolding(t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: fx.instrument, Quantity: "2", UnitCost: "5"}); err != nil {
+	if _, err := testfixture.CreateHolding(fx.app, t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: fx.instrument, Quantity: "2", UnitCost: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	client := ledgerSession(t, fx)

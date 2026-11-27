@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repository) {
@@ -16,7 +17,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	spec := syntheticHistoricalReviewSpec()
 	spec.Predicate.All[1].Leaf.Value = "0" // No trigger history, including closed episodes.
 	saveSyntheticReviewRule(t, f, "Synthetic history-free restart", spec)
-	f.s = NewService(fullReviewOracle(sqlite.NewRepository(f.db)))
+	f.s = NewService(fullReviewOracle(repos.New(f.db)))
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
 	if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -26,7 +27,7 @@ func historyFreeLegacyReview(t *testing.T) (seriesZeroFixture, *sqlite.Repositor
 	if err := f.db.SQL.QueryRow(`SELECT count(*) FROM investment_review_episodes`).Scan(&count); err != nil || count != 0 {
 		t.Fatal("fixture has trigger history", count, err)
 	}
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })
@@ -62,7 +63,7 @@ func TestReviewCertifiedHistoryFreeLegacyAndRestartRemainUntrusted(t *testing.T)
 				}
 				t.Cleanup(func() { _ = db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+				r = repos.New(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -178,7 +179,7 @@ func TestReviewCertifiedBootstrapRetainsUnprovenHistory(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	f.db = db
-	r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+	r := repos.New(db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })

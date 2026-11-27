@@ -10,6 +10,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewSourceCheckpointChecksPublicationAlongsideFullFingerprint(t *testing.T) {
@@ -18,7 +19,7 @@ func TestReviewSourceCheckpointChecksPublicationAlongsideFullFingerprint(t *test
 			f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 			f.day(t, "2026-10-03")
 			saveSyntheticReviewRule(t, f, "Synthetic shadow", syntheticHistoricalReviewSpec())
-			repo := sqlite.NewRepository(f.db)
+			repo := repos.New(f.db)
 			capture, err := repo.CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 			if err != nil {
 				t.Fatal(err)
@@ -98,7 +99,7 @@ func TestReviewSourceCheckpointPublicationHoldsWriterReservationBeforeComparison
 		t.Fatal(err)
 	}
 	observed := false
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	checkReservation := func() {
 		observed = true
 		_, writeErr := writer.SQL.Exec(`UPDATE households SET name='Synthetic concurrent writer'`)
@@ -145,7 +146,7 @@ func TestReviewSourceCheckpointFutureActivationAndClockRollbackRemainIncomparabl
 	at := f.now.Add(time.Hour)
 	*f.now = at
 	f.quantity(t, false)
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	id := f.account.Account.HouseholdID
 	before, err := repo.CaptureReviewProjection(t.Context(), id, at.Add(-time.Nanosecond))
 	if err != nil {
@@ -175,7 +176,7 @@ func TestReviewSourceCheckpointFutureActivationAndClockRollbackRemainIncomparabl
 func TestReviewSourceCheckpointFloorResetAndReopenNeverCertifyMissingHistory(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 	f.day(t, "2026-10-03")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	id := f.account.Account.HouseholdID
 	before, err := repo.CaptureReviewProjection(t.Context(), id, *f.now)
 	if err != nil {
@@ -216,7 +217,7 @@ func TestReviewSourceCheckpointFloorResetAndReopenNeverCertifyMissingHistory(t *
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	stable, err := sqlite.NewRepository(reopened).CaptureReviewProjection(t.Context(), id, *f.now)
+	stable, err := repos.New(reopened).CaptureReviewProjection(t.Context(), id, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +233,7 @@ func TestReviewSourceCheckpointFloorResetAndReopenNeverCertifyMissingHistory(t *
 		t.Fatal(err)
 	}
 	defer readonly.Close()
-	copyCapture, err := sqlite.NewRepository(readonly).CaptureReviewProjection(t.Context(), id, *f.now)
+	copyCapture, err := repos.New(readonly).CaptureReviewProjection(t.Context(), id, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}

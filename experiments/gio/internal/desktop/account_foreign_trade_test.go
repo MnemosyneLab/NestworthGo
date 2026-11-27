@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -24,8 +25,8 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	adapter := historyapi.NewService(ref)
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	fault := &cashMovementFault{Service: app, loseAttempt: 2, started: make(chan struct{}), release: make(chan struct{})}
 	release := sync.OnceFunc(func() { close(fault.release) })
 	t.Cleanup(release)
@@ -178,8 +179,8 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	replayed, err := plan.Commit(ctx, reopened)
 	if err != nil || replayed.Activity.ID != buyID {
 		t.Fatalf("receipt changed after reopen: %+v / %v", replayed.Activity, err)

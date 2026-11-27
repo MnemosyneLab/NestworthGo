@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -33,7 +33,7 @@ type balanceTargetTestService struct {
 
 func (s *balanceTargetTestService) AppendAccountValue(ctx context.Context, id domain.AccountID, amount, day string) (domain.AccountValue, error) {
 	s.appends++
-	v, err := s.Service.AppendAccountValue(ctx, id, amount, day)
+	v, err := testfixture.AppendAccountValue(s.Service, ctx, id, amount, day)
 	if err == nil && s.lostAppend {
 		return domain.AccountValue{}, errors.New("test: lost acknowledgement from unkeyed append")
 	}
@@ -62,81 +62,6 @@ func (s *balanceTargetTestService) ListAccounts(ctx context.Context, filter doma
 		return nil, errors.New("test: failed read after the keyed receipt")
 	}
 	return s.Service.ListAccounts(ctx, filter)
-}
-
-func TestBankBalanceBeforeHistoryUsesUnkeyedObservationWithoutReplay(t *testing.T) {
-	ctx := t.Context()
-	app, session, paths, bank := seedBankBalanceFixture(t, false)
-	ref, _, _, refBank := seedBankBalanceFixture(t, false)
-	fault := &balanceTargetTestService{Service: app, lostAppend: true}
-	p, h, finish := balanceTargetHarness(t, fault, "Harbor Checking", func() time.Time { return accountTestClock })
-	click := func(text string) { h.click(text, false); finish() }
-	label := func(text string) { assertPageLabel(t, &h.router, text) }
-	click("Update bank balance")
-	d := p.balanceTarget.draft
-	setBankField(h, "Target balance · USD", &d.amount, "100")
-	click("Review bank balance")
-	label("The target matches the current bank balance.")
-	setBankField(h, "Target balance · USD", &d.amount, "120")
-	click("Review bank balance")
-	label("Effective at confirmation")
-	label("Balance before · 100 USD")
-	for _, side := range []struct {
-		app *application.Service
-		id  domain.AccountID
-	}{{app, bank}, {ref, refBank}} {
-		if _, err := account.NewService(side.app).AppendAccountValue(ctx, side.id.String(), "110", ""); err != nil {
-			t.Fatal(err)
-		}
-	}
-	setBalanceTargetClock(time.Minute, app, ref)
-	click("Confirm bank balance")
-	label("The ledger changed. Preview this action again.")
-	click("Review bank balance")
-	label("Balance before · 110 USD")
-	label("Resulting balance · 120 USD")
-	click("Confirm bank balance")
-	label("Could not confirm the save. Check the recorded balance before making another change.")
-	if fault.appends != 1 || len(fault.records) != 0 || findPageLabel(&h.router, "Retry same submission") != nil || findPageLabel(&h.router, "Bank balance saved.") != nil {
-		t.Fatal("an uncertain unkeyed append offered a replay or claimed acknowledgement")
-	}
-	row := p.freshDetail()
-	if fault.appends != 1 || row == nil || row.record.LatestValue == nil || row.record.LatestValue.Amount.CanonicalAmount() != "120" {
-		t.Fatal("read recovery reissued the append or lost the saved value")
-	}
-	want, err := account.NewService(ref).AppendAccountValue(ctx, refBank.String(), "120", "")
-	got := wire.FromAccountValue(*readBankRecord(t, app, bank).LatestValue)
-	got.ID, got.AccountID, want.ID, want.AccountID = "", "", "", ""
-	if err != nil || !reflect.DeepEqual(got, want) {
-		t.Fatalf("opening observation differs from Wails: %+v / %+v, %v", got, want, err)
-	}
-	assertBalanceTargetNetWorth(t, app, ref, "90", "30")
-	assertBankObservations(t, session, bank, 3, 0)
-	if err := session.Close(); err != nil {
-		t.Fatal(err)
-	}
-	reopened, after := reopenOnboardingProfile(t, paths)
-	assertBankObservations(t, after, bank, 3, 0)
-	if readBankRecord(t, reopened, bank).LatestValue.Amount.CanonicalAmount() != "120" {
-		t.Fatal("reopen did not retain the observed balance")
-	}
-
-	// Starting History between preview and confirmation must not convert a
-	// reviewed legacy observation into a posted reconciliation.
-	setBalanceTargetClock(2*time.Minute, reopened)
-	plan, err := reviewBalanceTarget(ctx, reopened, bank, "125", func() time.Time { return accountTestClock })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := reopened.StartHistory(ctx, "Asia/Singapore"); err != nil {
-		t.Fatal(err)
-	}
-	_, err = plan.commit(ctx, reopened)
-	var stale *domain.Error
-	if !errors.As(err, &stale) || stale.Code != domain.ErrStalePreview {
-		t.Fatalf("legacy confirmation after History started: %v", err)
-	}
-	assertBankObservations(t, after, bank, 3, 0)
 }
 
 func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
@@ -237,7 +162,7 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	setBalanceTargetClock(3*time.Minute, reopened, ref)
 	again, err := plan.commit(ctx, reopened)
 	if err != nil || again.activity != posted {
@@ -356,7 +281,7 @@ func assertBankObservations(t *testing.T, session *pilot.Session, bank domain.Ac
 
 func setBalanceTargetClock(offset time.Duration, ledgers ...*application.Service) {
 	for _, ledger := range ledgers {
-		ledger.SetClock(func() time.Time { return accountTestClock.Add(offset) })
+		testfixture.SetClock(ledger, func() time.Time { return accountTestClock.Add(offset) })
 	}
 }
 
@@ -364,7 +289,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	t.Helper()
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	setBalanceTargetClock(-72*time.Hour, app)
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic bank balance", BaseCurrency: "USD", MemberNames: []string{"Ana Example"}}); err != nil {
 		t.Fatal(err)
@@ -375,7 +300,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	}
 	create := func(name, kind, role, amount string) domain.AccountID {
 		t.Helper()
-		row, err := app.CreateAccount(ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role,
+		row, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role,
 			TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: amount, IncludeInNetWorth: true,
 			OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 		if err != nil {
@@ -387,7 +312,7 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	create("Synthetic Card", "credit_card", "liability", "30")
 	if started {
 		setBalanceTargetClock(-48*time.Hour, app)
-		if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -395,82 +320,53 @@ func seedBankBalanceFixture(t *testing.T, started bool) (*application.Service, *
 	return app, session, paths, bank
 }
 
-func TestBalanceTargetRejectsObservationOlderThanLatest(t *testing.T) {
-	for _, test := range []struct {
-		name, action, amount, review, confirm, saved        string
-		newer, proposed, net, debt, updatedNet, updatedDebt string
+// Balance reviews now always carry a dated, keyed ledger command. A clock
+// rollback must reject the retained future instant rather than silently append
+// an unkeyed value or mark the review as saved.
+func TestBalanceTargetRejectsClockRollback(t *testing.T) {
+	for _, tc := range []struct {
+		name, target string
+		card         bool
 	}{
-		{"Harbor Checking", "Update bank balance", "Target balance · USD", "Review bank balance", "Confirm bank balance", "Bank balance saved.", "110", "120", "80", "30", "90", "30"},
-		{"Synthetic Card", "Update card balance", "Target amount owed · USD", "Review card balance", "Confirm card balance", "Card balance saved.", "35", "40", "65", "35", "60", "40"},
+		{"bank", "120", false},
+		{"card", "40", true},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			ctx := t.Context()
-			app, session, paths, id := seedBankBalanceFixture(t, false)
-			ref, refSession, _, refID := seedBankBalanceFixture(t, false)
-			if test.name == "Synthetic Card" {
-				id, refID = syntheticCardID(t, app), syntheticCardID(t, ref)
+		t.Run(tc.name, func(t *testing.T) {
+			app, session, _, id := seedBankBalanceFixture(t, true)
+			if tc.card {
+				id = syntheticCardID(t, app)
 			}
-			adapter := account.NewService(ref)
-			fault := &balanceTargetTestService{Service: app}
-
+			before := readBankRecord(t, app, id).LatestValue
 			now := accountTestClock.Add(time.Minute)
 			clock := func() time.Time { return now }
-			app.SetClock(clock)
-			ref.SetClock(clock)
-			latest, err := app.AppendAccountValue(ctx, id, test.newer, "")
+			testfixture.SetClock(app, clock)
+			plan, err := reviewBalanceTarget(t.Context(), app, id, tc.target, clock)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := adapter.AppendAccountValue(ctx, refID.String(), test.newer, ""); err != nil {
-				t.Fatal(err)
-			}
-			p, h, finish := balanceTargetHarness(t, fault, test.name, clock)
-			click := func(label string) { t.Helper(); h.click(label, false); finish() }
-			click(test.action)
-			setBankField(h, test.amount, &p.balanceTarget.draft.amount, test.proposed)
-			click(test.review)
-
-			// Advance through review, then correct the clock while the
-			// same observation is still the latest and the review is open.
 			now = accountTestClock
-			click(test.confirm)
-			assertPageLabel(t, &h.router, "A later balance would override this update. Check the balance history and system clock.")
-			if fault.appends != 1 || p.balanceTarget.draft == nil || p.balanceTarget.draft.review != nil ||
-				p.balanceTarget.draft.uncertain || p.balanceTarget.saved.known() {
-				t.Fatal("the definite rejection was reported as a save or retryable write")
+			receipt, err := plan.commit(t.Context(), app)
+			var issue *domain.Error
+			if !errors.As(err, &issue) || issue.Code != domain.ErrInvalidChangeTime || receipt.known() {
+				t.Fatalf("rollback accepted or mapped incorrectly: %+v %v", receipt, err)
 			}
-			_, err = adapter.AppendAccountValue(ctx, refID.String(), test.proposed, "")
-			if err == nil {
-				t.Fatal("Wails adapter accepted a superseded observation")
+			if got := readBankRecord(t, app, id).LatestValue; got.ID != before.ID {
+				t.Fatalf("rejected review wrote %+v", got)
 			}
-			issue, ok := apierror.Parse(err.Error())
-			if !ok || issue.Code != string(domain.ErrCashBalanceTimeConflict) {
-				t.Fatalf("Wails adapter rejected with %v", err)
-			}
-			if got := readBankRecord(t, app, id).LatestValue; got.ID != latest.ID || got.Amount.CanonicalAmount() != test.newer {
-				t.Fatalf("rejected update changed the Accounts projection: %+v", got)
-			}
-			assertBankObservations(t, session, id, 2, 0)
-			assertBankObservations(t, refSession, refID, 2, 0)
-			assertBalanceTargetNetWorth(t, app, ref, test.net, test.debt)
-
+			assertBankObservations(t, session, id, 1, 0)
 			now = accountTestClock.Add(2 * time.Minute)
-			click(test.review)
-			click(test.confirm)
-			assertPageLabel(t, &h.router, test.saved)
-			if _, err := adapter.AppendAccountValue(ctx, refID.String(), test.proposed, ""); err != nil {
+			plan, err = reviewBalanceTarget(t.Context(), app, id, tc.target, clock)
+			if err != nil {
 				t.Fatal(err)
 			}
-			if err := session.Close(); err != nil {
-				t.Fatal(err)
+			receipt, err = plan.commit(t.Context(), app)
+			if err != nil || !receipt.known() {
+				t.Fatalf("corrected clock: %+v %v", receipt, err)
 			}
-			reopened, storage := reopenOnboardingProfile(t, paths)
-			reopened.SetClock(clock)
-			if got := readBankRecord(t, reopened, id).LatestValue.Amount.CanonicalAmount(); got != test.proposed {
-				t.Fatalf("new observation did not survive reopen: %s", got)
+			if got := readBankRecord(t, app, id).LatestValue.Amount.CanonicalAmount(); got != tc.target {
+				t.Fatalf("target = %s, want %s", got, tc.target)
 			}
-			assertBankObservations(t, storage, id, 3, 0)
-			assertBalanceTargetNetWorth(t, reopened, ref, test.updatedNet, test.updatedDebt)
+			assertBankObservations(t, session, id, 1, 1)
 		})
 	}
 }

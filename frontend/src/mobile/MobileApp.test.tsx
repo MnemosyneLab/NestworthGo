@@ -89,7 +89,7 @@ beforeEach(async () => {
             householdId: "synthetic-household",
             name: "SYNTHETIC MOBILE TEST",
             currency: "CNY",
-            historyStarted: true,
+
             today: "2026-10-30",
             time: "12:00:00",
             capabilities: { ...permissions, market_refresh: !!marketJob },

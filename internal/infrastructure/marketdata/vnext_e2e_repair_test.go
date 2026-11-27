@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestE2EEquityUSManualFXRepairProbe(t *testing.T) {
@@ -24,7 +25,7 @@ func TestE2EEquityUSManualFXRepairProbe(t *testing.T) {
 
 	svc, database, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
-	svc.SetClock(func() time.Time { return repairClock })
+	testfixture.SetClock(svc, func() time.Time { return repairClock })
 	fetchedAt := repairClock.UTC()
 
 	planBefore, err := svc.PlanMarketDataRepair(ctx)
@@ -181,7 +182,7 @@ func TestE2ERepairInterruptionRecoversFromDirtyRange(t *testing.T) {
 	ctx := context.Background()
 	svc, database, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
-	svc.SetClock(func() time.Time { return repairClock })
+	testfixture.SetClock(svc, func() time.Time { return repairClock })
 	completeMeta, completeBody := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
 	complete, err := QualifyYahooHistory(completeMeta, completeBody)
 	if err != nil {
@@ -220,7 +221,7 @@ func TestE2EHistoricalMarketDateCloseArrivesAfterHouseholdMidnight(t *testing.T)
 	ctx := context.Background()
 	svc, _, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
-	svc.SetClock(func() time.Time { return repairClock })
+	testfixture.SetClock(svc, func() time.Time { return repairClock })
 	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
 	complete, err := QualifyYahooHistory(meta, body)
 	if err != nil {
@@ -299,7 +300,7 @@ func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T)
 	ctx := context.Background()
 	svc, _, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
 	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
-	svc.SetClock(func() time.Time { return repairClock })
+	testfixture.SetClock(svc, func() time.Time { return repairClock })
 
 	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-verified-complete.json")
 	complete, err := QualifyYahooHistory(meta, body)
@@ -322,8 +323,8 @@ func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T)
 	}
 	providerNative := snapshotInstrumentItem(t, providerDay, instrument.ID).NativeAmount
 
-	svc.SetClock(func() time.Time { return switchClock })
-	if err := svc.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+	testfixture.SetClock(svc, func() time.Time { return switchClock })
+	if err := testfixture.SetInstrumentQuoteSource(svc, ctx, instrument.ID, "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.AppendManualInstrumentQuote(ctx, instrument.ID, "200", "2026-09-08", false); err != nil {
@@ -358,7 +359,7 @@ func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T)
 		t.Fatalf("historical coverage lost provider closes after manual switch: %+v", historical)
 	}
 
-	svc.SetClock(func() time.Time { return repairClock })
+	testfixture.SetClock(svc, func() time.Time { return repairClock })
 	rebuiltBefore, _, err := svc.BuildDailyValuationSnapshot(ctx, "2026-09-07")
 	if err != nil {
 		t.Fatal(err)
@@ -416,9 +417,9 @@ func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Serv
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	repo := sqlite.NewRepository(database)
-	service := application.NewService(repo)
-	service.SetClock(func() time.Time { return originClock })
+	repo := testfixture.Repository(database)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
+	testfixture.SetClock(service, func() time.Time { return originClock })
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Repair", BaseCurrency: "SGD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
@@ -427,7 +428,7 @@ func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Serv
 	if err != nil || bootstrap.Household == nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
-	instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{
+	instrument, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
 		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
 	})
@@ -440,7 +441,7 @@ func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Serv
 func seedRepairPortfolio(t *testing.T, svc *application.Service, repo *sqlite.Repository, originClock time.Time, instrument domain.Instrument, owner domain.MemberID) {
 	t.Helper()
 	ctx := context.Background()
-	acc, err := svc.CreateAccount(ctx, application.AccountInput{
+	acc, err := testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: "Holdings", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{owner},
 	})
@@ -465,19 +466,19 @@ func seedRepairPortfolio(t *testing.T, svc *application.Service, repo *sqlite.Re
 	if err := repo.AppendInstrumentQuote(ctx, quote); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CreateHolding(ctx, application.HoldingInput{AccountID: acc.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"}); err != nil {
+	if _, err := testfixture.CreateHolding(svc, ctx, application.HoldingInput{AccountID: acc.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.AppendAccountCashValue(ctx, acc.Account.ID, "1000", "USD", originClock.Format(time.RFC3339)); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(svc, ctx, acc.Account.ID, "1000", "USD", originClock.Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.SetFXPreference(ctx, "USD", "SGD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(svc, ctx, "USD", "SGD", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.AppendManualFXQuote(ctx, "USD", "SGD", "1.35", "2026-09-06T00:00:00+08:00"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 }

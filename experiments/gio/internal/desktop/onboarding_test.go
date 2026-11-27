@@ -17,8 +17,8 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
@@ -70,8 +70,21 @@ func reopenOnboardingProfile(t *testing.T, paths pilot.Paths) (*application.Serv
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	service := application.NewService(sqlite.NewRepository(session.DB))
-	service.SetClock(func() time.Time { return onboardingTestTime })
+	service := testfixture.NewService(testfixture.Repository(session.DB))
+	testfixture.SetClock(service, func() time.Time { return onboardingTestTime })
+	return service, session
+}
+
+// reopenBaselineProfile is for existing-history fixture construction only.
+func reopenBaselineProfile(t *testing.T, paths pilot.Paths) (*application.Service, *pilot.Session) {
+	t.Helper()
+	session, err := pilot.OpenSession(t.Context(), paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(session.DB)})
+	testfixture.SetClock(service, func() time.Time { return onboardingTestTime })
 	return service, session
 }
 
@@ -127,7 +140,7 @@ func TestOnboardingWindowMatchesWailsAndRetriesReadsAfterCommit(t *testing.T) {
 	}
 	h.click("Retry", false)
 	wait()
-	if page.currency != "CNY" || page.historical {
+	if page.currency != "CNY" || page.showHistoryDate {
 		t.Fatal("unexpected default currency or history choice")
 	}
 	label("Set up your household")
@@ -154,7 +167,7 @@ func TestOnboardingWindowMatchesWailsAndRetriesReadsAfterCommit(t *testing.T) {
 	if page.currency != "SGD" {
 		t.Fatalf("selected currency = %s", page.currency)
 	}
-	h.click("Start ledger history", false)
+	h.click("Choose an earlier start date", false)
 	h.frame()
 	label("History time zone · Asia/Singapore")
 	h.click("2026-11-22", false)
@@ -309,7 +322,7 @@ func (s *postCommitOnboardingError) CompleteOnboarding(ctx context.Context, inpu
 	return errors.New("test error reported after the household transaction")
 }
 
-func TestOnboardingDefaultLeavesHistoryOffAndACommitErrorCannotResubmit(t *testing.T) {
+func TestOnboardingDefaultCreatesHistoryAndACommitErrorCannotResubmit(t *testing.T) {
 	paths := prepareOnboardingProfile(t)
 	service, session := reopenOnboardingProfile(t, paths)
 	prefs := onboardedPreferenceState(t, paths, service, session)
@@ -325,7 +338,7 @@ func TestOnboardingDefaultLeavesHistoryOffAndACommitErrorCannotResubmit(t *testi
 	prefs.wait()
 	h.frame()
 
-	setBankField(h, "Household name", &page.name, "Synthetic no-history")
+	setBankField(h, "Household name", &page.name, "Synthetic default history")
 	h.click("Member name", true)
 	h.router.Queue(key.EditEvent{Text: "Sample member"})
 	h.frame()
@@ -341,7 +354,7 @@ func TestOnboardingDefaultLeavesHistoryOffAndACommitErrorCannotResubmit(t *testi
 	if err != nil || core.Household == nil || core.Household.BaseCurrency != domain.CurrencyCode("CNY") || api.writes.Load() != 1 {
 		t.Fatalf("unresolved committed write: %+v, %v", core, err)
 	}
-	if origin, err := service.HistoryOrigin(t.Context()); err != nil || origin != nil {
-		t.Fatalf("the default setup wrote an origin: %+v, %v", origin, err)
+	if origin, err := service.HistoryOrigin(t.Context()); err != nil || origin == nil || origin.Timezone != "Asia/Singapore" || !origin.StartedAt.Equal(time.Date(2026, 11, 21, 16, 0, 0, 0, time.UTC)) {
+		t.Fatalf("the default setup did not write today’s origin: %+v, %v", origin, err)
 	}
 }

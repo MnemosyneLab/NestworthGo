@@ -66,7 +66,7 @@ func TestAcquisitionFXWeightedRatioRemainsExactAcrossCorrectionAndSale(t *testin
 	added := acquired.Add(48 * time.Hour)
 	sold := acquired.Add(72 * time.Hour)
 	householdID := domain.NewHouseholdID()
-	snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}}
 	rate7, _ := domain.ParseFxRate("7")
 	rate8, _ := domain.ParseFxRate("8")
 	quotes := []domain.FXQuote{
@@ -103,7 +103,7 @@ func TestAcquisitionFXWeightedRatioRemainsExactAcrossCorrectionAndSale(t *testin
 func TestAcquisitionFXRatioPropagatesTransferReplayFailure(t *testing.T) {
 	t.Parallel()
 	householdID := domain.NewHouseholdID()
-	snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
 	quantity := reconciliationQuantity(t, "1")
 	sourceID := domain.NewHoldingID()
 	events := []domain.CostBasisEvent{{Kind: domain.CostBasisTransferIn, Quantity: quantity, SourceHoldingID: &sourceID, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)}}
@@ -118,7 +118,7 @@ func TestAcquisitionFXRatioPropagatesTransferReplayFailure(t *testing.T) {
 func TestAcquisitionFXRatioCancellationIsPropagated(t *testing.T) {
 	t.Parallel()
 	householdID := domain.NewHouseholdID()
-	snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}}
 	quantity, err := domain.ParseQuantity("1")
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestAcquisitionFXRatioCancellationIsPropagated(t *testing.T) {
 func BenchmarkAcquisitionFXRatioManyInverseQuotes(b *testing.B) {
 	householdID := domain.NewHouseholdID()
 	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	snapshot := domain.PortfolioSnapshot{
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 		Household:     &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 		FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}},
 	}

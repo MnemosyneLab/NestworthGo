@@ -10,11 +10,11 @@ func TestLiquidityOverviewAcceptsHighPrecisionHoldingValuations(t *testing.T) {
 	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "100")
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Precision holding", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Precision holding", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: "1"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewCertifiedProviderLeaseAndStaleRead(t *testing.T) {
@@ -102,13 +103,13 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				f = newSeriesZeroFixture(t, false, "UTC", "2026-10-01", "1")
 				f.day(t, "2026-10-03")
 				saveSyntheticReviewRule(t, f, "Synthetic legacy review", syntheticHistoricalReviewSpec())
-				f.s = NewService(sqlite.NewRepository(f.db))
+				f.s = NewService(repos.New(f.db))
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
 				if _, err := f.s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 					t.Fatal(err)
 				}
-				r = sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+				r = repos.New(f.db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })
@@ -123,7 +124,7 @@ func TestReviewCertifiedLegacyRestartAndTrackingFallback(t *testing.T) {
 				}
 				defer db.Close()
 				f.db = db
-				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+				r = repos.New(db).WithDefaultReviewOptimizations()
 				f.s = NewService(r)
 				f.s.fxProviderKey = "synthetic-pinned"
 				f.s.setClock(func() time.Time { return *f.now })

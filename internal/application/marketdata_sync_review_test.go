@@ -29,7 +29,7 @@ func TestReviewedMarketDataSyncPinsWorkThroughBackgroundStart(t *testing.T) {
 	if err := service.SetFXProvider(original.Key()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.SetFXPreference(ctx, "USD", "SGD", "provider"); err != nil {
+	if _, err := service.fixtureSetFXPreference(ctx, "USD", "SGD", "provider"); err != nil {
 		t.Fatal(err)
 	}
 	request := SyncRequest{Scope: SyncScopeRepairAll}
@@ -66,7 +66,7 @@ func TestReviewedMarketDataSyncPinsWorkThroughBackgroundStart(t *testing.T) {
 			// Change eligible pairs, selected provider and the closed-day
 			// boundary after admission but before the background worker runs.
 			service.SetClock(func() time.Time { return nextDay })
-			_, prefErr := service.SetFXPreference(ctx, "JPY", "SGD", "provider")
+			_, prefErr := service.fixtureSetFXPreference(ctx, "JPY", "SGD", "provider")
 			writeErr = errors.Join(prefErr, service.SetFXProvider(replacement.Key()))
 		}
 	})
@@ -192,7 +192,7 @@ func TestReviewedMarketDataSyncRejectsLatestWithChangedBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	provider.awaitRequest(t, "AAPL")
-	if _, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{ProviderSymbol: "MSFT"}); err != nil {
+	if _, err := service.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{ProviderSymbol: "MSFT"}); err != nil {
 		t.Fatal(err)
 	}
 	close(provider.release)

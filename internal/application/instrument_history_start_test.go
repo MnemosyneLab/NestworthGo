@@ -41,7 +41,7 @@ func TestInstrumentHistoryStartUsesOwnershipAndCorrections(t *testing.T) {
 func TestUnusedInstrumentStartsSevenDaysBeforeCreation(t *testing.T) {
 	t.Parallel()
 	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
-	instrument, err := service.CreateInstrument(context.Background(), InstrumentInput{Name: "Unheld", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "UNHELD", MarketCode: "US"})
+	instrument, err := service.fixtureCreateInstrument(context.Background(), InstrumentInput{Name: "Unheld", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "UNHELD", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestCoinGeckoHistoryPersistsWithValuationPolicy(t *testing.T) {
 	}}
 	service, repo, _, _ := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, cg)
 	ctx := context.Background()
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BITCOIN"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BITCOIN"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestCoinGeckoBatchCannotPersistAcrossWorkspaceFence(t *testing.T) {
 	p := &fencedCoinGeckoBatch{syncFakeProvider: &syncFakeProvider{key: CoinGeckoProviderKey}}
 	service, repo, _, _ := newSyncFixture(t, p)
 	ctx := context.Background()
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"})
 	if err != nil {
 		t.Fatal(err)
 	}

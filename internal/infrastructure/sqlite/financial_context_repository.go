@@ -105,7 +105,7 @@ func (r *Repository) ReadFinancialContextInputs(ctx context.Context, historical 
 	result := domain.FinancialContextInputs{Portfolio: portfolio}
 	if historical {
 		if portfolio.Origin == nil {
-			return result, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history has not started"}
+			return result, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		// Full dependencies are deliberately retained, including transfer endpoints.
 		batch, loadErr := loadHistoricalSnapshotBatchQuery(ctx, q, portfolio.Household.ID, now)

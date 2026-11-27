@@ -11,11 +11,11 @@ import (
 
 func TestRepeatCommitChecksSourceEvenWithCurrentToken(t *testing.T) {
 	s, ctx, bootstrap, _ := newOnboardedService(t, "repeat-source", []string{"Owner"})
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	origin, err := s.StartHistory(ctx, "UTC")
+	origin, err := s.CaptureSyntheticOrigin(ctx, "UTC")
 	if err != nil {
 		t.Fatal(err)
 	}

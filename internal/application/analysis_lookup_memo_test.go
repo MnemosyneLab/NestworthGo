@@ -58,7 +58,7 @@ func TestAnalysisStampedQuoteIndexesMatchFirstWinsScans(t *testing.T) {
 		{ID: "fx", HouseholdID: household, BaseCurrency: "EUR", QuoteCurrency: "USD"},
 		{ID: "inverse", HouseholdID: household, BaseCurrency: "USD", QuoteCurrency: "EUR"},
 	}
-	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "USD"}}, InstrumentQuotes: quotes, FXQuotes: fx}
+	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "USD"}}, InstrumentQuotes: quotes, FXQuotes: fx}
 	u := analysisUniverse{}
 	u.indexStampedQuotes(input)
 	cutoff := time.Time{}

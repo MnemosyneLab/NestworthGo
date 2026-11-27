@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"path/filepath"
 	"testing"
@@ -38,13 +39,13 @@ func TestMarketAgentEvidenceScopedClosureRetryAndReadback(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	clock := func() time.Time { return time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC) }
-	app.SetClock(clock)
-	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Agent evidence", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
+	testfixture.SetClock(app, clock)
+	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Agent evidence", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}, Timezone: "UTC", HistoryStartDate: "2026-11-20"}); err != nil {
 		t.Fatal(err)
 	}
-	asset, err := app.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic Agent NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
+	asset, err := testfixture.CreateInstrument(app, ctx, application.InstrumentInput{Name: "Synthetic Agent NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}

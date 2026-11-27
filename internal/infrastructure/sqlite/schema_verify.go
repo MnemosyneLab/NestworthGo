@@ -123,6 +123,13 @@ func verifySchemaVersion(ctx context.Context, query schemaQuery, expectedVersion
 	if err := verifyHistorySchema(ctx, query); err != nil {
 		return err
 	}
+	var missingOrigins int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM households h WHERE NOT EXISTS(SELECT 1 FROM history_origins o WHERE o.household_id=h.id)`).Scan(&missingOrigins); err != nil {
+		return err
+	}
+	if missingOrigins != 0 {
+		return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
+	}
 	if err := verifyCostBasisInvariant(ctx, query); err != nil {
 		return err
 	}
@@ -174,9 +181,7 @@ func verifyCostBasisInvariant(ctx context.Context, query schemaQuery) error {
 				WHERE effect.holding_id = h.id
 				  AND effect.cost_unit_price IS NOT NULL
 			)
-		FROM holdings h
-		JOIN accounts a ON a.id = h.account_id
-		JOIN history_origins o ON o.household_id = a.household_id`)
+		FROM holdings h`)
 	if err != nil {
 		return err
 	}

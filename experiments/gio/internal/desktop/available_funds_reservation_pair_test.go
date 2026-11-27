@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	bank := domain.AccountValueSourceRef(ids.bank)
 	const horizon = "2026-12-03"
 	const purpose = "Travel"
-	if _, err := app.AppendAccountCashValue(ctx, ids.foreign, "50.6789", "USD", ""); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(app, ctx, ids.foreign, "50.6789", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, policy := range []application.SavePolicyInput{
@@ -52,16 +53,16 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if err := os.WriteFile(refPath, seed, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app, session = reopenOnboardingProfile(t, paths)
+	app, session = reopenBaselineProfile(t, paths)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	db, err := sqlite.Open(refPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	reference := application.NewService(sqlite.NewRepository(db))
-	reference.SetClock(clock)
+	reference := testfixture.NewService(testfixture.Repository(db))
+	testfixture.SetClock(reference, clock)
 	adapter := liquidityapi.NewService(reference)
 
 	funds, h, settle := reservationHarness(t, app, app)
@@ -212,14 +213,14 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	app.SetClock(clock)
+	app, _ = reopenBaselineProfile(t, paths)
+	testfixture.SetClock(app, clock)
 	db, err = sqlite.Open(refPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	reference = application.NewService(sqlite.NewRepository(db))
-	reference.SetClock(clock)
+	reference = testfixture.NewService(testfixture.Repository(db))
+	testfixture.SetClock(reference, clock)
 	adapter = liquidityapi.NewService(reference)
 	want, err := adapter.Overview(ctx, liquidityapi.OverviewRequest{CustomHorizonOn: productOptional(horizon), IncludeEarlyWithdrawal: true})
 	if err != nil {

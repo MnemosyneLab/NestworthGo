@@ -3,11 +3,9 @@
 In an account with cash and holdings, choose **Reconcile balance**, select the
 currency and enter the balance you want. You may add a reason. Choose **Preview**
 to see the current balance, resulting balance, signed adjustment and effective
-time in the History timezone (UTC before History starts). When standard currency
+time in the History timezone. When standard currency
 formatting rounds an amount, the review also shows its exact value, so a small
 nonzero adjustment remains visible. Preview saves nothing. Choose **Confirm** to record the adjustment.
-Before History starts, **Add cash balance** uses the same review to establish a
-baseline; a reason is available only for adjustments after History starts.
 
 In History, open an ordinary single-account cash record's **Actions** menu or
 **Details**, then choose **Repeat as new draft**. Income reasons supported are

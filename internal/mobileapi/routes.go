@@ -454,20 +454,18 @@ func (s *Server) read(ctx context.Context, r *http.Request, d *session, p string
 		if err != nil {
 			return nil, err
 		}
-		tz := "UTC"
-		date, timeText := "", ""
-		started := origin != nil
-		if started {
-			tz = origin.Timezone
+		if origin == nil {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "ledger history origin is missing"}
 		}
-		loc, err := time.LoadLocation(tz)
+		date, timeText := "", ""
+		loc, err := time.LoadLocation(origin.Timezone)
 		if err != nil {
 			return nil, err
 		}
 		now := s.now().In(loc)
 		date = now.Format("2006-01-02")
 		timeText = now.Format("15:04:05")
-		return s.envelope(ctx, map[string]any{"householdId": b.Household.ID, "name": b.Household.Name, "currency": b.Household.BaseCurrency.String(), "historyStarted": started, "today": date, "time": timeText, "capabilities": d.Permissions, "instance": s.app.MobileWorkspace()}), nil
+		return s.envelope(ctx, map[string]any{"householdId": b.Household.ID, "name": b.Household.Name, "currency": b.Household.BaseCurrency.String(), "today": date, "time": timeText, "capabilities": d.Permissions, "instance": s.app.MobileWorkspace()}), nil
 	case p == "/overview":
 		o, err := s.app.Overview(ctx, domain.AccountFilter{})
 		if err != nil {
@@ -482,7 +480,7 @@ func (s *Server) read(ctx context.Context, r *http.Request, d *session, p string
 			return nil, err
 		}
 		trend, err := s.app.PortfolioTrend(ctx, trendRange)
-		if err != nil && o.HistoryStarted {
+		if err != nil {
 			return nil, err
 		}
 		points := []map[string]any{}
@@ -756,7 +754,7 @@ func mobileJobDTO(job application.MobileMarketJob, start, limit int) map[string]
 // Never send provider message text, paths or arbitrary Detail strings.
 func safeJobCode(code string) string {
 	switch domain.ErrorCode(code) {
-	case domain.ErrProviderUnavailable, domain.ErrProviderAuthentication, domain.ErrProviderRateLimit, domain.ErrUnavailable, domain.ErrConflict, domain.ErrValidation, domain.ErrNotFound, domain.ErrStalePreview, domain.ErrUnsupportedProviderSymbol, domain.ErrMalformedProviderResponse, domain.ErrMarketDataResponseTooLarge, domain.ErrHistoryNotStarted, domain.ErrHistoryUpdateFailed, domain.ErrBackupRestoreBusy:
+	case domain.ErrProviderUnavailable, domain.ErrProviderAuthentication, domain.ErrProviderRateLimit, domain.ErrUnavailable, domain.ErrConflict, domain.ErrValidation, domain.ErrNotFound, domain.ErrStalePreview, domain.ErrUnsupportedProviderSymbol, domain.ErrMalformedProviderResponse, domain.ErrMarketDataResponseTooLarge, domain.ErrMissingHistoryOrigin, domain.ErrHistoryUpdateFailed, domain.ErrBackupRestoreBusy:
 		return code
 	}
 	return ""

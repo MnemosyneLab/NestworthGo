@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // The review timeline is a holding projection. It must not replay a buy's
@@ -27,7 +28,7 @@ func TestReviewPreviewFundedBuyUsesConsistentProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			s := NewService(sqlite.NewRepository(db))
+			s := NewService(repos.New(db))
 			now := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 			if tc.asOf {
 				now = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
@@ -45,11 +46,11 @@ func TestReviewPreviewFundedBuyUsesConsistentProjection(t *testing.T) {
 				now = time.Date(2026, 10, 1, 0, 5, 0, 0, time.UTC)
 			}
 			opened := "2026-10-01"
-			account, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OpenedOn: &opened, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OpenedOn: &opened, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})
 			if err != nil {
 				t.Fatal(err)
 			}

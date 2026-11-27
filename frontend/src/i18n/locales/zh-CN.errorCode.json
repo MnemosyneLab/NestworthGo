@@ -21,7 +21,7 @@
   "database_upgrade_required": "不支持此数据库架构。仅支持版本 21 和 22。文件未被修改，请保留原文件。",
   "decimal_overflow": "该数值超出支持的范围。",
   "historical_series_budget": "本地历史走势输入或计算超过预算，仍可使用比较视图。",
-  "history_not_started": "请先开始历史记录，再记录变化。",
+  "history_origin_missing": "账本历史数据不可用。",
   "history_timezone_required": "请先确认家庭时区，再继续。",
   "history_update_failed": "历史记录更新失败。",
   "insufficient_balance": "余额不足，无法完成此变化。",

@@ -77,7 +77,7 @@ type AnalysisUseCase interface {
 // HistoryService is the activity ledger and change-command use case.
 type HistoryService interface {
 	HistoryOrigin(ctx context.Context) (*domain.HistoryOrigin, error)
-	StartHistory(ctx context.Context, timezone string) (domain.HistoryOrigin, error)
+
 	ListActivities(ctx context.Context, limit int) ([]domain.Activity, error)
 	Activity(ctx context.Context, activityID domain.ActivityID) (domain.Activity, error)
 	ListActivityPage(ctx context.Context, query domain.ActivityQuery) (domain.ActivityPage, error)

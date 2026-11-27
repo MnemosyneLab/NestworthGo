@@ -34,7 +34,7 @@
     "cashHistoryOpeningBalance": "開始残高",
     "cashHistoryRecordedAt": "記録日時",
     "cashHistoryType": "種類",
-    "cashReconcileHint": "履歴の記録が開始されているため、差額を残高の調整として記録します。",
+    "cashReconcileHint": "差額は残高調整として記録されます。",
     "category": "口座の種類",
     "closedOn": "閉鎖日",
     "completeValuation": "完了",
@@ -86,8 +86,8 @@
     "filterSole": "単独所有",
     "formLabel": "口座の入力フォーム",
     "hideMoreTypes": "ほかの種類を隠す",
-    "historyRequiredDescription": "入出金、通貨交換、売買、現金配当を記録するには履歴が必要です。現在の残高と保有資産を開始時点として記録した後、この操作に戻ります。キャンセルした場合は記録されません。",
-    "historyRequiredTitle": "履歴の記録を開始してください",
+
+
     "householdAmount": "基準通貨での金額",
     "includeInLiquidAssets": "流動資産に含める",
     "includeInNetWorth": "純資産に含める",
@@ -119,7 +119,7 @@
     "openedOn": "開設日",
     "openedOnHistoryError": "履歴の開始日から今日までの日付を選択してください。",
     "openedOnHistoryHelp": "任意項目です。過去の開設日を入力すると、初期金額はその日付で記録されます。",
-    "openingCashHint": "現在の現金残高を記録します。入金や売買は発生しません。",
+
     "owner": "所有者",
     "ownershipHint": "続行または保存する前に、所有者を 1 人以上選択してください。",
     "ownershipPercentageFor": "{{name}} の持分割合",
@@ -146,7 +146,7 @@
     "sellInvestment": "売却",
     "settings": "口座設定",
     "showArchived": "アーカイブ済みを表示",
-    "startHistoryThenContinue": "履歴の記録を開始して続ける",
+
     "stepDetails": "口座の詳細",
     "stepInstitution": "どこで管理していますか？",
     "stepReview": "確認して作成",
@@ -1079,7 +1079,7 @@
     "noAutomaticRepair": "この範囲は自動修復できません。プロバイダーの状態または対応範囲を確認してください。現在の相場を更新しても、過去のデータ不足は解消されません。",
     "noExecutableWork": "実行できる修復作業はありません。前提条件を解消するか、後で対応範囲を再確認してください。",
     "viewPeriodGaps": "この期間の不足データを表示",
-    "manualDateZone": "日付には履歴のタイムゾーンを使用します（履歴開始前は UTC）。",
+    "manualDateZone": "日付には帳簿のタイムゾーンを使用します。",
     "analyze": "分析",
     "analyzeObject": "{{name}} を分析",
     "viewReturn": "収益を表示",
@@ -1131,7 +1131,7 @@
     "indicatorIssues": "データの状態 · 問題 {{count}} 件",
     "indicatorIssues_other": "データの状態 · 問題 {{count}} 件",
     "kind": {
-      "history_not_started": "履歴の記録が開始されていません",
+
       "history_pending": "日次の参照価格の確定待ち",
       "incomplete_valuation": "評価額に不足があります",
       "initial_anchor_missing": "開始時点の価格がありません",
@@ -1731,8 +1731,8 @@
     "aboutPage": "このページについて",
     "aboutChange": "この変更について",
     "debtShort": "負債残高",
-    "noOrigin": "履歴はまだ開始されていません",
-    "noOriginHint": "世帯の履歴を開始すると資産履歴を利用できます。",
+    "noOrigin": "帳簿の履歴を利用できません",
+    "noOriginHint": "必要な帳簿の開始点を読み込めません。",
     "estimatedShort": "推定",
     "coverageEstimated": "推定の合計は揃っています"
   },
@@ -2092,18 +2092,10 @@
     "sold": "売却",
     "soldCurrency": "売却した通貨",
     "start": "履歴の記録を開始",
-    "startButton": "履歴の記録を開始",
-    "startCostDescription": "平均取得原価",
-    "startCostHelp": "記録を開始した時点での評価額です",
-    "startCostRequired": "履歴を開始する前に、各保有資産の単位当たり取得原価を入力してください。",
-    "startCostTitle": "開始時点の評価額",
+
     "startDate": "開始日",
-    "startDateHelp": "すべての口座残高、現金、保有資産がゼロだった過去の日付を選択してください。既存の資産は今日の残高から記録します。",
-    "startDateUnknown": "開始日を表示するには有効なタイムゾーンを入力してください。",
-    "startDescription": "記録を始める日付を選択してください。過去の日付を選ぶには、その時点の貸借対照表が空である必要があります。既存の資産は今日の残高から記録します。",
-    "startError": "履歴の記録を開始できませんでした。",
-    "startLoading": "履歴の記録を開始しています",
-    "startTitle": "履歴の記録を開始",
+
+
     "started": "履歴の記録を開始しました",
     "startingPoint": "開始時点",
     "submissionOwnerChangedHelp": "この送信は別の世帯、セッション、または訂正元に属しています。この画面を開いたままにしてください。元の対象を利用できるまで再試行できません。",
@@ -2111,7 +2103,7 @@
     "submissionRetryHelp": "処理結果が不明です。この確認画面を開いたまま、同じ送信を再試行して結果を取得してください。訂正が保存済みでも、スナップショットの更新が残っている場合があります。",
     "timeline": "タイムライン",
     "timezone": "タイムゾーン",
-    "timezoneResolvedHelp": "設定から決定されたタイムゾーンです。履歴の開始時に保存され、後から変更できません。",
+
     "toAccount": "移動先の口座",
     "toDate": "終了日",
     "toHolding": "移管先の保有資産",
@@ -2206,7 +2198,7 @@
     "toggleAccounts": "{{name}} の口座を表示",
     "accountCount_other": "口座 {{count}} 件",
     "accountCount": "口座 {{count}} 件",
-    "unitCostHint": "履歴を開始した後は、銘柄の取引通貨で単位当たりの取得原価を入力してください。空欄の場合は保存済みの現在価格を使用します。価格がない場合は取得原価の入力が必要です。"
+    "unitCostHint": "銘柄の取引通貨で単位当たりの取得原価を入力してください。空欄の場合は保存済みの現在価格を使用します。価格がない場合は取得原価の入力が必要です。"
   },
   "homepage": {
     "actionWindow": "{{start}} → {{end}}",
@@ -2451,8 +2443,8 @@
     "currentMonthUnclosedHint": "今日はまだ確定していません。以前の期間を選ぶか、最初の日が確定してから確認してください。",
     "historyInsufficient": "収益を計算するための履歴データが不足しています。",
     "historyInsufficientHint": "もっと最近の期間を試してください。",
-    "noOrigin": "収益分析に必要な履歴が準備できていません。",
-    "noOriginHint": "収益分析を表示する前に履歴を開始してください。",
+    "noOrigin": "帳簿の履歴を利用できません",
+    "noOriginHint": "必要な帳簿の開始点を読み込めません。",
     "scopeRequired": "先に対象範囲を選択してください。",
     "scopeRequiredHint": "収益分析を表示するには、口座または銘柄を選択してください。",
     "loading": "分析データを読み込み中",
@@ -2899,7 +2891,7 @@
     "healthy": "ローカルデータに未解決の問題はありません。",
     "hideJobDetails": "タスクの詳細を非表示",
     "hideToken": "トークンを隠す",
-    "historyRequired": "取引を記録するには、デスクトップで履歴の開始日を設定してください。",
+
     "historyScope": "実際の取得期間を確認してください。対象の全履歴を取得し、スナップショットを再構築することがあります。",
     "holdings": "保有資産",
     "income": "収入",
@@ -3088,8 +3080,9 @@
     "description": "この端末に貸借対照表を作成し、資産の持分を記録するメンバーを追加します。",
     "duration": "通常は 1 分程度で完了します",
     "formLabel": "初期設定",
-    "historicalStart": "過去の日付から記録を始める",
-    "historicalStartHelp": "空の貸借対照表から始めて、過去の取引を入力します。履歴グラフには、対象日付の価格と為替レートが必要です。",
+    "historicalStart": "以前の開始日を選択",
+    "historyUseToday": "本日を使用",
+    "historicalStartHelp": "履歴は本日、残高ゼロから始まります。過去の取引を入力する場合は、以前の開始日を選択できます。",
     "historicalTimezone": "履歴の日付は {{timezone}} に従います。帳簿のタイムゾーンは固定されます。",
     "householdHint": "個人、夫婦、家族など、ご自身に合った名前を付けてください。",
     "householdName": "世帯名",
@@ -3242,7 +3235,7 @@
     "reviewValuesNext_other": "{{count}} 件の口座の評価額を確認してください。",
     "setAgentPricesNext_other": "{{count}} 銘柄に Agent 経由の価格が必要です。",
     "setManualPricesNext_other": "{{count}} 銘柄の価格を手入力してください。",
-    "startHistoryNext": "変更を時系列で追跡するには、履歴の記録を開始してください。",
+
     "totalsExcludeMissing": "この合計には、価格や為替レートが不足している項目は含まれません。不明な金額をゼロとして扱うことはありません。",
     "unassignedInstitution": "金融機関なし",
     "unknownAccount": "口座",
@@ -4389,7 +4382,7 @@
   },
   "snapshot": {
     "historyRebuild": "履歴の再構築",
-    "noHistory": "確定済みの日次スナップショットを作成するには履歴を開始してください。",
+
     "revisionsUpdated": "履歴の改訂 %d 件を更新しました",
     "updating": "履歴を更新中…"
   },

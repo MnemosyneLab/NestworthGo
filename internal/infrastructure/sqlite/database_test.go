@@ -75,6 +75,9 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 	if _, err := first.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Preserved household','USD','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := first.SQL.Exec(`INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
 	if err := first.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +107,7 @@ func TestOpenInvalidatesSnapshotsWhenHistoricalResolverPolicyChanges(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := fixtureWriter(repository).CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	snapshotID := domain.NewDailyValuationSnapshotID()
@@ -153,7 +156,7 @@ func TestSameHashSnapshotReuseRestoresCompletenessAfterResolverPolicyMigration(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+	if _, err := fixtureWriter(repository).CaptureSyntheticOrigin(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
 		t.Fatal(err)
 	}
 	cutoff := startedAt.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 999*time.Millisecond)
@@ -348,4 +351,25 @@ func accountsCreateSQL(t *testing.T, database *sql.DB) string {
 		t.Fatalf("read accounts sql: %v", err)
 	}
 	return definition
+}
+
+func TestOpenRejectsInitializedLedgerWithoutOrigin(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-origin.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','USD','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Verify(context.Background()); err == nil {
+		t.Fatal("missing origin accepted")
+	}
+	if err = db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if reopened, err := Open(path); err == nil {
+		reopened.Close()
+		t.Fatal("invalid ledger reopened")
+	}
 }

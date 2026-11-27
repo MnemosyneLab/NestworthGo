@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func reviewOracleRegressionPublications(t *testing.T, f reviewFullPipelineFixture) (domain.ReviewPublication, domain.ReviewPublication) {
 	t.Helper()
-	repository := sqlite.NewRepository(f.db)
+	repository := repos.New(f.db)
 	candidateCapture, err := repository.CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestReviewFullOracleDiscardsCapturedProjectionInputs(t *testing.T) {
 	if _, err := f.service.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	repository := sqlite.NewRepository(f.db)
+	repository := repos.New(f.db)
 	pristineCapture, err := fullReviewOracle(repository).CaptureReviewProjection(t.Context(), f.householdID, *f.now)
 	if err != nil {
 		t.Fatal(err)

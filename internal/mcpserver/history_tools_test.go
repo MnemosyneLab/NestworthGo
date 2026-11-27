@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -20,7 +21,7 @@ func historyFixture(t *testing.T) (*Service, *application.Service, string, []str
 	t.Helper()
 	ctx := context.Background()
 	app := wailstest.NewService(t)
-	app.SetClock(func() time.Time { return time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "History", BaseCurrency: "USD", MemberNames: []string{"Alice"},
 		Timezone: "UTC", HistoryStartDate: "2025-03-01",
@@ -38,7 +39,7 @@ func historyFixture(t *testing.T) (*Service, *application.Service, string, []str
 	if err != nil {
 		t.Fatal(err)
 	}
-	app.SetClock(func() time.Time { return time.Date(2025, 3, 5, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2025, 3, 5, 12, 0, 0, 0, time.UTC) })
 	h := history.NewService(app)
 	ids := make([]string, 0, 2)
 	for _, entry := range []struct {
@@ -197,7 +198,7 @@ func TestAnalyzePeriodCancellationReleasesWritePermit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var clockObserved atomic.Bool
-	app.SetClock(func() time.Time {
+	testfixture.SetClock(app, func() time.Time {
 		clockObserved.Store(true)
 		cancel()
 		return time.Date(2025, 3, 5, 12, 0, 0, 0, time.UTC)

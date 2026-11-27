@@ -137,7 +137,6 @@ func (p *accountsPage) accountTitleRow() *accountRow {
 		p.liabilityPosting != nil && p.liabilityPosting.draft != nil ||
 		p.cashBalance != nil && p.cashBalance.draft != nil ||
 		p.balanceTarget != nil && p.balanceTarget.draft != nil ||
-		p.opening != nil && p.opening.draft != nil ||
 		p.investment != nil && p.investment.draft != nil {
 		return nil
 	}

@@ -161,14 +161,24 @@ func (p *onboardingPage) layoutHousehold(gtx layout.Context, view ui.View, origi
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.toggle.Clicked(gtx) {
-				p.historical = !p.historical
+			return fieldPosition(gtx, &origin, view.Message(fmt.Sprintf(l.Text(i18n.OnboardingTimezone), view.TimeLocation.String()), view.Colors.SecondaryInk))
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.dateOptions.Clicked(gtx) {
+				if p.showHistoryDate {
+					p.day = ""
+				}
+				p.showHistoryDate = !p.showHistoryDate
 				gtx.Execute(op.InvalidateCmd{})
 			}
-			return fieldPosition(gtx, &origin, view.TabButton(&p.toggle, l.Text(i18n.OnboardingHistorical), p.historical))
+			label := i18n.OnboardingHistorical
+			if p.showHistoryDate {
+				label = i18n.OnboardingUseToday
+			}
+			return fieldPosition(gtx, &origin, view.Button(&p.dateOptions, l.Text(label)))
 		}),
 	}
-	if p.historical {
+	if p.showHistoryDate {
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				weekStart := time.Monday
@@ -179,7 +189,6 @@ func (p *onboardingPage) layoutHousehold(gtx layout.Context, view ui.View, origi
 					ui.DateOptions{Today: today, Max: today, WeekStart: weekStart, Format: view.DateFormat}, day, func(value string) { p.day = value })
 				return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 			}),
-			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OnboardingTimezone), view.TimeLocation.String()), view.Colors.SecondaryInk)),
 		)
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)

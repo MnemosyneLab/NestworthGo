@@ -39,7 +39,7 @@ reference value, source reference, civil as-of date, optional local time and led
 timezone, note and actual server checked timestamp. Date-only evidence never
 receives an invented source time. Skipped and unresolved outcomes require a note;
 confirmation requires a civil as-of date; source reference text is optional.
-New GUI checks default to the current ledger civil day (UTC before History Origin),
+New GUI checks default to the current ledger civil day,
 refreshed across midnight and at preview. Explicit selections, cleared fields and
 saved dates stay unchanged. Source text is never synthesized. The MCP request
 accepts omitted or empty reference text without changing persisted JSON encoding.

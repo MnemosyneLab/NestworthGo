@@ -450,7 +450,7 @@ func cashMovementProblem(movement history.CashMovement, err error, fallback i18n
 		return fallback
 	}
 	switch issue.Code {
-	case domain.ErrHistoryNotStarted:
+	case domain.ErrMissingHistoryOrigin:
 		if movement.Debt() || movement == history.CashValueUpdate {
 			return i18n.CashMovementHistoryRequired
 		}

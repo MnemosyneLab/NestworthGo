@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"testing"
 	"time"
@@ -22,8 +23,8 @@ func TestReconciliationAccountImportAndCashEntriesMatchWails(t *testing.T) {
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	ref, _, _, refIDs := openExistingBuyFixture(t)
 	clock := func() time.Time { return accountTestClock }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	fault := &linkedDatedFault{Service: app}
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session, refSession := startTestHoldingReconciliation(t, api, ids.account), startTestHoldingReconciliation(t, refAPI, refIDs.account)
@@ -223,7 +224,7 @@ func TestReconciliationAccountImportAndCashEntriesMatchWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	assertNativeTradeCash(t, reopened, ids.account, map[domain.CurrencyCode]string{"USD": "157"})
 	links, err := reconciliation.NewService(reopened).Links(ctx, session.ID)
 	if err != nil || len(links) != 3 {

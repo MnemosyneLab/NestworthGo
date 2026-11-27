@@ -141,7 +141,7 @@ func TestPortfolioCatalogCreateFromProviderPopulatesAndPreservesIdentity(t *test
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	items, err := reopened.ListInstruments(ctx, true)
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestPortfolioCatalogShowsUnheldInstrumentsAndArchivesWithConfirmation(t *te
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	if instrument := current(reopened); instrument.ArchivedAt != nil || instrument.Name != "Renamed unheld bond" ||
 		instrument.QuoteCurrency != "USD" || instrument.QuoteSource != domain.QuoteSourceManual {
 		t.Fatalf("catalog change did not preserve the expected identity and denomination after reopen: %+v", instrument)

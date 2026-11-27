@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"testing"
 	"time"
 )
@@ -72,7 +73,7 @@ func TestReviewPrefixMemoGuards(t *testing.T) {
 				}
 				t.Cleanup(func() { db.Close() })
 				f.db = db
-				r = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+				r = repos.New(db).WithDefaultReviewOptimizations()
 				f.s.repository = r
 				wantSuffix = false
 			case "clock-rollback":

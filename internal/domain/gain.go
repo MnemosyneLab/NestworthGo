@@ -118,16 +118,3 @@ type DividendIncomeView struct {
 	Available     bool
 	MissingReason string
 }
-
-// StartingPointHoldingView is the editable, family-facing draft used before
-// history begins. UnitCost is prefilled from the selected current quote and
-// is intentionally kept as a canonical string until the application parses
-// and validates it.
-type StartingPointHoldingView struct {
-	HoldingID      HoldingID
-	InstrumentID   InstrumentID
-	InstrumentName string
-	Currency       CurrencyCode
-	Quantity       string
-	UnitCost       string
-}

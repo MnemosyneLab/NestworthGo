@@ -127,14 +127,22 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		return value
 	}
 	before, refBefore := netWorth(app), netWorth(reference)
+	initialActivities := make(map[*application.Service][]domain.Activity)
+	for _, service := range []*application.Service{app, reference} {
+		rows, err := service.ListActivities(ctx, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		initialActivities[service] = rows
+	}
 	checkState := func(s *application.Service, bank domain.AccountID, baseline portfolioapi.OverviewDTO, active, applied, available, shortfall string) {
 		t.Helper()
 		if again := netWorth(s); !reflect.DeepEqual(again, baseline) {
 			t.Fatalf("reservation changed net worth: %+v -> %+v", baseline, again)
 		}
 		activities, err := s.ListActivities(ctx, 10)
-		if err != nil || len(activities) != 0 {
-			t.Fatalf("reservation wrote activities: %+v / %v", activities, err)
+		if err != nil || !reflect.DeepEqual(activities, initialActivities[s]) {
+			t.Fatalf("reservation changed activities: %+v / %v", activities, err)
 		}
 		report, err := readAvailableFunds(ctx, s)
 		if err != nil {
@@ -261,8 +269,9 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return accountTestClock })
+	initialActivities[reopened] = initialActivities[app]
 	parity(reopened)
 	checkState(reopened, ids.bank, before, "40.125", "40.125", "85.3071", "0")
 	checkState(reference, ref.bank, refBefore, "40.125", "40.125", "85.3071", "0")
@@ -441,7 +450,7 @@ func TestAvailableFundsGlobalReservationEditKeepsSelectedHorizon(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	saved, err := readFundsReservation(ctx, reopened, domain.LiquiditySourceRef{}, funds.state)
 	if err != nil {
 		t.Fatal(err)

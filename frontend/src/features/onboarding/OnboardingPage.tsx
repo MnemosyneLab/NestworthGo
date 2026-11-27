@@ -40,8 +40,7 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 /**
  * OnboardingPage implements the "Household creation, base currency, first
  * Members" flow end to end through HouseholdService. Language is chosen here
- * so the form can be completed before Settings exists. The optional historical
- * start creates a zero-asset History Origin in the same onboarding transaction.
+ * so the form can be completed before Settings exists. An empty History Origin is created in the same onboarding transaction.
  */
 export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { t } = useTranslation();
@@ -51,7 +50,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   const saveSettings = useSaveSettings();
   const completeOnboarding = useCompleteOnboarding(onCompleted);
   const [language, setLanguagePreference] = useState<Language>(settings.data?.language ?? Language.LanguageSystem);
-  const [startHistorical, setStartHistorical] = useState(false);
+  const [showHistoryDate, setShowHistoryDate] = useState(false);
   const [historyDate, setHistoryDate] = useState("");
   const historyTimezone = resolvedTimeZone(settings.data?.timezone);
   const today = localDateInTimeZone(historyTimezone);
@@ -97,13 +96,14 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   const baseCurrency = useWatch({ control, name: "baseCurrency" });
   const currencyReady = Boolean(currencies.data?.includes(baseCurrency));
   const onSubmit = (values: OnboardingFormValues) => {
-    if (!currencies.data?.includes(values.baseCurrency)) return;
+    if (completeOnboarding.isPending || !settings.data || !currencies.data?.includes(values.baseCurrency)) return;
     completeOnboarding.mutate(
       {
         householdName: values.householdName,
         baseCurrency: values.baseCurrency,
         memberNames: values.memberNames.map((member) => member.name.trim()).filter(Boolean),
-        ...(startHistorical ? { timezone: historyTimezone, historyStartDate: historyDate || today } : {}),
+        timezone: historyTimezone,
+        ...(showHistoryDate && historyDate ? { historyStartDate: historyDate } : {}),
       },
     );
   };
@@ -186,16 +186,16 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
               </div>
 
               <div className="flex flex-col gap-2 rounded-xl border border-border p-4">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" checked={startHistorical} onChange={(event) => setStartHistorical(event.target.checked)} />
-                  {t("onboarding.historicalStart")}
-                </label>
-                <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.historicalStartHelp")}</p>
-                {startHistorical && (
+                <p className="text-sm font-medium">{t("onboarding.historicalStartHelp")}</p>
+                <p className="text-xs text-muted-foreground">{t("onboarding.historicalTimezone", { timezone: historyTimezone })}</p>
+                <Button type="button" variant="outline" size="sm" className="self-start"
+                  aria-expanded={showHistoryDate} onClick={() => { if (showHistoryDate) setHistoryDate(""); setShowHistoryDate((shown) => !shown); }}>
+                  {t(showHistoryDate ? "onboarding.historyUseToday" : "onboarding.historicalStart")}
+                </Button>
+                {showHistoryDate && (
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="onboarding-history-date">{t("history.startDate")}</Label>
                     <DatePicker id="onboarding-history-date" value={historyDate || today || ""} max={today} onChange={setHistoryDate} />
-                    <p className="text-xs text-muted-foreground">{t("onboarding.historicalTimezone", { timezone: historyTimezone })}</p>
                   </div>
                 )}
               </div>
@@ -249,6 +249,8 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
               {currencies.isError && <p className="text-xs text-warning-foreground">{t("onboarding.currencyLoadError")}</p>}
 
+              {settings.isError && <p role="alert" className="text-sm text-destructive">{displayError(settings.error, t("settings.saveError"))} <Button type="button" variant="outline" onClick={() => void settings.refetch()}>{t("common.retryAction")}</Button></p>}
+
               {saveSettings.isError && (
                 <p role="alert" className="text-sm text-destructive">
                   {displayError(saveSettings.error, t("settings.saveError"))}
@@ -261,7 +263,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
                 </p>
               )}
 
-              <Button type="submit" disabled={completeOnboarding.isPending || !currencyReady}>
+              <Button type="submit" disabled={completeOnboarding.isPending || !currencyReady || !settings.data || saveSettings.isPending}>
                 {completeOnboarding.isPending ? t("common.pending") : t("onboarding.complete")}
               </Button>
             </form>

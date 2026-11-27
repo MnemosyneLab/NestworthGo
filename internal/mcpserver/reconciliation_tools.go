@@ -258,7 +258,7 @@ func (s *Service) commitReconciliation(ctx context.Context, in CommitChangeInput
 			return err
 		}
 		if origin == nil {
-			return fail("history_not_started", "start history in the App before recording changes")
+			return fail("history_origin_missing", "ledger history origin is missing")
 		}
 		commands := make([]any, len(plan.Commands))
 		for i, request := range plan.Commands {

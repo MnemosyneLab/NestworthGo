@@ -10,7 +10,7 @@ func TestArchiveMemberPreservesActiveOwnerForLiveAccounts(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "member-archive-owners", []string{"Alice", "Bob", "Carol"})
 	alice, bob, carol := bootstrap.Members[0].ID, bootstrap.Members[1].ID, bootstrap.Members[2].ID
-	sole, err := service.CreateAccount(ctx, AccountInput{Name: "Sole", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})
+	sole, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Sole", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestArchiveMemberPreservesActiveOwnerForLiveAccounts(t *testing.T) {
 	if err := service.ArchiveMember(ctx, carol, true); err != nil {
 		t.Fatalf("archive non-owner: %v", err)
 	}
-	if _, err := service.UpdateAccount(ctx, sole.Account.ID, AccountInput{OwnerIDs: []domain.MemberID{alice, bob}}); err != nil {
+	if _, err := service.fixtureUpdateAccount(ctx, sole.Account.ID, AccountInput{OwnerIDs: []domain.MemberID{alice, bob}}); err != nil {
 		t.Fatalf("share account ownership: %v", err)
 	}
 	if err := service.ArchiveMember(ctx, alice, true); err != nil {
@@ -49,11 +49,11 @@ func TestArchiveMemberIgnoresArchivedAccounts(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "member-archive-old-account", []string{"Alice", "Bob"})
 	alice := bootstrap.Members[0].ID
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Old", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Old", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ArchiveAccount(ctx, account.Account.ID, true); err != nil {
+	if err := service.fixtureArchiveAccount(ctx, account.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.ArchiveMember(ctx, alice, true); err != nil {

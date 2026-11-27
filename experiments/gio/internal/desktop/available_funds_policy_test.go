@@ -167,7 +167,7 @@ func TestAvailableFundsOrdinaryPolicyFromOverview(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(clock)
 	read, err := reopened.LiquidityRead(ctx, application.LiquidityOverviewQuery{})
 	if err != nil {

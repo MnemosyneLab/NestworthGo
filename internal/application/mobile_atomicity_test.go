@@ -10,7 +10,7 @@ import (
 func TestMobileQuoteReceiptFailureRollsBackObservation(t *testing.T) {
 	s, db, _, _ := overviewFixture(t)
 	ctx := t.Context()
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic atomic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic atomic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,21 +50,21 @@ func TestMobileManualHealthFixesLeaveDerivedIssuesVisible(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	ctx := t.Context()
 	account := overviewAccount(t, s, owner, "Synthetic funds", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "1"}); err != nil {
+	if _, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+	if _, err := s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	overviewAccount(t, s, owner, "Synthetic USD", "bank_account", "asset", "balance", "USD", "100")
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)

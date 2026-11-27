@@ -113,7 +113,7 @@ NESTWORTH_DATABASE_PATH="$QA_ROOT/review/household.db" \
 That helper creates a synthetic household and flat/loss/missing/distribution/
 stale NAV cases. When a needed scenario is not available in a maintained
 seeder, a temporary harness may onboard and seed through real
-`application.Service` APIs (for example, start History before adding events,
+`application.Service` APIs (for example, create a household and record events,
 then import synthetic market data). Keep it out of the permanent source tree
 afterward; do not bypass service validation or fabricate repository state with
 SQL.
@@ -226,7 +226,7 @@ and separate browser coverage from unit/regression coverage.
 - Inspect asset changes, income and return analysis. Check ordinary date
   selection, the future-date boundary, and product fields whose valid dates
   legitimately extend into the future.
-- Start History and archive a no-position instrument through the UI, then
+- Archive a no-position instrument through the UI, then
   return to the mounted analysis/review views and confirm fresh reads. Also
   check that archiving an instrument with an open position is rejected.
 - In investment review, preview a rule with multiple `Meet all` conditions,

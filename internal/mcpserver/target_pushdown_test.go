@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -42,8 +43,8 @@ func testPushdownRequestEvidence(t *testing.T, extra int) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := &pushdownRepositorySpy{Repository: sqlite.NewRepository(db)}
-	app := application.NewService(repo)
+	repo := &pushdownRepositorySpy{Repository: testfixture.Repository(db)}
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo.Repository)
 	fx := newLedgerFixtureWithApp(t, app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
@@ -53,14 +54,14 @@ func testPushdownRequestEvidence(t *testing.T, extra int) {
 	}
 	// 40 irrelevant accounts and 40 irrelevant quotes; target has one observation.
 	for n := 0; n < 40; n++ {
-		_, err := app.CreateAccount(t.Context(), application.AccountInput{Name: fmt.Sprintf("Synthetic irrelevant %d", n), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", Ownership: []domain.OwnershipShare{{MemberID: members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+		_, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: fmt.Sprintf("Synthetic irrelevant %d", n), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", Ownership: []domain.OwnershipShare{{MemberID: members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 	items := []application.AgentMarketDataItem{{InstrumentID: fx.instrument, Currency: "USD", Kind: "close", Date: "2026-09-28", Value: "1.12345678", SourceTitle: "Synthetic target"}}
 	for n := 0; n < 40; n++ {
-		i, err := app.CreateInstrument(t.Context(), application.InstrumentInput{Name: fmt.Sprintf("Synthetic irrelevant %d", n), Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+		i, err := testfixture.CreateInstrument(app, t.Context(), application.InstrumentInput{Name: fmt.Sprintf("Synthetic irrelevant %d", n), Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -141,7 +142,7 @@ func TestAgentAuditScopedCaptureRetainsOutsideInvalidators(t *testing.T) {
 	original := first["quoteIds"].([]any)[0]
 	args := map[string]any{"limit": 1, "filter": map[string]any{"instrumentIds": []string{fx.instrument}, "operations": []string{"append"}, "fromDate": "2026-09-27", "toDate": "2026-09-27", "createdTo": "2026-09-29T12:00:00.000000001Z"}}
 	frozen := scaleCapture(t, c, "list_agent_market_data", args)
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
 	fixed := mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "correct", "targetQuoteId": original, "instrumentId": fx.instrument, "currency": "USD", "value": "2", "kind": "close", "date": "2026-09-28", "sourceTitle": "Synthetic next-date correction"}}})
 	mutate(t, c, "import_market_data", map[string]any{"items": []any{map[string]any{"operation": "retract", "targetQuoteId": fixed["quoteIds"].([]any)[0], "sourceTitle": "Synthetic withdrawal"}}})
 	after := scaleCapture(t, c, "list_agent_market_data", args)

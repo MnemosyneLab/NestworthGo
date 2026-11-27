@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
@@ -21,14 +21,14 @@ func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
 				s, db, _ := reconciliationFixture(t)
 				ctx := t.Context()
 				aid := seedHoldingsCash(t, s, ctx, "100")
-				instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic coverage ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+				instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic coverage ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 				if err != nil {
 					t.Fatal(err)
 				}
 				var holding domain.Holding
 				create := func() {
 					var err error
-					holding, err = s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+					holding, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -64,7 +64,7 @@ func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
 					if _, err := db.SQL.Exec("DELETE FROM reconciliation_items WHERE session_id=? AND id=?", v.ID, "holding:"+holding.ID.String()); err != nil {
 						t.Fatal(err)
 					}
-					revisions, err := sqlite.NewRepository(db).ReconciliationRevisions(ctx)
+					revisions, err := repos.New(db).ReconciliationRevisions(ctx)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -80,7 +80,7 @@ func TestReconciliationCompletedCoverageIsDerivedAndReadOnly(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				frozen, err := sqlite.NewRepository(db).ReconciliationSession(ctx, v.HouseholdID, v.ID)
+				frozen, err := repos.New(db).ReconciliationSession(ctx, v.HouseholdID, v.ID)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -148,11 +148,11 @@ func TestReconciliationArchivedZeroHoldingReadContext(t *testing.T) {
 			s, db, _ := reconciliationFixture(t)
 			ctx := t.Context()
 			aid := seedHoldingsCash(t, s, ctx, "100")
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+			holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -167,7 +167,7 @@ func TestReconciliationArchivedZeroHoldingReadContext(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			revisions, err := sqlite.NewRepository(db).ReconciliationRevisions(ctx)
+			revisions, err := repos.New(db).ReconciliationRevisions(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -196,7 +196,7 @@ func TestReconciliationArchivedZeroHoldingReadContext(t *testing.T) {
 				t.Fatal("legacy zero evidence lost")
 			}
 			current = recAction(t, s, ReconciliationAction{Action: "pause", SessionID: current.ID, ExpectedRevision: current.Revision})
-			frozen, err := sqlite.NewRepository(db).ReconciliationSession(ctx, current.HouseholdID, current.ID)
+			frozen, err := repos.New(db).ReconciliationSession(ctx, current.HouseholdID, current.ID)
 			if err != nil || len(frozen.Accounts[0].ArchivedHoldingIDs) != 0 || frozen.Accounts[0].InventoryCoverageGap || frozen.Accounts[0].FinancialRevisionChanged || len(frozen.Accounts[0].UncoveredArchivedHoldings) != 0 {
 				t.Fatal("current hints persisted into historical evidence", frozen, err)
 			}

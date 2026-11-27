@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 	t.Parallel()
 	fixture := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
-	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := fixture.service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	holdingID := findHoldingForInstrument(t, fixture.repository, fixture.account.Account.ID, fixture.qqq.ID)
@@ -58,7 +58,7 @@ func TestCurrentFixtureSupportsRepositoryGainReads(t *testing.T) {
 	t.Parallel()
 	database := seedGainCurrentFixture(t)
 	defer database.Close()
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	ctx := context.Background()
 	snapshot, err := repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {

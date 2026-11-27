@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"testing"
 	"time"
@@ -34,16 +35,16 @@ func TestFullRuntimeTypedRejectionDoesNotCreateUnknownReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(db)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
 	app.SetLiveDatabasePath(path)
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic typed admission", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}, Timezone: "UTC", HistoryStartDate: "2026-09-01"}); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := app.CreateInstrument(t.Context(), application.InstrumentInput{Name: "Synthetic instrument", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := testfixture.CreateInstrument(app, t.Context(), application.InstrumentInput{Name: "Synthetic instrument", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}

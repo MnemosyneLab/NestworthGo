@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 	"time"
@@ -22,7 +23,7 @@ func dataHealthFixture(t *testing.T, startHistory bool) (*Service, *application.
 	if startHistory {
 		now = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	}
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	// The sync worker must finish before wailstest closes its temporary SQLite DB.
 	t.Cleanup(app.CancelMarketDataSyncAndWait)
 	input := application.OnboardingInput{
@@ -143,15 +144,12 @@ func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := app.CreateHolding(ctx, application.HoldingInput{
 		AccountID: account.Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	app.SetClock(func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
 	completed := make(chan application.SyncJobSnapshot, 1)
 	app.SetMarketDataSyncListener(func(event string, job application.SyncJobSnapshot) {
 		if event == application.SyncEventCompleted {

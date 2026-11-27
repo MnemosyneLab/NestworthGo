@@ -342,7 +342,7 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 		var originTimezone string
 		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, bundle.Operation.HouseholdID.String()).Scan(&originTimezone); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a product operation"}
+				return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 			}
 			return err
 		}

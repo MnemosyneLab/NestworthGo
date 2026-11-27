@@ -258,10 +258,11 @@ func (s *Service) prepareFinancialContextSide(ctx context.Context, in FinancialC
 	portfolio := inputs.Portfolio
 	asOf := FinancialContextAsOf{Mode: "current"}
 	cutoff := now
-	if portfolio.Origin != nil {
-		tz := portfolio.Origin.Timezone
-		asOf.Timezone = &tz
+	if portfolio.Origin == nil {
+		return financialContextSide{}, missingHistoryOrigin()
 	}
+	tz := portfolio.Origin.Timezone
+	asOf.Timezone = &tz
 	if historical {
 		origin := inputs.History.Origin
 		location, loadErr := time.LoadLocation(origin.Timezone)

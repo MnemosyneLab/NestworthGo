@@ -246,7 +246,7 @@ const (
 	HealthSnapshotMissing
 	HealthSnapshotOutdated
 	HealthSyncFailure
-	HealthHistoryNotStarted
+
 	HealthBlocking
 	HealthWarning
 	HealthInfo
@@ -439,7 +439,7 @@ const (
 	AccountValueNoChange
 	AccountValuePreviewFailed
 	AccountValueSaved
-	AccountValueOpening
+
 	AccountValueReconcile
 	AccountLastValuation
 	AccountCurrentBalance
@@ -1159,6 +1159,7 @@ const (
 	OnboardingIntro
 	OnboardingName
 	OnboardingHistorical
+	OnboardingUseToday
 	OnboardingDate
 	OnboardingTimezone
 	OnboardingMembers
@@ -1303,7 +1304,7 @@ const (
 	HistoryDetailTitle
 	HistoryViewOn
 	HistoryRowMoreActions
-	HistoryUnavailable
+
 	HistoryNoMatches
 	HistoryActivityUnavailable
 	HistoryOpenAccount
@@ -1366,29 +1367,14 @@ const (
 	HistoryOriginalCorrected
 	HistoryOriginalReversed
 	HistoryReversedEffect
-	HistoryStartAction
-	HistoryStartReview
-	HistoryStartConfirm
-	HistoryStartEdit
-	HistoryStartScope
-	HistoryStartHousehold
-	HistoryStartCaptureNow
-	HistoryStartBaseline
-	HistoryStartEmpty
-	HistoryStartPastBalances
-	HistoryStartHoldingCost
-	HistoryStartExists
-	HistoryStartPreviewFailed
-	HistoryStartWriteFailed
-	HistoryStartSaved
-	HistoryStartReadFailed
+
 	AccountCashSet
 	AccountCashTarget
 	AccountCashReason
 	AccountCashReview
 	AccountCashConfirm
 	AccountCashDelta
-	AccountCashOpeningHint
+
 	AccountCashReconcileHint
 	AccountCashNoChange
 	AccountCashTimeConflict
@@ -1402,8 +1388,7 @@ const (
 	AccountBankBalanceAction
 	AccountBankBalanceReview
 	AccountBankBalanceConfirm
-	AccountBankBalanceOpening
-	AccountBankBalanceOnConfirm
+
 	AccountBankBalanceReconcile
 	AccountBankBalanceNoChange
 	AccountBankBalancePreviewFailed
@@ -1839,13 +1824,10 @@ const (
 	OpeningPositionReview
 	OpeningPositionConfirm
 	OpeningPositionQuantity
-	OpeningPositionHelp
-	OpeningPositionSaved
+
 	OpeningPositionEmpty
 	OpeningPositionUnavailable
-	OpeningPositionLoadFailed
-	OpeningPositionNoSave
-	OpeningPositionReadFailed
+
 	PositionImportHistoryRequired
 	PositionImportHelp
 	PositionImportCostFact
@@ -1903,11 +1885,7 @@ const (
 	QuantityAdjustLocked
 	QuantityAdjustHoldingAction
 	HistoryStartOriginalCost
-	HistoryStartOriginalCostHelp
-	HistoryStartReviewedCost
-	HistoryStartQuoteRequired
-	HistoryStartDraftFailed
-	HistoryStartInvalidCost
+
 	FundsLoading
 	FundsReadFailed
 	FundsToday

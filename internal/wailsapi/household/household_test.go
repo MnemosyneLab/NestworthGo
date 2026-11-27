@@ -2,10 +2,13 @@ package household_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -114,5 +117,23 @@ func TestCompleteOnboardingValidationError(t *testing.T) {
 	}
 	if wireErr.Code != "validation" {
 		t.Fatalf("Code = %q, want validation", wireErr.Code)
+	}
+}
+
+func TestCompleteOnboardingDefaultsToLedgerCivilDate(t *testing.T) {
+	app := wailstest.NewService(t)
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 11, 21, 17, 0, 0, 0, time.UTC) })
+	svc := household.NewService(app)
+	ctx := t.Context()
+	if err := svc.CompleteOnboarding(ctx, household.CompleteOnboardingRequest{HouseholdName: "Synthetic Wails", BaseCurrency: "SGD", MemberNames: []string{"Owner"}, Timezone: "Asia/Singapore"}); err != nil {
+		t.Fatal(err)
+	}
+	origin, err := history.NewService(app).HistoryOrigin(ctx)
+	if err != nil || origin == nil || origin.Timezone != "Asia/Singapore" {
+		t.Fatalf("origin: %+v %v", origin, err)
+	}
+	at, err := time.Parse(time.RFC3339Nano, origin.StartedAt)
+	if err != nil || !at.Equal(time.Date(2026, 11, 21, 16, 0, 0, 0, time.UTC)) {
+		t.Fatalf("date: %s %v", origin.StartedAt, err)
 	}
 }

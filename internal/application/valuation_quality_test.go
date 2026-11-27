@@ -83,11 +83,11 @@ func TestDelayedNAVDisplayRolloverLateRevisionAndReadOnlyCapture(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 10, 9, 4, 0, 0, 0, time.UTC)
 	account := overviewAccount(t, s, owner, "Synthetic NAV account", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestDelayedNAVDisplayRolloverLateRevisionAndReadOnlyCapture(t *testing.T) {
 	if _, err = s.ImportAgentMarketData(ctx, domain.NewActivityID().String(), AgentMarketDataInput{Items: []AgentMarketDataItem{item}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "2"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 12, 4, 0, 0, 0, time.UTC)
@@ -162,7 +162,7 @@ func TestDelayedNAVQuantityAndNoLookahead(t *testing.T) {
 	price, _ := domain.ParseUnitPrice("2")
 	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
 	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "CNY", UnitPrice: price, SourceKind: domain.QuoteSourceAgent, SourceKey: "agent", ObservationKind: "close", EffectiveDate: "2026-10-09", ValueEffectiveAt: at, QuotedAt: at, PriceBasis: "agent_unit_nav_v1", SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label"}
-	p := domain.PortfolioSnapshot{Household: household, InstrumentQuotes: []domain.InstrumentQuote{quote}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, InstrumentQuotes: []domain.InstrumentQuote{quote}}
 	v := NewValuationService(nil, func() time.Time { return time.Date(2026, 10, 12, 16, 0, 0, 0, time.UTC) })
 	v.SetHistorical(true)
 	v.SetHistoricalMarketDate("2026-10-12")
@@ -216,7 +216,7 @@ func TestDelayedNAVAssetLevelsNeverGrantReturnsOrSearchInward(t *testing.T) {
 	item := domain.DailyValuationSnapshotItem{AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, NativeCurrency: "CNY", NativeAmount: "200", BaseAmountExact: "200", QuoteID: &quoteIDString, MissingReason: &reason}
 	price, _ := domain.ParseUnitPrice("2")
 	quote := domain.InstrumentQuote{ID: quoteID, InstrumentID: instrumentID, SourceKind: domain.QuoteSourceAgent, EffectiveDate: "2026-10-09", QuotedAt: at, ValueEffectiveAt: at, UnitPrice: price, Currency: "CNY"}
-	input := AnalysisInputs{Origin: analysisAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{{ID: instrumentID, Type: domain.InstrumentMutualFund, QuoteCurrency: "CNY"}}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{analysisAgentSnapshot("2026-10-11", item), analysisAgentSnapshot("2026-10-12", item)}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
+	input := AnalysisInputs{Origin: analysisAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{{ID: instrumentID, Type: domain.InstrumentMutualFund, QuoteCurrency: "CNY"}}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{analysisAgentSnapshot("2026-10-11", item), analysisAgentSnapshot("2026-10-12", item)}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-10-12", To: "2026-10-12", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -276,5 +276,20 @@ func TestDisplayMissingSnapshotDoesNotProveEmptyLiabilities(t *testing.T) {
 		if v.Total != nil || v.KnownSubtotal != nil || v.Quality.Availability != domain.ValuationNone {
 			t.Fatalf("missing day became known zero: %+v", v)
 		}
+	}
+}
+
+func TestDisplayDateRejectsMissingOrInvalidOrigin(t *testing.T) {
+	now := time.Date(2026, 9, 1, 23, 0, 0, 0, time.UTC)
+	if date, err := displayDate(domain.PortfolioSnapshot{}, now); err == nil || date != "" {
+		t.Fatalf("missing origin yielded a civil date %q, err=%v", date, err)
+	}
+	invalid := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "Invalid/Zone"}}
+	if date, err := displayDate(invalid, now); err == nil || date != "" {
+		t.Fatalf("invalid origin yielded a civil date %q, err=%v", date, err)
+	}
+	valid := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "Asia/Singapore"}}
+	if date, err := displayDate(valid, now); err != nil || date != "2026-09-02" {
+		t.Fatalf("ledger civil date=%q,err=%v", date, err)
 	}
 }

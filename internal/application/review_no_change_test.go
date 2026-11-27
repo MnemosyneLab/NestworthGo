@@ -16,6 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type noChangeTestRepository struct {
@@ -57,7 +58,7 @@ func (r *noChangeTestRepository) PublishCertifiedReviewProjection(ctx context.Co
 }
 
 func noChangeService(t *testing.T, f seriesZeroFixture) (*Service, *noChangeTestRepository) {
-	r := &noChangeTestRepository{Repository: sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()}
+	r := &noChangeTestRepository{Repository: repos.New(f.db).WithDefaultReviewOptimizations()}
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	s := NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -134,7 +135,7 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(fullReviewOracle(sqlite.NewRepository(db)))
+	s := NewService(fullReviewOracle(repos.New(db)))
 	s.fxProviderKey = f.s.FXProviderKey()
 	s.setClock(func() time.Time { return *f.now })
 	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {
@@ -151,7 +152,7 @@ func noChangeFullOracle(t *testing.T, f seriesZeroFixture) {
 
 func TestReviewCertifiedNoChangeAndFullOracle(t *testing.T) {
 	f, r := noChangeFixture(t)
-	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
+	if repos.New(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
 		t.Fatal("default/full oracle enabled shortcut")
 	}
 	before := noChangeProjectionRows(t, f.db)
@@ -219,7 +220,7 @@ func TestReviewNoChangeConservativeFallbacks(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer db.Close()
-				r.Repository = sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+				r.Repository = repos.New(db).WithDefaultReviewOptimizations()
 			case "epoch-reset":
 				if err := f.db.ResetFinancialSourceTracking(t.Context()); err != nil {
 					t.Fatal(err)
@@ -317,7 +318,7 @@ func TestReviewNoChangeCrashBeforeCommitAndRecovery(t *testing.T) {
 	if certificate != baseline.Certificate || !reflect.DeepEqual(baseline.Rows, noChangeProjectionRows(t, db)) {
 		t.Fatal("crashed authenticated confirmation partially committed")
 	}
-	household, err := sqlite.NewRepository(db).Household(t.Context())
+	household, err := repos.New(db).Household(t.Context())
 	if err != nil || household == nil {
 		t.Fatal("missing synthetic household", err)
 	}
@@ -352,7 +353,7 @@ func TestReviewNoChangeActivationLifecycleFullOracle(t *testing.T) {
 				}
 				account := overviewAccount(t, f.s, owner, "Synthetic no-change receiver", "brokerage", "asset", "holdings", "CNY", "")
 				var err error
-				destination, err = f.s.CreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
+				destination, err = f.s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "0"})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -690,7 +691,7 @@ func TestReviewNoChangeBootstrapRepairsHistoryOutsideReusableWindow(t *testing.T
 					t.Fatal("direct candidate capture trusted partial C2 history", err)
 				}
 			case "cross-repository-publication":
-				capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+				capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 				if err != nil || len(capture.ReusableDailyEvidence) == 0 {
 					t.Fatal("fixture did not capture a C2 rolling window", err)
 				}

@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 )
 
@@ -226,7 +227,6 @@ func TestWealthHistoryWithoutAClosedDay(t *testing.T) {
 		name, text string
 		origin     *domain.HistoryOrigin
 	}{
-		{"before History", "Start History to view daily wealth values.", nil},
 		{"starting day", "No closed days are available since History started.", &domain.HistoryOrigin{StartedAt: now, Timezone: "UTC"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -367,8 +367,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	seed := application.NewService(sqlite.NewRepository(db))
-	seed.SetClock(clock)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(seed, clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Wealth History", BaseCurrency: "AUD", MemberNames: []string{"Sample owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -382,14 +382,14 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		{Name: "Local debt", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "AUD", InitialAmount: "25.10"},
 	} {
 		input.IncludeInNetWorth, input.OwnerIDs = true, []domain.MemberID{bootstrap.Members[0].ID}
-		if _, err := seed.CreateAccount(ctx, input); err != nil {
+		if _, err := testfixture.CreateAccount(seed, ctx, input); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := seed.SetFXPreference(ctx, "USD", "AUD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(seed, ctx, "USD", "AUD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(seed, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -416,8 +416,8 @@ func TestWealthHistoryMatchesWailsOnReadOnlySyntheticCopies(t *testing.T) {
 		}
 		t.Cleanup(func() { _ = copyDB.Close() })
 		provider := &unavailableOverviewProvider{}
-		s := application.NewService(sqlite.NewRepository(copyDB), application.NewMarketDataRegistry(provider))
-		s.SetClock(clock)
+		s := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(copyDB)}, application.NewMarketDataRegistry(provider))
+		testfixture.SetClock(s, clock)
 		return s, provider
 	}
 	wails, wailsProvider := openCopy()

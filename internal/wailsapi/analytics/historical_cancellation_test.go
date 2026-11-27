@@ -34,7 +34,7 @@ func TestHistoricalCaptureCancellationAndRealErrors(t *testing.T) {
 	}
 	_, err = s.HistoricalOverview(t.Context(), "2026-08-01", "")
 	wire, ok = apierror.Parse(err.Error())
-	if !ok || wire.Code != string(domain.ErrHistoryNotStarted) {
+	if !ok || wire.Code != string(domain.ErrMissingHistoryOrigin) {
 		t.Fatalf("live missing-history failure lost its wire contract: %v", err)
 	}
 }

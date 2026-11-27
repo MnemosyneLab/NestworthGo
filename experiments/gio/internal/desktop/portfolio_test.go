@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"sync"
@@ -30,7 +31,7 @@ type portfolioFixture struct {
 func seedPortfolio(ctx context.Context, service *application.Service, clock time.Time, mode string) (ids portfolioFixture, err error) {
 	ids.instruments = make(map[string]domain.Instrument)
 	early := clock.Add(-48 * time.Hour)
-	service.SetClock(func() time.Time { return early })
+	testfixture.SetClock(service, func() time.Time { return early })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic holdings review", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {
@@ -41,7 +42,7 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 		return ids, err
 	}
 	createAccount := func(name string) (domain.AccountRecord, error) {
-		return service.CreateAccount(ctx, application.AccountInput{
+		return testfixture.CreateAccount(service, ctx, application.AccountInput{
 			Name: name, AccountType: "brokerage", TrackingMode: "holdings", BalanceSheetRole: "asset",
 			DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true, IncludeInPortfolio: true,
 		})
@@ -51,13 +52,13 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 		return ids, err
 	}
 	ids.account = broker.Account.ID
-	if _, err = service.AppendAccountCashValue(ctx, ids.account, "100", "USD", ""); err != nil {
+	if _, err = testfixture.AppendAccountCashValue(service, ctx, ids.account, "100", "USD", ""); err != nil {
 		return ids, err
 	}
-	if _, err = service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err = testfixture.CaptureSyntheticOrigin(service, ctx, "Asia/Singapore"); err != nil {
 		return ids, err
 	}
-	service.SetClock(func() time.Time { return clock })
+	testfixture.SetClock(service, func() time.Time { return clock })
 	if mode == "empty" {
 		return ids, nil
 	}
@@ -66,7 +67,7 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 		return ids, err
 	}
 	quotedAt := clock.Add(-time.Hour).Format(time.RFC3339)
-	if _, err = service.SetFXPreference(ctx, "USD", "EUR", "manual"); err != nil {
+	if _, err = testfixture.SetFXPreference(service, ctx, "USD", "EUR", "manual"); err != nil {
 		return ids, err
 	}
 	if _, err = service.AppendManualFXQuote(ctx, "EUR", "USD", "1.2", quotedAt); err != nil {
@@ -84,21 +85,21 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 		scenarios = scenarios[:1]
 	}
 	for _, item := range scenarios {
-		instrument, err := service.CreateInstrument(ctx, application.InstrumentInput{
+		instrument, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
 			Name: item.name, Symbol: item.symbol, Type: "etf", QuoteCurrency: item.currency, QuoteSource: "manual",
 		})
 		if err != nil {
 			return ids, err
 		}
 		ids.instruments[item.symbol] = instrument
-		_, err = service.CreateHolding(ctx, application.HoldingInput{
+		_, err = testfixture.CreateHolding(service, ctx, application.HoldingInput{
 			AccountID: ids.account.String(), InstrumentID: instrument.ID.String(), Quantity: item.quantity, UnitCost: item.unitCost,
 		})
 		if err != nil {
 			return ids, err
 		}
 		if item.symbol == "QA-FULL" {
-			if _, err := service.CreateHolding(ctx, application.HoldingInput{
+			if _, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{
 				AccountID: second.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0.5", UnitCost: item.unitCost,
 			}); err != nil {
 				return ids, err
@@ -116,7 +117,7 @@ func seedPortfolio(ctx context.Context, service *application.Service, clock time
 func openPortfolioFixture(t *testing.T, mode string) (*application.Service, *pilot.Session, pilot.Paths, portfolioFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, session := reopenOnboardingProfile(t, paths)
+	service, session := reopenBaselineProfile(t, paths)
 	ids, err := seedPortfolio(t.Context(), service, accountTestClock, mode)
 	if err != nil {
 		t.Fatal(err)
@@ -409,8 +410,8 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	facts, err := readPortfolio(ctx, reopened, full.ID, "")
 	if err != nil || facts.instrument == nil || len(facts.positions) != 1 || facts.positions[0].Amounts.Quantity != "3" {
 		t.Fatalf("could not read the same instrument after reopening: %+v / %v", facts, err)
@@ -428,13 +429,13 @@ func TestPortfolioShellShowsEmptyHoldingsWithFundedAccount(t *testing.T) {
 	h.frame()
 	assertPageLabel(t, &h.router, "No investment holdings.")
 	assertPageLabel(t, &h.router, "US$0.00")
-	i, err := service.CreateInstrument(t.Context(), application.InstrumentInput{
+	i, err := testfixture.CreateInstrument(service, t.Context(), application.InstrumentInput{
 		Name: "Closed Sample", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(t.Context(), application.HoldingInput{
+	if _, err := testfixture.CreateHolding(service, t.Context(), application.HoldingInput{
 		AccountID: ids.account.String(), InstrumentID: i.ID.String(), Quantity: "0",
 	}); err != nil {
 		t.Fatal(err)

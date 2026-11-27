@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 const (
@@ -94,8 +95,8 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
 	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
-	repo := sqlite.NewRepository(database)
-	svc := application.NewService(repo)
+	repo := testfixture.Repository(database)
+	svc := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo})
 	ctx := context.Background()
 
 	commit, dirty := gitIdentity()
@@ -142,12 +143,12 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 
 	cashName := cfg.Currency + " Cash"
 	loanName := cfg.Currency + " Loan"
-	cash := must(svc.CreateAccount(ctx, application.AccountInput{
+	cash := must(testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: cashName, AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: cfg.Currency, InitialAmount: loanCashInitial,
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{m1},
 	}))
-	loan := must(svc.CreateAccount(ctx, application.AccountInput{
+	loan := must(testfixture.CreateAccount(svc, ctx, application.AccountInput{
 		Name: loanName, AccountType: "loan", BalanceSheetRole: "liability",
 		TrackingMode: "balance", DefaultCurrency: cfg.Currency, InitialAmount: "0",
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{m1},
@@ -156,7 +157,7 @@ func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	report.IDs["acct_loan"] = string(loan.Account.ID)
 	add(report, "accounts", "PASS", fmt.Sprintf("cash=%s loan=%s initial_cash=%s %s loan_initial=0", cash.Account.ID, loan.Account.ID, loanCashInitial, cfg.Currency))
 
-	origin := must(svc.StartHistory(ctx, cfg.Timezone))
+	origin := must(testfixture.CaptureSyntheticOrigin(svc, ctx, cfg.Timezone))
 	compCount := countQuery(database.SQL, `SELECT COUNT(*) FROM history_origin_components`)
 	report.IDs["history_origin_id"] = string(origin.ID)
 	var storedTZ string

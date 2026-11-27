@@ -11,7 +11,7 @@ import (
 func TestInstrumentOwnershipIncludesClosedProductsAndPreservesOrdinarySameType(t *testing.T) {
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
-	ordinary, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Ordinary manual NAV", Type: "bank_investment_product", QuoteCurrency: "USD", QuoteSource: "manual"})
+	ordinary, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Ordinary manual NAV", Type: "bank_investment_product", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,9 +72,9 @@ func TestInstrumentOwnershipIncludesClosedProductsAndPreservesOrdinarySameType(t
 			_, err = service.RecordChange(ctx, command)
 			refused(err)
 		}
-		_, err = service.CreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: detail.Contract.InstrumentID.String(), Quantity: "1"})
+		_, err = service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.String(), InstrumentID: detail.Contract.InstrumentID.String(), Quantity: "1"})
 		refused(err)
-		_, err = service.UpdateInstrument(ctx, detail.Contract.InstrumentID, InstrumentInput{Name: "Forbidden generic edit"})
+		_, err = service.fixtureUpdateInstrument(ctx, detail.Contract.InstrumentID, InstrumentInput{Name: "Forbidden generic edit"})
 		refused(err)
 		refused(service.ArchiveInstrument(ctx, detail.Contract.InstrumentID, true))
 		_, err = service.AppendManualInstrumentQuote(ctx, detail.Contract.InstrumentID, "999", when.Format(time.RFC3339), false)

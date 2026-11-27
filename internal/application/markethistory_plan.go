@@ -68,7 +68,7 @@ func (s *Service) planMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	if origin == nil {
-		return HistoryRepairPlan{}, historyRepairInputs{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before planning market-data repair"}
+		return HistoryRepairPlan{}, historyRepairInputs{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
@@ -562,7 +562,7 @@ func (s *Service) rebuildDirtySnapshots(ctx context.Context, through string) (in
 		return 0, err
 	}
 	if origin == nil {
-		return 0, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before rebuilding snapshots"}
+		return 0, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {

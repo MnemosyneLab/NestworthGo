@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -297,7 +298,7 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 		t.Fatalf("reopened reversal receipt returned %s, %v", saved.Activity.ID, err)
 	}
 	for _, app := range []*application.Service{reopened, reference} {
-		app.SetClock(func() time.Time { return accountTestClock.Add(48 * time.Hour) })
+		testfixture.SetClock(app, func() time.Time { return accountTestClock.Add(48 * time.Hour) })
 		assets, err := app.AssetChange(ctx, domain.AnalysisQuery{
 			Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-11-20", To: "2026-11-22",
 			Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true,
@@ -329,7 +330,7 @@ func seedAmendmentTimeline(t *testing.T, service *application.Service) (bank dom
 		t.Fatalf("unexpected synthetic sources: %+v, %v", rows, err)
 	}
 	bank = rows[0].Account.ID
-	service.SetClock(func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
 	reserve, err := service.CreateAccount(ctx, application.AccountInput{
 		Name: "Amendment reserve", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "USD", InitialAmount: "0", OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true,
@@ -337,7 +338,7 @@ func seedAmendmentTimeline(t *testing.T, service *application.Service) (bank dom
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	adapter := historyapi.NewService(service)
 	record := func(request historyapi.ChangeCommandRequest) domain.ActivityID {
 		t.Helper()

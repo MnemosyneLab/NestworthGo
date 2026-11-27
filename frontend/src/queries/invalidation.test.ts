@@ -14,7 +14,7 @@ import {
 } from "@/queries/invalidation";
 import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries/accounts";
 import { useSetInstrumentClosedDate, useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
-import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
+import { useFixChange, useRecordChange, useUndoChange } from "@/queries/history";
 import { useRefreshAll, useRefreshFX } from "@/queries/marketdata";
 import { reviewV2Key } from "@/queries/investmentReviewV2";
 
@@ -62,8 +62,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
-    StartHistory: vi.fn(async () => ({ id: "origin-1" })),
-    StartHistoryWithCosts: vi.fn(async () => ({ id: "origin-1" })),
     StartingPointDraft: vi.fn(async () => []),
     RecordChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
     UndoChange: vi.fn(async () => ({ activity: { id: "a2" }, effects: [], resulting: [] })),
@@ -369,20 +367,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });
 
-  it("invalidates history, holdings, portfolio, analysis, and review after Start History", async () => {
-    const historyClient = seededClient();
-    const start = renderMutation(historyClient, useStartHistory);
-    await act(async () => {
-      await start.result.current.mutateAsync({ timezone: "UTC" });
-    });
-    expect(isInvalidated(historyClient, queryKeys.history.origin)).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.portfolio.trend("30d"))).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.analysis.returnTrend({}, "cumulative_amount"))).toBe(true);
-    expect(isInvalidated(historyClient, reviewV2Key)).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.overview.all)).toBe(true);
-    expect(isInvalidated(historyClient, queryKeys.liquidity.upcomingActions)).toBe(true);
-
+  it("invalidates affected portfolio reads after instrument create and archive", async () => {
     const instrumentClient = seededClient();
     const create = renderMutation(instrumentClient, useCreateInstrument);
     await act(async () => {
@@ -449,14 +434,6 @@ it("refetches hidden-but-mounted holdings, portfolio, analysis, history, and rev
     queryKeys.history.origin,
     [...reviewV2Key, "alerts", { status: "pending" }, ""],
   ];
-  const reads = keys.map((key) => ({ key, read: vi.fn(async () => "synthetic") }));
-  const historyClient = createTestQueryClient();
-  renderHiddenReaders(historyClient, reads);
-  await waitFor(() => reads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(1)));
-  const start = renderMutation(historyClient, useStartHistory);
-  await act(async () => { await start.result.current.mutateAsync({ timezone: "UTC" }); });
-  await waitFor(() => reads.forEach(({ read }) => expect(read).toHaveBeenCalledTimes(2)));
-
   const archiveReads = keys.map((key) => ({ key, read: vi.fn(async () => "synthetic") }));
   const archiveClient = createTestQueryClient();
   renderHiddenReaders(archiveClient, archiveReads);

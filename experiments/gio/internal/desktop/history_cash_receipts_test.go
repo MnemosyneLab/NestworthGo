@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"os/exec"
 	"strconv"
@@ -23,8 +24,8 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 	t.Helper()
 	ctx := t.Context()
 	paths := prepareOnboardingProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
-	app.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
+	app, session := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(app, func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic receipts", BaseCurrency: "USD", MemberNames: []string{"Example owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 		{"Harbor Checking", "bank_account", "balance", "100"},
 		{"Cash Studio", "brokerage", "holdings", ""},
 	} {
-		row, err := app.CreateAccount(ctx, application.AccountInput{
+		row, err := testfixture.CreateAccount(app, ctx, application.AccountInput{
 			Name: item.name, AccountType: item.typ, TrackingMode: item.mode, BalanceSheetRole: "asset",
 			DefaultCurrency: "USD", InitialAmount: item.initial, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true,
 		})
@@ -45,13 +46,13 @@ func seedCashReceiptProfile(t *testing.T) pilot.Paths {
 		}
 		if item.mode == "holdings" {
 			for currency, amount := range map[string]string{"USD": "200", "EUR": "15"} {
-				if _, err := app.AppendAccountCashValue(ctx, row.Account.ID, amount, currency, ""); err != nil {
+				if _, err := testfixture.AppendAccountCashValue(app, ctx, row.Account.ID, amount, currency, ""); err != nil {
 					t.Fatal(err)
 				}
 			}
 		}
 	}
-	if _, err := app.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.Close(); err != nil {
@@ -131,7 +132,7 @@ func TestCashReceiptProcessBoundary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		app, session := reopenOnboardingProfile(t, paths)
+		app, session := reopenBaselineProfile(t, paths)
 		stop := make(chan string, 1)
 		page := newHistoryCashMovements(t.Context(), cashReceiptCrashLedger{app, mode == "after", stop},
 			func() time.Time { return accountTestClock }, func() {})
@@ -157,7 +158,7 @@ func TestCashReceiptProcessBoundary(t *testing.T) {
 			t.Run(movement.name+"/"+boundary, func(t *testing.T) {
 				paths := seedCashReceiptProfile(t)
 				mutation, activity := runCashReceiptCrash(t, movement.kind, boundary)
-				app, session := reopenOnboardingProfile(t, paths)
+				app, session := reopenBaselineProfile(t, paths)
 				pending, err := session.CashReceipts.Pending(t.Context())
 				if err != nil || len(pending) != 1 || !pending[0].MatchesLedger || pending[0].MutationID != mutation {
 					t.Fatalf("lost the frozen identity at %s: %+v / %v", boundary, pending, err)
@@ -315,7 +316,7 @@ func TestCashReceiptConflictAndReadFailureOnlyInspect(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			paths := seedCashReceiptProfile(t)
-			app, session := reopenOnboardingProfile(t, paths)
+			app, session := reopenBaselineProfile(t, paths)
 			page, _, h, finish := cashMovementHarness(t, app)
 			prepareCashReceiptReview(t, page, history.CashTransfer)
 			review := page.draft.review
@@ -369,7 +370,7 @@ func (cashReceiptSaveFailure) Remember(context.Context, string, string) error {
 
 func TestCashReceiptWriteErrorDoesNotDispatchAndSameProcessRetryKeepsIdentity(t *testing.T) {
 	paths := seedCashReceiptProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	fault := &cashMovementFault{Service: app, loseAttempt: 1, started: make(chan struct{}), release: make(chan struct{})}
 	close(fault.release)
 	page, timeline, h, finish := cashMovementHarness(t, fault)

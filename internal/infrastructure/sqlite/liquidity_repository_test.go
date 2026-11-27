@@ -19,7 +19,7 @@ func TestLiquidityReservationSourceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateHolding(ctx, holding); err != nil {
+	if err := fixtureWriter(repository).CreateHolding(ctx, holding); err != nil {
 		t.Fatal(err)
 	}
 	for _, source := range []domain.LiquiditySourceRef{
@@ -84,7 +84,7 @@ func TestBalanceReservationOverviewSurvivesReloadEditAndRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.CreateAccount(ctx, account, ownership, &value); err != nil {
+	if err := fixtureWriter(repository).CreateAccount(ctx, account, ownership, &value); err != nil {
 		t.Fatal(err)
 	}
 	service := application.NewService(repository)

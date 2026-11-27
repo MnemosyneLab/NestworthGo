@@ -457,7 +457,11 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
 	targetDate := v.historicalDate()
 	if !v.historical {
-		targetDate = displayDate(snapshot, v.now())
+		var err error
+		targetDate, err = displayDate(snapshot, v.now())
+		if err != nil {
+			return domain.ValuationComponent{}, nil, err
+		}
 	}
 	// Closed-day freshness requires the same eligible daily anchor as history.
 	anchor := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, []domain.InstrumentQuote{*quote}, nil, targetDate, v.now()).quote
@@ -576,16 +580,23 @@ func (v *ValuationService) convertUsingFXQuote(snapshot domain.PortfolioSnapshot
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
-	evidence := v.quoteEvidenceForFXConversion(snapshot, *quote)
+	evidence, err := v.quoteEvidenceForFXConversion(snapshot, *quote)
+	if err != nil {
+		return decimal.Zero, nil, nil, err
+	}
 	return converted, &evidence, nil, nil
 }
 
-func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.PortfolioSnapshot, quote domain.FXQuote) domain.QuoteEvidenceView {
+func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.PortfolioSnapshot, quote domain.FXQuote) (domain.QuoteEvidenceView, error) {
 	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
 	evidence.EffectiveDate, evidence.ValueEffectiveAt, evidence.FetchedAt = quote.EffectiveDate, quote.ValueEffectiveAt, quote.FetchedAt
 	targetDate := v.historicalDate()
 	if !v.historical {
-		targetDate = displayDate(snapshot, v.now())
+		var err error
+		targetDate, err = displayDate(snapshot, v.now())
+		if err != nil {
+			return domain.QuoteEvidenceView{}, err
+		}
 	}
 	preference := implicitFXPreferenceTo(snapshot, quote.BaseCurrency, quote.QuoteCurrency)
 	anchor := selectHistoricalFXQuoteAtMarketDate(preference, []domain.FXQuote{quote}, quote.BaseCurrency, quote.QuoteCurrency, v.providerKey(), targetDate, v.now())
@@ -594,7 +605,7 @@ func (v *ValuationService) quoteEvidenceForFXConversion(snapshot domain.Portfoli
 		evidence.Freshness = domain.FreshnessFresh
 	}
 	evidence.Carried = !evidence.ClosedCarry && quote.SourceKind != domain.QuoteSourceManual && quote.EffectiveDate != "" && quote.EffectiveDate < targetDate
-	return evidence
+	return evidence, nil
 }
 
 func (v *ValuationService) providerKey() string {

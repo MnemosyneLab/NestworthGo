@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -28,7 +29,7 @@ func responseReviewFixture(t *testing.T, n int) ledgerFixture {
 	if _, err := fx.app.ImportAgentMarketData(t.Context(), domain.NewActivityID().String(), application.AgentMarketDataInput{Items: quotes}); err != nil {
 		t.Fatal(err)
 	}
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
 	return fx
 }
 

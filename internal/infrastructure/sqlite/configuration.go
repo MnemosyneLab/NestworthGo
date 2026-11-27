@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 // ConfigurationRepository shares the live DB connection, including backup and
@@ -73,8 +74,14 @@ func (r *ConfigurationRepository) CoreSettings() (string, string, error) {
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", "", err
 	}
+	if currency == "" {
+		return "", "", nil
+	}
 	err = r.database.SQL.QueryRow("SELECT timezone FROM history_origins LIMIT 1").Scan(&timezone)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
+	}
+	if err != nil {
 		return "", "", err
 	}
 	return currency, timezone, nil

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 	}
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	seed.SetClock(clock)
+	testfixture.SetClock(seed, clock)
 	api := reconciliation.NewService(seed)
 	complete := func(account domain.AccountID, partial bool) domain.ReconciliationSession {
 		t.Helper()
@@ -81,8 +82,8 @@ func TestReconciliationSessionListMatchesWailsAndRestoresOlderPage(t *testing.T)
 		t.Fatalf("fixture must keep a newer partial session outside the last-success receipt: %+v / %v", last, err)
 	}
 
-	app, _ := reopenOnboardingProfile(t, paths)
-	app.SetClock(clock)
+	app, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(app, clock)
 	accounts := newAccountsPage(ctx, app, clock, func() {})
 	tasks := newTasksPage(ctx, app, func() {})
 	c := &holdingReconciliation{service: reconciliation.NewService(app), ledger: app, clock: clock}

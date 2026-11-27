@@ -2,118 +2,23 @@ package analytics_test
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
+
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-func TestPrehistoryUnknownCostKeepsQuotedValue(t *testing.T) {
-	app := wailstest.NewService(t)
-	ctx := context.Background()
-	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
-		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
-	}); err != nil {
-		t.Fatalf("CompleteOnboarding: %v", err)
-	}
-	bootstrap, err := household.NewService(app).Bootstrap(ctx)
-	if err != nil {
-		t.Fatalf("Bootstrap: %v", err)
-	}
-	accountRecord, err := account.NewService(app).CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
-		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
-		OwnerIDs: []string{bootstrap.Members[0].ID},
-	})
-	if err != nil {
-		t.Fatalf("CreateAccount: %v", err)
-	}
-	instrumentDTO, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{
-		Name: "NVIDIA", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
-	})
-	if err != nil {
-		t.Fatalf("CreateInstrument: %v", err)
-	}
-	// Prehistory APIs allow quantities before Starting Point cost capture.
-	// A missing cost is unavailable, while a quoted market value remains valid.
-	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
-		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
-	})
-	if err != nil {
-		t.Fatalf("CreateHolding: %v", err)
-	}
-	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
-		t.Fatalf("AppendManualInstrumentQuote: %v", err)
-	}
-
-	gain, err := app.HoldingGain(ctx, domain.HoldingID(holdingDTO.ID))
-	if err != nil {
-		t.Fatalf("HoldingGain: %v", err)
-	}
-	if gain.Available || gain.TotalCost != nil || gain.AverageCost != nil || gain.CostMissingReason == "" {
-		t.Fatalf("unknown cost availability: %+v", gain)
-	}
-	if gain.CurrentValue == nil || gain.CurrentValue.Amount != "1500" {
-		t.Fatalf("CurrentValue = %+v, want 1500", gain.CurrentValue)
-	}
-	if gain.UnrealizedGain != nil {
-		t.Fatalf("unknown cost exposed as profit: %+v", gain.UnrealizedGain)
-	}
-
-	groups, err := analytics.NewService(app).InstrumentHoldings(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(groups) != 1 || groups[0].InstrumentID != instrumentDTO.ID || len(groups[0].Holdings) != 1 || groups[0].Holdings[0].AccountID != accountRecord.Account.ID || groups[0].Amounts.CurrentValue == nil || groups[0].Amounts.CurrentValue.Amount != "1500" {
-		t.Fatalf("InstrumentHoldings: %+v", groups)
-	}
-
-	if amounts := groups[0].Amounts; amounts.TotalCost != nil || amounts.UnrealizedGain != nil || amounts.CostMissingReason == "" || amounts.GainMissingReason == "" {
-		t.Fatalf("wire availability: %+v", amounts)
-	}
-	grouped, err := analytics.NewService(app).InstrumentHoldingGroups(ctx)
-	if err != nil || len(grouped) != 1 || len(grouped[0].Subtotals) != 1 {
-		t.Fatalf("grouped=%+v err=%v", grouped, err)
-	}
-	subtotal := grouped[0].Subtotals[0]
-	if subtotal.TotalCost != nil || subtotal.UnrealizedGain != nil || subtotal.CurrentValue == nil || subtotal.CurrentValue.Amount != "1500" || subtotal.CostMissingReason == "" || subtotal.GainMissingReason == "" {
-		t.Fatalf("subtotal wire availability: %+v", subtotal)
-	}
-
-	accountGain, err := app.AccountGain(ctx, domain.AccountID(accountRecord.Account.ID))
-	if err != nil {
-		t.Fatalf("AccountGain: %v", err)
-	}
-	if len(accountGain.Holdings) != 1 {
-		t.Fatalf("Holdings = %+v, want 1", accountGain.Holdings)
-	}
-
-	batch, err := app.AccountGains(ctx, nil)
-	if err != nil {
-		t.Fatalf("AccountGains: %v", err)
-	}
-	if len(batch) != 1 || len(batch[0].Holdings) != 1 || batch[0].AccountID.String() != accountRecord.Account.ID {
-		t.Fatalf("AccountGains = %+v, want one account matching AccountGain", batch)
-	}
-
-	realized, err := app.RealizedGainInRange(ctx, domain.GainScope{}, "2000-01-01", "2030-01-01")
-	if err != nil {
-		t.Fatalf("RealizedGainInRange: %v", err)
-	}
-	if !realized.Available {
-		t.Fatalf("RealizedGainInRange.Available = false, want true: %+v", realized)
-	}
-}
-
 func TestHoldingGainNotFound(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -127,7 +32,7 @@ func TestHoldingGainNotFound(t *testing.T) {
 }
 
 func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
@@ -152,18 +57,19 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
+	rawHolding, err := testfixture.CreateHolding(app, ctx, application.HoldingInput{
 		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
 	})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
+	holdingDTO := wire.FromHolding(rawHolding)
 	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
 		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 	historyService := history.NewService(app)
-	if _, err := historyService.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatalf("StartHistory: %v", err)
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "UTC"); err != nil {
+		t.Fatalf("CaptureSyntheticOrigin: %v", err)
 	}
 	if _, err := historyService.RecordChange(ctx, history.ChangeCommandRequest{
 		Kind: history.ChangeCashDividend, HoldingID: holdingDTO.ID, Amount: "25", Currency: "USD",
@@ -188,7 +94,7 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 }
 
 func TestRealizedGainInvalidDateRange(t *testing.T) {
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
 		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},

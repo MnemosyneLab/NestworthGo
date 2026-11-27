@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -413,10 +414,10 @@ func TestProductHTTPDataAtomicFailuresAndUnknownRecovery(t *testing.T) {
 			productEditPlan(t, fx.service, plan, func(p map[string]any) { p["expiresAt"] = time.Now().Add(-time.Second) })
 			// Restart both application and MCP; recover business evidence before token/expiry.
 			fx.service.Close()
-			app := application.NewService(repo)
+			app := testfixture.NewService(repo)
 			appports.Wire(app)
 			appports.AttachSQLiteHistory(app, repo)
-			app.SetClock(clock)
+			testfixture.SetClock(app, clock)
 			s := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(db))
 			t.Cleanup(s.Close)
 			if err := s.Resume(); err != nil {
@@ -478,10 +479,10 @@ func TestProductHTTPDataRestartAndOlderSnapshot(t *testing.T) {
 			pending := productDataPreviewHTTP(t, c, previewTool, pendingInput)
 			restart := func(database *sqlite.DB, repository *sqlite.Repository) *mcp.ClientSession {
 				fx.service.Close()
-				app := application.NewService(repository)
+				app := testfixture.NewService(repository)
 				appports.Wire(app)
 				appports.AttachSQLiteHistory(app, repository)
-				app.SetClock(clock)
+				testfixture.SetClock(app, clock)
 				s := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(database))
 				t.Cleanup(s.Close)
 				if err := s.Resume(); err != nil {
@@ -500,7 +501,7 @@ func TestProductHTTPDataRestartAndOlderSnapshot(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer restored.Close()
-			c = restart(restored, sqlite.NewRepository(restored))
+			c = restart(restored, testfixture.Repository(restored))
 			if _, err := fx.service.GetOperation(op); safeError(err).Code != "not_found" {
 				t.Fatal(err)
 			}
@@ -813,10 +814,10 @@ func TestProductHTTPTermsPolicyMoneyRecoveryMatrix(t *testing.T) {
 				next := productDataCommitHTTP(t, c, "commit_plan", plan, uuid.NewString())
 				productJSONEqual(t, next, recovered)
 				fx.service.Close()
-				app := application.NewService(repo)
+				app := testfixture.NewService(repo)
 				appports.Wire(app)
 				appports.AttachSQLiteHistory(app, repo)
-				app.SetClock(clock)
+				testfixture.SetClock(app, clock)
 				server := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(db))
 				t.Cleanup(server.Close)
 				if err := server.Resume(); err != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 type countingProvider struct {
@@ -117,11 +116,11 @@ func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *test
 	if err != nil || len(accounts) == 0 {
 		t.Fatalf("accounts = %d err=%v", len(accounts), err)
 	}
-	manual, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ABC Bank Wealth", Type: "bank_investment_product", QuoteCurrency: "SGD", QuoteSource: "manual"})
+	manual, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "ABC Bank Wealth", Type: "bank_investment_product", QuoteCurrency: "SGD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: manual.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,17 +161,17 @@ func TestManualPriceRepairKeepsOutdatedSnapshotIssueUntilRebuild(t *testing.T) {
 	ctx := context.Background()
 	service, db, owner, now := overviewFixture(t)
 	account := overviewAccount(t, service, owner, "Synthetic brokerage", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
+	if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "100"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -391,19 +390,19 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 	cryptoProvider := &countingProvider{inner: cryptoInner}
 	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
-	etf, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQ", MarketCode: "US"})
+	etf, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQ", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
+	crypto, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	gold, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "XAUUSD", MarketCode: "US"})
+	gold, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "XAUUSD", MarketCode: "US"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	unknown, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Unknown Market", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "FOO", MarketCode: "ZZ"})
+	unknown, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Unknown Market", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "FOO", MarketCode: "ZZ"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,7 +454,7 @@ func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
 	cryptoProvider := &countingProvider{inner: cryptoInner}
 	service, _, _, _ := newSyncFixture(t, equity, cryptoProvider)
 	ctx := context.Background()
-	crypto, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
+	crypto, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Bitcoin", Type: "crypto", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "BTC-USD", MarketCode: "CRYPTO"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,51 +496,8 @@ func addSyncHoldings(t *testing.T, service *Service, instruments ...domain.Instr
 		t.Fatal(err)
 	}
 	for _, instrument := range instruments {
-		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+		if _, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 			t.Fatal(err)
 		}
-	}
-}
-
-func TestAccountValueHealthBeforeHistoryIsActionableAndFreshnessDoesNotExpireMoney(t *testing.T) {
-	t.Parallel()
-	service, ctx, bootstrap, setClock := newOnboardedService(t, "account-health", nil)
-	missing, err := service.CreateAccount(ctx, AccountInput{Name: "Unvalued home", InitialAmount: "0", AccountType: "property", TrackingMode: "manual_value", BalanceSheetRole: "asset", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	old, err := service.CreateAccount(ctx, AccountInput{Name: "Older home", AccountType: "property", TrackingMode: "manual_value", BalanceSheetRole: "asset", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Simulate a legacy/imported account whose value observation is absent.
-	database, err := sqlite.Open(service.liveDBPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer database.Close()
-	if _, err := database.SQL.Exec(`DELETE FROM account_values WHERE account_id = ?`, missing.Account.ID.String()); err != nil {
-		t.Fatal(err)
-	}
-	setClock(time.Date(2027, 3, 1, 12, 0, 0, 0, time.UTC))
-	report, err := service.ScanMarketDataHealth(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	foundMissing, foundStale := false, false
-	for _, issue := range report.Issues {
-		if issue.AccountID == missing.Account.ID.String() && issue.Kind == HealthKindMissingAccountValue {
-			foundMissing = issue.Action == "account_value" && !issue.Executable
-		}
-		if issue.AccountID == old.Account.ID.String() && issue.Kind == HealthKindStaleAccountValue {
-			foundStale = issue.Severity == HealthSeverityWarning && !issue.Executable
-		}
-	}
-	if !foundMissing || !foundStale {
-		t.Fatalf("missing=%v stale=%v report=%+v", foundMissing, foundStale, report)
-	}
-	value, err := service.AccountValuation(ctx, old.Account.ID)
-	if err != nil || !value.Complete || value.BaseValue == nil || value.BaseValue.Amount != "1000" {
-		t.Fatalf("stale amount expired: %+v err=%v", value, err)
 	}
 }

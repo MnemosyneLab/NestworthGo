@@ -54,7 +54,7 @@ vi.mock("@wailsio/runtime", () => ({
 }));
 
 const defaultHeadlines = {
-  historyStarted: true,
+
   recentActivities: [
     {
       id: "a1",
@@ -326,7 +326,7 @@ describe("OverviewPage", () => {
       byMember: [],
       byInstitution: [],
       byGroup: [],
-      historyStarted: true,
+
       accountLabels: [
         { id: "old-brokerage", name: "Archived Brokerage" },
         { id: "retirement", name: "Retirement" },
@@ -420,15 +420,6 @@ it("pairs attention and upcoming cards below the financial row, preserving healt
   const action = screen.getAllByRole("button", { name: "View gap" })[0];
   action.focus(); await userEvent.keyboard("{Enter}");
   expect(navigation.openHealth).toHaveBeenCalledWith(issues[3]);
-});
-
-it("shows one start-history action for an existing account without a history origin", async () => {
-  const onOpenHistory = vi.fn();
-  scanHealth.mockResolvedValue({ healthy: true, issueCount: 0, issues: [{ id: "history", kind: "history_not_started", action: "none", severity: "info" }] });
-  await renderWithMockedOverview({ ...completeOverview, historyStarted: false, recentActivities: [] }, { onOpenHistory }, { open: vi.fn(), openHealth: vi.fn() });
-  await userEvent.click(await screen.findByRole("button", { name: "Start history" }));
-  expect(onOpenHistory).toHaveBeenCalledOnce();
-  expect(screen.queryByText(/Unknown instrument.*History not started/)).not.toBeInTheDocument();
 });
 
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"testing"
 
@@ -17,8 +18,8 @@ func TestDesktopRuntimeStartsClosedInAnIsolatedHousehold(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(db)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	appports.AttachSQLiteHistory(app, repo)
 	app.SetLiveDatabasePath(path)
