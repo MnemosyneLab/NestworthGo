@@ -39,7 +39,14 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	conflict := "Decimal and grouping separators must differ"
 	fields := p.formFields(ui.View{Language: i18n.English}, p.draft())
 	conflictFields := 0
+	invalidFields := 0
 	for _, field := range fields {
+		if field.label == i18n.SettingsDecimal || field.label == i18n.SettingsGrouping {
+			invalidFields++
+			if !settingsFieldInvalid(field.label, p.draft()) {
+				t.Fatalf("%v is not invalid while decimal and grouping separators match", field.label)
+			}
+		}
 		if field.help == conflict {
 			conflictFields++
 			if field.label != i18n.SettingsGrouping {
@@ -49,6 +56,9 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	}
 	if conflictFields != 1 {
 		t.Fatalf("separator conflict is attached to %d fields; want one inline grouping-field explanation", conflictFields)
+	}
+	if invalidFields != 2 {
+		t.Fatalf("separator conflict invalidated %d fields; want decimal and grouping fields", invalidFields)
 	}
 	var bounds image.Rectangle
 	var inspect func(input.SemanticNode)
@@ -76,6 +86,15 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	if p.prefs.saved.DecimalSeparator != "." || p.draft().GroupingSeparator != "." {
 		t.Fatal("editing the draft changed the saved preferences")
 	}
+	for _, field := range p.formFields(ui.View{Language: i18n.English}, p.draft()) {
+		if settingsFieldInvalid(field.label, p.draft()) {
+			t.Fatalf("%v remained invalid after choosing distinct separators", field.label)
+		}
+	}
+	if findPageLabel(&h.router, conflict) != nil {
+		t.Fatal("separator conflict message remained after choosing distinct separators")
+	}
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.SettingsUnsaved))
 	// A sidebar write should survive saving a different set of fields.
 	p.prefs.saved.Accent = settings.AccentSky
 	h.frame()

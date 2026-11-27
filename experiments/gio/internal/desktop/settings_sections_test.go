@@ -62,7 +62,11 @@ func TestSettingsCoinGeckoKeyUsesItsOwnSave(t *testing.T) {
 	h.router.Source().Execute(key.FocusCmd{Tag: &p.tabs[settingsMarket]})
 	h.frame()
 	h.press(key.NameReturn)
-	assertPageLabel(t, &h.router, "No CoinGecko key is configured.")
+	status := assertPageLabel(t, &h.router, "No CoinGecko key is configured.")
+	save := assertPageLabel(t, &h.router, "Save key")
+	if status.Min.Y <= save.Min.Y {
+		t.Fatalf("CoinGecko status %v should follow its separate save action %v", status, save)
+	}
 	h.click("CoinGecko API key", true)
 	h.router.Queue(key.EditEvent{Text: "  fixture-key  "})
 	h.frame()
