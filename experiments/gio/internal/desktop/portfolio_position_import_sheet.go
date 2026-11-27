@@ -62,6 +62,20 @@ func (p *portfolioPage) layoutPositionImportSheet(gtx layout.Context, view ui.Vi
 			// Reuse the form's cancel path so it restores the initiating toolbar focus.
 			f.draft.cancel.Click()
 		}
+		last := event.Tag(&f.draft.cancel)
+		switch {
+		case f.draft.review != nil && f.draft.posting != nil:
+			last = &s.panel.close
+		case f.draft.review != nil && f.draft.uncertain:
+			last = &f.draft.retryConfirm
+		case f.draft.review != nil:
+			last = &f.draft.confirm
+		case f.draft.sourceProblem != i18n.NoMessage:
+			last = &f.draft.retry
+		case f.draft.previewing == nil && f.draft.investmentFieldsVisible():
+			last = &f.draft.preview
+		}
+		catalogSheetWrapFocus(gtx, &s.panel.close, last)
 	}
 	title := f.draft.labels().action
 	if f.draft.review != nil {

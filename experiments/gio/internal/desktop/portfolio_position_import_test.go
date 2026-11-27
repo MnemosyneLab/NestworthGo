@@ -259,6 +259,36 @@ func TestPortfolioPositionImportSheetPreservesScrolledHoldingsAndFocus(t *testin
 	if f.draft == nil || !f.draft.contextualSheet {
 		t.Fatal("the titlebar action did not open the contextual sheet")
 	}
+	h.focused(&f.draft.selectAccount.Trigger)
+	h.press(key.NameTab)
+	h.focused(&f.draft.cancel)
+	h.press(key.NameTab)
+	h.focused(&portfolio.positionSheet.panel.close)
+	h.router.Queue(input.SystemEvent{Event: key.Event{Name: key.NameTab, State: key.Press, Modifiers: key.ModShift}})
+	h.frame()
+	h.focused(&f.draft.cancel)
+	h.press(key.NameTab)
+	h.focused(&portfolio.positionSheet.panel.close)
+	if h.router.Source().Focused(&h.shell.railButton) {
+		t.Fatal("Tab navigation moved keyboard focus behind the import sheet")
+	}
+	h.press(key.NameReturn)
+	finish()
+	if h.shell.narrowExpanded {
+		t.Fatal("Return from the import sheet activated the background sidebar control")
+	}
+	if f.draft != nil {
+		h.press(key.NameEscape)
+		finish()
+	}
+	if f.draft != nil {
+		t.Fatal("the keyboard focus-cycle check left the import sheet open")
+	}
+	h.click("Record existing holding", false)
+	finish()
+	if f.draft == nil || !f.draft.contextualSheet {
+		t.Fatal("the titlebar action did not reopen the contextual sheet")
+	}
 	if portfolio.list.Position != listBefore || h.shell.stage.Position != pageBefore {
 		t.Fatalf("opening the import sheet changed background scroll: holdings %+v vs %+v, page %+v vs %+v",
 			portfolio.list.Position, listBefore, h.shell.stage.Position, pageBefore)
