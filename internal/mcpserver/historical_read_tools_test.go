@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"strings"
 	"testing"
 	"time"
@@ -234,7 +235,7 @@ func TestHistoricalOversizedItemClientRecovery(t *testing.T) {
 
 func TestHistoricalFundingCashReasonFilterAndItem(t *testing.T) {
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC) })
 	if _, err := fx.app.AppendAccountCashValue(t.Context(), domain.AccountID(fx.brokerage), "150000", "USD", "2026-10-08T04:00:00Z"); err != nil {
 		t.Fatal(err)
 	}

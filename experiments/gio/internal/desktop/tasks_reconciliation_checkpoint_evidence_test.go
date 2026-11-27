@@ -121,7 +121,7 @@ func TestReconciliationProductAndRemovedEvidence(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	session, err := reconciliation.NewService(reopened).Get(ctx, started.ID)
 	if err != nil {
 		t.Fatal(err)

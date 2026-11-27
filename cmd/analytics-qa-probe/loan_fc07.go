@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"time"
@@ -10,7 +11,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -72,7 +72,7 @@ func runLoanFC07Probe() error {
 		}})
 	}
 	defer database.Close()
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	return writeLoanProbe(outPath, out, collectLoanFC07Cases(ctx, svc, dbPath, ids, drawDate, repayDate, interestDate))
 }

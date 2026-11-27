@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"strings"
@@ -264,9 +265,9 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 		if tc.request.Kind == historyapi.ChangeFXConversion {
 			for _, app := range []*application.Service{service, ref} {
 				readCash(app, "68.25", "101")
-				app.SetClock(func() time.Time { return accountTestClock.Add(48 * time.Hour) })
+				testfixture.SetClock(app, func() time.Time { return accountTestClock.Add(48 * time.Hour) })
 				assertAmendmentAttribution(t, app, "2026-11-22", "0", "-0.8", "-1.75")
-				app.SetClock(func() time.Time { return accountTestClock })
+				testfixture.SetClock(app, func() time.Time { return accountTestClock })
 			}
 		}
 		undo, err := history.ReviewAmendment(ctx, service, history.ReverseActivity, result.Activity.ID, normal, accountTestClock)
@@ -338,7 +339,7 @@ func seedPairedAmendments(t *testing.T, service *application.Service) (bank, res
 		t.Fatalf("unexpected base fixture: %+v, %v", rows, err)
 	}
 	bank = rows[0].Account.ID
-	service.SetClock(func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
 	create := func(name, mode, initial string) domain.AccountID {
 		t.Helper()
 		row, err := service.CreateAccount(ctx, application.AccountInput{Name: name, AccountType: "cash_on_hand", BalanceSheetRole: "asset",
@@ -353,7 +354,7 @@ func seedPairedAmendments(t *testing.T, service *application.Service) (bank, res
 	if _, err := service.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	if _, err := service.AppendManualFXQuote(ctx, "EUR", "USD", "1.2", "2026-11-18T16:00:00Z"); err != nil {
 		t.Fatal(err)
 	}

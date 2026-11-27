@@ -198,7 +198,7 @@ func productSetupProblem(err error) i18n.MessageID {
 		return i18n.HistoryAmendmentStale
 	case domain.ErrInsufficientBalance:
 		return i18n.CashMovementInsufficient
-	case domain.ErrHistoryNotStarted:
+	case domain.ErrMissingHistoryOrigin:
 		return i18n.CashMovementHistoryRequired
 	case domain.ErrInvalidChangeTime, domain.ErrCashBalanceTimeConflict:
 		return i18n.ProductReceiptTimeInvalid

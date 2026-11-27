@@ -47,9 +47,8 @@ states and valuation-source preferences. Original and reversal activities are bo
 preserved: consumers must apply the reversal semantics instead of summing every
 trade twice. Cross-account transfers retain both endpoints and cost evidence.
 `balanceBaselines`, `cashBaselines`, and `quantityBaselines` preserve observations
-captured before history started, including households without an origin. When an
-origin exists, replay starts from `openingPositions`; do not add the pre-origin
-baselines again. Event/replay projections are deliberately omitted.
+retained alongside an existing immutable origin. Replay starts from
+`openingPositions`; do not add baseline projections again. Event/replay projections are deliberately omitted.
 
 `facts.marketData` contains all manual/provider price and FX observations, including
 superseded revisions; current and historical provider bindings; source preferences;

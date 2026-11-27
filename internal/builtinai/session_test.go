@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/waltwang/nestworth-go/internal/agentcapability"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,8 +29,8 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
-	app := application.NewService(repo)
+	repo := testfixture.Repository(db)
+	app := testfixture.NewService(repo)
 	appports.Wire(app)
 	app.SetLiveDatabasePath(path)
 	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic AI bounds", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"}, Timezone: "UTC", HistoryStartDate: "2026-01-01"}); err != nil {
@@ -38,7 +39,7 @@ func TestSelectedPageSharedPermissionPagingAndBounds(t *testing.T) {
 	members, _ := app.ListMembers(t.Context(), false)
 	var accountID string
 	for i := range 27 {
-		a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: fmt.Sprintf("Synthetic %02d", i), AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "1.23", OwnerIDs: []domain.MemberID{members[0].ID}})
+		a, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: fmt.Sprintf("Synthetic %02d", i), AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, InitialAmount: "1.23", OwnerIDs: []domain.MemberID{members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}

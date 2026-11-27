@@ -19,10 +19,10 @@ func TestHistoricalReconciliationBackfilledHoldingLedgers(t *testing.T) {
 			ctx := t.Context()
 			s, db, owner, now := overviewFixture(t)
 			a := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-			if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "100", "CNY", ""); err != nil {
+			if _, err := s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "100", "CNY", ""); err != nil {
 				t.Fatal(err)
 			}
-			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -34,13 +34,13 @@ func TestHistoricalReconciliationBackfilledHoldingLedgers(t *testing.T) {
 			costs := map[domain.HoldingID]string{}
 			if kind == "transfer" {
 				target = overviewAccount(t, s, owner, "Synthetic receiver", "brokerage", "asset", "holdings", "CNY", "")
-				source, err = s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+				source, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 				if err != nil {
 					t.Fatal(err)
 				}
 				costs[source.ID] = "10"
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 				t.Fatal(err)
 			}
 			effective := now.AddDate(0, 0, 1)
@@ -52,7 +52,7 @@ func TestHistoricalReconciliationBackfilledHoldingLedgers(t *testing.T) {
 			case "transfer":
 				change, err = s.RecordChange(ctx, domain.PositionTransferInput{HouseholdID: a.Account.HouseholdID, FromHoldingID: source.ID, ToAccountID: &target.Account.ID, Quantity: mustQuantity(t, "2"), EffectiveAt: effective})
 			default:
-				h, createErr := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
+				h, createErr := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
 				if createErr != nil {
 					t.Fatal(createErr)
 				}
@@ -265,17 +265,17 @@ func TestHistoricalReconciliationBackfilledFirstBuyCorrectionAndUndo(t *testing.
 	ctx := t.Context()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic corrected backfill", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "100", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "100", "CNY", ""); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic corrected fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic corrected fund", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	effective := now.AddDate(0, 0, 1)
@@ -349,23 +349,23 @@ func TestHistoricalReconciliationForeignFirstBackfillAndLiquidation(t *testing.T
 			ctx := t.Context()
 			s, db, owner, now := overviewFixture(t)
 			a := overviewAccount(t, s, owner, "Synthetic USD backfill", "brokerage", "asset", "holdings", "USD", "")
-			if _, err := s.AppendAccountCashValue(ctx, a.Account.ID, "100", "USD", ""); err != nil {
+			if _, err := s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "100", "USD", ""); err != nil {
 				t.Fatal(err)
 			}
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic USD fund", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "", false); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+			if _, err = s.fixtureSetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
 			if _, err = s.AppendManualFXQuote(ctx, "USD", "CNY", "7", ""); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+			if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			effective := now.AddDate(0, 0, 1)

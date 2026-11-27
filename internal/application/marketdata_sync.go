@@ -340,19 +340,20 @@ func (s *Service) previewMarketDataSync(ctx context.Context, request SyncRequest
 	if err != nil {
 		return SyncPlanPreview{}, err
 	}
-	if origin != nil {
-		if work != nil {
-			work.zone = origin.Timezone
-		}
-		issues, err := s.incompleteSnapshotHealth(ctx, origin, plan, nil)
-		if err != nil {
-			return SyncPlanPreview{}, err
-		}
-		from, to, ok := dirtySnapshotRange(state, plan)
-		for _, date := range readySnapshotDates(issues) {
-			if !ok || date < from || date > to {
-				preview.SnapshotWorkEstimate++
-			}
+	if origin == nil {
+		return SyncPlanPreview{}, missingHistoryOrigin()
+	}
+	if work != nil {
+		work.zone = origin.Timezone
+	}
+	issues, err := s.incompleteSnapshotHealth(ctx, origin, plan, nil)
+	if err != nil {
+		return SyncPlanPreview{}, err
+	}
+	from, to, ok := dirtySnapshotRange(state, plan)
+	for _, date := range readySnapshotDates(issues) {
+		if !ok || date < from || date > to {
+			preview.SnapshotWorkEstimate++
 		}
 	}
 	return preview, nil

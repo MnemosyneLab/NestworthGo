@@ -54,7 +54,6 @@ type accountsResult struct {
 	managed       map[domain.InstrumentID]bool
 	products      []application.ProductDetail
 	unavailable   bool
-	beforeHistory bool
 	historyZone   *time.Location
 	readAt        time.Time
 	err           error
@@ -151,7 +150,6 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			result.err = err
 			return
 		}
-		result.beforeHistory = origin == nil
 		if origin != nil {
 			result.historyZone, _ = time.LoadLocation(origin.Timezone)
 		}
@@ -341,10 +339,10 @@ type accountsPage struct {
 	maintenance                       *accountMaintenance
 	cashBalance                       *accountCashBalance
 	investment                        *accountInvestment
-	opening                           *accountOpeningPosition
-	balanceTarget                     *accountBalanceTarget
-	liabilityPosting                  *accountLiabilityPosting
-	statement                         *accountStatement
+
+	balanceTarget    *accountBalanceTarget
+	liabilityPosting *accountLiabilityPosting
+	statement        *accountStatement
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {

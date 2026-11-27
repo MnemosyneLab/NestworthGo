@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
@@ -102,12 +103,12 @@ func newMarketOperationsHarness(t *testing.T, provider *refreshTestProvider, his
 		cancel()
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(db)
-	service := application.NewService(repo, application.NewMarketDataRegistryWithDefault(provider.Key(), provider, &refreshInstrumentTestProvider{}))
+	repo := testfixture.Repository(db)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: repo}, application.NewMarketDataRegistryWithDefault(provider.Key(), provider, &refreshInstrumentTestProvider{}))
 	appports.AttachSQLiteHistory(service, repo)
 	service.SetLiveDatabasePath(db.Path)
 	start := time.Date(2026, time.November, 2, 18, 0, 0, 0, time.UTC)
-	service.SetClock(func() time.Time { return start })
+	testfixture.SetClock(service, func() time.Time { return start })
 	repair := &dataHealthRepair{service: service}
 	page := &marketDataPage{ctx: ctx, reader: service, invalidate: func() {}, sync: repair, latest: marketLatest{service: service}}
 	repair.latestBusy = func() bool { return page.latest.request != nil }
@@ -127,23 +128,23 @@ func newMarketOperationsHarness(t *testing.T, provider *refreshTestProvider, his
 		t.Fatal(err)
 	}
 	for _, currency := range []string{"JPY", "SGD"} {
-		if _, err := service.CreateAccount(ctx, application.AccountInput{
+		if _, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 			Name: "Synthetic " + currency, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 			DefaultCurrency: currency, InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.SetFXPreference(ctx, currency, "USD", "provider"); err != nil {
+		if _, err := testfixture.SetFXPreference(service, ctx, currency, "USD", "provider"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if historical {
-		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(service, ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 	}
 	provider.now = start.AddDate(0, 0, 4)
-	service.SetClock(func() time.Time { return provider.now })
+	testfixture.SetClock(service, func() time.Time { return provider.now })
 	h := newShellHarnessWithPages(t, ledgerPages{marketData: page})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.shell.trail = newNavigationTrail(marketDataRoute)
@@ -310,7 +311,7 @@ func TestMarketDataFocusedSyncPreviewCancelAndVerifiedRetry(t *testing.T) {
 func TestMarketDataInstrumentRefreshAndForcedPlan(t *testing.T) {
 	provider := &refreshTestProvider{}
 	h, p, service, wails := newMarketOperationsHarness(t, provider, true)
-	instrument, err := service.CreateInstrument(t.Context(), application.InstrumentInput{
+	instrument, err := testfixture.CreateInstrument(service, t.Context(), application.InstrumentInput{
 		Name: "Synthetic provider fund", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
 		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "DEMO", MarketCode: "US",
 	})

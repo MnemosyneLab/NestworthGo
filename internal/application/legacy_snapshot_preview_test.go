@@ -15,7 +15,7 @@ func TestLegacySnapshotWarmReadsPreserveGuardedPreview(t *testing.T) {
 		t.Run(reader, func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -67,7 +67,7 @@ func TestLegacySnapshotWritesInvalidateGuardedPreview(t *testing.T) {
 		t.Run(reader, func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -113,7 +113,7 @@ func TestLegacySnapshotSameHashWritesInvalidateGuardedPreview(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)

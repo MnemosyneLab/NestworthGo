@@ -3,6 +3,7 @@ package continuousbackup
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,7 +90,7 @@ func TestJournalFailureAfterBackupPauseRequiresRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitState(t, m, "recent-backup-confirmed")
-	app := application.NewService(sqlite.NewRepository(db))
+	app := testfixture.NewService(testfixture.Repository(db))
 	r := application.NewRecovery(m.path, backup.NewRuntime(), app)
 	r.SetBeforeRestore(m.PauseForRestore)
 	defer r.Shutdown()
@@ -162,7 +163,7 @@ func TestRestoreFailuresFenceQuiescedSessionAndKeepBackupDisabled(t *testing.T) 
 				t.Fatal(err)
 			}
 			waitState(t, m, "recent-backup-confirmed")
-			app := application.NewService(sqlite.NewRepository(db))
+			app := testfixture.NewService(testfixture.Repository(db))
 			r := application.NewRecovery(m.path, restoreFailureRuntime{Runtime: backup.NewRuntime(), phase: phase}, app)
 			r.SetBeforeRestore(func(ctx context.Context) error {
 				return m.PauseForRestore(ctx)

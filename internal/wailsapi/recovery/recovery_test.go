@@ -13,6 +13,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -167,7 +168,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			app := application.NewService(sqlite.NewRepository(db))
+			app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 			appports.Wire(app)
 			if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Existing family", BaseCurrency: "SGD", MemberNames: []string{"Alice"}}); err != nil {
 				t.Fatal(err)
@@ -203,7 +204,7 @@ func TestRestoreBackupOnNewComputer(t *testing.T) {
 					t.Fatal(err)
 				}
 				t.Cleanup(func() { empty.Close() })
-				fresh = application.NewService(sqlite.NewRepository(empty))
+				fresh = testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(empty)})
 				appports.Wire(fresh)
 				fresh.SetLiveDatabasePath(live)
 			}

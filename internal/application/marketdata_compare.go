@@ -260,12 +260,12 @@ func (s *Service) CompareMarketData(ctx context.Context, in MarketComparisonRequ
 	if err != nil {
 		return out, err
 	}
-	location := time.UTC
-	if snap.Origin != nil {
-		location, err = time.LoadLocation(snap.Origin.Timezone)
-		if err != nil {
-			return out, err
-		}
+	if snap.Origin == nil {
+		return out, missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(snap.Origin.Timezone)
+	if err != nil {
+		return out, err
 	}
 	instruments := map[string]*domain.Instrument{}
 	for j := range snap.Instruments {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"path/filepath"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func windowOracleReference(t *testing.T, f seriesZeroFixture) *sqlite.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	s := NewService(fullReviewOracle(sqlite.NewRepository(db)))
+	s := NewService(fullReviewOracle(repos.New(db)))
 	s.fxProviderKey = f.s.FXProviderKey()
 	s.setClock(func() time.Time { return *f.now })
 	if _, err := s.ReconcileInvestmentReviewsV2(t.Context()); err != nil {

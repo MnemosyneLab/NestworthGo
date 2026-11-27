@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/shopspring/decimal"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
@@ -146,7 +146,7 @@ func runResidualProbe() error {
 	}
 	out.RevisionAfter = rev
 
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	query := domain.AnalysisQuery{
 		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold},

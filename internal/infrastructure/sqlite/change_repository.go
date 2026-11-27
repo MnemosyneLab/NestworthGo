@@ -27,7 +27,7 @@ func commitActivityBatchTx(ctx context.Context, tx *sql.Tx, commits []domain.Act
 	var originTimezone string
 	if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, commits[0].Activity.HouseholdID.String()).Scan(&originTimezone); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+			return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		return err
 	}

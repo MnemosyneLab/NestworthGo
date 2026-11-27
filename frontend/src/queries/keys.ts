@@ -106,9 +106,7 @@ export const queryKeys = {
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,
-    mutationAllowed: ["history", "mutationAllowed"] as const,
     snapshotState: ["history", "snapshotState"] as const,
-    startingPointDraft: ["history", "startingPointDraft"] as const,
     activity: (activityId: string) => ["history", "activity", activityId] as const,
     activityPage: (request: unknown) => ["history", "activityPage", request] as const,
   },

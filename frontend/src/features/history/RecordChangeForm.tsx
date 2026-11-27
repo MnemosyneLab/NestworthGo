@@ -21,14 +21,13 @@ import {
   useFXPreferences,
   useSetFXPreference,
 } from "@/queries/investments";
-import { usePreviewRepeatChange, useConfirmRepeatChange, useHistoryMutationAllowed, useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
+import { usePreviewRepeatChange, useConfirmRepeatChange, useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
 import { useRefreshFX, useRefreshInstrument } from "@/queries/marketdata";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
-import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { AccountRecordDTO, ActivityDTO, EndpointChangeDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { ChoiceGrid } from "@/components/ui/choice-grid";
 import { activityStyle } from "@/lib/activityStyle";
@@ -89,7 +88,7 @@ const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
 type RepeatConfirmDisposition = "source_refused" | "fresh_preview" | "plan_unavailable" | "uncertain";
 const DEFINITE_REPEAT_REFUSALS = new Set([
   "already_undone", "validation", "not_found", "conflict",
-  "decimal_overflow", "history_not_started", "history_timezone_required",
+  "decimal_overflow", "history_origin_missing", "history_timezone_required",
   "invalid_change", "invalid_change_time", "cash_balance_time_conflict",
   "no_change", "insufficient_balance", "insufficient_quantity",
   "managed_position_conflict",
@@ -324,7 +323,6 @@ export function RecordChangeForm({
   repeatSourceId,
   lock,
   originalEffectiveAt,
-  originOverride,
 }: {
   onRecorded: (activity?: ActivityDTO) => void;
   initial?: ChangeCommandRequest;
@@ -334,7 +332,6 @@ export function RecordChangeForm({
   repeatSourceId?: string;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
-  originOverride?: HistoryOriginDTO;
 }) {
   const { t } = useTranslation();
   const bootstrap = useBootstrap();
@@ -360,7 +357,6 @@ export function RecordChangeForm({
       repeatSourceId={repeatSourceId}
       lock={lock}
       originalEffectiveAt={originalEffectiveAt}
-      originOverride={originOverride}
       defaultCurrency={resolvedCurrency}
     />
   );
@@ -375,7 +371,6 @@ function RecordChangeFormReady({
   repeatSourceId,
   lock,
   originalEffectiveAt,
-  originOverride,
   defaultCurrency,
 }: {
   onRecorded: (activity?: ActivityDTO) => void;
@@ -386,7 +381,6 @@ function RecordChangeFormReady({
   repeatSourceId?: string;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
-  originOverride?: HistoryOriginDTO;
   defaultCurrency: string;
 }) {
   const { t } = useTranslation();
@@ -398,8 +392,7 @@ function RecordChangeFormReady({
   const catalog = useCatalog();
   const settings = useSettings();
   const origin = useHistoryOrigin();
-  const mutationAllowed = useHistoryMutationAllowed();
-  const effectiveOrigin = originOverride ?? origin.data;
+  const effectiveOrigin = origin.data;
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const allHoldings = useAllHoldingsFlat(allAccountIds, fixActivityId ? initial?.holdingId : undefined);
   const eligibleIds = new Set((instruments.data ?? []).map(item => item.id));
@@ -820,7 +813,7 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangePositionTransfer:
         return Boolean(transferSource && transferTargetOptions.some((account) => account.id === transferTargetAccountId) && request.quantity?.trim());
       case ChangeCommandKind.ChangePositionImport:
-        return Boolean(request.accountId && request.instrumentId && request.quantity?.trim() && request.unitCost?.trim() && request.currency);
+        return Boolean(request.accountId && request.instrumentId && isPositiveCanonical(request.quantity ?? "") && request.unitCost?.trim() && request.currency);
       case ChangeCommandKind.ChangePositionAdjustment:
         return Boolean(request.holdingId && request.quantity?.trim());
       case ChangeCommandKind.ChangeTrade:
@@ -843,7 +836,7 @@ function RecordChangeFormReady({
   const ordinarySelection = (!request.instrumentId || eligibleIds.has(request.instrumentId)) && [request.holdingId, request.fromHoldingId, request.toHoldingId].every(id => !id || holdings.data.some(item => item.id === id));
   const needsOrdinaryEligibility = [ChangeCommandKind.ChangeTrade, ChangeCommandKind.ChangeCashDividend, ChangeCommandKind.ChangePositionTransfer, ChangeCommandKind.ChangePositionAdjustment].includes(kind) || Boolean(request.instrumentId || request.holdingId || request.fromHoldingId || request.toHoldingId);
   const holdingContextValid = !lock?.holdingId || Boolean(lockedHolding && lockedHolding.accountId === contextId && !lockedHolding.archivedAt);
-  const canPreview = holdingContextValid && (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const canPreview = holdingContextValid && (!contextId || (Boolean(contextAccount) && contextKinds.includes(kind))) && (!needsOrdinaryEligibility || (ordinarySelection && !instruments.isError && !holdings.isError)) && (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && Boolean(effectiveOrigin) && !origin.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const normalizeTransfer = kind === ChangeCommandKind.ChangeCashTransfer && sameCurrencyTransfer;
@@ -1464,7 +1457,7 @@ function RecordChangeFormReady({
       {(accounts.isError || instruments.isError || holdings.isError) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t("history.dependenciesError")}</span><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([accounts.refetch(), instruments.refetch(), holdings.refetch()])}>{t("common.retryAction")}</Button></div>}
       {repeat && !accountOptions.some((account) => account.id === request.accountId) && <p role="alert" className="text-sm text-destructive">{t("history.repeatAccountUnavailable")}</p>}
       {repeat && !currencyOptions.includes(request.currency ?? "") && <p role="alert" className="text-sm text-destructive">{t("history.repeatCurrencyUnavailable", { currency: request.currency })}</p>}
-      {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
+      {origin.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
       {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
       {submitted?.phase === "unknown" && <p role="status" className="text-sm text-muted-foreground">{t(scopeMatches && intentMatches ? "history.submissionRetryHelp" : "history.submissionOwnerChangedHelp")}</p>}

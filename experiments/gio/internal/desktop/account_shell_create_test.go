@@ -243,7 +243,7 @@ func openingActivity(t *testing.T, service *application.Service, id domain.Accou
 func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T) {
 	ctx := t.Context()
 	root := createFixtureRoot(t)
-	seedAccountFixture(t, root) // Has no History Starting Point.
+	seedAccountFixture(t, root) // Uses the existing synthetic origin.
 	service, session := openBankFixture(t, root)
 	counted := &accountCreationTestService{Service: service}
 	p, h, finish := accountShellHarness(t, counted, counted, "")
@@ -269,15 +269,15 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Clear the opening valuation for a holdings account.")
 	d.selectMode(domain.TrackingManualValue)
-	d.openedOn = "2026-11-21"
+	d.openedOn = "2026-11-20"
 	reviewBankAccount(h)
 	assertPageLabel(t, &h.router, "Choose a date from the Starting Point through today, or clear the date.")
 	after, err := service.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil || !reflect.DeepEqual(before, after) || counted.writes.Load() != 0 || p.creation.review != nil {
 		t.Fatalf("rejected input changed the ledger: %v", err)
 	}
-	if liabilityTextAppears(h.router.AppendSemantics(nil), "Opening date") {
-		t.Fatal("opening date offered without an existing Starting Point")
+	if !liabilityTextAppears(h.router.AppendSemantics(nil), "Opening date") {
+		t.Fatal("opening date unavailable for initialized ledger")
 	}
 	d.openedOn = ""
 	h.click("Back to details", false)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
@@ -18,19 +19,19 @@ func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer db.Close()
-			repo := sqlite.NewRepository(db)
+			repo := repos.New(db)
 			s := NewService(repo)
 			ctx := context.Background()
 			now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 			s.setClock(func() time.Time { return now })
-			if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			bootstrap, err := s.Bootstrap(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 				t.Fatal(err)
 			}
 			now = now.Add(24 * time.Hour)
@@ -38,7 +39,7 @@ func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
 			if inputAmount == "" {
 				inputAmount = "0"
 			}
-			account, err := s.CreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: inputAmount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: inputAmount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -49,7 +50,7 @@ func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
 				}
 			}
 			now = now.Add(24 * time.Hour)
-			if _, err := s.AppendAccountValue(ctx, account.Account.ID, "1000", ""); err != nil {
+			if _, err := s.fixtureAppendAccountValue(ctx, account.Account.ID, "1000", ""); err != nil {
 				t.Fatal(err)
 			}
 			now = now.Add(24 * time.Hour)

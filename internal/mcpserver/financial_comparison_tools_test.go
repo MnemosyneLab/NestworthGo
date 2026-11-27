@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"strings"
 	"testing"
 	"time"
@@ -24,20 +25,20 @@ func decodeComparison(t *testing.T, obj map[string]any) FinancialComparisonRespo
 func comparisonFixture(t *testing.T, s *Service, app *application.Service) domain.AccountID {
 	t.Helper()
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	members, err := app.ListMembers(t.Context(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var first domain.AccountID
 	for i := 0; i < 4; i++ {
-		a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Secret", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value", DefaultCurrency: "USD", InitialAmount: "10", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+		a, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "Secret", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value", DefaultCurrency: "USD", InitialAmount: "10", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		first = a.Account.ID
 	}
-	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err = testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 2)
@@ -57,7 +58,7 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 			if initial.ComparisonID == "" || initial.Content.Change.NetWorth.Value == nil || *initial.Content.Change.NetWorth.Value != "0" {
 				t.Fatal(initial)
 			}
-			if _, err := app.AppendAccountValue(t.Context(), first, "20", ""); err != nil {
+			if _, err := testfixture.AppendAccountValue(app, t.Context(), first, "20", ""); err != nil {
 				t.Fatal(err)
 			}
 			for _, section := range []string{"positions", "gaps", "evidence"} {
@@ -175,15 +176,15 @@ func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) 
 				t.Fatal(err)
 			}
 			defer db.Close()
-			repo := sqlite.NewRepository(db)
+			repo := testfixture.Repository(db)
 			port := &blockingContextRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
-			app := application.NewService(port)
+			app := testfixture.NewService(port)
 			if err = app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}
 			now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-			app.SetClock(func() time.Time { return now })
-			if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+			testfixture.SetClock(app, func() time.Time { return now })
+			if _, err = testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			now = now.AddDate(0, 0, 2)

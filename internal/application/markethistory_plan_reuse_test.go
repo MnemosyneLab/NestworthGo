@@ -138,7 +138,7 @@ func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
 	if _, err := repo.CommitInstrumentHistory(ctx, commit); err != nil {
 		t.Fatal(err)
 	}
-	manual, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Manual with missing anchor", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	manual, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Manual with missing anchor", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
 	}
 	assertInstrumentFetchDates(t, plan, second.ID, map[string]bool{"2026-09-07": true, "2026-09-08": true})
 	// Source and archive changes must be visible on the next request as well.
-	if err := s.SetInstrumentQuoteSource(ctx, second.ID, "agent"); err != nil {
+	if err := s.fixtureSetInstrumentQuoteSource(ctx, second.ID, "agent"); err != nil {
 		t.Fatal(err)
 	}
 	if err := seedLegacyInstrumentArchive(t, s, first.ID); err != nil {

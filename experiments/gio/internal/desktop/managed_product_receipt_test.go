@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -196,8 +197,8 @@ func TestStandaloneEarlyTermDepositReceiptMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	app, _ = reopenOnboardingProfile(t, paths)
-	ref, _ = reopenOnboardingProfile(t, refPaths)
+	app, _ = reopenBaselineProfile(t, paths)
+	ref, _ = reopenBaselineProfile(t, refPaths)
 	for _, c := range []struct {
 		app     *application.Service
 		id      domain.ProductContractID
@@ -240,7 +241,7 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	clock := &atomic.Int64{}
 	clock.Store(accountTestClock.UnixNano())
 	now := func() time.Time { return time.Unix(0, clock.Load()).UTC() }
-	app.SetClock(now)
+	testfixture.SetClock(app, now)
 	reserveTermDeposit(t, app, id, "Rent reserve")
 	refRent := reserveTermDeposit(t, ref, refID, "Rent reserve")
 	refEmergency := reserveTermDeposit(t, ref, refID, "Emergency reserve")
@@ -483,7 +484,7 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	check(reopened)
 	same, err := reopened.RecordProductOperation(ctx, fault.attempts[1].command, mutation.String(), fault.attempts[1].hash)
 	if err != nil || !same.Replayed || !slices.Equal(same.ActivityIDs, receipt.ActivityIDs) {

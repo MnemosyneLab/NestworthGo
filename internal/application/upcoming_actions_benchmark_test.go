@@ -12,7 +12,7 @@ import (
 func upcomingScaleSnapshot() domain.LiquiditySnapshot {
 	now := time.Date(2026, 10, 11, 4, 0, 0, 0, time.UTC)
 	house := domain.NewHouseholdID()
-	snapshot := domain.LiquiditySnapshot{Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: house, BaseCurrency: "USD"}}}
+	snapshot := domain.LiquiditySnapshot{Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: house, BaseCurrency: "USD"}}}
 	bank := domain.Account{ID: domain.NewAccountID(), HouseholdID: house, Name: "Synthetic products", AccountType: domain.TypeBankAccount, TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD"}
 	snapshot.Portfolio.Accounts = append(snapshot.Portfolio.Accounts, domain.AccountRecord{Account: bank})
 	money, _ := domain.ParseMoney("100", "USD")

@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewCashOnlyActivityFilteringPreservesDailyInputs(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "1")
-	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 2))
+	batch, err := repos.New(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestReviewHistoricalCaptureRetainsPositionActivityAndSkipsCashOnlyActivity(
 	if _, err := f.db.SQL.Exec(`INSERT INTO account_cash_values(id,account_id,amount,currency,effective_at,created_at,activity_effect_id,projection_kind) VALUES(?,?,'5','CNY',?,?,?,'event')`, cashValueID.String(), f.account.Account.ID.String(), at, at, cashEffectID.String()); err != nil {
 		t.Fatal(err)
 	}
-	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
+	capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, *f.now)
 	if err != nil {
 		t.Fatal(err)
 	}

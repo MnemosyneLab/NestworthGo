@@ -57,7 +57,7 @@ func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.D
 	s, db, owner, now := overviewFixture(t)
 	cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
 	broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.D
 		}
 		// Seed pre-history facts with the same constructor and persistence path
 		// as AppendManualInstrumentQuote, avoiding its growing portfolio recapture.
-		// Source-revision tests still invoke the public mutation after StartHistory.
+		// Source-revision tests still invoke the public mutation after CaptureSyntheticOrigin.
 		quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: price, SourceKind: domain.QuoteSourceManual, QuotedAt: when}, s.clock())
 		if err != nil {
 			t.Fatal(err)
@@ -87,11 +87,11 @@ func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.D
 		}
 	}
 	*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	holding, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
+	if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)

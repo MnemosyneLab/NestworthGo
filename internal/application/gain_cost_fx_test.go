@@ -16,7 +16,7 @@ func TestCostCorrectionPreservesAcquisitionFXThroughTransfer(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	sourceID := domain.NewHoldingID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
-	snapshot := domain.PortfolioSnapshot{Household: household, FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}}
 	rate7, err := domain.ParseFxRate("7")
 	if err != nil {
 		t.Fatal(err)

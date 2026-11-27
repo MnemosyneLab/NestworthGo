@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
@@ -74,7 +74,7 @@ func (s *accountCreationTestService) CreateAccount(ctx context.Context, input ap
 			return domain.AccountRecord{}, ctx.Err()
 		}
 	}
-	value, err := s.Service.CreateAccount(ctx, input)
+	value, err := testfixture.CreateAccount(s.Service, ctx, input)
 	if err == nil && s.failRead {
 		s.pendingReadFailure.Store(true)
 	}
@@ -122,8 +122,8 @@ func openBankFixture(t *testing.T, root string) (*application.Service, *pilot.Se
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	s := application.NewService(sqlite.NewRepository(session.DB))
-	s.SetClock(func() time.Time { return accountTestClock })
+	s := testfixture.NewService(testfixture.Repository(session.DB))
+	testfixture.SetClock(s, func() time.Time { return accountTestClock })
 	if err := s.SetStoredFXProvider(application.FrankfurterProviderKey); err != nil {
 		t.Fatal(err)
 	}

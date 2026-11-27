@@ -11,7 +11,7 @@ func TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints(t *testing.T
 	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "quote-series-range", []string{"Owner"})
 	setClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestInstrumentQuoteSeriesSourceFilterAndEmptyRange(t *testing.T) {
 	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "quote-series-source", []string{"Owner"})
 	setClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "AAPL"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "AAPL"})
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestInstrumentQuoteSeriesSourceFilterAndEmptyRange(t *testing.T) {
 		t.Fatal("OutsideRange should be true when local facts exist outside 30d")
 	}
 
-	fresh, err := service.CreateInstrument(ctx, InstrumentInput{Name: "NOHIST", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	fresh, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "NOHIST", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("fresh instrument: %v", err)
 	}
@@ -165,14 +165,14 @@ func TestPortfolioTrendSumsInstrumentItemsAndExcludesCash(t *testing.T) {
 	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "portfolio-trend", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
-	if _, err := service.CreateAccount(ctx, AccountInput{
+	if _, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "800",
 	}); err != nil {
 		t.Fatalf("bank: %v", err)
 	}
-	brokerage, err := service.CreateAccount(ctx, AccountInput{
+	brokerage, err := service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
@@ -180,19 +180,19 @@ func TestPortfolioTrendSumsInstrumentItemsAndExcludesCash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("brokerage: %v", err)
 	}
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatalf("instrument: %v", err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
+	holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatalf("holding: %v", err)
 	}
 	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "100", "2026-08-01", false); err != nil {
 		t.Fatalf("quote: %v", err)
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
-		t.Fatalf("StartHistoryWithCosts: %v", err)
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "100"}); err != nil {
+		t.Fatalf("CaptureSyntheticOriginWithCosts: %v", err)
 	}
 	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
 

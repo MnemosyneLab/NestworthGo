@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 // TestVisualSnapshotsSampleLedgerPages renders Overview and Accounts from a
@@ -136,8 +136,8 @@ func openDefaultProfileCopy(t *testing.T) (*application.Service, *preferences.Se
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	repo := sqlite.NewRepository(session.DB).WithDefaultReviewOptimizations()
-	service := application.NewService(repo)
+	repo := testfixture.Repository(session.DB).WithDefaultReviewOptimizations()
+	service := testfixture.NewService(repo)
 	appports.Wire(service)
 	appports.AttachSQLiteHistory(service, repo)
 	prefs, err := preferences.Open(paths.SettingsPath(), session.DB, service)

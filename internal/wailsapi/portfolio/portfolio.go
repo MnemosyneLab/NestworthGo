@@ -38,7 +38,6 @@ type OverviewDTO struct {
 	ByInstitution     []wire.BreakdownDTO               `json:"byInstitution"`
 	ByGroup           []wire.BreakdownDTO               `json:"byGroup"`
 	ByAccountType     []wire.BreakdownDTO               `json:"byAccountType"`
-	HistoryStarted    bool                              `json:"historyStarted"`
 	RecentActivities  []wire.ActivityDTO                `json:"recentActivities"`
 	AccountLabels     []OverviewNamedDTO                `json:"accountLabels"`
 	InstrumentLabels  []OverviewInstrumentLabelDTO      `json:"instrumentLabels"`
@@ -100,9 +99,9 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		AssetComposition: fromAssetComposition(value.AssetComposition),
 		AssetsByType:     wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
 		ByInstitution: wire.FromBreakdowns(value.ByInstitution), ByGroup: wire.FromBreakdowns(value.ByGroup),
-		ByAccountType:  wire.FromBreakdowns(value.ByAccountType),
-		HistoryStarted: value.HistoryStarted, RecentActivities: wire.FromActivities(value.RecentActivities),
-		AccountLabels: accountLabels, InstrumentLabels: instrumentLabels, HoldingLabels: holdingLabels,
+		ByAccountType:    wire.FromBreakdowns(value.ByAccountType),
+		RecentActivities: wire.FromActivities(value.RecentActivities),
+		AccountLabels:    accountLabels, InstrumentLabels: instrumentLabels, HoldingLabels: holdingLabels,
 		ValuationReadDate: value.ValuationReadDate, OldestCarriedMarketDate: value.DisplayValuation.NetWorth.Quality.OldestCarriedMarketDate,
 	}
 }

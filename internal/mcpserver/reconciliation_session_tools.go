@@ -23,8 +23,8 @@ type ReconciliationReadInput struct {
 	AccountID string `json:"accountId,omitempty"`
 	ItemID    string `json:"itemId,omitempty"`
 	Status    string `json:"status,omitempty"`
-	From      string `json:"from,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone (UTC before History Origin)"`
-	To        string `json:"to,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone (UTC before History Origin)"`
+	From      string `json:"from,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone"`
+	To        string `json:"to,omitempty" jsonschema:"Inclusive started civil date in the ledger timezone"`
 	Sort      string `json:"sort,omitempty" jsonschema:"asc or desc; default desc for sessions, asc for detail"`
 	Cursor    string `json:"cursor,omitempty"`
 	Limit     int    `json:"limit,omitempty" jsonschema:"Default 25; maximum 100"`

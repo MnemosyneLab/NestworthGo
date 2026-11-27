@@ -54,7 +54,7 @@ func TestCreateAndListHolding(t *testing.T) {
 	service := holding.NewService(fx.app)
 	ctx := context.Background()
 	created, err := service.CreateHolding(ctx, holding.CreateHoldingRequest{
-		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10",
+		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10", UnitCost: "10",
 	})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
@@ -77,17 +77,28 @@ func TestUpdateHoldingQuantityAndNote(t *testing.T) {
 	service := holding.NewService(fx.app)
 	ctx := context.Background()
 	created, err := service.CreateHolding(ctx, holding.CreateHoldingRequest{
-		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10",
+		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10", UnitCost: "10",
 	})
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
 	note := "core position"
-	updated, err := fx.app.UpdateHoldingQuantity(ctx, domain.HoldingID(created.ID), "15")
+	hh, err := fx.app.Household(ctx)
 	if err != nil {
-		t.Fatalf("UpdateHoldingQuantity: %v", err)
+		t.Fatal(err)
 	}
-	updated, err = fx.app.UpdateHolding(ctx, domain.HoldingID(created.ID), application.HoldingUpdateInput{Note: &note, NoteSet: true})
+	quantity, err := domain.ParseQuantity("5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cost, err := domain.ParseUnitPrice("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.app.RecordChange(ctx, domain.PositionAdjustmentInput{HouseholdID: hh.ID, HoldingID: domain.HoldingID(created.ID), Quantity: quantity, Added: true, UnitCost: &cost}); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := fx.app.UpdateHolding(ctx, domain.HoldingID(created.ID), application.HoldingUpdateInput{Note: &note, NoteSet: true})
 	if err != nil {
 		t.Fatalf("UpdateHolding metadata: %v", err)
 	}
@@ -101,7 +112,7 @@ func TestHoldingsByAccounts(t *testing.T) {
 	service := holding.NewService(fx.app)
 	ctx := context.Background()
 	if _, err := service.CreateHolding(ctx, holding.CreateHoldingRequest{
-		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10",
+		AccountID: fx.accountID, InstrumentID: fx.instrumentID, Quantity: "10", UnitCost: "10",
 	}); err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}

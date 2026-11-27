@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func cashTransferLiabilityFixture(t *testing.T) (*Service, *sqlite.DB, domain.HouseholdID, domain.AccountID, domain.AccountID, domain.AccountID, domain.AccountID) {
@@ -16,7 +17,7 @@ func cashTransferLiabilityFixture(t *testing.T) (*Service, *sqlite.DB, domain.Ho
 	ctx, s, _, db, boot, _ := historicalInsertionFixture(t)
 	create := func(name, kind, role, amount string) domain.AccountID {
 		t.Helper()
-		a, err := s.CreateAccount(ctx, AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
+		a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -26,7 +27,7 @@ func cashTransferLiabilityFixture(t *testing.T) (*Service, *sqlite.DB, domain.Ho
 	savings := create("Synthetic Savings", "bank_account", "asset", "0")
 	loan := create("Synthetic Loan", "loan", "liability", "500")
 	otherLoan := create("Synthetic Other Loan", "loan", "liability", "0")
-	if _, err := s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return s, db, boot.Household.ID, bank, savings, loan, otherLoan
@@ -128,7 +129,7 @@ func TestCashTransferLegacyLiabilityRecordsRemainReadableAndRecoverable(t *testi
 			old.Effects[1].AccountID = &loan
 			old.Activity.Effects = old.Effects
 			old.Resulting[1].AccountID, old.Resulting[1].Name, old.Resulting[1].Amount = &loan, "Synthetic Loan", "600"
-			if err := sqlite.NewRepository(db).CommitActivity(ctx, old.Activity, old.Effects, old.Resulting, s.clock()); err != nil {
+			if err := repos.New(db).CommitActivity(ctx, old.Activity, old.Effects, old.Resulting, s.clock()); err != nil {
 				t.Fatal(err)
 			}
 			loaded, err := s.Activity(ctx, old.Activity.ID)

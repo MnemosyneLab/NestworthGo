@@ -121,7 +121,7 @@ func (s *Service) commitChangeLocked(ctx context.Context, plan changePlan) (any,
 		return nil, err
 	}
 	if origin == nil {
-		return nil, fail("history_not_started", "history is not started")
+		return nil, fail("history_origin_missing", "ledger history origin is missing")
 	}
 	command, err := ledgerCommand(plan.Command, origin)
 	if err != nil {

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -13,9 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/preferences"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -42,7 +41,7 @@ func TestLedgerHistoryUsesSavedGeneralFormatAndRecordedDay(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	service := application.NewService(sqlite.NewRepository(session.DB))
+	service := testfixture.NewService(testfixture.Repository(session.DB))
 	store, err := preferences.Open(paths.SettingsPath(), session.DB, service)
 	if err != nil {
 		t.Fatal(err)

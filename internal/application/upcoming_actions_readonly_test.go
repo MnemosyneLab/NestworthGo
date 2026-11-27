@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ func TestUpcomingActionsActualReadOnlyDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	snapshot, err := repo.ReadLiquiditySnapshot(ctx)
 	if err != nil {
 		t.Fatal(err)

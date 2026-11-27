@@ -2,13 +2,12 @@ package pilot
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/testledger"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 func testPaths(t *testing.T) (string, Paths) {
@@ -32,7 +31,7 @@ func TestProfileInstitutionsPersistOnReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
-	service := application.NewService(sqlite.NewRepository(session.DB))
+	service := testfixture.NewService(testfixture.Repository(session.DB))
 	rows, err := service.ListInstitutions(ctx, false)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +57,7 @@ func TestProfileInstitutionsPersistOnReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	rows, err = application.NewService(sqlite.NewRepository(reopened.DB)).ListInstitutions(ctx, false)
+	rows, err = testfixture.NewService(testfixture.Repository(reopened.DB)).ListInstitutions(ctx, false)
 	if err != nil {
 		t.Fatal(err)
 	}

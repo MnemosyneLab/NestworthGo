@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 func seedLinkedTermDeposit(t *testing.T, app *application.Service, account domain.AccountID) domain.ProductContractID {
 	t.Helper()
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	maturity := "2026-11-23"
 	days, zero, basis := 0, "0", string(domain.DayBasisCalendar)
 	command := application.ProductCommand{Kind: domain.ProductOpOpen, Open: &application.OpenProductCommand{
@@ -250,8 +251,8 @@ func TestLinkedTermDepositMatchesWails(t *testing.T) {
 			if err := refStorage.Close(); err != nil {
 				t.Fatal(err)
 			}
-			reopened, _ := reopenOnboardingProfile(t, paths)
-			reference, _ := reopenOnboardingProfile(t, refPaths)
+			reopened, _ := reopenBaselineProfile(t, paths)
+			reference, _ := reopenBaselineProfile(t, refPaths)
 			for _, copy := range []struct {
 				app                               *application.Service
 				account                           domain.AccountID
@@ -259,7 +260,7 @@ func TestLinkedTermDepositMatchesWails(t *testing.T) {
 				session, terms, interest, closing string
 			}{{reopened, ids.account, id, session.ID, termsPlan, interestPlan, closePlan},
 				{reference, refIDs.account, refID, refSession.ID, termsReview.PlanID, refInterestPlan, refClosePlan}} {
-				copy.app.SetClock(linkedContractClock)
+				testfixture.SetClock(copy.app, linkedContractClock)
 				assertNativeTradeCash(t, copy.app, copy.account, map[domain.CurrencyCode]string{"USD": closing.endCash})
 				saved, err := copy.app.Product(ctx, copy.id)
 				p := saved.Contract

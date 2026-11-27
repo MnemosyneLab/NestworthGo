@@ -134,7 +134,7 @@ func (s *Service) importAgentMarketData(ctx context.Context, builtinSessionID, o
 	if err != nil {
 		return result, err
 	}
-	result = AgentMarketDataResult{RequestKey: operationID, Replayed: stored.Replayed, Inserted: stored.Inserted, RecordIDs: stored.RecordIDs, QuoteIDs: stored.QuoteIDs, SnapshotStatus: "not_started", CurrentValuationStatus: "updated"}
+	result = AgentMarketDataResult{RequestKey: operationID, Replayed: stored.Replayed, Inserted: stored.Inserted, RecordIDs: stored.RecordIDs, QuoteIDs: stored.QuoteIDs, SnapshotStatus: "pending", CurrentValuationStatus: "updated"}
 	s.invalidateAnalysis()
 	// FX also affects stored, converted metal references. Reuse the same local
 	// dependent revaluation as manual/provider FX updates; never fetch a quote.
@@ -164,11 +164,8 @@ func (s *Service) importAgentMarketData(ctx context.Context, builtinSessionID, o
 	// Quote persistence has already committed. Report rebuild separately rather
 	// than converting a durable import into a failed/ambiguous write receipt.
 	origin, originErr := s.HistoryOrigin(ctx)
-	if originErr != nil {
+	if originErr != nil || origin == nil {
 		result.SnapshotStatus = "pending"
-		return result, nil
-	}
-	if origin == nil {
 		return result, nil
 	}
 	count, rebuildErr := s.RebuildDirtySnapshots(ctx)
@@ -257,7 +254,10 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 		if err != nil {
 			return record, err
 		}
-		location := s.seriesLocation(ctx)
+		location, err := s.seriesLocation(ctx)
+		if err != nil {
+			return record, err
+		}
 		if instrument.MarketCode != nil {
 			if schedule, ok := domain.EquitySessionScheduleForMarket(*instrument.MarketCode); ok {
 				location, _ = time.LoadLocation(schedule.Timezone)
@@ -338,7 +338,11 @@ func (s *Service) agentMarketDataRecord(ctx context.Context, householdID domain.
 }
 
 func (s *Service) agentMarketDataTime(ctx context.Context, item AgentMarketDataItem, instrument *domain.Instrument) (time.Time, string, error) {
-	return parseAgentMarketDataTime(item, instrument, s.seriesLocation(ctx), s.clock())
+	location, err := s.seriesLocation(ctx)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return parseAgentMarketDataTime(item, instrument, location, s.clock())
 }
 
 // Shared pure time validation: no repository, provider, refresh or mutation.

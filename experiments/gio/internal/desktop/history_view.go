@@ -27,7 +27,6 @@ type historyPage struct {
 	cashMovements           *historyCashMovements
 	investment              *accountInvestment
 	record                  historyRecordSheet
-	startPoint              *historyStart
 	reads                   *historyReads
 	bound, revision         uint64
 	onPosted                func()
@@ -79,14 +78,6 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return p.layoutDetail(gtx, view)
 		}
 	}
-	if start := p.startPoint; start != nil {
-		if p.noHistory() && start.start.Clicked(gtx) {
-			p.beginStartingPoint(start)
-		}
-		if start.open {
-			return p.layoutStartingPoint(gtx, view, start)
-		}
-	}
 	if p.retryButton.Clicked(gtx) {
 		p.model.Retry()
 	}
@@ -105,21 +96,7 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view ui.View) layout.Di
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, view) }),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					if p.startPoint == nil || !p.startPoint.ready || p.reads.references == nil || p.reads.references.Origin == nil {
-						return p.status(gtx, view)
-					}
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-						layout.Rigid(view.Message(view.Language.Text(i18n.HistoryStartSaved), view.Colors.Ink)),
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
-					)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.startPoint == nil || !p.noHistory() {
-						return layout.Dimensions{}
-					}
-					return view.Button(&p.startPoint.start, view.Language.Text(i18n.HistoryStartAction))(gtx)
-				}),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
@@ -129,13 +106,13 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view ui.View) layout.Di
 			)
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			if len(p.model.Rows()) == 0 || p.noHistory() {
+			if len(p.model.Rows()) == 0 {
 				return layout.Dimensions{}
 			}
 			return p.activityList(gtx, view)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if !p.model.HasMore() || p.model.Err() != nil || p.noHistory() {
+			if !p.model.HasMore() || p.model.Err() != nil {
 				return layout.Dimensions{}
 			}
 			if p.model.Loading() {
@@ -150,8 +127,6 @@ func (p *historyPage) status(gtx layout.Context, view ui.View) layout.Dimensions
 	color := view.Colors.SecondaryInk
 	var text string
 	switch {
-	case p.noHistory():
-		text = view.Language.Text(i18n.HistoryUnavailable)
 	case p.model.Loading():
 		text = view.Language.Text(i18n.HistoryLoading)
 	case p.model.Err() != nil:

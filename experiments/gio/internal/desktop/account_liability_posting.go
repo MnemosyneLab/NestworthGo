@@ -26,8 +26,6 @@ type accountLiabilityPosting struct {
 
 type liabilityPostingDraft struct {
 	account                             domain.Account
-	starting                            *historyStart
-	startingSaved                       bool
 	kind                                historyapi.ChangeCommandKind
 	counterparty                        domain.AccountID
 	reason                              domain.ActivityReason
@@ -136,7 +134,7 @@ func (p *accountsPage) confirmLiabilityPosting() {
 
 func (p *accountsPage) liabilityPostingUnresolved() bool {
 	f := p.liabilityPosting
-	return f != nil && f.draft != nil && (f.draft.posting != nil || f.draft.uncertain || f.draft.starting.unresolved())
+	return f != nil && f.draft != nil && (f.draft.posting != nil || f.draft.uncertain)
 }
 
 func (p *accountsPage) pollLiabilityPosting() {
@@ -145,31 +143,13 @@ func (p *accountsPage) pollLiabilityPosting() {
 		return
 	}
 	d := f.draft
-	if d.starting != nil {
-		f.history.pollStartingPoint(d.starting)
-		if d.starting.open {
-			return
-		}
-		if !d.starting.ready {
-			f.draft, f.restore = nil, true
-			return
-		}
-		d.starting, d.startingSaved, d.focusAmount = nil, true, true
-		p.loadLiabilityPosting()
-	}
 	select {
 	case result := <-d.loading:
 		d.loading = nil
 		if result.err != nil {
 			d.sources = nil
 			d.sourceProblem = liabilityPostingProblem(result.err, i18n.AccountLoadError)
-			if d.sourceProblem == i18n.CashMovementHistoryRequired && f.history != nil && f.history.startPoint != nil && !d.startingSaved {
-				start := newHistoryStart(f.history.startPoint.service)
-				start.accountName, start.focusDate = d.account.Name, true
-				d.starting = start
-				f.history.beginStartingPoint(start)
-				return
-			}
+
 		} else {
 			d.sources, d.account = &result.value, result.value.Account
 			if d.date == "" {
@@ -217,7 +197,7 @@ func liabilityPostingProblem(err error, fallback i18n.MessageID) i18n.MessageID 
 		return fallback
 	}
 	switch issue.Code {
-	case domain.ErrHistoryNotStarted:
+	case domain.ErrMissingHistoryOrigin:
 		return i18n.CashMovementHistoryRequired
 	case domain.ErrInvalidChangeTime:
 		return i18n.ContributionInvalidTime

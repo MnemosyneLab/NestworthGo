@@ -31,7 +31,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	a := overviewAccount(t, s, owner, "Secret A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Secret B", "bank_account", "asset", "balance", "CNY", "0")
 	debt := overviewAccount(t, s, owner, "Secret debt", "loan", "liability", "balance", "CNY", "30")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -40,7 +40,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	}
 	later := overviewAccount(t, s, owner, "Secret later", "bank_account", "asset", "balance", "CNY", "0")
 	*now = now.AddDate(0, 0, 1)
-	if err := s.ArchiveAccount(t.Context(), debt.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), debt.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -66,7 +66,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	if _, err := db.SQL.Exec("UPDATE accounts SET name='changed',note='private' WHERE id=?", a.Account.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AppendAccountValue(t.Context(), b.Account.ID, "99", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), b.Account.ID, "99", ""); err != nil {
 		t.Fatal(err)
 	}
 	if next := comparisonFor(t, s, "2026-08-01", "2026-08-02", a.Account.ID); next.ContentHash != one.ContentHash {
@@ -74,7 +74,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	}
 	// Current is actual DB state, including observations economically after capture.
 	*now = now.AddDate(0, 0, 2)
-	if _, err := s.AppendAccountValue(t.Context(), a.Account.ID, "150", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), a.Account.ID, "150", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, -2)
@@ -118,14 +118,11 @@ func TestFinancialComparisonMissingFXNativeDeltaAndDates(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "FX", "bank_account", "asset", "balance", "USD", "10")
-	if _, err := s.BuildFinancialComparison(t.Context(), FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); !hasDomainCode(err, domain.ErrHistoryNotStarted) {
-		t.Fatal(err)
-	}
-	if _, err := s.StartHistory(t.Context(), "America/New_York"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/New_York"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err := s.AppendAccountValue(t.Context(), a.Account.ID, "13", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), a.Account.ID, "13", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -164,7 +161,7 @@ func TestFinancialComparisonSingleCaptureWithConcurrentWrite(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -179,7 +176,7 @@ func TestFinancialComparisonSingleCaptureWithConcurrentWrite(t *testing.T) {
 		errs <- err
 	}()
 	<-repo.captured
-	if _, err := s.AppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
 		t.Fatal(err)
 	}
 	close(repo.release)
@@ -198,22 +195,22 @@ func TestFinancialComparisonPositionTransferAndMissingPrice(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "From", "brokerage", "asset", "holdings", "CNY", "")
 	b := overviewAccount(t, s, owner, "To", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(t.Context(), i.ID, "5", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+	h, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	target, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: b.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
+	target, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: b.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "5"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -256,7 +253,7 @@ func TestFinancialComparisonRetainedCorrectionAndNamedDisclosure(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Chosen name", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -300,11 +297,11 @@ func TestFinancialComparisonExclusionIsNotAValueDelta(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
-	if _, err := s.UpdateAccount(t.Context(), a.Account.ID, AccountInput{Name: "Cash", IncludeInNetWorthSet: true, IncludeInNetWorth: false}); err != nil {
+	if _, err := s.fixtureUpdateAccount(t.Context(), a.Account.ID, AccountInput{Name: "Cash", IncludeInNetWorthSet: true, IncludeInNetWorth: false}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)

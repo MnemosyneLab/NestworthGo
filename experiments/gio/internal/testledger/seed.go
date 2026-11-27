@@ -10,6 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 // Seed writes the ordinary synthetic household for directory and activity tests.
@@ -19,8 +20,8 @@ func Seed(ctx context.Context, database, preferences string) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, db.Close()) }()
-	service := application.NewService(sqlite.NewRepository(db))
-	service.SetClock(HistoryStart)
+	service := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(service, HistoryStart)
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Harbor Sample Household",
 		BaseCurrency:  "USD",

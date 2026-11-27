@@ -174,7 +174,7 @@ func TestHistoryRepeatPrefillMatchesWailsAndRetriesSamePlan(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	assertRepeatActivityCount(t, reopened, 4)
 	assertNewRepeatMatches(t, reopened, sources[0], fault.lost, wantIncome.Activity)
 	assertNewRepeatMatches(t, reopened, sources[1], expenseID, wantExpense.Activity)

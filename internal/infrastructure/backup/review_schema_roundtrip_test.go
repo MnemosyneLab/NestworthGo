@@ -23,7 +23,7 @@ func TestV19ReviewStateSurvivesCompleteBackup(t *testing.T) {
 	const epoch = "00000000-0000-4000-8000-000000000004"
 	const episode = "00000000-0000-4000-8000-000000000005"
 	if _, err := db.SQL.Exec(`
-INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');
+INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');
 INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,icon_key,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','Synthetic stock','stock','CNY','chart-line','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');
 INSERT INTO investment_review_control(household_id,projection_status) VALUES('00000000-0000-4000-8000-000000000001','complete');
 INSERT INTO investment_review_rules(id,household_id,name,enabled,severity,evaluator,row_revision,current_condition_version,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000001','Price','1','notice','daily_predicate_v1',1,1,'2026-10-01T00:00:00Z','2026-10-01T00:00:00Z');

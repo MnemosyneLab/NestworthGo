@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type dependentCostTimeline struct {
@@ -39,28 +40,28 @@ func TestUndoRejectsLaterHoldingTradesThatWouldLoseTheirCostBasis(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer db.Close()
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	now := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	service.SetClock(func() time.Time { return now })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Home", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	broker, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, broker.Account.ID, "1000", "USD", "2026-01-02"); err != nil {
+	if _, err := service.fixtureAppendAccountCashValue(ctx, broker.Account.ID, "1000", "USD", "2026-01-02"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)

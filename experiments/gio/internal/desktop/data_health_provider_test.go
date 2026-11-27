@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"net/http"
 	"path/filepath"
@@ -51,24 +52,24 @@ func seedStage6ProviderSettings(t *testing.T, start time.Time) ([]byte, domain.I
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := seed.CreateAccount(ctx, application.AccountInput{
+	account, err := testfixture.CreateAccount(seed, ctx, application.AccountInput{
 		Name: "Synthetic wallet", AccountType: "brokerage", TrackingMode: "holdings", BalanceSheetRole: "asset", DefaultCurrency: "USD",
 		IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{owners.Members[0].ID},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := seed.CreateInstrument(ctx, application.InstrumentInput{
+	instrument, err := testfixture.CreateInstrument(seed, ctx, application.InstrumentInput{
 		Name: "Synthetic CoinGecko holding", Type: "crypto", Symbol: "BTC", QuoteCurrency: "USD", QuoteSource: "provider",
 		ProviderKey: domain.CoinGeckoProviderKey, ProviderSymbol: "bitcoin", MarketCode: "CRYPTO",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(seed, ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {
+	if _, err := testfixture.CreateHolding(seed, ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {
 		t.Fatal(err)
 	}
 	// Overview can materialize derived snapshots. Seed those same closed days

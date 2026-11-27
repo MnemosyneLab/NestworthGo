@@ -85,10 +85,11 @@ func (s *Service) ExportJSONBytes(ctx context.Context) ([]byte, error) {
 	now := s.clock()
 	doc := ExportDocument{Format: ExportFormat, FormatVersion: ExportFormatVersion,
 		ExportedAt: now.UTC().Format(time.RFC3339Nano), AppVersion: version.Version, AppBuild: version.Build, Facts: snapshot.Facts}
-	if origin := snapshot.Portfolio.Origin; origin != nil {
-		timezone := origin.Timezone
-		doc.Timezone = &timezone
+	if snapshot.Portfolio.Origin == nil {
+		return nil, missingHistoryOrigin()
 	}
+	timezone := snapshot.Portfolio.Origin.Timezone
+	doc.Timezone = &timezone
 	doc.CurrentState, err = s.exportCurrentState(ctx, snapshot, now)
 	if err != nil {
 		return nil, err

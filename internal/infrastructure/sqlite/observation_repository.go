@@ -364,7 +364,7 @@ func appendFXPreferenceObservationTx(ctx context.Context, tx *sql.Tx, observatio
 	var timezone string
 	if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, observation.HouseholdID.String()).Scan(&timezone); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a preference"}
+			return &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		return err
 	}
@@ -380,7 +380,7 @@ func historyOwnerTx(ctx context.Context, tx *sql.Tx, query string, id string) (d
 	var householdID, timezone string
 	if err := tx.QueryRowContext(ctx, query, id).Scan(&householdID, &timezone); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", "", &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording an observation"}
+			return "", "", &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 		}
 		return "", "", err
 	}

@@ -14,11 +14,11 @@ func TestShortNameEditsPreserveIdentityAndProjections(t *testing.T) {
 	account := createHoldingsAccount(t, s, ctx, bootstrap.Members[0].ID, "Synthetic")
 	aliases := []string{"家庭基金 🌿", "家庭基金 🌿"}
 	for idx, code := range []string{"000001", "000002"} {
-		i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Share class " + code, Type: "mutual_fund", QuoteCurrency: "CNY", Symbol: code, ISIN: "CN00000000" + code, QuoteSource: "provider", ProviderKey: "eastmoney", ProviderSymbol: code})
+		i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Share class " + code, Type: "mutual_fund", QuoteCurrency: "CNY", Symbol: code, ISIN: "CN00000000" + code, QuoteSource: "provider", ProviderKey: "eastmoney", ProviderSymbol: code})
 		if err != nil {
 			t.Fatal(err)
 		}
-		holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1.23456789"})
+		holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1.23456789"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -35,7 +35,7 @@ func TestShortNameEditsPreserveIdentityAndProjections(t *testing.T) {
 			t.Fatal(err)
 		}
 		alias := "  " + aliases[idx] + "  "
-		updated, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: &alias})
+		updated, err := s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: &alias})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,15 +110,15 @@ func TestShortNameEditsPreserveIdentityAndProjections(t *testing.T) {
 		if !found {
 			t.Fatal("missing group")
 		}
-		untouched, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{Note: strPtr("metadata")})
+		untouched, err := s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{Note: strPtr("metadata")})
 		if err != nil || untouched.ShortName != aliases[idx] {
 			t.Fatalf("omitted alias lost: %+v %v", untouched, err)
 		}
-		if _, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: strPtr(strings.Repeat("长", 121))}); err == nil {
+		if _, err := s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: strPtr(strings.Repeat("长", 121))}); err == nil {
 			t.Fatal("accepted long alias")
 		}
 		empty := "\u2003 "
-		cleared, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: &empty})
+		cleared, err := s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: &empty})
 		if err != nil || cleared.ShortName != "" {
 			t.Fatalf("clear %+v %v", cleared, err)
 		}
@@ -169,7 +169,7 @@ func TestManagedShortNameUsesContractEditAndSurvivesReload(t *testing.T) {
 	if !reflect.DeepEqual(next.CurrentValue, p.CurrentValue) || next.Contract.Principal.CanonicalAmount() != p.Contract.Principal.CanonicalAmount() {
 		t.Fatal("nickname changed financial value")
 	}
-	if _, err := s.UpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: strPtr("independent")}); err == nil {
+	if _, err := s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{ShortName: strPtr("independent")}); err == nil {
 		t.Fatal("managed instrument accepted independent edit")
 	}
 	loaded, err := s.Product(ctx, p.Contract.ID)
@@ -186,46 +186,5 @@ func TestManagedShortNameUsesContractEditAndSurvivesReload(t *testing.T) {
 	cleared, err := s.UpdateProductTerms(ctx, input)
 	if err != nil || cleared.Contract.ShortName != "" {
 		t.Fatalf("clear %+v %v", cleared, err)
-	}
-}
-
-func TestShortNameStartingPointCostsRetainShareClassIdentity(t *testing.T) {
-	s, ctx, bootstrap, _ := newOnboardedService(t, "alias-cost-inputs", nil)
-	account := createHoldingsAccount(t, s, ctx, bootstrap.Members[0].ID, "Brokerage")
-	alias := "Family fund"
-	holdings := map[string]domain.HoldingID{}
-	for _, code := range []string{"000001", "000002"} {
-		instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Share class " + code, ShortName: &alias, Symbol: code, ISIN: "CN" + code, QuoteCurrency: "CNY", Type: "mutual_fund"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		holdings[code] = holding.ID
-	}
-	rows, err := s.StartingPointDraft(ctx)
-	if err != nil || len(rows) != 2 {
-		t.Fatalf("draft %+v %v", rows, err)
-	}
-	names := map[string]bool{}
-	for _, row := range rows {
-		if !strings.HasPrefix(row.InstrumentName, "Family fund · ") || row.Quantity != "10" {
-			t.Fatalf("primary %+v", row)
-		}
-		found := false
-		for code, id := range holdings {
-			if row.HoldingID == id {
-				found = true
-				if !strings.Contains(row.InstrumentName, code) || !strings.Contains(row.InstrumentName, "Share class "+code) || !strings.Contains(row.InstrumentName, "CN"+code) {
-					t.Fatalf("missing identity %+v", row)
-				}
-			}
-		}
-		if !found || names[row.InstrumentName] {
-			t.Fatal("cost inputs collapse duplicate aliases")
-		}
-		names[row.InstrumentName] = true
 	}
 }

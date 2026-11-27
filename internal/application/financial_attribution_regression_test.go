@@ -42,7 +42,7 @@ func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Private existing", "bank_account", "asset", "balance", "CNY", "40")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -80,7 +80,7 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
 			broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
-			instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,11 +93,11 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 				}
 			}
 			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-			holding, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+			holding, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
+			if _, err := s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{holding.ID: "5"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -196,7 +196,7 @@ func TestFinancialAttributionGapBackfillChunks(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
@@ -212,7 +212,7 @@ func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic earlier revision", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -248,7 +248,7 @@ func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T)
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic bounded revision", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -286,7 +286,7 @@ func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 			overviewAccount(t, s, owner, "Synthetic Havana cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(t.Context(), "America/Havana"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/Havana"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
@@ -326,10 +326,10 @@ func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
 				}
 			}
 			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+			if _, err := s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
@@ -375,10 +375,10 @@ func TestFinancialAttributionPrecisionComponentTiesAndMultiDay(t *testing.T) {
 				}
 			}
 			*now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-			if _, err := s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+			if _, err := s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
@@ -400,7 +400,7 @@ func TestFinancialAttributionPrecisionDoesNotHideUnknownDailyGap(t *testing.T) {
 	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}}}}
 	for index, exact := range []string{"100", "100.000001", "100"} {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", index+1), domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeAmount: exact, NativeCurrency: "CNY", BaseAmountExact: exact, Complete: true}))
 	}
@@ -423,7 +423,7 @@ func TestFinancialAttributionPrecisionDoesNotHideCancellingComponentGaps(t *test
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
 	for index, exact := range [][2]string{{"100", "100"}, {"100.000001", "99.999999"}} {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", index+1), domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeAmount: exact[0], NativeCurrency: "CNY", BaseAmountExact: exact[0], Complete: true}, domain.DailyValuationSnapshotItem{AccountID: b.ID, NativeAmount: exact[1], NativeCurrency: "CNY", BaseAmountExact: exact[1], Complete: true}))
 	}
@@ -444,7 +444,7 @@ func TestFinancialAttributionPrecisionRejectsCancellingComponentCorruption(t *te
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
 	for day := 1; day <= 3; day++ {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", day), analysisItem(t, a.ID, "CNY", "100", "100", nil, nil, "", ""), analysisItem(t, b.ID, "CNY", "100", "100", nil, nil, "", "")))
 	}

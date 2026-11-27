@@ -53,19 +53,11 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
-	if err != nil {
+	if _, err := s.requireHistoryOrigin(ctx, household.ID); err != nil {
 		return domain.Instrument{}, err
 	}
-	if origin != nil {
-		observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: instrument.CreatedAt, CreatedAt: instrument.CreatedAt}
-		if err := s.repository.CreateInstrumentWithObservation(ctx, instrument, observation); err != nil {
-			return domain.Instrument{}, err
-		}
-		s.invalidateAnalysis()
-		return instrument, nil
-	}
-	if err := s.repository.CreateInstrument(ctx, instrument); err != nil {
+	observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: instrument.CreatedAt, CreatedAt: instrument.CreatedAt}
+	if err := s.repository.CreateInstrumentWithObservation(ctx, instrument, observation); err != nil {
 		return domain.Instrument{}, err
 	}
 	s.invalidateAnalysis()
@@ -336,7 +328,7 @@ func (s *Service) editInstrument(ctx context.Context, id domain.InstrumentID, me
 	if observationErr != nil {
 		return domain.Instrument{}, observationErr
 	}
-	if preferenceObservation.ID != "" && updated.QuoteSource != current.QuoteSource {
+	if updated.QuoteSource != current.QuoteSource {
 		if err := s.repository.UpdateInstrumentWithObservation(ctx, updated, preferenceObservation); err != nil {
 			return domain.Instrument{}, err
 		}
@@ -384,25 +376,16 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	if err != nil {
 		return err
 	}
-	if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
-		return originErr
-	} else if origin != nil {
-		instrument, instrumentErr := s.repository.Instrument(ctx, household.ID, id)
-		if instrumentErr != nil {
-			return instrumentErr
-		}
-		instrument.QuoteSource = parsed
-		observation, observationErr := s.instrumentPreferenceObservation(ctx, instrument)
-		if observationErr != nil {
-			return observationErr
-		}
-		err := s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation)
-		if err == nil {
-			s.invalidateAnalysis()
-		}
-		return err
+	instrument, instrumentErr := s.repository.Instrument(ctx, household.ID, id)
+	if instrumentErr != nil {
+		return instrumentErr
 	}
-	err = s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock())
+	instrument.QuoteSource = parsed
+	observation, observationErr := s.instrumentPreferenceObservation(ctx, instrument)
+	if observationErr != nil {
+		return observationErr
+	}
+	err = s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation)
 	if err == nil {
 		s.invalidateAnalysis()
 	}
@@ -473,11 +456,11 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 	if household == nil {
 		return domain.Holding{}, onboardingRequired()
 	}
-	origin, originErr := s.repository.HistoryOrigin(ctx, household.ID)
+	origin, originErr := s.requireHistoryOrigin(ctx, household.ID)
 	if originErr != nil {
 		return domain.Holding{}, originErr
 	}
-	if origin != nil && !quantity.IsZero() {
+	if !quantity.IsZero() {
 		zero, zeroErr := domain.ParseQuantity("0")
 		if zeroErr != nil {
 			return domain.Holding{}, zeroErr
@@ -507,7 +490,7 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 		s.invalidateAnalysis()
 		return holding, nil
 	}
-	if err := s.repository.CreateHolding(ctx, holding); err != nil {
+	if err := s.repository.CreateEmptyHolding(ctx, holding); err != nil {
 		return domain.Holding{}, err
 	}
 	s.invalidateAnalysis()
@@ -543,18 +526,14 @@ func (s *Service) HoldingsByAccounts(ctx context.Context, accountIDs []domain.Ac
 	return grouped, nil
 }
 
-func (s *Service) UpdateHoldingQuantity(ctx context.Context, id domain.HoldingID, quantity string) (domain.Holding, error) {
-	return s.updateHolding(ctx, id, HoldingUpdateInput{Quantity: quantity, QuantitySet: true}, true)
-}
-
 func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput) (domain.Holding, error) {
 	if input.QuantitySet || input.Quantity != "" {
-		return domain.Holding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "UpdateHolding only supports metadata; use UpdateHoldingQuantity before History or RecordChange after History"}
+		return domain.Holding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "UpdateHolding only supports metadata; use RecordChange for quantity changes"}
 	}
-	return s.updateHolding(ctx, id, input, false)
+	return s.updateHolding(ctx, id, input)
 }
 
-func (s *Service) updateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput, allowQuantity bool) (domain.Holding, error) {
+func (s *Service) updateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput) (domain.Holding, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.Holding{}, err
@@ -574,23 +553,7 @@ func (s *Service) updateHolding(ctx context.Context, id domain.HoldingID, input 
 	if current.ArchivedAt != nil {
 		return domain.Holding{}, &domain.Error{Code: domain.ErrValidation, Field: "holdingId", Message: "holding is archived"}
 	}
-	if input.QuantitySet || input.Quantity != "" {
-		if !allowQuantity {
-			return domain.Holding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "holding quantity changes are not metadata"}
-		}
-		if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
-			return domain.Holding{}, originErr
-		} else if origin != nil {
-			return domain.Holding{}, &domain.Error{Code: domain.ErrConflict, Message: "Holding quantity changes must be recorded as a change"}
-		}
-		quantity, parseErr := domain.ParseQuantity(input.Quantity)
-		if parseErr != nil {
-			return domain.Holding{}, parseErr
-		}
-		current = current.ReplaceQuantity(quantity, s.clock())
-	} else {
-		current.UpdatedAt = normalizeNow(s.clock())
-	}
+	current.UpdatedAt = normalizeNow(s.clock())
 	if input.NoteSet {
 		current.Note = input.Note
 	}
@@ -628,8 +591,7 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
-	// Before History this appends a cash baseline. After History the resulting
-	// balance is converted to a reconciliation cash_in/cash_out and committed
+	// The resulting balance is converted to a reconciliation cash_in/cash_out and committed
 	// by the same PreviewChange/RecordChange engine.
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
@@ -662,49 +624,44 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
-	value, err := domain.NewAccountCashValue(record.Account, money, when, s.clock())
+	_, err = domain.NewAccountCashValue(record.Account, money, when, s.clock())
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
-	if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
-		return domain.AccountCashValue{}, originErr
-	} else if origin != nil {
-		state, stateErr := s.changeStateFrom(origin, snapshot)
-		if stateErr != nil {
-			return domain.AccountCashValue{}, stateErr
-		}
-		current, currentErr := currentCashAmount(state, accountID, parsedCurrency)
-		if currentErr != nil {
-			return domain.AccountCashValue{}, currentErr
-		}
-		delta, added, differenceErr := differenceMoney(money, current)
-		if differenceErr != nil {
-			return domain.AccountCashValue{}, differenceErr
-		}
-		if delta.IsZero() {
-			return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrNoChange, Message: "the new cash value is unchanged"}
-		}
-		var command any
-		if added {
-			command = domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
-		} else {
-			command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
-		}
-		preview, commitErr := s.commitChangeLocked(ctx, state, command, nil)
-		if commitErr != nil {
-			return domain.AccountCashValue{}, commitErr
-		}
-		resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
-		if parseErr != nil {
-			return domain.AccountCashValue{}, parseErr
-		}
-		return domain.NewAccountCashValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
-	}
-	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
+	origin, err := s.requireHistoryOrigin(ctx, household.ID)
+	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
-	s.invalidateAnalysis()
-	return value, nil
+	state, stateErr := s.changeStateFrom(origin, snapshot)
+	if stateErr != nil {
+		return domain.AccountCashValue{}, stateErr
+	}
+	current, currentErr := currentCashAmount(state, accountID, parsedCurrency)
+	if currentErr != nil {
+		return domain.AccountCashValue{}, currentErr
+	}
+	delta, added, differenceErr := differenceMoney(money, current)
+	if differenceErr != nil {
+		return domain.AccountCashValue{}, differenceErr
+	}
+	if delta.IsZero() {
+		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrNoChange, Message: "the new cash value is unchanged"}
+	}
+	var command any
+	if added {
+		command = domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
+	} else {
+		command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
+	}
+	preview, commitErr := s.commitChangeLocked(ctx, state, command, nil)
+	if commitErr != nil {
+		return domain.AccountCashValue{}, commitErr
+	}
+	resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
+	if parseErr != nil {
+		return domain.AccountCashValue{}, parseErr
+	}
+	return domain.NewAccountCashValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
 }
 
 func (s *Service) ListAccountCashValues(ctx context.Context, accountID domain.AccountID) ([]domain.AccountCashValue, error) {
@@ -795,12 +752,7 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if observationErr != nil {
 		return domain.FXPreference{}, observationErr
 	}
-	var saveErr error
-	if observation.ID != "" {
-		saveErr = s.repository.SetFXPreferenceWithObservation(ctx, preference, observation)
-	} else {
-		saveErr = s.repository.SetFXPreference(ctx, preference)
-	}
+	saveErr := s.repository.SetFXPreferenceWithObservation(ctx, preference, observation)
 	if saveErr != nil {
 		return domain.FXPreference{}, saveErr
 	}
@@ -984,7 +936,7 @@ func holdingFromSnapshot(snapshot domain.PortfolioSnapshot, id domain.HoldingID)
 	return domain.Holding{}, false
 }
 
-// Date-only manual observations use the immutable History timezone (UTC before History).
+// Date-only manual observations use the immutable History timezone.
 // Explicit RFC3339 timestamps retain their instant; an empty input still means now.
 func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (time.Time, error) {
 	value = strings.TrimSpace(value)
@@ -1002,12 +954,12 @@ func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (
 	if err != nil {
 		return time.Time{}, err
 	}
-	location := time.UTC
-	if origin != nil {
-		location, err = time.LoadLocation(origin.Timezone)
-		if err != nil {
-			return time.Time{}, err
-		}
+	if origin == nil {
+		return time.Time{}, onboardingRequired()
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return time.Time{}, err
 	}
 	dateLabel, err := time.Parse("2006-01-02", value)
 	if err != nil {

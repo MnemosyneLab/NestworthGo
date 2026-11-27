@@ -461,10 +461,8 @@
     },
     "soldCurrency": "卖出币种",
     "start": "开始历史记录",
-    "startCostDescription": "平均成本",
-    "startCostHelp": "开始记录时它的价值",
-    "startCostTitle": "起始点价值",
-    "startDescription": "确认家庭时区，并在开始记录前检查每项平均成本。",
+
+
     "startingPoint": "起始点",
     "timeline": "时间线",
     "toDate": "结束",
@@ -1014,7 +1012,7 @@
   },
   "snapshot": {
     "historyRebuild": "重建历史记录",
-    "noHistory": "开始历史记录后才能建立已收盘日快照。",
+
     "revisionsUpdated": "已更新 %d 条历史修订",
     "updating": "正在更新历史记录…"
   },
@@ -1074,7 +1072,7 @@
     "accountCount_one": "{{count}} 个账户",
     "accountCount_other": "{{count}} 个账户",
     "accountCount": "{{count}} 个账户",
-    "unitCostHint": "历史记录已启用，请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
+    "unitCostHint": "请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
   },
   "connections": {
     "historyCoverage": "历史估值：{{total}} 天中有 {{valued}} 天可提供总额",
@@ -1089,7 +1087,7 @@
     "noAutomaticRepair": "此覆盖范围不支持自动修复。请检查行情服务状态或支持范围；刷新当前报价不能补齐这段历史缺口。",
     "noExecutableWork": "当前没有可执行的修复任务。请解决前置问题，或稍后重新检查覆盖情况。",
     "viewPeriodGaps": "查看此期间的缺口",
-    "manualDateZone": "日期使用 History 账本时区（开始 History 前使用 UTC）。",
+    "manualDateZone": "日期使用账本时区。",
     "noGroup": "未指定分组",
     "analyze": "分析",
     "analyzeObject": "分析 {{name}}",
@@ -1545,8 +1543,8 @@
     "aboutPage": "关于此页面",
     "aboutChange": "关于此变化",
     "debtShort": "负债余额",
-    "noOrigin": "历史记录尚未开始",
-    "noOriginHint": "家庭历史记录开始后即可使用资产回溯。",
+    "noOrigin": "账本历史不可用",
+    "noOriginHint": "无法读取必要的账本历史起点。",
     "estimatedShort": "暂估",
     "coverageEstimated": "完整暂估总额"
   },
@@ -2250,7 +2248,7 @@
     "queryResult": "查询原提交结果",
     "recoveryHelp": "请先查回执再记下一笔。若 App 已重启且结果不明，请在桌面核实。",
     "saved": "已保存",
-    "historyRequired": "请先在桌面建立历史起点，再使用记账功能。",
+
     "discardTitle": "舍弃这份草稿？",
     "discardBody": "尚未提交的内容将被清除。",
     "discard": "舍弃",

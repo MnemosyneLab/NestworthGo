@@ -8,6 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // Real command-path cycles, rather than fabricated evaluation-state rows. Both
@@ -31,7 +32,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 			if _, err := source.service.RecordChange(t.Context(), domain.PositionAdjustmentInput{HouseholdID: source.householdID, HoldingID: holding, Quantity: quantity, Added: added, UnitCost: &cost, EffectiveAt: *source.now}); err != nil {
 				t.Fatal(err)
 			}
-			capture, err := sqlite.NewRepository(source.db).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+			capture, err := repos.New(source.db).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -44,7 +45,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 			for path := range durable {
 				t.Run("epoch-publish", func(t *testing.T) {
 					run := cloneReviewPerfFixture(t, source)
-					var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
+					var repo reviewTestProjectionRepository = repos.New(run.db)
 					if path == 0 {
 						repo = fullReviewOracle(repo)
 					}
@@ -79,7 +80,7 @@ func seedReviewPerfEpochCycles(t *testing.T, source reviewFullPipelineFixture, c
 
 func capturesRules(t *testing.T, source reviewFullPipelineFixture) []domain.ReviewRule {
 	t.Helper()
-	capture, err := fullReviewOracle(sqlite.NewRepository(source.db)).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
+	capture, err := fullReviewOracle(repos.New(source.db)).CaptureReviewProjection(t.Context(), source.householdID, *source.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +179,7 @@ func TestReviewReentryEpisodeFullReplayAcrossMidnight(t *testing.T) {
 	for _, mode := range []string{"full", "baseline"} {
 		t.Run(mode, func(t *testing.T) {
 			run := cloneReviewPerfFixture(t, source)
-			var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
+			var repo reviewTestProjectionRepository = repos.New(run.db)
 			switch mode {
 			case "full":
 				repo = fullReviewOracle(repo)

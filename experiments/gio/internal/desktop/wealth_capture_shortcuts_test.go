@@ -18,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
@@ -32,8 +33,8 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	seed := application.NewService(sqlite.NewRepository(db))
-	seed.SetClock(clock)
+	seed := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+	testfixture.SetClock(seed, clock)
 	if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic Wealth Shortcuts", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
 	}); err != nil {
@@ -43,7 +44,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cash, err := seed.CreateAccount(ctx, application.AccountInput{
+	cash, err := testfixture.CreateAccount(seed, ctx, application.AccountInput{
 		Name: "Synthetic checking", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
 		DefaultCurrency: "USD", InitialAmount: "100.0001", IncludeInNetWorth: true,
 		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
@@ -51,7 +52,7 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(seed, ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Date(2026, 11, 5, 17, 30, 0, 0, time.UTC) // November 6 in Singapore.
@@ -87,8 +88,8 @@ func TestWealthCaptureShortcutsMatchWailsAndKeepLedgerContext(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		app := application.NewService(sqlite.NewRepository(db))
-		app.SetClock(clock)
+		app := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
+		testfixture.SetClock(app, clock)
 		return app
 	}
 	gio := openCopy()

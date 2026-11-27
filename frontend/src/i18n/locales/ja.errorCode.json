@@ -21,7 +21,7 @@
   "database_upgrade_required": "対応していないデータベーススキーマです。元のファイルは変更されていません。そのまま保管してください。",
   "decimal_overflow": "この値は対応範囲を超えています。",
   "historical_series_budget": "履歴の推移を表示するための入力件数または計算量が上限を超えました。比較画面は引き続き利用できます。",
-  "history_not_started": "変更を記録する前に取引履歴の記録を開始してください。",
+  "history_origin_missing": "帳簿の履歴を利用できません。",
   "history_timezone_required": "世帯のタイムゾーンを確認してから続行してください。",
   "history_update_failed": "取引履歴を更新できませんでした。",
   "insufficient_balance": "この変更を記録するための残高が不足しています。",

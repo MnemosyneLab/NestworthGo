@@ -30,10 +30,8 @@ func (r *Repository) ReadMarketComparisonSnapshot(ctx context.Context, scopes []
 	if err != nil {
 		return out, err
 	}
-	if out.Origin != nil {
-		if _, err = time.LoadLocation(out.Origin.Timezone); err != nil {
-			return out, err
-		}
+	if _, err = time.LoadLocation(out.Origin.Timezone); err != nil {
+		return out, err
 	}
 	scope := marketScopedQuery{queryer: tx, budgetCandidates: true, fxPredicate: "0"}
 	ip, fp := []string{"0"}, []string{"0"}

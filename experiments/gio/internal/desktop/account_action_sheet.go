@@ -33,7 +33,7 @@ func (p *accountsPage) accountActionTitle() i18n.MessageID {
 		p.liabilityPosting != nil && p.liabilityPosting.draft != nil ||
 		p.cashBalance != nil && p.cashBalance.draft != nil ||
 		p.balanceTarget != nil && p.balanceTarget.draft != nil ||
-		p.opening != nil && p.opening.draft != nil ||
+
 		p.investment != nil && p.investment.draft != nil:
 		return i18n.LiabilityRecord
 	default:
@@ -65,14 +65,6 @@ func (p *accountsPage) updateAccountActionTriggers(gtx layout.Context) {
 		}
 		if f.saved.account == p.target.account && f.saved.activity != "" && f.openActivity != nil && f.view.Clicked(gtx) {
 			f.openActivity(f.saved.activity, &f.view)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-	}
-	if f := p.opening; f != nil {
-		if f.draft == nil && p.canOpenPosition() && f.open.Clicked(gtx) {
-			f.saved = ""
-			f.draft = &openingPositionDraft{account: p.freshDetail().record.Account, quantity: ui.NewTextField(true)}
-			p.loadOpeningPosition(f.draft)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
@@ -171,7 +163,7 @@ func (p *accountsPage) layoutAccountActionSheet(gtx layout.Context, view ui.View
 func (p *accountsPage) accountActionUnresolved() bool {
 	return p.maintenance != nil && (p.maintenance.pending != nil || p.maintenance.review != nil) ||
 		p.detail.cashActions.unresolved() || p.cashBalanceUnresolved() || p.balanceTargetUnresolved() ||
-		p.liabilityPostingUnresolved() || p.investment.unresolved() || p.openingPositionUnresolved() || p.productSetup.unresolved()
+		p.liabilityPostingUnresolved() || p.investment.unresolved() || p.productSetup.unresolved()
 }
 
 func (p *accountsPage) accountActionCancel() *widget.Clickable {
@@ -188,8 +180,6 @@ func (p *accountsPage) accountActionCancel() *widget.Clickable {
 		return &p.cashBalance.draft.cancel
 	case p.balanceTarget != nil && p.balanceTarget.draft != nil:
 		return &p.balanceTarget.draft.cancel
-	case p.opening != nil && p.opening.draft != nil:
-		return &p.opening.draft.cancel
 	case p.investment != nil && p.investment.draft != nil:
 		return &p.investment.draft.cancel
 	case p.productSetup != nil:
@@ -213,8 +203,6 @@ func (p *accountsPage) layoutAccountAction(gtx layout.Context, view ui.View) lay
 		return p.layoutCashBalance(gtx, view)
 	case p.balanceTarget != nil && p.balanceTarget.draft != nil:
 		return p.layoutBalanceTarget(gtx, view)
-	case p.opening != nil && p.opening.draft != nil:
-		return p.layoutOpeningPosition(gtx, view)
 	case p.investment != nil && p.investment.draft != nil:
 		return p.investment.layoutForm(gtx, view, p.investmentRuntime())
 	case p.productSetup != nil:

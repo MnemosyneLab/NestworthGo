@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -48,9 +49,9 @@ func testReviewV2FundedTradeHTTPPreviewAndRefresh(t *testing.T, candidate bool) 
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = db.Close() })
-		repository = &noChangeParityRepository{Repository: sqlite.NewRepository(db).WithDefaultReviewOptimizations()}
+		repository = &noChangeParityRepository{Repository: testfixture.Repository(db).WithDefaultReviewOptimizations()}
 		provider := &scaleForbiddenProvider{}
-		app := application.NewService(repository, application.NewMarketDataRegistry(provider))
+		app := testfixture.NewService(repository, application.NewMarketDataRegistry(provider))
 		if err := app.SetFXProvider(provider.Key()); err != nil {
 			t.Fatal(err)
 		}

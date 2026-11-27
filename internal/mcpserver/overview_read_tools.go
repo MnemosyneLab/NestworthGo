@@ -23,7 +23,6 @@ type overviewSummary struct {
 	AccountCount       int                               `json:"accountCount"`
 	Complete           bool                              `json:"complete"`
 	MissingInputsCount int                               `json:"missingInputsCount"`
-	HistoryStarted     bool                              `json:"historyStarted"`
 	TotalsScope        string                            `json:"totalsScope"`
 }
 
@@ -43,7 +42,7 @@ func (s *Service) pagedOverview(ctx context.Context, g uint64, in OverviewReadIn
 			Summary: overviewSummary{
 				DisplayValuation: value.DisplayValuation, Currency: value.Currency,
 				AccountCount: value.AccountCount, Complete: value.Complete, MissingInputsCount: len(value.MissingInputs),
-				HistoryStarted: value.HistoryStarted, TotalsScope: "request_account_filters",
+				TotalsScope: "request_account_filters",
 			},
 			Sections: map[string][]json.RawMessage{},
 		}

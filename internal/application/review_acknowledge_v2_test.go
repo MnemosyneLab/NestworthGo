@@ -8,7 +8,7 @@ import (
 
 func TestReviewAcknowledgementV2MutatesOnlyEpisodeHandling(t *testing.T) {
 	s, db, _, _ := overviewFixture(t)
-	instrument, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}

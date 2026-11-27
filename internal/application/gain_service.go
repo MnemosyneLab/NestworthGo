@@ -196,12 +196,12 @@ func (g *GainService) realizedGainFromSnapshot(ctx context.Context, selector dom
 		return domain.RealizedGainView{From: from, To: to, Available: true}, nil
 	}
 	fxQuotes, origin := inputs.HistoricalFXQuotes, snapshot.Origin
-	location := time.UTC
-	if origin != nil {
-		location, err = time.LoadLocation(origin.Timezone)
-		if err != nil {
-			return domain.RealizedGainView{}, err
-		}
+	if origin == nil {
+		return domain.RealizedGainView{}, missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return domain.RealizedGainView{}, err
 	}
 	replay := newGainSnapshotReplay(inputs)
 	accounts := make(map[domain.AccountID]string, len(snapshot.Accounts))
@@ -432,12 +432,12 @@ func (g *GainService) trendRangeBounds(snapshot domain.PortfolioSnapshot, trendR
 		return "", "", nil
 	}
 	origin := snapshot.Origin
-	location := time.UTC
-	if origin != nil {
-		location, err = time.LoadLocation(origin.Timezone)
-		if err != nil {
-			return "", "", err
-		}
+	if origin == nil {
+		return "", "", missingHistoryOrigin()
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return "", "", err
 	}
 	now := g.now().In(location)
 	today := now.Format("2006-01-02")
@@ -450,9 +450,7 @@ func (g *GainService) trendRangeBounds(snapshot domain.PortfolioSnapshot, trendR
 	case domain.TrendOneYear:
 		from = now.AddDate(0, 0, -364).Format("2006-01-02")
 	case domain.TrendAllTime:
-		if origin != nil {
-			from = origin.StartedAt.In(location).Format("2006-01-02")
-		}
+		from = origin.StartedAt.In(location).Format("2006-01-02")
 	default:
 		return "", "", &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "trend range is not supported"}
 	}
@@ -847,7 +845,10 @@ func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.Po
 			return nil, false, err
 		}
 		effectiveAt := event.EffectiveAt
-		if event.Kind == domain.CostBasisStartingPoint && effectiveAt.IsZero() && origin != nil {
+		if event.Kind == domain.CostBasisStartingPoint && effectiveAt.IsZero() {
+			if origin == nil {
+				return nil, false, missingHistoryOrigin()
+			}
 			effectiveAt = origin.StartedAt
 		}
 		switch event.Kind {

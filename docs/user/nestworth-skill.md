@@ -53,7 +53,7 @@ v0.3.7 contains 1.6.0. Each release must include the two named assets. If the
 latest App release lacks them, use a release that includes them or a local
 bundle; there is no fallback to unreleased main-branch content.
 
-### Current repository skill: 3.0.23; published skill: 3.0.21
+### Current repository skill: 3.0.24; published skill: 3.0.21
 
 Repository skill 3.0.21 documents the unified ledger preview/commit path, exact argument constraints, product interest/policy/time constraints, structured error recovery (including durable failed writes) and selection rules for overlapping tools. It does not load installed skills in the App or change permissions/recovery.
 
@@ -211,9 +211,8 @@ root. The installer reports both installation and backup paths.
 
 ## Connect and use
 
-1. Finish household setup. Start history in the App when recording ledger data
-   or requesting historical/period analysis; a current financial context works
-   without a history starting point.
+1. Finish household setup. The App automatically creates the ledger history
+   origin; recording and historical analysis use that origin.
 2. Open **Settings → AI / MCP**, choose read-only, directory maintenance or
    ledger recording, and enable MCP. Copy its exact local connection
    configuration into Codex's MCP settings. Keep the App running.

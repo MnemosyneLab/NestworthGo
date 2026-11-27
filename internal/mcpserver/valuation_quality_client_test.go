@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -110,7 +111,7 @@ func TestMCPPriceAndFXPendingEvidence(t *testing.T) {
 	if _, err = fx.app.SetFXPreference(t.Context(), "USD", "EUR", "agent"); err != nil {
 		t.Fatal(err)
 	}
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	check := func(wantPriceCarry bool) {
 		t.Helper()
@@ -166,7 +167,7 @@ func TestMCPClosedDayCarryKeepsEffectiveFreshness(t *testing.T) {
 	if _, err := fx.app.UpdateInstrument(t.Context(), domain.InstrumentID(fx.instrument), application.InstrumentInput{QuoteSource: "agent"}); err != nil {
 		t.Fatal(err)
 	}
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC) })
 	if _, err := fx.app.ImportAgentMarketData(t.Context(), uuid.NewString(), application.AgentMarketDataInput{Items: []application.AgentMarketDataItem{{InstrumentID: fx.instrument, Currency: "USD", Kind: "close", Date: "2026-10-16", Timezone: "UTC", Value: "1.23456789", SourceTitle: "Synthetic Friday close"}}}); err != nil {
 		t.Fatal(err)
 	}

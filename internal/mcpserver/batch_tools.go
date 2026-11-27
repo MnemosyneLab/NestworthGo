@@ -105,7 +105,7 @@ func (s *Service) batchCommands(ctx context.Context, requests []history.ChangeCo
 		return nil, err
 	}
 	if origin == nil {
-		return nil, fail("history_not_started", "start history in the App before recording changes")
+		return nil, fail("history_origin_missing", "ledger history origin is missing")
 	}
 	commands := make([]any, len(requests))
 	for i, request := range requests {

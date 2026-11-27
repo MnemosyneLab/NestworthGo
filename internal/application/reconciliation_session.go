@@ -498,13 +498,16 @@ func (s *Service) prepareReconciliationSession(ctx context.Context, plan Reconci
 							return session, nil, reconciliationError("asOfDate", "provide a valid civil date")
 						}
 						if in.ReferenceComparable && strings.TrimSpace(in.ReferenceValue) != "" && (item.Kind == "balance" || item.Kind == "cash" || item.Kind == "holding") {
-							loc := time.UTC
-							if origin, e := s.HistoryOrigin(ctx); e != nil {
+							origin, e := s.HistoryOrigin(ctx)
+							if e != nil {
 								return session, nil, e
-							} else if origin != nil {
-								if l, e := time.LoadLocation(origin.Timezone); e == nil {
-									loc = l
-								}
+							}
+							if origin == nil {
+								return session, nil, onboardingRequired()
+							}
+							loc, e := time.LoadLocation(origin.Timezone)
+							if e != nil {
+								return session, nil, e
 							}
 							at, e := time.Parse(time.RFC3339Nano, plan.At)
 							if e != nil {

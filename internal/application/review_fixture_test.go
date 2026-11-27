@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type reviewFullPipelineFixture struct {
@@ -58,9 +59,9 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	service.setClock(func() time.Time { return now })
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic review pipeline", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic review pipeline", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -69,7 +70,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 	}
 	accounts := make([]domain.AccountID, config.Accounts)
 	for index := range accounts {
-		account, err := service.CreateAccount(ctx, AccountInput{Name: fmt.Sprintf("Synthetic broker %03d", index), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: fmt.Sprintf("Synthetic broker %03d", index), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +78,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 	}
 	cashAccountID := accounts[0]
 	if config.CashActivities > 0 {
-		account, err := service.CreateAccount(ctx, AccountInput{Name: "Synthetic cash observations", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic cash observations", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -90,7 +91,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 	for index := range instruments {
 		currency := currencies[index%len(currencies)]
 		kind := types[index%len(types)]
-		instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: fmt.Sprintf("Synthetic holding %03d", index), Type: string(kind), QuoteCurrency: currency, QuoteSource: "manual"})
+		instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: fmt.Sprintf("Synthetic holding %03d", index), Type: string(kind), QuoteCurrency: currency, QuoteSource: "manual"})
 		if err != nil {
 			t.Fatalf("create instrument %d: %v", index, err)
 		}
@@ -102,7 +103,7 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 	holdings := make([]domain.Holding, config.Holdings)
 	for index := range holdings {
 		instrument := instruments[index%len(instruments)]
-		holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[(index%len(instruments)+index/len(instruments))%len(accounts)].String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+		holding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: accounts[(index%len(instruments)+index/len(instruments))%len(accounts)].String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,11 +111,11 @@ func newReviewPerfFixture(t *testing.T, config reviewPerfConfig) reviewFullPipel
 		costs[holding.ID] = "10"
 	}
 	for _, currency := range currencies[1:] {
-		if _, err := service.SetFXPreference(ctx, currency, "CNY", "manual"); err != nil {
+		if _, err := service.fixtureSetFXPreference(ctx, currency, "CNY", "manual"); err != nil {
 			t.Fatalf("set synthetic FX preference for %s: %v", currency, err)
 		}
 	}
-	if _, err := service.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
+	if _, err := service.CaptureSyntheticOriginWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
 

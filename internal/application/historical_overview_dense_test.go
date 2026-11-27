@@ -100,7 +100,7 @@ func TestHistoricalOverviewHydrationChunksPreserveEconomicReplay(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	account := overviewAccount(t, s, owner, "Synthetic chunked cash", "bank_account", "asset", "balance", "CNY", "100")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	ids := make([]domain.ActivityID, 1801)

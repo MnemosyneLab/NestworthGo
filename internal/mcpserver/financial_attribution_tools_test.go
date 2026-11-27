@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"io"
 	"net/http"
 	"strings"
@@ -76,7 +77,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 			// Three independent cursors, retaining only the requested section's state.
 			states, rows := skillPageState(t, initial)
 			original, _ := jsoncodec.Marshal(link)
-			if _, err := app.AppendAccountValue(t.Context(), domain.AccountID(accountID), "999", ""); err != nil {
+			if _, err := testfixture.AppendAccountValue(app, t.Context(), domain.AccountID(accountID), "999", ""); err != nil {
 				t.Fatal(err)
 			}
 			for _, section := range skillSections {
@@ -135,16 +136,16 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	members, err := app.ListMembers(t.Context(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Private selected", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+	selected, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "Private selected", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Private unselected", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value", DefaultCurrency: "USD", InitialAmount: "99", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+	other, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: "Private unselected", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value", DefaultCurrency: "USD", InitialAmount: "99", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,10 +158,10 @@ func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
 		}
 	}
 	now = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	if _, err := app.SetFXPreference(t.Context(), "CNY", "USD", "manual"); err != nil {
+	if _, err := testfixture.SetFXPreference(app, t.Context(), "CNY", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
@@ -242,9 +243,10 @@ func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *te
 				t.Fatal(err)
 			}
 			defer db.Close()
-			repo := sqlite.NewRepository(db)
+			repo := testfixture.Repository(db)
 			port := &attributionCaptureRepository{Repository: repo, port: repo, captured: make(chan struct{}), release: make(chan struct{})}
-			app := application.NewService(port)
+			app := testfixture.NewService(port)
+			testfixture.SetClock(app, func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) })
 			if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 				t.Fatal(err)
 			}

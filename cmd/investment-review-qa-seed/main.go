@@ -64,7 +64,7 @@ func seed(dir, date string) error {
 			return err
 		}
 		ids[scenario] = i.ID.String()
-		if _, err = s.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"}); err != nil {
+		if _, err = s.CreateHolding(ctx, application.HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10", UnitCost: "1"}); err != nil {
 			return err
 		}
 		quotes := []application.AgentMarketDataItem{}

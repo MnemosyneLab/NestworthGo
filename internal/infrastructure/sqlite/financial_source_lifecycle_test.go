@@ -13,7 +13,7 @@ func TestFinancialSourceSnapshotReadonlyResetAndIntegrity(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if _, err = db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`); err != nil {
+	if _, err = db.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
 	var epoch string
@@ -83,7 +83,7 @@ func TestFinancialSourcePruneAndFinanceOnlyImportEpoch(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer original.Close()
-	financeSQL := `INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`
+	financeSQL := `INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Synthetic','CNY','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z'); INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000004001','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`
 	if _, err = original.SQL.Exec(financeSQL); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestFinancialSourcePruneAndFinanceOnlyImportEpoch(t *testing.T) {
 	if err = original.Verify(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if err = original.PruneFinancialSourceChanges(t.Context(), household, 3); err == nil {
+	if err = original.PruneFinancialSourceChanges(t.Context(), household, 4); err == nil {
 		t.Fatal("pruned beyond current revision")
 	}
 	if err = original.PruneFinancialSourceChanges(t.Context(), household, 0); err == nil {

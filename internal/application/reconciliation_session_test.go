@@ -15,6 +15,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func reconciliationFixture(t *testing.T) (*Service, *sqlite.DB, string) {
@@ -24,18 +25,18 @@ func reconciliationFixture(t *testing.T) (*Service, *sqlite.DB, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	s.SetClock(func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
 	ctx := context.Background()
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Tester"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := s.Bootstrap(ctx)
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	return s, db, a.Account.ID.String()
@@ -68,7 +69,7 @@ func TestReconciliationSessionEvidenceDurabilityPartialAndImmutable(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	restarted := NewService(sqlite.NewRepository(db))
+	restarted := NewService(repos.New(db))
 	again, err := restarted.CommitReconciliationSession(ctx, p)
 	if err != nil || again.ID != v.ID {
 		t.Fatalf("receipt restart: %+v %v", again, err)
@@ -214,7 +215,7 @@ func TestReconciliationLinkedCorrectionAtomicReceiptAndExplicitRecheck(t *testin
 	if err != nil || len(links) != 1 {
 		t.Fatalf("link missing: %+v %v", links, err)
 	}
-	again, err := NewService(sqlite.NewRepository(db)).RecordChangesGuarded(domain.WithReconciliationLink(ctx, link), commands, mutation, hash, "expired")
+	again, err := NewService(repos.New(db)).RecordChangesGuarded(domain.WithReconciliationLink(ctx, link), commands, mutation, hash, "expired")
 	if err != nil || again[0].Activity.ID != committed[0].Activity.ID {
 		t.Fatalf("receipt failed: %+v %v", again, err)
 	}
@@ -243,15 +244,15 @@ func TestReconciliationMixedAccountProductLinksAndMarketDataIsolation(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "25"})
+	_, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "25"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.AppendAccountCashValue(ctx, aid, "10", "EUR", ""); err != nil {
+	if _, err = s.fixtureAppendAccountCashValue(ctx, aid, "10", "EUR", ""); err != nil {
 		t.Fatal(err)
 	}
 	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
@@ -318,7 +319,7 @@ func TestReconciliationMissingPositionsAndManagedProductUseExistingAtomicOperati
 	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	aid := seedHoldingsCash(t, s, ctx, "10000")
 	v := recAction(t, s, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Missing synthetic fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Missing synthetic fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +401,7 @@ func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { reopened.Close() })
-	next := NewService(sqlite.NewRepository(reopened))
+	next := NewService(repos.New(reopened))
 	next.SetClock(s.clock)
 	headers, err := next.ListReconciliationSessions(ctx)
 	if err != nil || len(headers) != 1 || len(headers[0].AccountIDs) != 1 || headers[0].AccountIDs[0] != aid || headers[0].AccountNames[0] != "Synthetic bank" {
@@ -429,7 +430,7 @@ func TestReconciliationDatabaseReopenAndCompletedEvidenceVerification(t *testing
 		t.Fatal(err)
 	}
 	defer finalDB.Close()
-	last, err := NewService(sqlite.NewRepository(finalDB)).ReconciliationLastSuccess(ctx, aid)
+	last, err := NewService(repos.New(finalDB)).ReconciliationLastSuccess(ctx, aid)
 	if err != nil || last == nil || last.ID != current.ID || last.CompletedAt != current.CompletedAt {
 		t.Fatalf("immutable success after reopen: %+v %v", last, err)
 	}
@@ -467,11 +468,11 @@ func TestReconciliationRemovedItemsHaveStablePreviewAndCommitOrder(t *testing.T)
 	aid := seedHoldingsCash(t, s, ctx, "1000")
 	var holdings []domain.HoldingID
 	for _, name := range []string{"Synthetic first ETF", "Synthetic second ETF"} {
-		instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+		instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
+		holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -579,18 +580,18 @@ func TestReconciliationCostReadFailuresNeverPersist(t *testing.T) {
 			s, db, _ := reconciliationFixture(t)
 			ctx := context.Background()
 			aid := seedHoldingsCash(t, s, ctx, "1")
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"}); err != nil {
+			if _, err = s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"}); err != nil {
 				t.Fatal(err)
 			}
 			plan, err := s.PreviewReconciliationSession(ctx, ReconciliationAction{Action: "start", AccountIDs: []string{aid.String()}})
 			if err != nil {
 				t.Fatal(err)
 			}
-			fault := &reconciliationCostFault{Repository: sqlite.NewRepository(db)}
+			fault := &reconciliationCostFault{Repository: repos.New(db)}
 			injected := errors.New("synthetic cost repository failure")
 			switch kind {
 			case "events":
@@ -625,11 +626,11 @@ func TestReconciliationKnownZeroAndUnknownCost(t *testing.T) {
 	s, db, _ := reconciliationFixture(t)
 	ctx := context.Background()
 	aid := seedHoldingsCash(t, s, ctx, "1")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero cost", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic zero cost", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "0"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -643,7 +644,7 @@ func TestReconciliationKnownZeroAndUnknownCost(t *testing.T) {
 	}
 	quantity, _ := domain.ParseQuantity("2")
 	for _, events := range [][]domain.CostBasisEvent{nil, {{Kind: domain.CostBasisStartingPoint, Quantity: quantity}}} {
-		s.repository = &reconciliationCostFault{Repository: sqlite.NewRepository(db), overrideEvents: true, events: events}
+		s.repository = &reconciliationCostFault{Repository: repos.New(db), overrideEvents: true, events: events}
 		// No starting cost and no incoming cost facts: this is unavailable, never known zero.
 		fault := s.repository.(*reconciliationCostFault)
 		fault.overrideStarting = true
@@ -673,7 +674,7 @@ func TestReconciliationUnchangedRebuildPreservesEvidence(t *testing.T) {
 		}
 	}
 	completed := recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	before, err := repo.ReconciliationRevisions(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -765,15 +766,15 @@ func TestReconciliationArchiveGuardAndLegacyVisibility(t *testing.T) {
 	s, db, _ := reconciliationFixture(t)
 	ctx := t.Context()
 	aid := seedHoldingsCash(t, s, ctx, "100")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic archived ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic archived ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	b, _ := s.Bootstrap(ctx)
 	if err := repo.SetInstrumentArchive(ctx, b.Household.ID, instrument.ID, true, s.clock()); err == nil {
 		t.Fatal("instrument with nonzero holdings archived")
@@ -916,11 +917,11 @@ func TestReconciliationConcreteHoldingAndAtomicCompanion(t *testing.T) {
 	aid := seedHoldingsCash(t, s, ctx, "1000")
 	var holdings []domain.Holding
 	for _, name := range []string{"Reviewed ETF", "Other ETF"} {
-		i, err := s.CreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+		i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		h, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: i.ID.String(), Quantity: "2", UnitCost: "10"})
+		h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: i.ID.String(), Quantity: "2", UnitCost: "10"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -984,7 +985,7 @@ func TestReconciliationOptionalSourceReferenceDurability(t *testing.T) {
 		v = recAction(t, s, a)
 	}
 	v = recAction(t, s, ReconciliationAction{Action: "finish", SessionID: v.ID, ExpectedRevision: v.Revision})
-	restarted := NewService(sqlite.NewRepository(db))
+	restarted := NewService(repos.New(db))
 	saved, err := restarted.GetReconciliationSession(ctx, v.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -1106,11 +1107,11 @@ func TestReconciliationAccountConfirmationRejectsStaleCommit(t *testing.T) {
 func TestReconciliationHoldingContextIncludesExactDividendAssociation(t *testing.T) {
 	s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	aid := seedHoldingsCash(t, s, ctx, "1000")
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: aid.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}

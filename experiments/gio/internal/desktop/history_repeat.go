@@ -223,7 +223,7 @@ func repeatDefinitelyRejected(err error) bool {
 	switch domain.ErrorCode(issue.Code) {
 	case domain.ErrStalePreview:
 		return issue.Field == "previewToken"
-	case domain.ErrValidation, domain.ErrNotFound, domain.ErrConflict, domain.ErrDecimalOverflow, domain.ErrHistoryNotStarted,
+	case domain.ErrValidation, domain.ErrNotFound, domain.ErrConflict, domain.ErrDecimalOverflow, domain.ErrMissingHistoryOrigin,
 		domain.ErrHistoryTimezoneRequired, domain.ErrInvalidChange, domain.ErrInvalidChangeTime, domain.ErrCashBalanceTimeConflict,
 		domain.ErrNoChange, domain.ErrInsufficientBalance, domain.ErrInsufficientQuantity, domain.ErrManagedPosition:
 		return true

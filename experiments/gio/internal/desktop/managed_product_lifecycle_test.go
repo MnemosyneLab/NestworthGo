@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -139,8 +140,8 @@ func TestStandaloneLockedProductValuationMatchesWails(t *testing.T) {
 	id, refID := seedTestLockedProduct(t, app, ids.account, nil), seedTestLockedProduct(t, ref, refIDs.account, nil)
 	now := linkedContractClock().Add(123 * time.Millisecond)
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	before, err := app.ListActivities(ctx, 100)
 	if err != nil {
 		t.Fatal(err)
@@ -212,14 +213,14 @@ func TestStandaloneLockedProductValuationMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	refReopened, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	refReopened, _ := reopenBaselineProfile(t, refPaths)
 	for _, copy := range []struct {
 		app     *application.Service
 		product domain.ProductContractID
 		account domain.AccountID
 	}{{reopened, id, ids.account}, {refReopened, refID, refIDs.account}} {
-		copy.app.SetClock(clock)
+		testfixture.SetClock(copy.app, clock)
 		detail, err := copy.app.Product(ctx, copy.product)
 		operations := managedOperations(t, copy.app, copy.product)
 		if err != nil || detail.CurrentValue == nil || detail.CurrentValue.CanonicalAmount() != amount || detail.Contract.Revision != 1 ||
@@ -242,8 +243,8 @@ func TestStandaloneLockedProductRedemptionMatchesWails(t *testing.T) {
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
 	refID := seedTestLockedProductWithUnlock(t, ref, refIDs.account, nil, "2026-11-22")
 	clock := linkedContractClock
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	reserveTermDeposit(t, app, id, "Synthetic first reserve")
 	refA := reserveTermDeposit(t, ref, refID, "Synthetic first reserve")
 	before, err := app.ListActivities(ctx, 100)
@@ -339,15 +340,15 @@ func TestStandaloneLockedProductRedemptionMatchesWails(t *testing.T) {
 	if err := refStorage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	refReopened, _ := reopenOnboardingProfile(t, refPaths)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	refReopened, _ := reopenBaselineProfile(t, refPaths)
 	for _, copy := range []struct {
 		app     *application.Service
 		product domain.ProductContractID
 		account domain.AccountID
 		op      domain.ProductOperationID
 	}{{reopened, id, ids.account, mutation}, {refReopened, refID, refIDs.account, domain.ProductOperationID(refReceipt.OperationID)}} {
-		copy.app.SetClock(clock)
+		testfixture.SetClock(copy.app, clock)
 		detail, err := readProduct(ctx, copy.app, copy.product)
 		if err != nil || detail.detail.Contract.State != domain.ProductStateSettled || *detail.detail.Contract.ClosedOperationID != copy.op ||
 			len(detail.detail.Reservations) != 0 || len(detail.settlement) != 1 {

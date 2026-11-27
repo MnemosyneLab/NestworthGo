@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type gainInterleavedSnapshot struct {
@@ -32,36 +33,36 @@ func TestGainReadUsesOneSnapshotAcrossConcurrentSale(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	app := NewService(repo)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	db.SQL.SetMaxOpenConns(1)
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	app.setClock(func() time.Time { return now })
-	if err = app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err = app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Synthetic", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := app.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := app.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := app.CreateInstrument(ctx, InstrumentInput{Name: "Fixture", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, err := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Fixture", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
+	h, err := app.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = app.AppendManualInstrumentQuote(ctx, i.ID, "80", "2026-08-24T12:00:00Z", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.Add(time.Hour)
@@ -115,7 +116,7 @@ func TestEveryGainEntryUsesOnlyOneMaterializedSnapshot(t *testing.T) {
 	t.Parallel()
 	f := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
-	if _, err := f.service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := f.service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	inputs, err := f.repository.ReadGainSnapshot(ctx)
@@ -163,30 +164,30 @@ func TestGainSnapshotRepresentative500Positions(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := NewService(sqlite.NewRepository(db))
+	app := NewService(repos.New(db))
 	wireTestPorts(app, path)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	app.setClock(func() time.Time { return now })
 	ctx := context.Background()
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	b, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := app.CreateAccount(ctx, AccountInput{Name: "Scale", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := app.fixtureCreateAccount(ctx, AccountInput{Name: "Scale", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Create one complete template through production APIs. Bulk-copy the other
 	// 499 pre-history positions in one transaction: the test measures gain reads,
 	// not repeated instrument-creation portfolio scans or per-row disk commits.
-	instrument, err := app.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic 0", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic 0", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	position, err := app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	position, err := app.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,10 +219,10 @@ func TestGainSnapshotRepresentative500Positions(t *testing.T) {
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	// StartHistory remains the production operation for all 500 opening costs.
+	// CaptureSyntheticOrigin remains the production operation for all 500 opening costs.
 	var costCount int
 	if err := db.SQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origin_components WHERE component_kind='holding_quantity' AND quantity='1' AND unit_cost='80.12345678'`).Scan(&costCount); err != nil {
 		t.Fatal(err)

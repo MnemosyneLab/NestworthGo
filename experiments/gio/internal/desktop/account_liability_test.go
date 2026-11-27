@@ -19,18 +19,18 @@ import (
 
 func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 	for _, tc := range []struct {
-		name, currency, opening, exact string
-		kind                           domain.AccountType
-		history, linked, failWrite     bool
+		name, currency, opening, exact   string
+		kind                             domain.AccountType
+		seedDirectory, linked, failWrite bool
 	}{
-		{"Sample credit card", "USD", "321.09", "-US$321.09", domain.TypeCreditCard, true, true, true},
-		{"Sample loan", "SGD", "43.21", "-S$43.21", domain.TypeLoan, false, false, false},
-		{"Sample zero loan", "USD", "0", "US$0.00", domain.TypeLoan, true, false, false},
+		{"Sample credit card", "USD", "321.09", "-US$321.09", domain.TypeCreditCard, false, true, true},
+		{"Sample loan", "SGD", "43.21", "-S$43.21", domain.TypeLoan, true, false, false},
+		{"Sample zero loan", "USD", "0", "US$0.00", domain.TypeLoan, false, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
 			root := createFixtureRoot(t)
-			if !tc.history {
+			if tc.seedDirectory {
 				seedAccountFixture(t, root)
 			}
 			_, seed := openBankFixture(t, root)
@@ -177,7 +177,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			assertLiabilityValuation(t, p.current.rows[0].value, wails, kind, expectedID, tc.opening, tc.currency)
 
 			wantActivities := 0
-			if tc.history && tc.opening != "0" {
+			if tc.opening != "0" {
 				wantActivities = 1
 			}
 			checkOpening := func(reader *application.Service, accountID domain.AccountID) {

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"strings"
@@ -63,8 +64,8 @@ func TestLinkedDebtAndValueMatchWails(t *testing.T) {
 	app, storage, paths, seeded := openExistingBuyFixture(t)
 	ref, refStorage, refPaths, refSeeded := openExistingBuyFixture(t)
 	ids, refIDs := seedReconciliationDebtAccounts(t, app, seeded.account), seedReconciliationDebtAccounts(t, ref, refSeeded.account)
-	app.SetClock(linkedContractClock)
-	ref.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
+	testfixture.SetClock(ref, linkedContractClock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	session, reference := startDebtValueReconciliation(t, api, ids), startDebtValueReconciliation(t, refAPI, refIDs)
 	fault := &linkedDatedFault{Service: app}
@@ -246,8 +247,8 @@ func TestLinkedDebtAndValueMatchWails(t *testing.T) {
 		if err := s.storage.Close(); err != nil {
 			t.Fatal(err)
 		}
-		reopened, _ := reopenOnboardingProfile(t, s.paths)
-		reopened.SetClock(linkedContractClock)
+		reopened, _ := reopenBaselineProfile(t, s.paths)
+		testfixture.SetClock(reopened, linkedContractClock)
 		assertNativeTradeCash(t, reopened, s.ids.holdings, map[domain.CurrencyCode]string{"USD": "175.9449"})
 		if loan := readBankRecord(t, reopened, s.ids.loan).LatestValue; loan == nil || loan.Amount.CanonicalAmount() != "100.0016" {
 			t.Fatalf("reopened debt = %+v", loan)

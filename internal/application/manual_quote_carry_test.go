@@ -16,11 +16,11 @@ func TestManualPreferenceCarriesAgentPriceAcrossValuationAndHealth(t *testing.T)
 			s, _, owner, now := overviewFixture(t)
 			*now = time.Date(2026, 10, 9, 4, 0, 0, 0, time.UTC)
 			account := overviewAccount(t, s, owner, "Synthetic manual account", "brokerage", "asset", "holdings", "CNY", "")
-			instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic fixed value", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+			instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic fixed value", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
+			holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "100"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -28,7 +28,7 @@ func TestManualPreferenceCarriesAgentPriceAcrossValuationAndHealth(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistoryWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
+			if _, err = s.CaptureSyntheticOriginWithCosts(ctx, "Asia/Shanghai", map[domain.HoldingID]string{holding.ID: "1"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(2026, 10, 20, 4, 0, 0, 0, time.UTC)
@@ -105,7 +105,7 @@ func TestManualPreferenceCarriesAgentPriceAcrossValuationAndHealth(t *testing.T)
 				t.Fatalf("replacement effective date: %+v", replaced.Points)
 			}
 			// A later preference change must not rewrite the earlier manual period.
-			if _, err = s.UpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"}); err != nil {
+			if _, err = s.fixtureUpdateInstrument(ctx, instrument.ID, InstrumentInput{QuoteSource: "agent"}); err != nil {
 				t.Fatal(err)
 			}
 			*now = now.AddDate(0, 0, 1)
@@ -129,7 +129,7 @@ func TestManualPreferenceDoesNotHideMissingFuturePriceOrFX(t *testing.T) {
 	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price, SourceKind: domain.QuoteSourceAgent, ObservationKind: "close", EffectiveDate: "2026-10-09", ValueEffectiveAt: at, QuotedAt: at, PriceBasis: "agent_raw_close_v1", SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label"}
 	quantity, _ := domain.ParseQuantity("10")
 	instrument := domain.Instrument{ID: id, Type: domain.InstrumentCrypto, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}
-	p := domain.PortfolioSnapshot{Household: &domain.Household{ID: domain.NewHouseholdID(), BaseCurrency: "CNY"}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: domain.NewHouseholdID(), BaseCurrency: "CNY"}}
 	v := NewValuationService(nil, func() time.Time { return at.AddDate(0, 0, 10) })
 	v.SetHistorical(true)
 	v.SetHistoricalMarketDate("2026-10-19")

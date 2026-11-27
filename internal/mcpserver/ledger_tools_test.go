@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"path/filepath"
 	"testing"
 	"time"
@@ -39,7 +40,7 @@ func newLedgerFixtureWithClock(t *testing.T, clock func() time.Time) ledgerFixtu
 func newLedgerFixtureWithApp(t *testing.T, app *application.Service, clock func() time.Time) ledgerFixture {
 	t.Helper()
 	ctx := context.Background()
-	app.SetClock(clock)
+	testfixture.SetClock(app, clock)
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "MCP ledger", BaseCurrency: "USD", MemberNames: []string{"Alice"},
 		Timezone: "UTC", HistoryStartDate: "2026-09-01",

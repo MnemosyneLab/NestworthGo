@@ -41,7 +41,7 @@ func TestPreciousMetalSyncedHistoryHasPeriodPerformance(t *testing.T) {
 	}}
 	service, _, _, _ := newSyncFixture(t, equity, yahoo)
 	ctx := context.Background()
-	metal, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "troy_oz"})
+	metal, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Gold", Type: "precious_metal", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "GC=F", MarketCode: domain.MetalFuturesMarket, MetalTemplate: "gold", QuantityUnit: "troy_oz"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestPerformanceSeriesLeavesMarketDataHistoryUnchanged(t *testing.T) {
 	t.Parallel()
 	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: YahooFinanceProviderKey}, &syncFakeProvider{key: CoinGeckoProviderKey})
 	ctx := context.Background()
-	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Manual stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	stock, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Manual stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}

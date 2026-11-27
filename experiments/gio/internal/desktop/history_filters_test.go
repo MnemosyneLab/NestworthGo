@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"slices"
 	"sync/atomic"
@@ -273,8 +274,8 @@ func seedMixedTimeline(t *testing.T, service *application.Service) (domain.Accou
 		t.Fatalf("unexpected seed: %+v, %v", rows, err)
 	}
 	bank := rows[0].Account.ID.String()
-	service.SetClock(func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
-	defer service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
+	defer testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	create := func(name, kind, mode, currency, amount string) domain.AccountID {
 		t.Helper()
 		row, err := service.CreateAccount(ctx, application.AccountInput{
@@ -295,7 +296,7 @@ func seedMixedTimeline(t *testing.T, service *application.Service) (domain.Accou
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.SetClock(func() time.Time { return accountTestClock })
+	testfixture.SetClock(service, func() time.Time { return accountTestClock })
 	adapter := historyapi.NewService(service)
 	record := func(day, minute string, req historyapi.ChangeCommandRequest) wire.ActivityDTO {
 		t.Helper()

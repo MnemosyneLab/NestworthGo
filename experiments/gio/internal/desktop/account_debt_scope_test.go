@@ -1,12 +1,10 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
-	"sync"
 	"testing"
 	"time"
-
-	"gioui.org/io/key"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -19,7 +17,7 @@ func addDebtScopeAccount(t *testing.T, app *application.Service, name, kind, rol
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := app.CreateAccount(t.Context(), application.AccountInput{
+	account, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{
 		Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: currency,
 		InitialAmount: amount, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID},
 	})
@@ -27,123 +25,6 @@ func addDebtScopeAccount(t *testing.T, app *application.Service, name, kind, rol
 		t.Fatal(err)
 	}
 	return account.Account.ID
-}
-
-func TestCashAccountDebtPostingResumesAfterStartingPoint(t *testing.T) {
-	ctx := t.Context()
-	app, session, paths, bank := seedBankBalanceFixture(t, false)
-	ref, _, _, refBank := seedBankBalanceFixture(t, false)
-	for _, svc := range []*application.Service{app, ref} {
-		setBalanceTargetClock(-48*time.Hour, svc)
-	}
-	loan := addDebtScopeAccount(t, app, "Synthetic Loan", "loan", "liability", "balance", "USD", "50")
-	refLoan := addDebtScopeAccount(t, ref, "Synthetic Loan", "loan", "liability", "balance", "USD", "50")
-	for _, svc := range []*application.Service{app, ref} {
-		addDebtScopeAccount(t, svc, "Other Currency Loan", "loan", "liability", "balance", "EUR", "15")
-		archived := addDebtScopeAccount(t, svc, "Archived Loan", "loan", "liability", "balance", "USD", "0")
-		if err := svc.ArchiveAccount(ctx, archived, true); err != nil {
-			t.Fatal(err)
-		}
-		setBalanceTargetClock(0, svc)
-	}
-	fault := &balanceTargetTestService{Service: app, keepReads: true, started: make(chan struct{}), allow: make(chan struct{})}
-	release := sync.OnceFunc(func() { close(fault.allow) })
-	t.Cleanup(release)
-	now := accountTestClock
-	p, h, finish := liabilityPostingHarness(t, fault, "Harbor Checking", image.Pt(620, 780), func() time.Time { return now })
-	click := func(text string) { h.click(text, false); finish() }
-	label := func(text string) { assertPageLabel(t, &h.router, text) }
-	adapter := historyapi.NewService(ref)
-	click("Record debt activity")
-	label("Harbor Checking · The Starting Point applies to the whole household.")
-	click("Review Starting Point")
-	click("Cancel")
-	h.focused(&p.liabilityPosting.open)
-	assertBankObservations(t, session, bank, 1, 0)
-
-	h.press(key.NameReturn)
-	finish()
-	click("Review Starting Point")
-	h.press(key.NameReturn)
-	finish()
-	label("Starting Point saved.")
-	if _, err := ref.StartHistory(ctx, "UTC"); err != nil {
-		t.Fatal(err)
-	}
-	d := p.liabilityPosting.draft
-	h.focused(&d.accountPicker.Trigger)
-	if d.account.ID != bank || d.kind != historyapi.ChangeDebtDraw {
-		t.Fatal("Starting Point changed the cash account or debt action")
-	}
-	h.press(key.NameReturn)
-	finish()
-	if findPageLabel(&h.router, "Archived Loan · USD") != nil {
-		t.Fatal("archived debt account was offered in the picker")
-	}
-	click("Other Currency Loan · EUR")
-	setBankField(h, "Debt principal · USD", &d.amount, "20.125")
-	click("Preview change")
-	label("The currency must match the account balances.")
-	h.click("Debt account", true)
-	finish()
-	click("Synthetic Loan · USD")
-	click("Preview change")
-	label("Harbor Checking · 100 USD → 120.125 USD")
-	label("Synthetic Loan · -50 USD → -70.125 USD")
-	// An independent write invalidates the reviewed token.
-	other := wailsBalanceAdjustment(bank, "110", now)
-	if _, err := historyapi.NewService(app).RecordChange(ctx, other); err != nil {
-		t.Fatal(err)
-	}
-	other.AccountID, other.MutationID = refBank.String(), domain.NewMutationID().String()
-	if _, err := adapter.RecordChange(ctx, other); err != nil {
-		t.Fatal(err)
-	}
-	click("Confirm posting")
-	label("The ledger changed. Preview the change again.")
-	if d.counterparty != loan || d.amount.Text() != "20.125" {
-		t.Fatal("stale preview lost the selected debt or principal")
-	}
-	click("Preview change")
-	request := historyapi.ChangeCommandRequest{
-		Kind: historyapi.ChangeDebtDraw, DebtAccountID: refLoan.String(), CashAccountID: refBank.String(),
-		Principal: "20.125", PrincipalCurrency: "USD", EffectiveAt: now.UTC().Format(time.RFC3339Nano),
-	}
-	compareLiabilityReview(t, d.review.Preview, adapter, request)
-	confirm := semanticBounds(t, &h.router, "Confirm posting", false)
-	point := confirm.Min.Add(confirm.Max).Div(2)
-	h.press(key.NameReturn)
-	select {
-	case <-fault.started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("guarded draw did not reach the write")
-	}
-	h.clickAt(point)
-	h.shell.pendingNavigation = &navigationRequest{step: -1}
-	h.frame()
-	if !p.liabilityPostingUnresolved() || h.shell.activeRoute() != accountsRoute {
-		t.Fatal("pending write allowed navigation")
-	}
-	release()
-	finish()
-	label("Saving could not be confirmed. Retry the same submission.")
-	h.focused(&d.retryConfirm)
-	click("Retry same submission")
-	assertLiabilityPosting(t, app, h.shell.historyPage.reads.detail.id, adapter, request)
-	if len(fault.records) != 3 || fault.records[1] != fault.records[2] {
-		t.Fatal("retry submitted a second mutation")
-	}
-	click("Back to account")
-	h.focused(&p.liabilityPosting.open)
-	assertBankObservations(t, session, bank, 1, 2)
-	if err := session.Close(); err != nil {
-		t.Fatal(err)
-	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	if readBankRecord(t, reopened, bank).LatestValue.Amount.CanonicalAmount() != "130.125" ||
-		readBankRecord(t, reopened, loan).LatestValue.Amount.CanonicalAmount() != "70.125" {
-		t.Fatal("reopened exact balances differ from confirmation")
-	}
 }
 
 func TestCashAccountDebtPaymentUsesHoldingsCash(t *testing.T) {
@@ -156,12 +37,12 @@ func TestCashAccountDebtPaymentUsesHoldingsCash(t *testing.T) {
 		id := addDebtScopeAccount(t, svc, "Synthetic Brokerage", "brokerage", "asset", "holdings", "USD", "")
 		cash = append(cash, id)
 		for _, code := range []string{"USD", "EUR"} {
-			if _, err := svc.AppendAccountCashValue(ctx, id, "25.125", code, ""); err != nil {
+			if _, err := testfixture.AppendAccountCashValue(svc, ctx, id, "25.125", code, ""); err != nil {
 				t.Fatal(err)
 			}
 		}
 		setBalanceTargetClock(-24*time.Hour, svc)
-		if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 		setBalanceTargetClock(0, svc)
@@ -218,7 +99,7 @@ func TestLiabilityReasonsAndCorrectionMatchWails(t *testing.T) {
 		setBalanceTargetClock(-48*time.Hour, svc)
 		loans = append(loans, addDebtScopeAccount(t, svc, "Synthetic Loan", "loan", "liability", "balance", "USD", "50"))
 		setBalanceTargetClock(-24*time.Hour, svc)
-		if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
+		if _, err := testfixture.CaptureSyntheticOrigin(svc, ctx, "UTC"); err != nil {
 			t.Fatal(err)
 		}
 	}

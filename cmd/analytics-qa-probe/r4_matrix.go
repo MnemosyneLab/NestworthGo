@@ -3,15 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -166,7 +165,7 @@ func r4LoanMatrixCases() []matrixCase {
 	defer database.Close()
 	ids := loadLoanSeedIDs(dbPath)
 	draw, repay, interest := loanProbeDates(ids)
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	out := []matrixCase{{
 		ID: "m_loan_db", Name: "open loan-fc07 DB", Owner: "probe", Status: "PASS",
@@ -204,8 +203,8 @@ func r4CompleteMatrixCases() []matrixCase {
 		return []matrixCase{{ID: "m_complete_db", Name: "open v3 complete DB", Owner: "probe", Status: "FAIL", Detail: err.Error()}}
 	}
 	defer database.Close()
-	repo := sqlite.NewRepository(database)
-	svc := application.NewService(repo)
+	repo := testfixture.Repository(database)
+	svc := testfixture.NewService(repo)
 	ctx := context.Background()
 	cases := []matrixCase{{ID: "m_complete_db", Name: "open v3 complete DB", Owner: "probe", Status: "PASS", Got: map[string]any{"dbPath": dbPath}}}
 
@@ -305,7 +304,7 @@ func r4OnboardedBaseDB(id, wantBase string, paths ...string) matrixCase {
 	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM daily_valuation_snapshots`).Scan(&snaps)
 	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM fx_quotes`).Scan(&fx)
 	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&accounts)
-	svc := application.NewService(sqlite.NewRepository(database))
+	svc := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	_, analyzeErr := svc.Analyze(ctx, domain.AnalysisQuery{
 		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold},

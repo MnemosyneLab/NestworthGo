@@ -31,7 +31,7 @@ func (d *settingsDataRebuild) update() {
 		switch {
 		case response.err == nil:
 			d.result = &response.value
-		case errors.As(response.err, &problem) && problem.Code == domain.ErrHistoryNotStarted:
+		case errors.As(response.err, &problem) && problem.Code == domain.ErrMissingHistoryOrigin:
 			d.problem = i18n.SettingsDataHistoryRequired
 		default:
 			d.problem = i18n.SettingsDataRebuildError

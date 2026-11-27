@@ -83,7 +83,7 @@ func (s *Service) previewCorrection(ctx context.Context, in CorrectionInput) (an
 				return nil, err
 			}
 			if origin == nil {
-				return nil, fail("history_not_started", "start history in the App before correcting records")
+				return nil, fail("history_origin_missing", "ledger history origin is missing")
 			}
 			return ledgerCommand(request, origin)
 		})
@@ -142,7 +142,7 @@ func (s *Service) commitCorrection(ctx context.Context, in CommitChangeInput) (a
 				return originErr
 			}
 			if origin == nil {
-				return fail("history_not_started", "history is not started")
+				return fail("history_origin_missing", "ledger history origin is missing")
 			}
 			command, commandErr := ledgerCommand(*plan.Input.Replacement, origin)
 			if commandErr != nil {

@@ -45,55 +45,13 @@ func (s *Service) HistoryOrigin(ctx context.Context) (*HistoryOriginDTO, error) 
 		return nil, apierror.Wrap(err)
 	}
 	if origin == nil {
+		if _, err := s.app.Household(ctx); err == nil {
+			return nil, apierror.Wrap(&domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"})
+		}
 		return nil, nil
 	}
 	dto := fromHistoryOrigin(*origin)
 	return &dto, nil
-}
-
-func (s *Service) StartHistory(ctx context.Context, timezone string) (HistoryOriginDTO, error) {
-	origin, err := s.app.StartHistory(ctx, timezone)
-	if err != nil {
-		return HistoryOriginDTO{}, apierror.Wrap(err)
-	}
-	return fromHistoryOrigin(origin), nil
-}
-
-// StartHistoryWithCosts's costOverrides map is keyed by domain.HoldingID in
-// Go; JSON object keys must be strings, so the wire shape is a plain
-// map[string]string keyed by the Holding ID string, parsed here.
-func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, costOverrides map[string]string) (HistoryOriginDTO, error) {
-	return s.StartHistoryOnDate(ctx, timezone, "", costOverrides)
-}
-
-// StartHistoryOnDate creates an empty historical starting point on the chosen
-// local day. Existing balances and holdings are still captured at the present.
-func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate string, costOverrides map[string]string) (HistoryOriginDTO, error) {
-	parsed := make(map[domain.HoldingID]string, len(costOverrides))
-	for id, cost := range costOverrides {
-		holdingID, err := domain.ParseHoldingID(id)
-		if err != nil {
-			return HistoryOriginDTO{}, apierror.Wrap(err)
-		}
-		parsed[holdingID] = cost
-	}
-	origin, err := s.app.StartHistoryOnDate(ctx, timezone, startDate, parsed)
-	if err != nil {
-		return HistoryOriginDTO{}, apierror.Wrap(err)
-	}
-	return fromHistoryOrigin(origin), nil
-}
-
-func (s *Service) StartingPointDraft(ctx context.Context) ([]wire.StartingPointHoldingDTO, error) {
-	draft, err := s.app.StartingPointDraft(ctx)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	return wire.FromStartingPointHoldings(draft), nil
-}
-
-func (s *Service) HistoryMutationAllowed(ctx context.Context) error {
-	return apierror.Wrap(s.app.HistoryMutationAllowed(ctx))
 }
 
 // resolveHistoryContext re-derives both the current Household ID and the
@@ -106,7 +64,7 @@ func (s *Service) resolveHistoryContext(ctx context.Context) (domain.HouseholdID
 		return "", "", err
 	}
 	if origin == nil {
-		return "", "", &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+		return "", "", &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	household, err := s.app.Household(ctx)
 	if err != nil {

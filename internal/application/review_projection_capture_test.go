@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewProjectionCaptureContainsRulesSuppressionAndFinancialFacts(t *testing.T) {
@@ -25,7 +25,7 @@ func TestReviewProjectionCaptureContainsRulesSuppressionAndFinancialFacts(t *tes
 	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC))
+	capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestMigratedLegacyReviewRuleIsHiddenFromV2ReadsAndProjection(t *testing.T) 
 	if err != nil || len(listed) != 0 {
 		t.Fatalf("migrated legacy rule leaked into V2 rule list: %+v %v", listed, err)
 	}
-	capture, err := sqlite.NewRepository(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC))
+	capture, err := repos.New(f.db).CaptureReviewProjection(t.Context(), f.account.Account.HouseholdID, time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC))
 	if err != nil || len(capture.Rules) != 0 {
 		t.Fatalf("migrated legacy rule leaked into V2 projection: %+v %v", capture.Rules, err)
 	}

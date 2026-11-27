@@ -26,6 +26,9 @@ func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQ
 	if snapshot.Portfolio.Household == nil {
 		return domain.LiquidityOverview{}, snapshot, nil, onboardingRequired()
 	}
+	if snapshot.Portfolio.Origin == nil {
+		return domain.LiquidityOverview{}, snapshot, nil, missingHistoryOrigin()
+	}
 	valuation := *s.valuation
 	valuation.now = func() time.Time { return asOf }
 	valuation.readContext = ctx
@@ -40,7 +43,7 @@ func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQ
 		return valuation.ConvertExactAmount(snapshot.Portfolio, amount, currency)
 	}
 	overview, err := domain.EvaluateLiquidity(domain.LiquidityQuery{
-		AsOf: asOf, Timezone: timezoneOrUTC(snapshot.Portfolio.Origin), BaseCurrency: snapshot.Portfolio.Household.BaseCurrency,
+		AsOf: asOf, Timezone: snapshot.Portfolio.Origin.Timezone, BaseCurrency: snapshot.Portfolio.Household.BaseCurrency,
 		CustomHorizonOn: query.CustomHorizonOn, IncludeEarlyWithdrawal: query.IncludeEarlyWithdrawal,
 	}, sources, snapshot.Reservations, convert)
 	return overview, snapshot, sources, err
@@ -308,6 +311,9 @@ type productDetailMaterialization struct {
 }
 
 func (s *Service) materializeProductDetails(ctx context.Context, snapshot domain.LiquiditySnapshot, asOf time.Time) (productDetailMaterialization, error) {
+	if snapshot.Portfolio.Origin == nil {
+		return productDetailMaterialization{}, missingHistoryOrigin()
+	}
 	result := productDetailMaterialization{
 		policies:     make(map[string]domain.LiquidityPolicy, len(snapshot.Policies)),
 		reservations: make(map[string][]domain.LiquidityReservation),
@@ -348,7 +354,7 @@ func (s *Service) materializeProductDetails(ctx context.Context, snapshot domain
 			result.symbols[instrument.ID] = pointerText(instrument.Symbol)
 		}
 	}
-	result.localDate, _, err = domain.LocalCivilDate(asOf, timezoneOrUTC(snapshot.Portfolio.Origin))
+	result.localDate, _, err = domain.LocalCivilDate(asOf, snapshot.Portfolio.Origin.Timezone)
 	return result, err
 }
 
@@ -385,13 +391,6 @@ func (m productDetailMaterialization) detail(contract domain.ProductContract) (P
 		Symbol: m.symbols[contract.InstrumentID], Contract: contract, Policy: policy, CurrentValue: current, DisplayState: display,
 		Reservations: active, PredecessorID: contract.RenewedFromID, PermittedActions: actions, DisabledReasons: disabled,
 	}, nil
-}
-
-func timezoneOrUTC(origin *domain.HistoryOrigin) string {
-	if origin != nil && strings.TrimSpace(origin.Timezone) != "" {
-		return origin.Timezone
-	}
-	return "UTC"
 }
 
 func (s *Service) SaveLiquidityPolicy(ctx context.Context, input SavePolicyInput) (domain.LiquidityPolicy, error) {

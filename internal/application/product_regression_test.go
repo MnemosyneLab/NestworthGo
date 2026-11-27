@@ -6,6 +6,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"path/filepath"
 	"testing"
 	"time"
@@ -112,13 +113,13 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 			_ = database.Close()
 		}
 	})
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Legacy dates", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	account := seedHoldingsCash(t, service, ctx, "150000")
@@ -178,7 +179,7 @@ func TestGuardedProductTermsPreserveLegacyStartDateAndVerifyOnReopen(t *testing.
 		t.Fatalf("reopen padded legacy row with canonical receipt: %v", err)
 	}
 	database = reopened
-	legacyRead, err := sqlite.NewRepository(reopened).Product(ctx, product.Contract.HouseholdID, product.Contract.ID)
+	legacyRead, err := repos.New(reopened).Product(ctx, product.Contract.HouseholdID, product.Contract.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +294,7 @@ func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
 func TestProductRegressionNonUSDPolicyRoundTrip(t *testing.T) {
 	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
-	if _, e := s.AppendAccountCashValue(ctx, a, "2000", "EUR", ""); e != nil {
+	if _, e := s.fixtureAppendAccountCashValue(ctx, a, "2000", "EUR", ""); e != nil {
 		t.Fatal(e)
 	}
 	c := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: a.String(), Currency: "EUR", Principal: "1000", Terms: ProductTermsInput{Kind: "term_deposit", Name: "EUR deposit", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}, Policy: depositPolicy()}}
@@ -315,14 +316,14 @@ func TestProductRegressionTermsWriteRollbackAndCAS(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	s.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err = s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Terms", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+	if err = s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Terms", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	a := seedHoldingsCash(t, s, ctx, "150000")
@@ -450,7 +451,7 @@ func TestProductRegressionPolicyCurrenciesForOrdinarySources(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			a, err := s.CreateAccount(ctx, AccountInput{Name: "Simple", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: currency, InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Simple", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: currency, InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -537,14 +538,14 @@ func TestProductRegressionRenewWithInterestTerms(t *testing.T) {
 func TestProductRegressionOrdinaryHoldingPolicyAmountsRetainQuoteCurrency(t *testing.T) {
 	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
-	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "SGD fund", Type: "etf", QuoteCurrency: "SGD", QuoteSource: "manual"})
+	instrument, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "SGD fund", Type: "etf", QuoteCurrency: "SGD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, instrument.ID, "1000", "", false); err != nil {
 		t.Fatal(err)
 	}
-	holding, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	holding, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}

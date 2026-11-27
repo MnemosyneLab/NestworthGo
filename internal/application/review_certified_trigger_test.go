@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewCertifiedPreopenUnknownTriggerCannotBootstrap(t *testing.T) {
@@ -26,7 +27,7 @@ func TestReviewCertifiedPreopenUnknownTriggerCannotBootstrap(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	f.db = db
-	r := sqlite.NewRepository(db).WithDefaultReviewOptimizations()
+	r := repos.New(db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })

@@ -29,7 +29,7 @@ func (r *Repository) LoadHistoricalOverviewSeriesBatch(ctx context.Context, cuto
 		var origin domain.HistoryOrigin
 		if _, err := scanHistoryOrigin(q.QueryRowContext(ctx, `SELECT id,household_id,timezone,started_at,created_at FROM history_origins WHERE household_id=(SELECT id FROM households WHERE singleton_key=1)`), &origin); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return domain.HistoricalSnapshotBatch{}, work, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history origin was not found"}
+				return domain.HistoricalSnapshotBatch{}, work, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "history origin was not found"}
 			}
 			return domain.HistoricalSnapshotBatch{}, work, err
 		}
@@ -184,7 +184,7 @@ func loadHistoricalSeriesBatchQuery(ctx context.Context, query queryer, househol
 	var origin domain.HistoryOrigin
 	if _, err := scanHistoryOrigin(query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String()), &origin); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history origin was not found"}
+			return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "history origin was not found"}
 		}
 		return domain.HistoricalSnapshotBatch{}, err
 	}

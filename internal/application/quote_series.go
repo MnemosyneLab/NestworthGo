@@ -22,7 +22,10 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, id domain.Instrumen
 	if err != nil {
 		return domain.QuoteSeries{}, err
 	}
-	location := s.seriesLocation(ctx)
+	location, err := s.seriesLocation(ctx)
+	if err != nil {
+		return domain.QuoteSeries{}, err
+	}
 	quotes, err := s.InstrumentQuoteHistory(ctx, id, quoteHistoryQuery(trendRange, sourceFilter, s.clock(), location, "", ""))
 	if err != nil {
 		return domain.QuoteSeries{}, err
@@ -54,7 +57,10 @@ func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB domain
 	if bootstrap.Household == nil {
 		return empty, nil
 	}
-	location := s.seriesLocation(ctx)
+	location, err := s.seriesLocation(ctx)
+	if err != nil {
+		return domain.QuoteSeries{}, err
+	}
 	quotes, err := s.FXQuoteHistory(ctx, quoteHistoryQuery(trendRange, sourceFilter, s.clock(), location, base, quoteCurrency))
 	if err != nil {
 		return domain.QuoteSeries{}, err
@@ -129,16 +135,15 @@ func (s *Service) fxQuotesOutsideRange(ctx context.Context, base, quoteCurrency 
 	return len(all) > 0, nil
 }
 
-func (s *Service) seriesLocation(ctx context.Context) *time.Location {
+func (s *Service) seriesLocation(ctx context.Context) (*time.Location, error) {
 	origin, err := s.HistoryOrigin(ctx)
-	if err != nil || origin == nil {
-		return time.UTC
-	}
-	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
-		return time.UTC
+		return nil, err
 	}
-	return location
+	if origin == nil {
+		return nil, onboardingRequired()
+	}
+	return time.LoadLocation(origin.Timezone)
 }
 
 func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.TrendRange, location *time.Location) []domain.QuoteSeriesPoint {

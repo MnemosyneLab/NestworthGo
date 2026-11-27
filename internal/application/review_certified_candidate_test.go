@@ -6,6 +6,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func certifiedFixture(t *testing.T) (seriesZeroFixture, *sqlite.Repository) {
@@ -25,7 +26,7 @@ func certifiedPublicationFixture(t *testing.T, fx bool, spec domain.ReviewRuleSp
 	f := newSeriesZeroFixture(t, fx, "UTC", "2026-10-01", quantity, databases...)
 	f.day(t, "2026-10-12")
 	saveSyntheticReviewRule(t, f, "Synthetic certified review", spec)
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))
@@ -68,7 +69,7 @@ func TestReviewCertifiedFreshSessionNoopAndSuffixPublication(t *testing.T) {
 		t.Fatal("full publication lost certification", result, err)
 	}
 	noChangeFullOracle(t, f)
-	if sqlite.NewRepository(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
+	if repos.New(f.db).CertifiedReviewEnabled() || fullReviewOracle(r).CertifiedReviewEnabled() {
 		t.Fatal("candidate activated default or forced-full path")
 	}
 }

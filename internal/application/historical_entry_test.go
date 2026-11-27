@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
@@ -16,7 +17,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	svc := NewService(repo)
 	ctx := context.Background()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
@@ -37,7 +38,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	opened := "2026-09-27"
-	account, err := svc.CreateAccount(ctx, AccountInput{Name: "Backdated bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OpenedOn: &opened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := svc.fixtureCreateAccount(ctx, AccountInput{Name: "Backdated bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OpenedOn: &opened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	zeroOpened := "2026-09-28"
-	zeroAccount, err := svc.CreateAccount(ctx, AccountInput{Name: "Empty account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OpenedOn: &zeroOpened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	zeroAccount, err := svc.fixtureCreateAccount(ctx, AccountInput{Name: "Empty account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OpenedOn: &zeroOpened, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,43 +111,5 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 	}
 	if contains(before.Accounts, zeroAccount.Account.ID) || !contains(after.Accounts, zeroAccount.Account.ID) {
 		t.Fatalf("zero account presence before=%v after=%v", contains(before.Accounts, zeroAccount.Account.ID), contains(after.Accounts, zeroAccount.Account.ID))
-	}
-}
-
-func TestHistoricalStartRejectsInferredPastAssetsAndFuture(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
-	for _, date := range []string{"2026-09-30", "2026-02-30"} {
-		if _, err := historyStartInstant(date, "Asia/Singapore", now); err == nil {
-			t.Fatalf("start date %q was accepted", date)
-		}
-	}
-	db, err := sqlite.Open(t.TempDir() + "/past-assets.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	svc := NewService(sqlite.NewRepository(db))
-	svc.setClock(func() time.Time { return now })
-	if err := svc.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Current", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
-		t.Fatal(err)
-	}
-	bootstrap, err := svc.Bootstrap(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "50", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.StartHistoryOnDate(ctx, "Asia/Singapore", "2026-09-27", nil); err == nil {
-		t.Fatal("past history start accepted today's existing balance")
-	}
-	if origin, err := svc.HistoryOrigin(ctx); err != nil || origin != nil {
-		t.Fatalf("rejected start persisted origin = %+v, err = %v", origin, err)
-	}
-	origin, err := svc.StartHistoryOnDate(ctx, "Asia/Singapore", "2026-09-29", nil)
-	if err != nil || !origin.StartedAt.Equal(now) {
-		t.Fatalf("current-assets start = %+v, err = %v", origin, err)
 	}
 }

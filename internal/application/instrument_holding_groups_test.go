@@ -6,6 +6,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership(t *testing.T) {
@@ -15,31 +16,31 @@ func TestInstrumentHoldingGroupsOrderSubtotalsAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	app := NewService(sqlite.NewRepository(db))
+	app := NewService(repos.New(db))
 	ctx := context.Background()
-	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := app.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := app.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := app.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := app.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	instrument := func(name, kind, currency string) domain.InstrumentID {
-		created, err := app.CreateInstrument(ctx, InstrumentInput{Name: name, Type: kind, QuoteCurrency: currency, QuoteSource: "manual"})
+		created, err := app.fixtureCreateInstrument(ctx, InstrumentInput{Name: name, Type: kind, QuoteCurrency: currency, QuoteSource: "manual"})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return created.ID
 	}
 	hold := func(id domain.InstrumentID, quantity, cost string) {
-		if _, err := app.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: id.String(), Quantity: quantity, UnitCost: cost}); err != nil {
+		if _, err := app.fixtureCreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: id.String(), Quantity: quantity, UnitCost: cost}); err != nil {
 			t.Fatal(err)
 		}
 	}

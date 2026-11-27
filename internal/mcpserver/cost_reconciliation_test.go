@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestCostReconciliationPreservesCashQuantityAndChangesLaterGain(t *testing.T
 		}
 	}
 
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 9, 29, 13, 0, 0, 0, time.UTC) })
 	sale := ledgerPreview(t, c, map[string]any{"kind": "trade", "side": "sell", "settlementAccountId": fx.brokerage, "holdingId": holdingID, "instrumentId": fx.instrument, "quantity": "2", "gross": "80", "grossCurrency": "USD", "effectiveAt": "2026-09-29T12:30:00Z"})
 	ledgerCommit(t, c, uuid.NewString(), sale["planId"].(string))
 	assertReconciliationCost(t, fx, holdingID, "8", "30", "240")

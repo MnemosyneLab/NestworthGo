@@ -11,26 +11,26 @@ import (
 func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 	t.Parallel()
 	s, ctx, b, tick := newOnboardedService(t, "currency-immutable", []string{"Owner"})
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10", UnitCost: "100"})
+	h, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "10", UnitCost: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(ctx, i.ID, "120", "", false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.StartHistory(ctx, "UTC"); err != nil {
+	if _, err = s.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	tick(time.Date(2026, 8, 1, 13, 0, 0, 0, time.UTC))
-	if _, err = s.AppendAccountCashValue(ctx, a.Account.ID, "1000", "USD", ""); err != nil {
+	if _, err = s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "1000", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.RecordChange(ctx, domain.TradeInput{HouseholdID: b.Household.ID, Side: domain.TradeBuy, SettlementAccountID: a.Account.ID, HoldingID: h.ID, InstrumentID: i.ID, Quantity: mustQuantity(t, "1"), Gross: mustMoney(t, "100", "USD"), EffectiveAt: s.clock()}); err != nil {
@@ -41,7 +41,7 @@ func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, replace := range []bool{false, true} {
-		_, err = s.UpdateInstrument(ctx, i.ID, InstrumentInput{Replace: replace, Name: "Must not persist", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		_, err = s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{Replace: replace, Name: "Must not persist", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 		var validation *domain.Error
 		if !errors.As(err, &validation) || validation.Code != domain.ErrValidation || validation.Field != "quoteCurrency" {
 			t.Fatalf("replace=%v: expected currency validation, got %v", replace, err)
@@ -64,10 +64,10 @@ func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 	if after.TotalCost.Currency != before.TotalCost.Currency || after.TotalCost.Amount != before.TotalCost.Amount || after.CurrentValue.Currency != before.CurrentValue.Currency || after.CurrentValue.Amount != before.CurrentValue.Amount {
 		t.Fatalf("rejected edit changed gain: before=%+v after=%+v", before, after)
 	}
-	if _, err = s.UpdateInstrument(ctx, i.ID, InstrumentInput{Name: "Renamed", QuoteCurrency: "USD"}); err != nil {
+	if _, err = s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{Name: "Renamed", QuoteCurrency: "USD"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.UpdateInstrument(ctx, i.ID, InstrumentInput{Name: "Partial rename"}); err != nil {
+	if _, err = s.fixtureUpdateInstrument(ctx, i.ID, InstrumentInput{Name: "Partial rename"}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -75,12 +75,12 @@ func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 func TestAccountSettingsSavePreservesRequestedIcon(t *testing.T) {
 	t.Parallel()
 	s, ctx, b, _ := newOnboardedService(t, "account-icon", []string{"Owner"})
-	a, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}, IconKey: "bank"})
+	a, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}, IconKey: "bank"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, input := range []AccountInput{{IconKey: "wallet", IconKeySet: true}, {Name: "Renamed"}} {
-		updated, err := s.UpdateAccount(ctx, a.Account.ID, input)
+		updated, err := s.fixtureUpdateAccount(ctx, a.Account.ID, input)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -95,14 +95,14 @@ func TestAccountSettingsSavePreservesRequestedIcon(t *testing.T) {
 			t.Fatalf("persisted icon = %+v", persisted.Account.IconKey)
 		}
 	}
-	cleared, err := s.UpdateAccount(ctx, a.Account.ID, AccountInput{IconKeySet: true})
+	cleared, err := s.fixtureUpdateAccount(ctx, a.Account.ID, AccountInput{IconKeySet: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cleared.Account.IconKey != nil {
 		t.Fatalf("icon not cleared: %v", *cleared.Account.IconKey)
 	}
-	renamed, err := s.UpdateAccount(ctx, a.Account.ID, AccountInput{Name: "After clearing"})
+	renamed, err := s.fixtureUpdateAccount(ctx, a.Account.ID, AccountInput{Name: "After clearing"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -64,7 +64,7 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	app, _ := reopenOnboardingProfile(t, paths)
+	app, _ := reopenBaselineProfile(t, paths)
 	raw, err := os.ReadFile(filepath.Join(paths.RootPath(), "data", "nestworth.db"))
 	if err != nil {
 		t.Fatal(err)

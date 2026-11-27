@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"strings"
 	"testing"
@@ -114,7 +115,7 @@ func TestFeatureToolDiscoverySchemasAndPermissions(t *testing.T) {
 func TestFeatureReadToolsMatchGUIServices(t *testing.T) {
 	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) })
-	fx.app.SetClock(func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(fx.app, func() time.Time { return time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC) })
 	if _, err := fx.app.AppendAccountValue(t.Context(), domain.AccountID(fx.checking), "100", "2026-10-01"); err != nil {
 		t.Fatal(err)
 	}

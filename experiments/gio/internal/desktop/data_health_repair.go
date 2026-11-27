@@ -108,7 +108,7 @@ func (r *dataHealthRepair) update() (terminal bool) {
 		if response.err != nil {
 			r.problem = i18n.HealthRepairPlanFailed
 			var problem *domain.Error
-			if errors.As(response.err, &problem) && problem.Code == domain.ErrHistoryNotStarted {
+			if errors.As(response.err, &problem) && problem.Code == domain.ErrMissingHistoryOrigin {
 				r.problem = i18n.HealthRepairHistoryRequired
 			}
 		} else {
@@ -155,11 +155,6 @@ func (p *dataHealthPage) repairAction(gtx layout.Context, view ui.View) layout.D
 	if r.returnFocus {
 		r.returnFocus = false
 		gtx.Execute(key.FocusCmd{Tag: &r.open})
-	}
-	for _, issue := range p.report.Issues {
-		if issue.Kind == application.HealthKindHistoryNotStarted {
-			return view.Message(view.Language.Text(i18n.HealthRepairHistoryRequired), view.Colors.SecondaryInk)(gtx)
-		}
 	}
 	active := p.request == nil && p.err == nil && p.report.ExecutableCount > 0 && !r.inProgress()
 	if r.open.Clicked(gtx) && active {

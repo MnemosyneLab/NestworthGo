@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 type historySnapshotBarrierRepository struct {
@@ -31,40 +32,40 @@ func TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary(t *testing.T) {
 	}
 	defer database.Close()
 
-	barrier := &historySnapshotBarrierRepository{Repository: sqlite.NewRepository(database), entered: make(chan struct{}), release: make(chan struct{})}
+	barrier := &historySnapshotBarrierRepository{Repository: repos.New(database), entered: make(chan struct{}), release: make(chan struct{})}
 	service := NewService(barrier)
 	clock := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "History boundary", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "History boundary", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 
 	historyDone := make(chan error, 1)
 	go func() {
-		_, startErr := service.StartHistory(ctx, "UTC")
+		_, startErr := service.CaptureSyntheticOrigin(ctx, "UTC")
 		historyDone <- startErr
 	}()
 	select {
 	case <-barrier.entered:
 	case <-time.After(2 * time.Second):
-		t.Fatal("StartHistory did not reach the portfolio snapshot barrier")
+		t.Fatal("CaptureSyntheticOrigin did not reach the portfolio snapshot barrier")
 	}
 
 	instrumentDone := make(chan error, 1)
 	go func() {
-		_, createErr := service.CreateInstrument(ctx, InstrumentInput{Name: "Created during start", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "BOUNDARY"})
+		_, createErr := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Created during start", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "BOUNDARY"})
 		instrumentDone <- createErr
 	}()
 	select {
 	case err := <-instrumentDone:
-		t.Fatalf("CreateInstrument completed before StartHistory snapshot committed: %v", err)
+		t.Fatalf("CreateInstrument completed before CaptureSyntheticOrigin snapshot committed: %v", err)
 	case <-time.After(100 * time.Millisecond):
 	}
 
 	close(barrier.release)
 	if err := <-historyDone; err != nil {
-		t.Fatalf("StartHistory() error = %v", err)
+		t.Fatalf("CaptureSyntheticOrigin() error = %v", err)
 	}
 	if err := <-instrumentDone; err != nil {
 		t.Fatalf("CreateInstrument() error = %v", err)
@@ -91,18 +92,18 @@ func TestConcurrentObservationWritersSerializeUnderHistoryLock(t *testing.T) {
 	}
 	defer database.Close()
 
-	service := NewService(sqlite.NewRepository(database))
+	service := NewService(repos.New(database))
 	clock := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Observation writers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Observation writers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Observed instrument", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Observed instrument", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	origin, err := service.HistoryOrigin(ctx)

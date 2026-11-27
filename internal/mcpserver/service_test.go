@@ -29,7 +29,16 @@ func (t authorizedTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 }
 func fixture(t *testing.T) (*Service, *application.Service, *atomic.Int32) {
 	t.Helper()
-	app := wailstest.NewService(t)
+	return fixtureWithApp(t, wailstest.NewBaselineService(t))
+}
+
+func initializedFixture(t *testing.T) (*Service, *application.Service, *atomic.Int32) {
+	t.Helper()
+	return fixtureWithApp(t, wailstest.NewService(t))
+}
+
+func fixtureWithApp(t *testing.T, app *application.Service) (*Service, *application.Service, *atomic.Int32) {
+	t.Helper()
 	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "USD", MemberNames: []string{"Alice"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +90,7 @@ func mutate(t *testing.T, c *mcp.ClientSession, name string, input any) map[stri
 }
 func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 	t.Parallel()
-	s, _, _ := fixture(t)
+	s, _, _ := initializedFixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +311,7 @@ func TestUnsupportedSavedMCPModesFallBackToReadOnly(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{"directory_write", "ledger_write", "unknown"} {
 		t.Run(mode, func(t *testing.T) {
-			s, _, _ := fixture(t)
+			s, _, _ := initializedFixture(t)
 			old := Config{Enabled: true, Mode: mode, Token: strings.Repeat("a", 64), InstanceID: uuid.NewString()}
 			if err := s.writePrivate(filepath.Join(s.dir, "connection.json"), old); err != nil {
 				t.Fatal(err)

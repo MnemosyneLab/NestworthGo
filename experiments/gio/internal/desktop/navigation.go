@@ -182,10 +182,10 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() || s.fundsProductSetupOpen() || s.fundsProductTermsOpen() {
 		return
 	}
-	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
+	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.detail.cashActions.unresolved() || s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
+	if s.accounts != nil && (s.accounts.detail.cashActions.unresolved() || s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.productSetup.unresolved()) {
 		return
 	}
 
@@ -276,9 +276,6 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if posting := s.accounts.liabilityPosting; posting != nil {
 			posting.draft = nil
 			posting.restore = false
-		}
-		if opening := s.accounts.opening; opening != nil {
-			opening.draft = nil
 		}
 		if investment := s.accounts.investment; investment != nil {
 			investment.draft = nil

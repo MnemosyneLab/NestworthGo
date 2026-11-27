@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"runtime"
 	"sort"
@@ -33,7 +34,7 @@ func TestMeasureC2ParentCaptureCost(t *testing.T) {
 	ctx := context.Background()
 	app := wailstest.NewService(t)
 	// Measured ranges are closed through 2025-12-31. The clock is the next local day.
-	app.SetClock(func() time.Time { return time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "SYNTHETIC c2", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"},
 		Timezone: "UTC", HistoryStartDate: "2016-01-01",
@@ -106,7 +107,7 @@ func TestMeasureC2ParentCaptureExtremes(t *testing.T) {
 func newC2App(t *testing.T, historyStart string) *application.Service {
 	t.Helper()
 	app := wailstest.NewService(t)
-	app.SetClock(func() time.Time { return time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC) })
+	testfixture.SetClock(app, func() time.Time { return time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC) })
 	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{
 		HouseholdName: "SYNTHETIC c2", BaseCurrency: "USD", MemberNames: []string{"Synthetic owner"},
 		Timezone: "UTC", HistoryStartDate: historyStart,

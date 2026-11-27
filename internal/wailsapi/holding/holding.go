@@ -65,8 +65,7 @@ func (s *Service) HoldingsByAccounts(ctx context.Context, accountIDs []string) (
 	return result, nil
 }
 
-// AppendAccountCashValue is the cash baseline/import entry point before
-// history starts. After history starts, application.Service translates the
+// AppendAccountCashValue translates the
 // requested resulting balance into a reconciliation cash_in/cash_out and
 // commits it through the same PreviewChange/RecordChange engine; it does not
 // create a second persistence path.

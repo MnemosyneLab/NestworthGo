@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -75,8 +76,8 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 	refIDs := seedReconciliationSelection(t, ref, refSeeded.account)
 	now := linkedContractClock()
 	clock := func() time.Time { return now }
-	app.SetClock(clock)
-	ref.SetClock(clock)
+	testfixture.SetClock(app, clock)
+	testfixture.SetClock(ref, clock)
 	api, refAPI := reconciliation.NewService(app), reconciliation.NewService(ref)
 	prior := startTestHoldingReconciliation(t, api, ids.unrelated)
 	fault := &lostReconciliationStart{holdingReconcileAPI: api}
@@ -274,8 +275,8 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	persisted, err := reconciliation.NewService(reopened).Get(ctx, planID)
 	if err != nil || persisted.StartedAt != exactTime {
 		t.Fatalf("reopened session: %+v / %v", persisted, err)

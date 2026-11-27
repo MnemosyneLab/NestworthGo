@@ -3,6 +3,7 @@ package mobileapi
 import (
 	"bytes"
 	"context"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,7 @@ type httpFixture struct {
 
 func fixture(t *testing.T, p Permissions) *httpFixture {
 	t.Helper()
-	app := wailstest.NewService(t)
+	app := wailstest.NewBaselineService(t)
 	ctx := t.Context()
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "SYNTHETIC MOBILE TEST", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
 		t.Fatal(err)
@@ -39,11 +40,11 @@ func fixture(t *testing.T, p Permissions) *httpFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := app.CreateAccount(ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
+	a, err := testfixture.CreateAccount(app, ctx, application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := testfixture.CaptureSyntheticOrigin(app, ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	s := New(app, filepath.Join(t.TempDir(), "mobile.json"), fstest.MapFS{"mobile.html": {Data: []byte("<html>Login shell</html>")}})

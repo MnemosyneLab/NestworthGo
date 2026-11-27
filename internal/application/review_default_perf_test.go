@@ -3,7 +3,7 @@
 package application
 
 import (
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 	"reflect"
 	"testing"
 	"time"
@@ -14,7 +14,7 @@ import (
 // a global latency target, and write no evidence/profile artifacts.
 func TestReviewDefaultPerformance(t *testing.T) {
 	fixture := newReviewPerfFixture(t, reviewPerfConfig{Accounts: 2, Instruments: 4, Holdings: 4, Rules: 3, HistoryDays: 30, Quotes: 120, MixedActivities: 8})
-	repository := sqlite.NewRepository(fixture.db).WithDefaultReviewOptimizations()
+	repository := repos.New(fixture.db).WithDefaultReviewOptimizations()
 	provider := newRefreshFakeProvider()
 	provider.key = "synthetic-pinned"
 	fixture.service = NewService(repository, NewMarketDataRegistry(provider))

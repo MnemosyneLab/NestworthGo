@@ -219,9 +219,6 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 		return nil, err
 	}
 	window := &closedTrendWindow{currency: bootstrap.Household.BaseCurrency, includeCurrent: true}
-	if origin == nil {
-		return window, nil
-	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
 		return nil, err

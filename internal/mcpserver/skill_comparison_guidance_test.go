@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"encoding/json"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"testing"
 	"time"
@@ -174,14 +175,14 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 	t.Parallel()
 	s, app, _ := fixture(t)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	app.SetClock(func() time.Time { return now })
+	testfixture.SetClock(app, func() time.Time { return now })
 	members, err := app.ListMembers(t.Context(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	create := func(name, kind, role, mode, value string) domain.AccountID {
 		t.Helper()
-		a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: "USD", InitialAmount: value, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+		a, err := testfixture.CreateAccount(app, t.Context(), application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: role, TrackingMode: mode, DefaultCurrency: "USD", InitialAmount: value, IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -191,12 +192,12 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 	investment := create("Investment", "investment_account", "asset", "manual_value", "50")
 	property := create("Property", "property", "asset", "manual_value", "300")
 	debt := create("Debt", "loan", "liability", "balance", "30")
-	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err = testfixture.CaptureSyntheticOrigin(app, t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
 	for id, value := range map[domain.AccountID]string{cash: "120", investment: "60", property: "330", debt: "35"} {
-		if _, err = app.AppendAccountValue(t.Context(), id, value, ""); err != nil {
+		if _, err = testfixture.AppendAccountValue(app, t.Context(), id, value, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -248,7 +249,7 @@ func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
 		t.Fatal("parent/component duplication missing", cashRows, debtRows)
 	}
 	// Unchanged money leaving scope changes totals without being a balance flow.
-	if _, err = app.UpdateAccount(t.Context(), cash, application.AccountInput{Name: "Cash", IncludeInNetWorthSet: true, IncludeInNetWorth: false}); err != nil {
+	if _, err = testfixture.UpdateAccount(app, t.Context(), cash, application.AccountInput{Name: "Cash", IncludeInNetWorthSet: true, IncludeInNetWorth: false}); err != nil {
 		t.Fatal(err)
 	}
 	removed := read("2026-08-02", "current")

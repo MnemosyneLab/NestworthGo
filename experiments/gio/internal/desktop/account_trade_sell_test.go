@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"slices"
@@ -56,7 +57,7 @@ func seedSales(ctx context.Context, service *application.Service, now time.Time)
 func openSaleFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, saleFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	app, session := reopenOnboardingProfile(t, paths)
+	app, session := reopenBaselineProfile(t, paths)
 	ids, err := seedSales(t.Context(), app, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -73,8 +74,8 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.release) })
 	now := accountTestClock
 	clock := func() time.Time { return now }
-	service.SetClock(clock)
-	reference.SetClock(clock)
+	testfixture.SetClock(service, clock)
+	testfixture.SetClock(reference, clock)
 	accounts := newAccountsPage(ctx, service, clock, func() {})
 	accounts.investment = &accountInvestment{service: fault}
 	ledger := newLedgerHistory(ctx, fault, clock, func() {})
@@ -271,8 +272,8 @@ func TestSellPartialAndLiquidationMatchWailsAndReplay(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	assertState(reopened, ids, soldAll, "3", "60", "2", "0", "0", "-8", "0", "192", "192", 2)
 	for _, i := range []int{1, 2} {
 		frozen := fault.attempts[i]

@@ -46,7 +46,7 @@ func (s *Service) productDataStateHash(ctx context.Context, contract domain.Prod
 		return "", err
 	}
 	if origin == nil {
-		return "", &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history must be started"}
+		return "", &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	date, _, err := domain.LocalCivilDate(now, origin.Timezone)
 	if err != nil {
@@ -68,11 +68,11 @@ func (s *Service) termsDetails(ctx context.Context, prepared preparedProductTerm
 	}
 	after := before
 	after.Contract, after.Policy = prepared.contract, prepared.policy
-	origin, err := s.repository.HistoryOrigin(ctx, prepared.contract.HouseholdID)
+	origin, err := s.requireHistoryOrigin(ctx, prepared.contract.HouseholdID)
 	if err != nil {
 		return ProductDetail{}, ProductDetail{}, err
 	}
-	date, _, err := domain.LocalCivilDate(now, timezoneOrUTC(origin))
+	date, _, err := domain.LocalCivilDate(now, origin.Timezone)
 	if err != nil {
 		return ProductDetail{}, ProductDetail{}, err
 	}

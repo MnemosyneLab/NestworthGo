@@ -72,8 +72,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/direc
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: () => historyOrigin(),
-    StartHistory: vi.fn(),
-    StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
@@ -226,8 +224,10 @@ describe("keyboard-only completion", () => {
     expect(screen.getByLabelText(/base currency/i)).toHaveFocus();
     expect(screen.getByLabelText(/base currency/i)).toHaveValue("CNY");
 
-    await userEvent.tab(); // -> optional earlier History start (left unchecked)
-    expect(screen.getByRole("checkbox", { name: "Start recording from an earlier date" })).toHaveFocus();
+    await userEvent.tab(); // -> optional earlier History start (left collapsed)
+    expect(screen.getByRole("button", { name: "Choose an earlier start date" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Choose an earlier start date" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
     await userEvent.tab(); // -> member 1 name input
     expect(screen.getByLabelText("Member 1 name")).toHaveFocus();
@@ -241,7 +241,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(completeOnboarding).toHaveBeenCalledWith(
-      expect.objectContaining({ householdName: "The Tans", baseCurrency: "CNY", memberNames: ["Alice"] }),
+      expect.objectContaining({ householdName: "The Tans", baseCurrency: "CNY", memberNames: ["Alice"], timezone: expect.any(String) }),
     );
   });
 

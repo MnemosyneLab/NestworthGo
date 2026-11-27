@@ -21,7 +21,7 @@
   "database_upgrade_required": "Unsupported database schema. Only versions 21 and 22 are supported. The file has not been changed; preserve the original.",
   "decimal_overflow": "This value is outside the supported range.",
   "historical_series_budget": "The local historical trend input or computation budget was exceeded. Comparison views remain available.",
-  "history_not_started": "Start history before recording a change.",
+  "history_origin_missing": "Ledger history is unavailable.",
   "history_timezone_required": "Confirm a Household timezone before continuing.",
   "history_update_failed": "The history could not be updated.",
   "insufficient_balance": "There is not enough balance for this change.",

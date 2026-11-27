@@ -24,15 +24,15 @@ func TestInstrumentPerformanceIndependentOfPersonalLedger(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			s, ctx, b, setClock := newOnboardedService(t, "synthetic-performance", []string{"Synthetic owner"})
 			setClock(time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
-			i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: kind, QuoteCurrency: "USD", QuoteSource: "agent"})
+			i, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic NAV", Type: kind, QuoteCurrency: "USD", QuoteSource: "agent"})
 			if err != nil {
 				t.Fatal(err)
 			}
 			a := createHoldingsAccount(t, s, ctx, b.Members[0].ID, "Synthetic A")
-			if _, err = s.AppendAccountCashValue(ctx, a.Account.ID, "1000", "USD", "2026-09-01"); err != nil {
+			if _, err = s.fixtureAppendAccountCashValue(ctx, a.Account.ID, "1000", "USD", "2026-09-01"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.StartHistory(ctx, "America/Los_Angeles"); err != nil {
+			if _, err = s.CaptureSyntheticOrigin(ctx, "America/Los_Angeles"); err != nil {
 				t.Fatal(err)
 			}
 			setClock(time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC))
@@ -127,7 +127,7 @@ func TestInstrumentPerformanceImportedCorporateActionsAndRetraction(t *testing.T
 			i.Type = domain.InstrumentBankInvestmentProduct
 			// Persist the type through the normal instrument writer.
 			var err error
-			i, err = s.UpdateInstrument(t.Context(), i.ID, InstrumentInput{Name: i.Name, Type: string(i.Type), QuoteCurrency: "USD", QuoteSource: "agent"})
+			i, err = s.fixtureUpdateInstrument(t.Context(), i.ID, InstrumentInput{Name: i.Name, Type: string(i.Type), QuoteCurrency: "USD", QuoteSource: "agent"})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestHistoricalSnapshotsUseCivilLabelsAcrossMidnightTransitions(t *testing.T) {
@@ -24,16 +25,16 @@ func TestHistoricalSnapshotsUseCivilLabelsAcrossMidnightTransitions(t *testing.T
 			last, _ := time.Parse("2006-01-02", tc.last)
 			*now = first.AddDate(0, 0, -2).Add(12 * time.Hour)
 			a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-			if _, err := s.StartHistory(ctx, tc.zone); err != nil {
+			if _, err := s.CaptureSyntheticOrigin(ctx, tc.zone); err != nil {
 				t.Fatal(err)
 			}
 			location, _ := time.LoadLocation(tc.zone)
 			*now = time.Date(first.Year(), first.Month(), first.Day(), 12, 0, 0, 0, location)
-			if _, err := s.AppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
+			if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
 				t.Fatal(err)
 			}
 			*now = time.Date(last.Year(), last.Month(), last.Day(), 12, 0, 0, 0, location)
-			if _, err := s.AppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
+			if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "130", ""); err != nil {
 				t.Fatal(err)
 			}
 			*now = last.AddDate(0, 0, 3).Add(12 * time.Hour)
@@ -113,12 +114,12 @@ func TestCivilSnapshotPolicyInvalidationRebuildIsAppendOnlyAndIdempotent(t *test
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
-	origin, err := s.StartHistory(ctx, "America/Santiago")
+	origin, err := s.CaptureSyntheticOrigin(ctx, "America/Santiago")
 	if err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 9, 5, 15, 0, 0, 0, time.UTC)
-	if _, err := s.AppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(ctx, a.Account.ID, "120", ""); err != nil {
 		t.Fatal(err)
 	}
 	*now = time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
@@ -148,7 +149,7 @@ func TestCivilSnapshotPolicyInvalidationRebuildIsAppendOnlyAndIdempotent(t *test
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	s = NewService(sqlite.NewRepository(reopened))
+	s = NewService(repos.New(reopened))
 	s.setClock(func() time.Time { return *now })
 	state, err := s.repository.DailySnapshotState(ctx, origin.HouseholdID)
 	if err != nil || state.InputGeneration != 5 || state.DirtyFrom == nil || *state.DirtyFrom != "2026-09-04" {
@@ -194,7 +195,7 @@ func TestCivilSnapshotPolicyInvalidationRebuildIsAppendOnlyAndIdempotent(t *test
 		t.Fatal(err)
 	}
 	defer again.Close()
-	state, err = sqlite.NewRepository(again).DailySnapshotState(ctx, origin.HouseholdID)
+	state, err = repos.New(again).DailySnapshotState(ctx, origin.HouseholdID)
 	// The synthetic clock precedes real migration time: its future dirty suffix
 	// remains pending. Reopening must not increment generation or move the prefix.
 	if err != nil || state.InputGeneration != 5 || state.DirtyFrom == nil || *state.DirtyFrom != "2026-09-08" {

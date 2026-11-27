@@ -83,7 +83,7 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 				return nil, err
 			}
 			if origin == nil {
-				return nil, &domain.Error{Code: domain.ErrHistoryNotStarted}
+				return nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin}
 			}
 			review.replacement, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
 			return review.replacement, err

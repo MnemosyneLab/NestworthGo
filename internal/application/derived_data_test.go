@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T) {
@@ -19,19 +20,19 @@ func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T)
 		t.Fatal(err)
 	}
 	defer db.Close()
-	repo := sqlite.NewRepository(db)
+	repo := repos.New(db)
 	s := NewService(repo)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
-	if err := s.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := s.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Family", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
 	boot, _ := s.Bootstrap(ctx)
-	account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, InitialAmount: "1000"})
+	account, err := s.fixtureCreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, InitialAmount: "1000"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
 	}
 	now = now.AddDate(0, 0, 1)
@@ -97,7 +98,7 @@ func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T)
 	}
 	// A rebuild cannot supply a missing exchange rate. Keep the native input
 	// and report that closed day as incomplete instead of inventing a total.
-	_, err = s.CreateAccount(ctx, AccountInput{Name: "Foreign", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, InitialAmount: "5"})
+	_, err = s.fixtureCreateAccount(ctx, AccountInput{Name: "Foreign", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}, InitialAmount: "5"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +117,7 @@ func TestRebuildDerivedDataKeepsCostAdjustmentsOutOfCurrentProjection(t *testing
 	t.Parallel()
 	f := newAccountingGainFixture(t, "3", "10")
 	ctx := t.Context()
-	bank, err := f.service.CreateAccount(ctx, AccountInput{
+	bank, err := f.service.fixtureCreateAccount(ctx, AccountInput{
 		Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true,
 		OwnerIDs: []domain.MemberID{f.boot.Members[0].ID}, InitialAmount: "500",

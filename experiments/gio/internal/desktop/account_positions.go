@@ -54,9 +54,6 @@ type accountPositions struct {
 func (p *accountsPage) accountPositionRows(view ui.View, account domain.Account, first int) []layout.Widget {
 	l, positions := view.Language, &p.positions
 	rows := []layout.Widget{accountSection(view, l.Text(i18n.AccountInvestments))}
-	if p.opening != nil && p.opening.saved == account.ID {
-		rows = append(rows, view.Message(l.Text(i18n.OpeningPositionSaved), view.Colors.Ink))
-	}
 	appendShortcuts := func(rows []layout.Widget) []layout.Widget {
 		if actions := p.accountInvestmentShortcuts(view); len(actions) != 0 {
 			p.detail.investmentActionsRow = first + len(rows)
@@ -181,9 +178,6 @@ func (p *accountsPage) accountInvestmentShortcuts(view ui.View) []layout.Widget 
 			return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall,
 				Title: view.Language.Text(label)})(gtx)
 		})
-	}
-	if p.canOpenPosition() {
-		add(&p.opening.open, i18n.OpeningPositionOpen)
 	}
 	f := p.investment
 	if p.canTradeAccount() {

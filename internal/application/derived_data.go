@@ -35,7 +35,7 @@ func (s *Service) RebuildDerivedData(ctx context.Context) (DerivedDataRebuildRes
 		return DerivedDataRebuildResult{}, err
 	}
 	if origin == nil {
-		return DerivedDataRebuildResult{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before rebuilding derived data"}
+		return DerivedDataRebuildResult{}, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
 	now := s.clock()
 	batch, err := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, now)

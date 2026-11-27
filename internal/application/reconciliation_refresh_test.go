@@ -15,26 +15,26 @@ func TestReconciliationRefreshOnlyChangedEndpoints(t *testing.T) {
 			ctx := t.Context()
 			one := seedHoldingsCash(t, s, ctx, "1000")
 			two := seedHoldingsCash(t, s, ctx, "500")
-			if _, err := s.AppendAccountCashValue(ctx, one, "500", "EUR", ""); err != nil {
+			if _, err := s.fixtureAppendAccountCashValue(ctx, one, "500", "EUR", ""); err != nil {
 				t.Fatal(err)
 			}
-			first, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic first ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			first, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic first ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			second, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic second ETF", Type: "etf", QuoteCurrency: "EUR", QuoteSource: "manual"})
+			second, err := s.fixtureCreateInstrument(ctx, InstrumentInput{Name: "Synthetic second ETF", Type: "etf", QuoteCurrency: "EUR", QuoteSource: "manual"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			h1, err := s.CreateHolding(ctx, HoldingInput{AccountID: one.String(), InstrumentID: first.ID.String(), Quantity: "10", UnitCost: "10"})
+			h1, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: one.String(), InstrumentID: first.ID.String(), Quantity: "10", UnitCost: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			h2, err := s.CreateHolding(ctx, HoldingInput{AccountID: one.String(), InstrumentID: second.ID.String(), Quantity: "20", UnitCost: "10"})
+			h2, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: one.String(), InstrumentID: second.ID.String(), Quantity: "20", UnitCost: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			other, err := s.CreateHolding(ctx, HoldingInput{AccountID: two.String(), InstrumentID: first.ID.String(), Quantity: "5", UnitCost: "10"})
+			other, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: two.String(), InstrumentID: first.ID.String(), Quantity: "5", UnitCost: "10"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +110,7 @@ func TestReconciliationRefreshOnlyChangedEndpoints(t *testing.T) {
 				mark(one, "holding:"+h1.ID.String())
 				mark(two, "holding:"+other.ID.String())
 			case "new_holding":
-				added, err := s.CreateHolding(ctx, HoldingInput{AccountID: two.String(), InstrumentID: second.ID.String(), Quantity: "0"})
+				added, err := s.fixtureCreateHolding(ctx, HoldingInput{AccountID: two.String(), InstrumentID: second.ID.String(), Quantity: "0"})
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -3,7 +3,7 @@
 - Owner: Design and Frontend
 - Status: **Implemented**
 - Original design baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
-- Surfaces: History, Record change, Account action sheets, Start History, Settings, cash reconciliation, simple values, existing positions, and activity detail
+- Surfaces: History, Record change, Account action sheets, Onboarding, Settings, cash reconciliation, simple values, existing positions, and activity detail
 - Companions: [Domain Model](../architecture/domain-model.md), [Data and Application Contracts](../architecture/data-and-ipc-contracts.md), and [Account Container Interaction](account-container-interaction.md)
 
 This document defines current user-visible form behavior. Go application services
@@ -167,11 +167,9 @@ Missing quotes remain an actionable incomplete state.
   asks for a different value. Cash reconciliation displays the current selected
   currency but leaves the resulting amount empty so the user deliberately enters
   it. Preview reads the authoritative balance and shows current balance, target,
-  signed adjustment, currency and effective time. After History starts, an
-  optional reason is stored as the reconciliation note. Confirm applies the
+  signed adjustment, currency and effective time. An optional reason is stored as the reconciliation note. Confirm applies the
   retained command, never a newly calculated delta. Back or editing any field
-  discards the preview; closing and reopening begins an empty form. Before
-  History starts the same review establishes a baseline, without a reason field.
+  discards the preview; closing and reopening begins an empty form.
 - Account sheets filter value updates to `balance` and `manual_value` Accounts.
   Holdings Accounts cannot be selected for a Simple value update.
 - Record existing position is separate from Buy. It requires a positive quantity,
@@ -198,10 +196,9 @@ Settings timezone is `system` or a valid IANA zone chosen through a filterable
 keyboard-accessible select. `system` resolves to the browser/system IANA zone.
 Ordinary display timestamps, including quote times, use this presentation zone.
 
-History Origin owns the ledger timezone after History starts. Start History shows
-the resolved Settings timezone read-only and lets users choose a start date
-no later than today. A past date requires zero balances and holdings; an existing
-Origin remains immutable. History displays the Origin timezone, and Record change resolves
+Onboarding creates an empty History Origin and fixes the ledger timezone.
+The resolved Settings timezone is shown read-only, with today's date as the
+default and an optional earlier start date. The Origin remains immutable. History displays the Origin timezone, and Record change resolves
 its local date and time in that zone. Changing Settings later changes ordinary
 presentation timestamps but never rewrites historical local dates.
 

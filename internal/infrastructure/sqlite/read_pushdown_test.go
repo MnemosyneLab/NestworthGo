@@ -147,7 +147,7 @@ func testPushdownScale(t *testing.T, n int) {
 	other := i
 	other.ID = domain.NewInstrumentID()
 	other.Name = "Unrelated synthetic instrument"
-	if err := r.CreateInstrument(t.Context(), other); err != nil {
+	if err := fixtureWriter(r).CreateInstrument(t.Context(), other); err != nil {
 		t.Fatal(err)
 	}
 	otherQuote := appendAuditQuote(t, r, h, other, at, "2026-09-27", "append", "")
@@ -222,7 +222,7 @@ func testPushdownScale(t *testing.T, n int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = r.CreateHolding(t.Context(), holding); err != nil {
+	if err = fixtureWriter(r).CreateHolding(t.Context(), holding); err != nil {
 		t.Fatal(err)
 	}
 	fullMeter := &pushdownMeter{queryer: db.SQL, t: t}

@@ -200,13 +200,15 @@ func householdDisplay(assets, liabilities displayAccumulator, currency domain.Cu
 	net, err := n.amount(currency, true)
 	return domain.HouseholdDisplayValuation{Assets: a, Liabilities: l, NetWorth: net}, err
 }
-func displayDate(p domain.PortfolioSnapshot, now time.Time) string {
-	if p.Origin != nil {
-		if loc, err := time.LoadLocation(p.Origin.Timezone); err == nil {
-			return now.In(loc).Format("2006-01-02")
-		}
+func displayDate(p domain.PortfolioSnapshot, now time.Time) (string, error) {
+	if p.Origin == nil {
+		return "", missingHistoryOrigin()
 	}
-	return now.Format("2006-01-02")
+	location, err := time.LoadLocation(p.Origin.Timezone)
+	if err != nil {
+		return "", err
+	}
+	return now.In(location).Format(time.DateOnly), nil
 }
 
 // Translate legacy persisted text at this boundary only.
@@ -234,12 +236,16 @@ func currentHouseholdDisplay(accounts []domain.AccountValuation, p domain.Portfo
 }
 func currentPortfolioDisplay(accounts []domain.AccountValuation, p domain.PortfolioSnapshot, now time.Time) (domain.ValuationAmount, error) {
 	var a displayAccumulator
+	date, err := displayDate(p, now)
+	if err != nil {
+		return domain.ValuationAmount{}, err
+	}
 	for _, account := range accounts {
 		for _, c := range account.Components {
 			if c.InstrumentID == nil {
 				continue
 			}
-			if err := a.add(c, c.MissingInputs, displayDate(p, now), true); err != nil {
+			if err := a.add(c, c.MissingInputs, date, true); err != nil {
 				return domain.ValuationAmount{}, err
 			}
 		}

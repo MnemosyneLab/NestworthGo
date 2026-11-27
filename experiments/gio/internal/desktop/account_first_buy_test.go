@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"sync"
@@ -31,7 +32,7 @@ func seedFirstBuy(ctx context.Context, service *application.Service, now time.Ti
 
 func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now, originAt time.Time) (firstBuyFixture, error) {
 	var fixture firstBuyFixture
-	service.SetClock(func() time.Time { return now.Add(-48 * time.Hour) })
+	testfixture.SetClock(service, func() time.Time { return now.Add(-48 * time.Hour) })
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Synthetic first buy", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
 	}); err != nil {
@@ -41,7 +42,7 @@ func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now
 	if err != nil {
 		return fixture, err
 	}
-	broker, err := service.CreateAccount(ctx, application.AccountInput{
+	broker, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
 		Name: "Harbor Brokerage", AccountType: "brokerage", TrackingMode: "holdings", BalanceSheetRole: "asset",
 		DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{boot.Members[0].ID}, IncludeInNetWorth: true, IncludeInPortfolio: true,
 	})
@@ -49,24 +50,24 @@ func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now
 		return fixture, err
 	}
 	fixture.account = broker.Account.ID
-	if _, err = service.AppendAccountCashValue(ctx, fixture.account, "200", "USD", ""); err != nil {
+	if _, err = testfixture.AppendAccountCashValue(service, ctx, fixture.account, "200", "USD", ""); err != nil {
 		return fixture, err
 	}
-	service.SetClock(func() time.Time { return originAt })
-	if _, err = service.StartHistory(ctx, "Asia/Singapore"); err != nil {
+	testfixture.SetClock(service, func() time.Time { return originAt })
+	if _, err = testfixture.CaptureSyntheticOrigin(service, ctx, "Asia/Singapore"); err != nil {
 		return fixture, err
 	}
-	i, err := service.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic Index Fund", Symbol: "QA-BUY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	i, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{Name: "Synthetic Index Fund", Symbol: "QA-BUY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		return fixture, err
 	}
 	fixture.instrument = i.ID
-	i, err = service.CreateInstrument(ctx, application.InstrumentInput{Name: "Euro Sample Fund", Symbol: "QA-EUR", Type: "etf", QuoteCurrency: "EUR", QuoteSource: "manual"})
+	i, err = testfixture.CreateInstrument(service, ctx, application.InstrumentInput{Name: "Euro Sample Fund", Symbol: "QA-EUR", Type: "etf", QuoteCurrency: "EUR", QuoteSource: "manual"})
 	if err != nil {
 		return fixture, err
 	}
 	fixture.foreign = i.ID
-	service.SetClock(func() time.Time { return now })
+	testfixture.SetClock(service, func() time.Time { return now })
 	if _, err := service.AppendManualInstrumentQuote(ctx, fixture.instrument, "40", now.Add(-time.Hour).Format(time.RFC3339), false); err != nil {
 		return fixture, err
 	}
@@ -76,7 +77,7 @@ func seedFirstBuyAtOrigin(ctx context.Context, service *application.Service, now
 func openFirstBuyFixture(t *testing.T) (*application.Service, *pilot.Session, pilot.Paths, firstBuyFixture) {
 	t.Helper()
 	paths := prepareOnboardingProfile(t)
-	service, session := reopenOnboardingProfile(t, paths)
+	service, session := reopenBaselineProfile(t, paths)
 	ids, err := seedFirstBuy(t.Context(), service, accountTestClock)
 	if err != nil {
 		t.Fatal(err)
@@ -300,8 +301,8 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
-	reopened.SetClock(clock)
+	reopened, _ := reopenBaselineProfile(t, paths)
+	testfixture.SetClock(reopened, clock)
 	assertFacts(reopened, ids, fault.firstActivity)
 	frozen := fault.attempts[2]
 	r, err := reopened.RecordChangeGuarded(ctx, frozen.command, frozen.mutation, frozen.hash, frozen.token)
@@ -329,11 +330,11 @@ func TestBuyChecksCashAndCurrencyAtEffectiveTime(t *testing.T) {
 	if _, err := history.ReviewTrade(ctx, service, input); !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance {
 		t.Fatalf("an unfunded foreign sleeve accepted a buy: %v", err)
 	}
-	if _, err := service.AppendAccountCashValue(ctx, ids.account, "0", "USD", ""); err != nil {
+	if _, err := testfixture.AppendAccountCashValue(service, ctx, ids.account, "0", "USD", ""); err != nil {
 		t.Fatal(err)
 	}
 	current := accountTestClock.Add(time.Minute)
-	service.SetClock(func() time.Time { return current })
+	testfixture.SetClock(service, func() time.Time { return current })
 	input.Instrument, input.Currency, input.EffectiveAt = ids.instrument, "USD", current
 	if _, err := history.ReviewTrade(ctx, service, input); !errors.As(err, &issue) || issue.Code != domain.ErrInsufficientBalance {
 		t.Fatalf("spent cash accepted a current buy: %v", err)
@@ -352,7 +353,7 @@ func TestFirstBuyDefaultPreservesImmediateHistoryTime(t *testing.T) {
 	ctx := t.Context()
 	now := accountTestClock.Add(345 * time.Millisecond)
 	originAt := accountTestClock.Add(123 * time.Millisecond)
-	app, _ := reopenOnboardingProfile(t, prepareOnboardingProfile(t))
+	app, _ := reopenBaselineProfile(t, prepareOnboardingProfile(t))
 	ids, err := seedFirstBuyAtOrigin(ctx, app, now, originAt)
 	if err != nil {
 		t.Fatal(err)

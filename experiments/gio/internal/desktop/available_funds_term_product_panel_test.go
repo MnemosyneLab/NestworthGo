@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"reflect"
 	"testing"
@@ -18,7 +19,7 @@ import (
 func TestAvailableFundsTermProductPanelsKeepVisitAndHoldingIdentity(t *testing.T) {
 	ctx := t.Context()
 	app, _, _, _ := openExistingBuyFixture(t)
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	boot, err := app.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +49,7 @@ func TestAvailableFundsTermProductPanelsKeepVisitAndHoldingIdentity(t *testing.T
 	euroID := create(continental, "holdings", "EUR")
 	create("Ineligible checking", "balance", "USD")
 	panelClock := func() time.Time { return linkedContractClock().Add(time.Hour) }
-	app.SetClock(panelClock)
+	testfixture.SetClock(app, panelClock)
 	activities, err := app.ListActivities(ctx, 100)
 	if err != nil {
 		t.Fatal(err)

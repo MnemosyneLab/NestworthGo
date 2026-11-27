@@ -9,6 +9,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestLegacySnapshotBoundedInvalidationThenOrdinaryIncome(t *testing.T) {
@@ -113,7 +114,7 @@ func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 		for _, restart := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s_restart=%t", reader, restart), func(t *testing.T) {
 				s, db, r, cash, _ := legacyCoverageFixtureDays(t, 41)
-				writer := NewService(sqlite.NewRepository(db))
+				writer := NewService(repos.New(db))
 				writer.setClock(s.clock)
 				revised := false
 				r.hook = func(stage string) {
@@ -145,7 +146,7 @@ func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 						t.Fatal(err)
 					}
 					t.Cleanup(func() { _ = reopened.Close() })
-					s = NewService(sqlite.NewRepository(reopened))
+					s = NewService(repos.New(reopened))
 					s.setClock(writer.clock)
 				}
 				health, err := s.ScanMarketDataHealth(t.Context())

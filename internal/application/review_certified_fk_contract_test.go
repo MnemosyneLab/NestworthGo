@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // Install before the first certified connection registers its commit hook.
@@ -54,7 +54,7 @@ func TestReviewCertifiedPreCaptureForeignKeyCascadeCannotCertify(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	f.s = NewService(r)
 	f.s.fxProviderKey = "synthetic-pinned"
 	f.s.setClock(func() time.Time { return *f.now })

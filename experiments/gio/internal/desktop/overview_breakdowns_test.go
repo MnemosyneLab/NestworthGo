@@ -16,6 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 )
 
 func TestOverviewBreakdownChartsUseSharedAmountsAndShares(t *testing.T) {
@@ -44,9 +45,9 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	s := application.NewService(sqlite.NewRepository(db))
+	s := testfixture.NewService(&testfixture.BaselineRepository{Repository: testfixture.Repository(db)})
 	clock := func() time.Time { return time.Date(2026, 11, 25, 16, 0, 0, 0, time.UTC) }
-	s.SetClock(clock)
+	testfixture.SetClock(s, clock)
 	if err := s.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic allocation links", BaseCurrency: "USD", MemberNames: []string{"Sample owner", "Other owner"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 	}
 	makeAccount := func(name, kind, amount string, member domain.MemberID, bank domain.InstitutionID, group domain.GroupID) domain.AccountID {
 		t.Helper()
-		record, err := s.CreateAccount(ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD",
+		record, err := testfixture.CreateAccount(s, ctx, application.AccountInput{Name: name, AccountType: kind, BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD",
 			InitialAmount: amount, OwnerIDs: []domain.MemberID{member}, InstitutionID: bank.String(), GroupID: group.String(), IncludeInNetWorth: true})
 		if err != nil {
 			t.Fatal(err)

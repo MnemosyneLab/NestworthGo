@@ -79,28 +79,26 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 	if delta.IsZero() {
 		return nil, &domain.Error{Code: domain.ErrNoChange, Message: "the new cash value is unchanged"}
 	}
-	plan := &CashBalancePlan{Current: current.CanonicalAmount(), Target: target.CanonicalAmount(), Delta: delta.String(), Currency: code.String(), Timezone: "UTC", EffectiveAt: value.EffectiveAt, Reason: reason, value: value, token: s.writes.previewToken(), mutationID: uuid.NewString(), expiresAt: time.Now().Add(10 * time.Minute)}
+	plan := &CashBalancePlan{Current: current.CanonicalAmount(), Target: target.CanonicalAmount(), Delta: delta.String(), Currency: code.String(), EffectiveAt: value.EffectiveAt, Reason: reason, value: value, token: s.writes.previewToken(), mutationID: uuid.NewString(), expiresAt: time.Now().Add(10 * time.Minute)}
 	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
 	if err != nil {
 		return nil, err
 	}
-	if origin == nil && reason != nil && *reason != "" {
-		return nil, &domain.Error{Code: domain.ErrValidation, Field: "note", Message: "reasons require History"}
+	if origin == nil {
+		return nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin, Message: "ledger history origin is missing"}
 	}
-	if origin != nil {
-		plan.Timezone = origin.Timezone
-		magnitude, err := domain.NewMoney(delta.Abs(), code)
-		if err != nil {
-			return nil, err
-		}
-		if delta.IsPositive() {
-			plan.command = domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: accountID, Amount: magnitude, Reason: domain.ReasonReconciliation, EffectiveAt: value.EffectiveAt, Note: reason}
-		} else {
-			plan.command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: magnitude, Reason: domain.ReasonReconciliation, EffectiveAt: value.EffectiveAt, Note: reason}
-		}
-		if _, err := s.PreviewChange(ctx, plan.command); err != nil {
-			return nil, err
-		}
+	plan.Timezone = origin.Timezone
+	magnitude, err := domain.NewMoney(delta.Abs(), code)
+	if err != nil {
+		return nil, err
+	}
+	if delta.IsPositive() {
+		plan.command = domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: accountID, Amount: magnitude, Reason: domain.ReasonReconciliation, EffectiveAt: value.EffectiveAt, Note: reason}
+	} else {
+		plan.command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: magnitude, Reason: domain.ReasonReconciliation, EffectiveAt: value.EffectiveAt, Note: reason}
+	}
+	if _, err := s.PreviewChange(ctx, plan.command); err != nil {
+		return nil, err
 	}
 	payload, err := jsoncodec.Marshal(struct {
 		Value  domain.AccountCashValue
@@ -127,50 +125,22 @@ func (s *Service) ConfirmCashBalance(ctx context.Context, plan *CashBalancePlan)
 	if time.Now().After(plan.expiresAt) {
 		token = "expired"
 	}
-	if plan.command != nil {
-		result, err := s.recordChangeWithMutationChecked(ctx, plan.command, plan.mutationID, plan.payloadHash, token, true, func(ctx context.Context) error {
-			return s.checkCashBalancePlanTime(ctx, plan, plan.value.CreatedAt)
-		})
-		if err != nil {
-			return domain.AccountCashValue{}, err
-		}
-		values, err := s.repository.ListAccountCashValues(ctx, plan.value.AccountID)
-		if err != nil {
-			return domain.AccountCashValue{}, err
-		}
-		for _, value := range values {
-			if value.ActivityID != nil && *value.ActivityID == result.Activity.ID {
-				return value, nil
-			}
-		}
-		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrIntegrity, Message: "committed cash observation is unavailable"}
+	result, err := s.recordChangeWithMutationChecked(ctx, plan.command, plan.mutationID, plan.payloadHash, token, true, func(ctx context.Context) error {
+		return s.checkCashBalancePlanTime(ctx, plan, plan.value.CreatedAt)
+	})
+	if err != nil {
+		return domain.AccountCashValue{}, err
 	}
-	// A baseline has its own immutable observation ID. Retry before the stale
-	// check, so a double submit never appends a second observation.
 	values, err := s.repository.ListAccountCashValues(ctx, plan.value.AccountID)
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
 	for _, value := range values {
-		if value.ID == plan.value.ID {
+		if value.ActivityID != nil && *value.ActivityID == result.Activity.ID {
 			return value, nil
 		}
 	}
-	if token != s.writes.previewToken() {
-		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview is stale; request a fresh preview"}
-	}
-	value := plan.value
-	// Freeze the reviewed effective time, while retaining the baseline path's
-	// actual confirmation audit time.
-	value.CreatedAt = s.clock().UTC().Truncate(time.Millisecond)
-	if err := s.checkCashBalancePlanTime(ctx, plan, value.CreatedAt); err != nil {
-		return domain.AccountCashValue{}, err
-	}
-	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
-		return domain.AccountCashValue{}, err
-	}
-	s.invalidateAnalysis()
-	return value, nil
+	return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrIntegrity, Message: "committed cash observation is unavailable"}
 }
 
 // cashBalanceTimeCheck ensures a current-balance adjustment will become the

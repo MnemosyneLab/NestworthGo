@@ -36,6 +36,9 @@ func parseRequiredMoney(field, value string, currency domain.CurrencyCode) (doma
 }
 
 func parseEffectiveAt(value string, origin *domain.HistoryOrigin, now time.Time) (time.Time, error) {
+	if origin == nil {
+		return time.Time{}, missingHistoryOrigin()
+	}
 	if strings.TrimSpace(value) == "" {
 		return now.UTC(), nil
 	}
@@ -47,7 +50,7 @@ func parseEffectiveAt(value string, origin *domain.HistoryOrigin, now time.Time)
 		}
 	}
 	parsed = parsed.UTC()
-	if origin != nil && parsed.Before(origin.StartedAt.UTC()) {
+	if parsed.Before(origin.StartedAt.UTC()) {
 		return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "change time cannot precede the Starting point"}
 	}
 	if parsed.After(now.UTC()) {

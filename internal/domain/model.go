@@ -33,7 +33,7 @@ const (
 	ErrUnsupportedProviderSymbol    ErrorCode = "unsupported_provider_symbol"
 	ErrMalformedProviderResponse    ErrorCode = "malformed_provider_response"
 	ErrMarketDataResponseTooLarge   ErrorCode = "market_data_response_too_large"
-	ErrHistoryNotStarted            ErrorCode = "history_not_started"
+	ErrMissingHistoryOrigin         ErrorCode = "history_origin_missing"
 	ErrHistoryTimezoneRequired      ErrorCode = "history_timezone_required"
 	ErrInvalidChange                ErrorCode = "invalid_change"
 	ErrInvalidChangeTime            ErrorCode = "invalid_change_time"
@@ -790,7 +790,6 @@ type OverviewResult struct {
 	ByInstitution     []BreakdownItem
 	ByGroup           []BreakdownItem
 	ByAccountType     []BreakdownItem
-	HistoryStarted    bool
 	RecentActivities  []Activity
 	AccountLabels     []OverviewNamedRef
 	InstrumentLabels  []OverviewInstrumentRef

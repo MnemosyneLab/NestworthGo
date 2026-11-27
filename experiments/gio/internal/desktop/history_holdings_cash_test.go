@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"errors"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,7 +30,7 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 		t.Fatalf("unexpected synthetic source accounts: %v, %v", rows, err)
 	}
 	bank := rows[0].Account.ID
-	seed.SetClock(func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
+	testfixture.SetClock(seed, func() time.Time { return accountTestClock.Add(-96 * time.Hour) })
 	if _, err := seed.SetFXPreference(ctx, "EUR", "USD", "manual"); err != nil {
 		t.Fatal(err)
 	}
@@ -332,15 +333,15 @@ func TestHoldingsCashTransferAndConversionMatchWails(t *testing.T) {
 	}
 }
 
-func TestHoldingsCashFlowsKeepWailsOpeningBaseline(t *testing.T) {
+func TestHoldingsCashFlowsKeepWailsOpeningReconciliation(t *testing.T) {
 	ctx := t.Context()
 	prepareBaseline := func() (*application.Service, domain.AccountID, wire.AccountCashValueDTO) {
 		t.Helper()
 		paths := prepareOnboardingProfile(t)
 		seed, _ := reopenOnboardingProfile(t, paths)
-		seed.SetClock(func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
+		testfixture.SetClock(seed, func() time.Time { return accountTestClock.Add(-48 * time.Hour) })
 		if err := seed.CompleteOnboarding(ctx, application.OnboardingInput{
-			HouseholdName: "Synthetic cash baseline", BaseCurrency: "USD", MemberNames: []string{"Sample owner"},
+			HouseholdName: "Synthetic cash baseline", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}, Timezone: "Asia/Singapore",
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -358,27 +359,18 @@ func TestHoldingsCashFlowsKeepWailsOpeningBaseline(t *testing.T) {
 		id := row.Account.ID
 		opening := holding.NewService(seed)
 		plan, err := opening.PreviewCashBalance(ctx, id.String(), "100", "USD", nil)
-		if err != nil || plan.Current != "0" || plan.Target != "100" || plan.Timezone != "UTC" {
+		if err != nil || plan.Current != "0" || plan.Target != "100" || plan.Timezone != "Asia/Singapore" {
 			t.Fatalf("unexpected Wails opening plan %+v, %v", plan, err)
 		}
 		initial, err := opening.ConfirmCashBalance(ctx, plan.PlanID)
-		if err != nil || initial.ObservationKind != "baseline" || initial.ActivityID != nil {
-			t.Fatalf("opening cash should be a baseline: %+v, %v", initial, err)
+		if err != nil || initial.ActivityID == nil || initial.ActivityReason == nil || *initial.ActivityReason != string(domain.ReasonReconciliation) {
+			t.Fatalf("opening cash should be a reconciliation, not income: %+v, %v", initial, err)
 		}
-		baselineReplay, err := opening.ConfirmCashBalance(ctx, plan.PlanID)
-		if err != nil || baselineReplay.ID != initial.ID {
-			t.Fatalf("opening replay changed the baseline: %+v, %v", baselineReplay, err)
+		openingReplay, err := opening.ConfirmCashBalance(ctx, plan.PlanID)
+		if err != nil || openingReplay.ID != initial.ID {
+			t.Fatalf("opening replay changed the reconciliation: %+v, %v", openingReplay, err)
 		}
-		in := history.CashMovementInput{Movement: history.CashContribution, Account: id, Currency: "SGD", Amount: "20", Date: "2026-11-21", Time: "01:00"}
-		var issue *domain.Error
-		if _, err := history.ReviewCashMovement(ctx, seed, in); !errors.As(err, &issue) || issue.Code != domain.ErrHistoryNotStarted {
-			t.Fatalf("History movement tried to replace the opening path: %v", err)
-		}
-		seed.SetClock(func() time.Time { return accountTestClock.Add(-36 * time.Hour) })
-		if _, err := seed.StartHistory(ctx, "Asia/Singapore"); err != nil {
-			t.Fatal(err)
-		}
-		seed.SetClock(func() time.Time { return accountTestClock })
+		testfixture.SetClock(seed, func() time.Time { return accountTestClock })
 		return seed, id, initial
 	}
 	gio, id, initial := prepareBaseline()
@@ -425,7 +417,7 @@ func TestHoldingsCashFlowsKeepWailsOpeningBaseline(t *testing.T) {
 	}{{gio, id, initial}, {reference, refID, referenceInitial}} {
 		cash, err := holding.NewService(fixture.app).ListAccountCashValues(ctx, fixture.id.String())
 		if err != nil || len(cash) != 3 || cash[0].Amount != (wire.MoneyView{Amount: "11.875", Currency: "SGD"}) || cash[2].ID != fixture.opening.ID ||
-			cash[2].Amount != fixture.opening.Amount || cash[2].ActivityID != nil {
+			cash[2].Amount != fixture.opening.Amount || cash[2].ActivityID == nil || *cash[2].ActivityID != *fixture.opening.ActivityID {
 			t.Fatalf("History flows changed the original USD baseline or the exact SGD balance: %+v, %v", cash, err)
 		}
 	}

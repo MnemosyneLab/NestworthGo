@@ -138,7 +138,7 @@ func baselineProductDetail(s *Service, ctx context.Context, householdID domain.H
 			}
 		}
 	}
-	localDate, _, err := domain.LocalCivilDate(s.clock(), timezoneOrUTC(snapshot.Origin))
+	localDate, _, err := domain.LocalCivilDate(s.clock(), snapshot.Origin.Timezone)
 	if err != nil {
 		return ProductDetail{}, err
 	}

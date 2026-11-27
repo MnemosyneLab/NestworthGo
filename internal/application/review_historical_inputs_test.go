@@ -7,7 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func TestReviewHistoricalNativeProductAndAggregateBounds(t *testing.T) {
@@ -17,7 +17,7 @@ func TestReviewHistoricalNativeProductAndAggregateBounds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
+	batch, err := repos.New(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestReviewHistoricalOriginBaselinePresenceAndLastEntry(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
+			batch, err := repos.New(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, cutoff)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -165,7 +165,7 @@ func TestReviewHistoricalBatchDoesNotBackfillCurrentHolding(t *testing.T) {
 	f.quantity(t, false)
 	f.day(t, "2026-08-03")
 	f.quantity(t, false) // current position is zero, but prior days were positive
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	var before, after int
 	if err := f.db.SQL.QueryRow(`SELECT total_changes()`).Scan(&before); err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func TestReviewHistoricalBatchDoesNotBackfillCurrentHolding(t *testing.T) {
 
 func TestReviewHistoricalDayBeforeOriginIsUnknown(t *testing.T) {
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-08-01", "2")
-	repo := sqlite.NewRepository(f.db)
+	repo := repos.New(f.db)
 	batch, err := repo.LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestReviewHistoricalCostKeepsActivityUntilEffectiveReversalDate(t *testing.
 		t.Fatal(err)
 	}
 
-	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
+	batch, err := repos.New(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestReviewHistoricalDayDoesNotBorrowAnotherStocksDailyPrices(t *testing.T) 
 	f := newSeriesZeroFixture(t, false, "UTC", "2026-09-10", "1")
 	requireDailyReviewPrices(t, &f)
 	f.day(t, "2026-10-10")
-	batch, err := sqlite.NewRepository(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
+	batch, err := repos.New(f.db).LoadReviewHistoricalBatch(t.Context(), f.account.Account.HouseholdID, f.now.AddDate(0, 0, 1))
 	if err != nil {
 		t.Fatal(err)
 	}

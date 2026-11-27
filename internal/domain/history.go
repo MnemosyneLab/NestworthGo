@@ -19,7 +19,7 @@ func NewHistoryOrigin(householdID HouseholdID, timezone string, startedAt, creat
 	}
 	timezone = strings.TrimSpace(timezone)
 	if timezone == "" {
-		return HistoryOrigin{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "confirm a Household timezone before starting history"}
+		return HistoryOrigin{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "ledger timezone is required"}
 	}
 	if _, err := time.LoadLocation(timezone); err != nil {
 		return HistoryOrigin{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}

@@ -101,7 +101,7 @@ func reviewWarmReplayBenchmarkCapture(b *testing.B) (domain.ReviewProjectionCapt
 	}
 	history := domain.HistoricalSnapshotBatch{
 		Origin: origin, OriginData: domain.HistoryOriginData{Origin: origin, Components: components},
-		Portfolio:  domain.PortfolioSnapshot{Household: &house, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: instruments, Holdings: holdings},
+		Portfolio:  domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &house, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: instruments, Holdings: holdings},
 		Activities: activities, InstrumentQuoteFacts: quoteFacts,
 	}
 	rules := make([]domain.ReviewRule, 20)

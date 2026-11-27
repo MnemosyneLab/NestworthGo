@@ -157,7 +157,7 @@ func seedLatestValues(t testing.TB, accountCount, valueCount int, tied bool) (*D
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := NewRepository(database).CreateOnboarding(ctx, household, []domain.Member{member}); err != nil {
+	if err := fixtureWriter(NewRepository(database)).CreateOnboarding(ctx, household, []domain.Member{member}); err != nil {
 		t.Fatal(err)
 	}
 	accounts := make([]domain.AccountID, accountCount+1)

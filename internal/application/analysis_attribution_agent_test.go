@@ -61,7 +61,7 @@ func TestAnalysisDebtDrawIsNetWorthNeutral(t *testing.T) {
 		analysisAgentEffect(t, aID, 1, asset.ID, "500", domain.EffectAdded, domain.ClassificationDebtPrincipal),
 		analysisAgentEffect(t, aID, 2, debt.ID, "500", domain.EffectAdded, domain.ClassificationDebtPrincipal),
 	}}
-	input := AnalysisInputs{Origin: analysisAgentOrigin(t, hID), Portfolio: domain.PortfolioSnapshot{Household: h, Accounts: []domain.AccountRecord{{Account: asset}, {Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{prev, curr}, Activities: []domain.Activity{activity}}
+	input := AnalysisInputs{Origin: analysisAgentOrigin(t, hID), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: h, Accounts: []domain.AccountRecord{{Account: asset}, {Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{prev, curr}, Activities: []domain.Activity{activity}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestAnalysisInterestUsesDividendInterestBucket(t *testing.T) {
 	curr := analysisAgentSnapshot("2026-08-02", analysisAgentItem(t, account.ID, "CNY", "1500", "1500"))
 	aID := domain.NewActivityID()
 	activity := domain.Activity{ID: aID, Kind: domain.ActivityCashIn, Reason: domain.ReasonInterest, EffectiveAt: time.Date(2026, 8, 2, 10, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{analysisAgentEffect(t, aID, 1, account.ID, "500", domain.EffectAdded, domain.ClassificationIncome)}}
-	input := AnalysisInputs{Origin: analysisAgentOrigin(t, hID), Portfolio: domain.PortfolioSnapshot{Household: h, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{prev, curr}, Activities: []domain.Activity{activity}}
+	input := AnalysisInputs{Origin: analysisAgentOrigin(t, hID), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: h, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{prev, curr}, Activities: []domain.Activity{activity}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {

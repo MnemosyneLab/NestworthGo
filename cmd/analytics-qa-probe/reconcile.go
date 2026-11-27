@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/shopspring/decimal"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
 )
 
@@ -103,7 +102,7 @@ func runReconcileProbe() error {
 	}
 
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: from, To: to, Valuation: domain.ValuationBase, IncludeCash: true, Basis: domain.ReturnBasisInvestment}
-	service := application.NewService(sqlite.NewRepository(database))
+	service := testfixture.NewService(testfixture.Repository(database))
 	ctx := context.Background()
 	result, err := service.Analyze(ctx, query)
 	if err != nil {

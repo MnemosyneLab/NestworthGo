@@ -10,6 +10,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func wireTestPorts(service *Service, livePath string) {
@@ -27,13 +28,13 @@ func newOnboardedService(t *testing.T, name string, members []string) (*Service,
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	repository := sqlite.NewRepository(database)
+	repository := repos.New(database)
 	service := NewService(repository)
 	wireTestPorts(service, path)
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {
+	if err := service.completeBaselineFixture(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
@@ -50,7 +51,7 @@ func newRefactorTestService(t *testing.T, name string) (*Service, context.Contex
 
 func createHoldingsAccount(t *testing.T, service *Service, ctx context.Context, owner domain.MemberID, name string) domain.AccountRecord {
 	t.Helper()
-	account, err := service.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
+	account, err := service.fixtureCreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatalf("%s account: %v", name, err)
 	}
@@ -68,19 +69,19 @@ func TestHoldingsByAccountsGroupsHoldingsByAccount(t *testing.T) {
 	owner := bootstrap.Members[0].ID
 	first := createHoldingsAccount(t, service, ctx, owner, "Brokerage One")
 	second := createHoldingsAccount(t, service, ctx, owner, "Brokerage Two")
-	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	instrument, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := service.CreateInstrument(ctx, InstrumentInput{Name: "SPY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	other, err := service.fixtureCreateInstrument(ctx, InstrumentInput{Name: "SPY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: first.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
+	firstHolding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: first.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: second.Account.ID.String(), InstrumentID: other.ID.String(), Quantity: "1"})
+	secondHolding, err := service.fixtureCreateHolding(ctx, HoldingInput{AccountID: second.Account.ID.String(), InstrumentID: other.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +120,7 @@ func TestConcurrentAppendAccountCashValueSerializes(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := createHoldingsAccount(t, service, ctx, bootstrap.Members[0].ID, "Brokerage Cash")
-	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	setClock(base.Add(24 * time.Hour))
@@ -131,7 +132,7 @@ func TestConcurrentAppendAccountCashValueSerializes(t *testing.T) {
 		wg.Add(1)
 		go func(target string) {
 			defer wg.Done()
-			_, err := service.AppendAccountCashValue(ctx, account.Account.ID, target, "CNY", "")
+			_, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, target, "CNY", "")
 			errs <- err
 		}(strconv.Itoa((i + 1) * 10))
 	}
@@ -144,7 +145,7 @@ func TestConcurrentAppendAccountCashValueSerializes(t *testing.T) {
 	}
 
 	// A final reconciliation pins the committed result deterministically.
-	final, err := service.AppendAccountCashValue(ctx, account.Account.ID, "100", "CNY", "")
+	final, err := service.fixtureAppendAccountCashValue(ctx, account.Account.ID, "100", "CNY", "")
 	if err != nil {
 		t.Fatalf("final reconcile: %v", err)
 	}

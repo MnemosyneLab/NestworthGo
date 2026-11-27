@@ -16,6 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 // Each correctness scenario starts from this identical, checkpointed synthetic
@@ -33,7 +34,7 @@ func cloneReviewPerfFixture(t *testing.T, source reviewFullPipelineFixture) revi
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	now := *source.now
-	service := NewService(sqlite.NewRepository(db))
+	service := NewService(repos.New(db))
 	service.setClock(func() time.Time { return now })
 	return reviewFullPipelineFixture{service: service, db: db, now: &now, householdID: source.householdID, dbPath: path, start: source.start, instruments: source.instruments}
 }
@@ -258,7 +259,7 @@ func checkReviewEpochReplayOracle(t *testing.T, config reviewPerfConfig, cycles 
 					t.Fatal(err)
 				}
 			}
-			capture, err := sqlite.NewRepository(fixture.db).CaptureReviewProjection(t.Context(), fixture.householdID, *fixture.now)
+			capture, err := repos.New(fixture.db).CaptureReviewProjection(t.Context(), fixture.householdID, *fixture.now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -270,7 +271,7 @@ func checkReviewEpochReplayOracle(t *testing.T, config reviewPerfConfig, cycles 
 			var published [2]string
 			for path := range published {
 				run := cloneReviewPerfFixture(t, fixture)
-				var repo reviewTestProjectionRepository = sqlite.NewRepository(run.db)
+				var repo reviewTestProjectionRepository = repos.New(run.db)
 				if path == 0 {
 					repo = fullReviewOracle(repo)
 				}

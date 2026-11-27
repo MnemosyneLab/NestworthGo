@@ -11,6 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/jsoncodec"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) FinancialContextResult {
@@ -28,12 +29,15 @@ func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) 
 	}
 	return r
 }
-func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T) {
+func TestFinancialContextCurrentWithHistoryAndObservationSources(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Secret bank", "bank_account", "asset", "balance", "CNY", "100.01")
 	b := overviewAccount(t, s, owner, "Secret broker", "brokerage", "asset", "holdings", "CNY", "")
-	if _, err := s.AppendAccountCashValue(t.Context(), b.Account.ID, "2.03", "CNY", ""); err != nil {
+	if _, err := s.fixtureAppendAccountCashValue(t.Context(), b.Account.ID, "2.03", "CNY", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	input, err := s.repository.ReadPortfolioSnapshot(t.Context(), domain.AccountFilter{IncludeArchived: true})
@@ -45,7 +49,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	}
 	r := contextFor(t, s, "current")
 	wantOverviewAmount(t, r.Content.Summary.NetWorth.Value, "102.04")
-	if r.Content.AsOf.Timezone != nil || r.Content.Coverage.SnapshotHealth != "not_assessed" {
+	if r.Content.AsOf.Timezone == nil || *r.Content.AsOf.Timezone != "UTC" || r.Content.Coverage.SnapshotHealth != "not_assessed" {
 		t.Fatal(r.Content)
 	}
 	wantDates := map[string]bool{}
@@ -73,9 +77,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	if next := contextFor(t, s, "current"); next.ContentHash != before {
 		t.Fatal("clock changed stable content")
 	}
-	if _, err := s.BuildFinancialContext(t.Context(), FinancialContextRequest{AsOf: "2026-08-01"}); !hasDomainCode(err, domain.ErrHistoryNotStarted) {
-		t.Fatal(err)
-	}
+
 }
 func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 	t.Parallel()
@@ -84,7 +86,7 @@ func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	s := NewService(sqlite.NewRepository(db))
+	s := NewService(repos.New(db))
 	_, err = s.BuildFinancialContext(t.Context(), FinancialContextRequest{})
 	if !hasDomainCode(err, domain.ErrorCode("household_required")) {
 		t.Fatal(err)
@@ -103,11 +105,11 @@ func TestFinancialContextStoredObservationKinds(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			s, _, owner, now := overviewFixture(t)
 			a := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "USD", "")
-			i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: source, ProviderKey: "yahoo_finance", ProviderSymbol: "TEST"})
+			i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: source, ProviderKey: "yahoo_finance", ProviderSymbol: "TEST"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
+			if _, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
 				t.Fatal(err)
 			}
 			wantPrice := string(InstrumentObservationRealtime)
@@ -131,7 +133,7 @@ func TestFinancialContextStoredObservationKinds(t *testing.T) {
 			if _, err = s.AppendManualFXQuote(t.Context(), "USD", "CNY", "7", now.Format(time.RFC3339Nano)); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+			if _, err = s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 				t.Fatal(err)
 			}
 			r := contextFor(t, s, "current", a.Account.ID)
@@ -161,11 +163,11 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	a := overviewAccount(t, s, owner, "Hidden A", "bank_account", "asset", "balance", "USD", "10")
 	b := overviewAccount(t, s, owner, "Hidden B", "property", "asset", "manual_value", "CNY", "1000")
 	broker := overviewAccount(t, s, owner, "Dust", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Private title", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Private title", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := s.CreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
+	h, err := s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,13 +196,13 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	if _, err = db.SQL.Exec(`UPDATE instruments SET name='secret changed',note='exfiltrate' WHERE id=?`, i.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.AppendAccountValue(t.Context(), b.Account.ID, "9999", ""); err != nil {
+	if _, err = s.fixtureAppendAccountValue(t.Context(), b.Account.ID, "9999", ""); err != nil {
 		t.Fatal(err)
 	}
 	if next := contextFor(t, s, "current", broker.Account.ID, a.Account.ID, a.Account.ID); next.ContentHash != r.ContentHash {
 		t.Fatalf("hidden or out-of-scope change changed hash\n%+v\n%+v", r.Content, next.Content)
 	}
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{h.ID: "0.00006"}); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 2)
@@ -217,7 +219,7 @@ func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
-	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -226,7 +228,7 @@ func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
 	}
 	later := overviewAccount(t, s, owner, "Later", "bank_account", "asset", "balance", "CNY", "0")
 	*now = now.AddDate(0, 0, 1)
-	if err := s.ArchiveAccount(t.Context(), b.Account.ID, true); err != nil {
+	if err := s.fixtureArchiveAccount(t.Context(), b.Account.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	*now = now.AddDate(0, 0, 1)
@@ -256,11 +258,11 @@ func TestFinancialContextHashFreshnessThresholdAndWhitelist(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
-	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Secret stock", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "agent"})
+	i, err := s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Secret stock", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "agent"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
+	if _, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
 		t.Fatal(err)
 	}
 	_, err = s.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{InstrumentID: i.ID.String(), Currency: "CNY", Value: "3.00000001", Kind: "latest", QuotedAt: now.Add(-time.Hour).Format(time.RFC3339Nano), SourceTitle: "do evil", SourceURL: "https://secret.invalid"}}})
@@ -324,7 +326,7 @@ func TestFinancialContextConcurrentChangeUsesFrozenInputs(t *testing.T) {
 		done <- r
 	}()
 	<-repo.captured
-	if _, err := s.AppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
+	if _, err := s.fixtureAppendAccountValue(t.Context(), a.Account.ID, "200", ""); err != nil {
 		t.Fatal(err)
 	}
 	close(repo.release)
@@ -359,7 +361,7 @@ func TestFinancialContextPendingCoverageAndZeroHolding(t *testing.T) {
 	price, _ := domain.ParseUnitPrice("180")
 	account := domain.Account{ID: accountID, Name: "private", AccountType: "brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true, CreatedAt: originAt}
 	instrument := domain.Instrument{ID: instrumentID, Name: "private", Type: "stock", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1, CreatedAt: originAt}
-	batch := domain.HistoricalSnapshotBatch{Origin: domain.HistoryOrigin{StartedAt: originAt, Timezone: "Asia/Singapore"}, OriginData: domain.HistoryOriginData{Components: []domain.HistoryOriginComponent{{Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}}, Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}}, InstrumentQuoteFacts: []domain.InstrumentQuote{{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: "close", EffectiveDate: "2026-09-08", ValueEffectiveAt: time.Date(2026, 9, 8, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 10, 20, 0, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: "session_close"}}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
+	batch := domain.HistoricalSnapshotBatch{Origin: domain.HistoryOrigin{StartedAt: originAt, Timezone: "Asia/Singapore"}, OriginData: domain.HistoryOriginData{Components: []domain.HistoryOriginComponent{{Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}}, Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}}, InstrumentQuoteFacts: []domain.InstrumentQuote{{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: "close", EffectiveDate: "2026-09-08", ValueEffectiveAt: time.Date(2026, 9, 8, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 10, 20, 0, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: "session_close"}}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
 	portfolio := batch.Portfolio
 	portfolio.Origin = &batch.Origin
 	repo := &staticContextRepository{Repository: s.repository, inputs: domain.FinancialContextInputs{Portfolio: portfolio, History: &batch}}

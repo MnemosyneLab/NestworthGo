@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/testfixture/repos"
 )
 
 func importSuffixFX(t *testing.T, f seriesZeroFixture, operation, target, on, rate string) AgentMarketDataResult {
@@ -38,22 +39,22 @@ func productionFXSuffixFixture(t *testing.T, zones ...string) (seriesZeroFixture
 	f.day(t, "2026-10-01")
 	f.account = overviewAccount(t, s, owner, "Synthetic imported FX", "brokerage", "asset", "holdings", "USD", "")
 	var err error
-	f.instrument, err = s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic USD stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	f.instrument, err = s.fixtureCreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic USD stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.holding, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "1"})
+	f.holding, err = s.fixtureCreateHolding(t.Context(), HoldingInput{AccountID: f.account.Account.ID.String(), InstrumentID: f.instrument.ID.String(), Quantity: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.AppendManualInstrumentQuote(t.Context(), f.instrument.ID, "100", now.Format(time.RFC3339), false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+	if _, err = s.fixtureSetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	importSuffixFX(t, f, "append", "", "2026-10-01", "1")
-	if _, err = s.StartHistoryWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{f.holding.ID: "100"}); err != nil {
+	if _, err = s.CaptureSyntheticOriginWithCosts(t.Context(), "UTC", map[domain.HoldingID]string{f.holding.ID: "100"}); err != nil {
 		t.Fatal(err)
 	}
 	f.day(t, "2026-10-12")
@@ -62,7 +63,7 @@ func productionFXSuffixFixture(t *testing.T, zones ...string) (seriesZeroFixture
 	spec.Predicate.All[1].Leaf.FXMode = "convert_on_day"
 	spec.Schedule.Timezone = zone
 	saveSyntheticReviewRule(t, f, "Synthetic production FX suffix", spec)
-	r := sqlite.NewRepository(f.db).WithDefaultReviewOptimizations()
+	r := repos.New(f.db).WithDefaultReviewOptimizations()
 	fake := newRefreshFakeProvider()
 	fake.key = "synthetic-pinned"
 	f.s = NewService(r, NewMarketDataRegistry(fake, &refreshAliasProvider{key: "synthetic-other", target: fake}))

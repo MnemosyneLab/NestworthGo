@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"image"
 	"os"
 	"path/filepath"
@@ -20,7 +21,7 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	ctx := t.Context()
 	app, storage, paths, ids := openExistingBuyFixture(t)
 	id := seedTestLockedProductWithUnlock(t, app, ids.account, nil, "2026-11-22")
-	app.SetClock(linkedContractClock)
+	testfixture.SetClock(app, linkedContractClock)
 	reservation := reserveTermDeposit(t, app, id, "Synthetic reserve")
 
 	fault := &standaloneLifecycleFault{Service: app}
@@ -150,7 +151,7 @@ func TestProductGroupedUndoRestoresReservationAndCash(t *testing.T) {
 	if err := refDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, _ := reopenOnboardingProfile(t, paths)
+	reopened, _ := reopenBaselineProfile(t, paths)
 	_, _, refReopened := openStage6Database(t, refPath, linkedContractClock)
 	rows := managedOperations(t, reopened, id)
 	if len(rows) != 3 || rows[0].Kind != domain.ProductOpUndo || rows[1].ID.String() != settlement ||

@@ -311,21 +311,6 @@ func TestContributionRequiresNewPreviewAndRejectsUnavailableAccount(t *testing.T
 	}
 }
 
-func TestContributionRequiresHistoryOrigin(t *testing.T) {
-	root := createFixtureRoot(t)
-	seedAccountFixture(t, root)
-	service, _ := openBankFixture(t, root)
-	fault := &cashMovementFault{Service: service}
-	_, _, h, finish := cashMovementHarness(t, fault)
-	assertPageLabel(t, &h.router, "Start History to see ledger activity.")
-	h.click("Record change", false)
-	finish()
-	assertPageLabel(t, &h.router, "Start History before recording a contribution.")
-	if findPageLabel(&h.router, "Preview contribution") != nil || len(fault.attempts) != 0 {
-		t.Fatal("a ledger without History offered a write")
-	}
-}
-
 func cashMovementHarness(t *testing.T, service interface {
 	historyService
 	overviewReader

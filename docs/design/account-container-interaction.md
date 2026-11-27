@@ -41,9 +41,9 @@ holdings inside it.
 7. A Composite Account must record cash by currency. The Account default
    currency is the default input and display context, not the only allowed
    cash currency.
-8. Before History has started, opening cash, opening holdings, and opening
-   valuations may be entered. Trade-like actions first start History
-   explicitly, then return to the original action.
+8. Household creation atomically creates an empty History Origin. Account
+   opening balances, reconciliation and existing position import use ordinary
+   dated ledger operations; Trade is immediately available.
 9. Overview defaults to underlying Asset Type, with By institution and By
    account type as additional views. Titles must name the aggregation
    dimension.
@@ -73,7 +73,7 @@ loop:
   valuation DTOs.
 - Detail provides opening cash, cash reconcile, deposit/withdraw, FX
   conversion, transfer, buy, sell, record existing position, and Simple value
-  update. Actions that need History first show Start History.
+  update. These actions are available immediately after creating the household.
 - Overview provides component-grained `assetsByType` / `liabilitiesByType`
   and keeps account-level `byAccountType`, `byInstitution`, and `byGroup`.
 - Portfolio is a separate navigation page and lists active Instrument-backed
@@ -418,25 +418,13 @@ account → record cash in the matching currency → Buy investment → choose o
 create the fund → enter quantity and trade details → complete the trade and
 refresh cash, holdings, and valuation.
 
-### 9.5 History has not started
+### 9.5 History Origin and opening balances
 
-While History has not started, detail may record opening state:
-
-- opening cash balances;
-- existing holdings and quantities;
-- Simple Account initial balance or valuation.
-
-Event-like actions such as Deposit, Withdraw, Buy, Sell, Convert, and
-Transfer need History. When the user triggers them:
-
-1. Explain why History must start and which start date will be used;
-2. Open the existing Start History flow;
-3. After success, return to the original Account and original action, keeping
-   safe already-filled fields;
-4. Cancel writes nothing and does not silently start History.
-
-Do not send the user out of the current task with "please go to Settings
-first".
+Onboarding establishes an empty immutable History Origin on today's ledger
+civil date by default. An earlier valid date can be chosen during onboarding.
+Create accounts with opening balances, reconcile cash by currency, and use the
+existing-position workflow for acquired holdings with their actual original cost.
+No separate activation or capture of already entered assets is offered.
 
 ### 9.6 Simple detail
 
@@ -464,9 +452,8 @@ Liabilities are shown as absolute amounts, with "Liability" explaining the net
 worth direction. Do not introduce a minus sign in the detail title unless the
 whole app adopts a consistent sign rule.
 
-- History not started: write the initial Account value.
-- History started: balance accounts use the existing Balance Adjustment;
-  valuation accounts use Manual Valuation / Value Update.
+- Balance accounts use the existing Balance Adjustment; valuation accounts use
+  Manual Valuation / Value Update.
 
 ### 9.7 Account settings
 
@@ -610,7 +597,7 @@ currency gaps, and refresh timing do not create two sources of truth.
 ### 13.2 Current backend facts
 
 - Composite cash multi-currency validation is shared by the application and
-  domain layers and covers write paths before and after History starts.
+  domain layers and covers ledger write paths.
 - `OverviewResult.ByAccountType` is produced by the backend and shares
   conversion, as-of, and incomplete rules with the rest of Overview.
 - Account detail composes existing Account, Holding, Instrument, and valuation
@@ -639,7 +626,7 @@ Every new page and sheet must cover:
 - empty states such as no cash, no holdings, and no Portfolio Account;
 - explanations for partial valuation, missing quote, and missing FX;
 - inline API validation errors that preserve user input;
-- a recoverable flow when History has not started;
+- a recoverable read error when required ledger data cannot be loaded;
 - archived Account read-only state;
 - after a successful write, invalidate only the related Account, Overview,
   Portfolio, and History queries;
@@ -693,12 +680,10 @@ Interaction and accessibility:
 
 ### 15.3 History boundary
 
-- Before History starts, opening cash, existing holdings, and Simple initial
-  values may be recorded.
-- Buy / Deposit and similar actions from detail enter Start History and return
-  to the original action after success. Cancel writes nothing.
-- After History has started, cash reconciliation, Trade, FX, and Transfer
-  produce existing Activity kinds. No new kinds are added.
+- New accounts can immediately record opening balances or reconcile existing
+  cash, and import existing positions without a fictitious buy.
+- Cash reconciliation, Trade, FX, and Transfer produce existing Activity kinds.
+  No new kinds are added.
 
 ### 15.4 Overview and Portfolio
 
@@ -720,7 +705,6 @@ Create a China Merchants Bank mixed account
 → Choose "Record cash, funds, wealth-management products, gold, and similar holdings separately"
 → Add a CNY cash balance
 → Click Buy investment
-→ If needed, complete Start History and return
 → Choose or create a fund and complete the first buy
 → Account detail shows the reduced cash and the fund holding together
 → Overview classifies by Cash / Mutual fund

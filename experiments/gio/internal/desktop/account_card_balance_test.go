@@ -8,66 +8,11 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
-	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 const cardInvalidTarget = "Enter a nonnegative amount owed with up to four decimal places. Overpaid balances are unsupported."
-
-func TestCreditCardBalanceBeforeHistoryMatchesWailsWithoutReplay(t *testing.T) {
-	ctx := t.Context()
-	app, session, paths, _ := seedBankBalanceFixture(t, false)
-	ref, refSession, _, _ := seedBankBalanceFixture(t, false)
-	card, refCard := syntheticCardID(t, app), syntheticCardID(t, ref)
-	fault := &balanceTargetTestService{Service: app, lostAppend: true}
-	p, h, finish := balanceTargetHarness(t, fault, "Synthetic Card", func() time.Time { return accountTestClock })
-	click := func(text string) { h.click(text, false); finish() }
-	label := func(text string) { assertPageLabel(t, &h.router, text) }
-
-	click("Update card balance")
-	d := p.balanceTarget.draft
-	setBankField(h, "Target amount owed · USD", &d.amount, "-10")
-	click("Review card balance")
-	label(cardInvalidTarget)
-	adapter := account.NewService(ref)
-	if _, err := adapter.AppendAccountValue(ctx, refCard.String(), "-10", ""); err == nil {
-		t.Fatal("Wails append accepted an overpaid card balance")
-	}
-	assertBankObservations(t, session, card, 1, 0)
-	assertBankObservations(t, refSession, refCard, 1, 0)
-
-	setBankField(h, "Target amount owed · USD", &d.amount, "0")
-	click("Review card balance")
-	label("Amount owed after · 0 USD")
-	label("Balance before · -30 USD")
-	label("Resulting balance · 0 USD")
-	label("Effective at confirmation")
-	click("Confirm card balance")
-	label("Could not confirm the save. Check the recorded balance before making another change.")
-	if findPageLabel(&h.router, "Retry same submission") != nil || findPageLabel(&h.router, "Card balance saved.") != nil {
-		t.Fatal("uncertain observation advertised an acknowledgement or safe replay")
-	}
-	row := p.freshDetail()
-	if fault.appends != 1 || len(fault.records) != 0 || row == nil || row.record.LatestValue == nil || row.record.LatestValue.Amount.CanonicalAmount() != "0" {
-		t.Fatalf("read recovery did not show the saved balance after %d appends, %d adjustments", fault.appends, len(fault.records))
-	}
-	want, err := adapter.AppendAccountValue(ctx, refCard.String(), "0", "")
-	got := wire.FromAccountValue(*readBankRecord(t, app, card).LatestValue)
-	got.ID, got.AccountID, want.ID, want.AccountID = "", "", "", ""
-	if err != nil || !reflect.DeepEqual(got, want) || got.Amount.Amount != "0" {
-		t.Fatalf("zero debt observation differs from Wails: %+v / %+v, %v", got, want, err)
-	}
-	assertBankObservations(t, session, card, 2, 0)
-	assertBankObservations(t, refSession, refCard, 2, 0)
-	if err := session.Close(); err != nil {
-		t.Fatal(err)
-	}
-	reopened, after := reopenOnboardingProfile(t, paths)
-	assertBankObservations(t, after, card, 2, 0)
-	assertBalanceTargetNetWorth(t, reopened, ref, "100", "0")
-}
 
 func TestCreditCardReconciliationSignedReviewAndReceiptMatchWails(t *testing.T) {
 	ctx := t.Context()
@@ -180,7 +125,7 @@ func TestCreditCardReconciliationSignedReviewAndReceiptMatchWails(t *testing.T) 
 	if err := session.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, after := reopenOnboardingProfile(t, paths)
+	reopened, after := reopenBaselineProfile(t, paths)
 	setBalanceTargetClock(72*time.Hour, reopened, ref)
 	again, err := plan.commit(ctx, reopened)
 	if err != nil || again.activity != posted {

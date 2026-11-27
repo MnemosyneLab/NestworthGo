@@ -41,16 +41,6 @@ var liabilityReasonLabels = map[domain.ActivityReason]i18n.MessageID{
 func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) layout.Dimensions {
 	f, l := p.liabilityPosting, view.Language
 	d := f.draft
-	if d.starting != nil {
-		dims := f.history.layoutStartingPoint(gtx, view, d.starting)
-		if !d.starting.open {
-			view.RestorePageScroll(0)
-		}
-		return dims
-	}
-	if d.startingSaved && d.focusAmount {
-		view.RestorePageScroll(0)
-	}
 	if !p.liabilityPostingUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
 		f.restore = f.entry == &f.open
@@ -80,9 +70,6 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 		tradeTitle(view, liabilityEntryLabel(d.account)),
 		view.Message(d.account.Name+" · "+d.account.DefaultCurrency.String(), view.Colors.Ink),
 	}
-	if d.startingSaved {
-		children = append(children, view.Message(l.Text(i18n.HistoryStartSaved), view.Colors.Ink))
-	}
 	if d.sources != nil {
 		children = append(children, func(gtx layout.Context) layout.Dimensions {
 			view.Origin = at
@@ -97,7 +84,7 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 		children = append(children, view.Message(l.Text(d.problem), view.Colors.ErrorInk))
 	}
 	buttons := []layout.Widget{view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel))}
-	if d.sourceProblem != i18n.NoMessage && (d.sourceProblem != i18n.CashMovementHistoryRequired || d.startingSaved) {
+	if d.sourceProblem != i18n.NoMessage {
 		buttons = append(buttons, view.Button(&d.retry, l.Text(i18n.HistoryRetry)))
 	}
 	if d.sources != nil && d.sourceProblem == i18n.NoMessage {

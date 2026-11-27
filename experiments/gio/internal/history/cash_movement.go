@@ -107,7 +107,7 @@ func cashMovementOrigin(ctx context.Context, ledger cashMovementReader) (domain.
 		return domain.HistoryOrigin{}, nil, err
 	}
 	if origin == nil {
-		return domain.HistoryOrigin{}, nil, &domain.Error{Code: domain.ErrHistoryNotStarted}
+		return domain.HistoryOrigin{}, nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	return *origin, location, err
