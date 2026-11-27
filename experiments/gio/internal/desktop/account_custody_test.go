@@ -76,6 +76,7 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	finish()
 	click(instrument.DisplayLabel())
 	click("Open account · Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Transfer position")
 	click("Transfer position")
 	d := f.draft
 	h.focused(&d.custody.fromPicker.Trigger)
@@ -99,6 +100,9 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	}
 
 	rowLabel := "Transfer · " + instrument.DisplayLabel()
+	menu := "Actions for " + instrument.DisplayLabel()
+	scrollToAccountDetailLabel(h, menu)
+	click(menu)
 	scrollToAccountDetailLabel(h, rowLabel)
 	click(rowLabel)
 	d = f.draft

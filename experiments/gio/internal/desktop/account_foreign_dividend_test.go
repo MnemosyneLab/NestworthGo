@@ -67,6 +67,7 @@ func TestAccountForeignDividendCreditsOneExactCurrencyAndMatchesWails(t *testing
 	h.frame()
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record cash dividend")
 	click("Record cash dividend")
 	draft := accounts.investment.draft
 	if draft == nil || draft.account.ID != ids.account || draft.instrument != ids.foreign || draft.dividendCurrency != "EUR" {

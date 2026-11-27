@@ -103,7 +103,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			setBankField(h, "Opening amount owed", &d.opening, tc.opening)
 			reviewBankAccount(h)
 			label("Review liability account")
-			if !liabilityTextAppears(h.router.AppendSemantics(nil), "Opening amount owed · "+tc.opening+" "+tc.currency) {
+			if !liabilityTextAppears(h.router.AppendSemantics(nil), "Opening amount owed · "+strings.TrimPrefix(tc.exact, "-")) {
 				t.Fatal("the review did not present the exact positive opening amount")
 			}
 			if f := p.creation.review; f == nil || f.input.AccountType != tc.kind.String() || f.input.BalanceSheetRole != "liability" || f.input.TrackingMode != "balance" {
@@ -205,7 +205,7 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 			if p.target.account != id {
 				t.Fatal("Forward did not reopen the created account by ID")
 			}
-			h.click("Account settings", false)
+			openAccountSettings(h)
 			h.frame()
 			setBankField(h, "Account name", &p.maintenance.draft.name, tc.name+" updated")
 			h.click("Save changes", false)
@@ -221,6 +221,9 @@ func TestLiabilityCreationMatchesWailsAndKeepsRetryReadOnly(t *testing.T) {
 				action := "Restore account"
 				if archive {
 					action = "Archive account"
+				}
+				if h.shell.accounts.maintenance.draft == nil {
+					openAccountSettings(h)
 				}
 				h.click(action, false)
 				h.frame()

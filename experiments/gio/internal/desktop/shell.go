@@ -708,6 +708,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		if saved := s.accounts.pollBalanceTarget(); saved.account != "" {
 			s.refreshLedgerReads()
 		}
+		var source *widget.Clickable
+		if s.accountCreationOpen() {
+			source = s.accounts.creation.sheet.source
+		}
 		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
 			s.accounts.createdMessage = i18n.AccountCreateSucceeded
@@ -725,6 +729,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				if !unscoped {
 					focus = &s.accounts.createShell
 				}
+			}
+			if source == &s.accounts.createProductAccount {
+				focus = source
 			}
 			s.refreshLedgerReads()
 			s.pendingNavigation = &navigationRequest{
@@ -775,7 +782,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	fundsPolicyOpen := s.fundsPolicyOpen()
 	fundsProductSetupOpen, fundsProductTermsOpen := s.fundsProductSetupOpen(), s.fundsProductTermsOpen()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	accountActionOpen := s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || accountActionOpen || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -857,6 +865,20 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
+	if accountActionOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		if m := s.accounts.maintenance; m != nil && m.review != nil {
+			accessibility.Hidden(windowContext.Disabled(), func(gtx layout.Context) layout.Dimensions {
+				s.accounts.layoutAccountActionSheet(gtx, view)
+				return layout.Dimensions{Size: gtx.Constraints.Max}
+			})
+			s.accounts.layoutAccountArchive(windowContext, view)
+		} else {
+			s.accounts.layoutAccountActionSheet(windowContext, view)
+		}
 		return dims
 	}
 	if catalogEditorOpen && s.instrumentCatalogEditorOpen() {
@@ -1393,6 +1415,19 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 				controls = append(controls,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 					layout.Rigid(layout.Spacer{Width: 10}.Layout),
+				)
+				if p := s.accounts; s.activeRoute() == accountsRoute && p != nil && p.target.account != "" && !p.accountActionOpen() {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if p.back.Clicked(gtx) {
+							p.backToList()
+							gtx.Execute(op.InvalidateCmd{})
+						}
+						headerView.Focus.Watch(gtx, &p.back)
+						return view.ButtonOf(&p.back, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall,
+							Title: view.Language.Text(i18n.NavAccounts) + " /", Name: view.Language.Text(i18n.AccountBack)})(gtx)
+					}))
+				}
+				controls = append(controls,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						if action != nil {
 							gtx.Constraints.Min.X = 0

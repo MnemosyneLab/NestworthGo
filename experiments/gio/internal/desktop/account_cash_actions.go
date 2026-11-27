@@ -39,12 +39,11 @@ func (p *accountsPage) canMoveCash() bool {
 	return p.detail.cashActions.form != nil && row != nil && history.CanUseCashMovement(row.record)
 }
 
-func (p *accountsPage) beginAccountCash(gtx layout.Context, view ui.View, move history.CashMovement, source *widget.Clickable) {
+func (p *accountsPage) beginAccountCash(gtx layout.Context, move history.CashMovement, source *widget.Clickable) {
 	a := &p.detail.cashActions
 	a.source, a.restore = source, nil
 	a.form.account = p.freshDetail().record.Account.ID
 	a.form.start(move)
-	view.RestorePageScroll(0)
 	gtx.Execute(op.InvalidateCmd{})
 }
 
@@ -66,7 +65,7 @@ func (p *accountsPage) cashMovementActions(view ui.View) []layout.Widget {
 	button := func(click *widget.Clickable, move history.CashMovement, label i18n.MessageID) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			if click.Clicked(gtx) {
-				p.beginAccountCash(gtx, view, move, click)
+				p.beginAccountCash(gtx, move, click)
 			}
 			return p.cashMovementButton(gtx, view, click, label, ui.ButtonOutline)
 		}
@@ -80,12 +79,10 @@ func (p *accountsPage) cashMovementActions(view ui.View) []layout.Widget {
 
 func (p *accountsPage) layoutAccountCashMovement(gtx layout.Context, view ui.View) layout.Dimensions {
 	a := &p.detail.cashActions
-	if a.form.draft.review != nil {
-		return a.form.layoutForm(gtx, view)
-	}
+
 	rows := []ui.ColumnChild{}
 	kind := a.form.draft.movement
-	if kind == history.CashContribution || kind == history.CashWithdrawal {
+	if a.form.draft.review == nil && (kind == history.CashContribution || kind == history.CashWithdrawal) {
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if a.deposit.Clicked(gtx) && kind != history.CashContribution {
 				a.form.discard()

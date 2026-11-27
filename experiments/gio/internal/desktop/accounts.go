@@ -305,44 +305,46 @@ type accountsPage struct {
 	request     <-chan accountsResult
 	cancel      context.CancelFunc
 
-	target                             navigationTarget
-	archived                           bool
-	invalid                            bool
-	current                            *accountsResult
-	err                                error
-	rows                               []accountListRow
-	locale                             i18n.Language
-	position                           layout.Position
-	list                               widget.List
-	buttons                            map[domain.AccountID]*widget.Clickable
-	instruments                        map[domain.InstrumentID]*widget.Clickable
-	reload, archiveFilter, clear, back widget.Clickable
-	open                               func(navigationTarget, string, event.Tag)
-	openInstrument                     func(domain.InstrumentID, domain.AccountID, string, event.Tag)
-	openHoldingHistory                 func(domain.InstrumentID, domain.AccountID, string, event.Tag)
-	openHoldingAnalysis                func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
-	positions                          accountPositions
-	detail                             accountDetailControls
-	openProduct                        func(domain.ProductContractID, string, event.Tag)
-	productButtons                     map[domain.ProductContractID]*widget.Clickable
-	productLedger                      fundsProductLedger
-	productSetup                       *fundsProductSetup
-	addProduct                         widget.Clickable
-	restoreProductFocus, productSaved  bool
-	backToList                         func()
-	creation                           *balanceAccountCreation
-	createBank, createAccount          widget.Clickable
-	createShell                        widget.Clickable
-	focusCreate                        *widget.Clickable
-	createdID                          domain.AccountID
-	createdMessage                     i18n.MessageID
-	maintenance                        *accountMaintenance
-	cashBalance                        *accountCashBalance
-	investment                         *accountInvestment
-	opening                            *accountOpeningPosition
-	balanceTarget                      *accountBalanceTarget
-	liabilityPosting                   *accountLiabilityPosting
-	statement                          *accountStatement
+	target                            navigationTarget
+	archived                          bool
+	invalid                           bool
+	current                           *accountsResult
+	err                               error
+	rows                              []accountListRow
+	locale                            i18n.Language
+	position                          layout.Position
+	list                              widget.List
+	buttons                           map[domain.AccountID]*widget.Clickable
+	instruments                       map[domain.InstrumentID]*widget.Clickable
+	reload, clear, back               widget.Clickable
+	archiveFilter                     widget.Bool
+	open                              func(navigationTarget, string, event.Tag)
+	openInstrument                    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingHistory                func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingAnalysis               func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
+	positions                         accountPositions
+	detail                            accountDetailControls
+	actionSheet                       *accountActionSheet
+	openProduct                       func(domain.ProductContractID, string, event.Tag)
+	productButtons                    map[domain.ProductContractID]*widget.Clickable
+	productLedger                     fundsProductLedger
+	productSetup                      *fundsProductSetup
+	addProduct, createProductAccount  widget.Clickable
+	restoreProductFocus, productSaved bool
+	backToList                        func()
+	creation                          *balanceAccountCreation
+	createBank, createAccount         widget.Clickable
+	createShell                       widget.Clickable
+	focusCreate                       *widget.Clickable
+	createdID                         domain.AccountID
+	createdMessage                    i18n.MessageID
+	maintenance                       *accountMaintenance
+	cashBalance                       *accountCashBalance
+	investment                        *accountInvestment
+	opening                           *accountOpeningPosition
+	balanceTarget                     *accountBalanceTarget
+	liabilityPosting                  *accountLiabilityPosting
+	statement                         *accountStatement
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {
@@ -354,10 +356,13 @@ func newAccountsPage(ctx context.Context, service accountsReader, clock func() t
 func (p *accountsPage) enter(target navigationTarget, archived bool, position layout.Position) {
 	p.leave()
 	p.target, p.archived, p.position = target, archived, position
+	p.archiveFilter.Value = archived
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
+	p.actionSheet = nil
 	p.positions.visit = accountPositionsVisit{}
+	p.positions.trend.restore(instrumentPerformanceVisit{})
 	p.detail.restore(accountCompositionVisit{})
 	p.detail.investmentActionsRow, p.detail.revealedShortcut = -1, nil
 	p.invalid = !validAccountTarget(target)
@@ -380,6 +385,7 @@ func validAccountTarget(target navigationTarget) bool {
 }
 
 func (p *accountsPage) leave() {
+	p.positions.trend.series.reset()
 	if p.cancel != nil {
 		p.cancel()
 		p.cancel = nil

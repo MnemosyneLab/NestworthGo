@@ -2,7 +2,6 @@ package desktop
 
 import (
 	"fmt"
-	"strings"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -13,13 +12,12 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/charts"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/format"
 )
 
 type accountCompositionVisit struct {
-	detail, expanded, tableOpen, cashHistoryOpen bool
-	selected                                     charts.Selection
-	tablePosition, cashHistoryPosition           layout.Position
+	detail, expanded, tableOpen        bool
+	selected                           charts.Selection
+	tablePosition, cashHistoryPosition layout.Position
 }
 
 type accountCompositionControls struct {
@@ -44,14 +42,17 @@ func (p *accountsPage) accountComposition(view ui.View, composition *domain.Acco
 		}
 		donut, remainder := accountCompositionSpec(view, composition, d.detail, d.expanded)
 		rows := []ui.ColumnChild{
-			ui.Rigid(view.Body(ui.TextHeading, donut.Label, view.Colors.Ink)),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.TabTrack(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
-					if i == 0 {
-						return view.TabSegment(&d.types, l.Text(i18n.AccountCompositionType), !d.detail)(gtx)
-					}
-					return view.TabSegment(&d.details, l.Text(i18n.AccountCompositionDetail), d.detail)(gtx)
-				})
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Flexed(1, view.Body(ui.TextHeading, donut.Label, view.Colors.Ink)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.TabTrack(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+							if i == 0 {
+								return view.TabSegment(&d.types, l.Text(i18n.AccountCompositionType), !d.detail)(gtx)
+							}
+							return view.TabSegment(&d.details, l.Text(i18n.AccountCompositionDetail), d.detail)(gtx)
+						})
+					}))
 			}),
 			ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.AccountCompositionCurrency), composition.Currency), view.Colors.SecondaryInk)),
 		}
@@ -78,8 +79,12 @@ func (p *accountsPage) accountComposition(view ui.View, composition *domain.Acco
 				status = i18n.AccountCompositionInvalid
 			}
 			rows = append(rows, ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)))
-			for _, row := range donut.Rows() {
-				rows = append(rows, ui.Rigid(labeledRow(view, row.Label+" · "+row.Value, row.Label, row.Value, view.Colors.Ink)))
+			for _, row := range donut.Slices {
+				amount := row.Text
+				if row.LegendDetail != "" {
+					amount = row.LegendDetail + " · " + amount
+				}
+				rows = append(rows, ui.Rigid(labeledRow(view, row.Label+" · "+amount, row.Label, amount, view.Colors.Ink)))
 			}
 		}
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AccountCompositionHint), view.Colors.SecondaryInk)),
@@ -104,7 +109,7 @@ func (p *accountsPage) accountComposition(view ui.View, composition *domain.Acco
 func accountCompositionSpec(view ui.View, c *domain.AccountComposition, detail, expanded bool) (charts.DonutSpec, bool) {
 	l := view.Language
 	spec := charts.DonutSpec{
-		Compact: true, Label: l.Text(i18n.AccountCompositionTitle),
+		Label:         l.Text(i18n.AccountCompositionTitle),
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: accountCompositionMoney(view, c.TotalExact, c.Currency),
 		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), ZeroTotal: l.Text(i18n.AccountCompositionEmpty),
 		Messages: charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.AccountCompositionUnavailable)},
@@ -134,7 +139,7 @@ func accountCompositionSpec(view ui.View, c *domain.AccountComposition, detail, 
 		row := charts.Slice{ID: charts.ID(item.Key), Label: label, Value: value,
 			Text: accountCompositionMoney(view, item.BaseAmountExact, c.Currency), Share: accountCompositionShare(view, c.Status, item)}
 		if detail && item.NativeAmount != "" && item.NativeCurrency != c.Currency {
-			row.Detail = append(row.Detail, accountCompositionMoney(view, item.NativeAmount, item.NativeCurrency))
+			row.LegendDetail = accountCompositionMoney(view, item.NativeAmount, item.NativeCurrency)
 		}
 		if item.MissingCount > 0 {
 			row.Detail = append(row.Detail, fmt.Sprintf(l.Text(i18n.OverviewCompositionMissing), item.MissingCount))
@@ -184,7 +189,7 @@ func accountCompositionShare(view ui.View, status string, item domain.AccountCom
 	if item.ValuedCount == 0 || status != "ready" && status != "partial" && status != "empty" {
 		return "—"
 	}
-	return portfolioDecimal(view, strings.TrimSuffix(format.ShareBPS(item.ShareBPS), "%")) + "%"
+	return portfolioDecimal(view, decimal.New(int64(item.ShareBPS), -2).RoundBank(1).StringFixed(1)) + "%"
 }
 
 func accountCompositionTable(view ui.View, c *domain.AccountComposition, selection charts.Selection) charts.Table {

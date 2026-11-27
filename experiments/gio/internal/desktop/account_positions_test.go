@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gioui.org/io/key"
+	"github.com/google/uuid"
 
 	historyui "github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -23,6 +24,16 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 		Name: "Closed example fund", Symbol: "QA-CLOSED", Type: "etf", QuoteCurrency: "EUR", QuoteSource: "manual",
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ImportAgentMarketData(ctx, uuid.NewString(), application.AgentMarketDataInput{
+		Items: []application.AgentMarketDataItem{
+			{InstrumentID: current.ID.String(), Currency: "EUR", Kind: "close", Value: "28",
+				Date: "2026-11-18", Timezone: "UTC", SourceTitle: "Synthetic daily fixture"},
+			{InstrumentID: current.ID.String(), Currency: "EUR", Kind: "close", Value: "30.12",
+				Date: "2026-11-20", Timezone: "UTC", SourceTitle: "Synthetic daily fixture"},
+		},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	records, err := service.ListAccounts(ctx, domain.AccountFilter{})
@@ -100,11 +111,22 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 	assertPageLabel(t, &h.router, currentLink)
 	assertPageLabel(t, &h.router, "Cost basis · €50.30")
 	missing(closedLink)
+	click(current.Name)
+	if h.shell.activeRoute() != accountsRoute || accounts.target.account != fixture.account ||
+		accounts.positions.trend.series.value == nil || len(accounts.positions.trend.series.value.Points) < 2 {
+		t.Fatal("expanding the holding did not show its daily price series in the account")
+	}
+	click(current.Name)
 	click("Closed")
 	assertPageLabel(t, &h.router, closedLink)
 	missing(currentLink)
 	missing("Cost basis · €50.30")
 	assertPageLabel(t, &h.router, "Zero quantity. Figures show remaining recorded values.")
+	click(closed.Name)
+	if accounts.positions.trend.series.value == nil || len(accounts.positions.trend.series.value.Points) != 0 {
+		t.Fatal("the unquoted holding did not produce an empty in-place series")
+	}
+	assertPageLabel(t, &h.router, "No daily price history yet")
 	click(closedLink)
 	if investments.accountScope != fixture.account || investments.id != closed.ID || len(investments.current.positions) != 1 || investments.current.positions[0].Amounts.Quantity != "0" {
 		t.Fatalf("closed holding opened outside its account: %q / %+v", investments.accountScope, investments.current.positions)

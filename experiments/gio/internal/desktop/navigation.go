@@ -179,7 +179,7 @@ type navigationRequest struct {
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
-	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() || s.fundsProductSetupOpen() || s.fundsProductTermsOpen() {
+	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() || s.fundsProductSetupOpen() || s.fundsProductTermsOpen() {
 		return
 	}
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
@@ -188,16 +188,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.accounts != nil && (s.accounts.detail.cashActions.unresolved() || s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
 		return
 	}
-	if request.step == -1 && s.accounts != nil && s.activeRoute() == accountsRoute && s.accounts.productSetup != nil {
-		if d := s.accounts.productSetup; d.plan != nil {
-			d.plan, d.focus = nil, true
-		} else {
-			s.accounts.cancelProductSetup()
-		}
-		s.stage.Position = layout.Position{}
-		gtx.Execute(op.InvalidateCmd{})
-		return
-	}
+
 	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
 		return
 	}
@@ -399,6 +390,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
 		s.accounts.positions.visit = entry.accountPositions.copy()
+		s.accounts.positions.trend.restore(entry.accountPositions.trend)
 		s.accounts.detail.restore(entry.accountComposition)
 		if statement := s.accounts.statement; statement != nil {
 			statement.restore = entry.accountStatement
@@ -536,6 +528,7 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
 		entry.accountPositions = s.accounts.positions.visit.copy()
+		entry.accountPositions.trend = s.accounts.positions.trend.visit()
 		entry.accountComposition = s.accounts.detail.visit()
 		entry.scroll = s.accounts.list.Position
 		if statement := s.accounts.statement; statement != nil {
@@ -642,7 +635,7 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 	if !focus.TargetDrawn {
 		if s.activeRoute() == accountsRoute && s.accounts != nil {
 			p := s.accounts
-			if p.revealInvestmentShortcut(target) {
+			if p.revealAccountDetailAction(target) {
 				gtx.Execute(op.InvalidateCmd{})
 				return
 			}

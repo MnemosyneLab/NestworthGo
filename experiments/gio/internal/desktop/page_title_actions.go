@@ -82,6 +82,10 @@ func (s *shell) accountHeaderActions(gtx layout.Context, view ui.View) layout.Co
 		return gtx
 	}
 	menu, d := &s.accountTitleMenu, &p.detail
+	if m := p.maintenance; m != nil && m.focus == &menu.Trigger && gtx.Enabled() {
+		gtx.Execute(key.FocusCmd{Tag: m.focus})
+		m.focus = nil
+	}
 	account := row.record.Account
 	var choices []ui.Choice
 	if d.openAnalysis != nil {
@@ -91,7 +95,7 @@ func (s *shell) accountHeaderActions(gtx layout.Context, view ui.View) layout.Co
 	if d.openActivityList != nil {
 		choices = append(choices, ui.Choice{ID: string(historyRoute), Label: view.Language.Text(i18n.AccountDetailTransactions)})
 	}
-	if p.maintenance != nil && canEditAccount(row.record) {
+	if p.maintenance != nil && accountMaintenanceSupported(account) {
 		choices = append(choices, ui.Choice{ID: string(settingsRoute), Label: view.Language.Text(i18n.AccountMaintenanceEdit)})
 	}
 	if len(choices) == 0 {
@@ -116,7 +120,7 @@ func (s *shell) accountHeaderActions(gtx layout.Context, view ui.View) layout.Co
 		case historyRoute:
 			d.openActivityList(account.ID, &menu.Trigger)
 		case settingsRoute:
-			p.maintenance.startEdit(row.record)
+			p.maintenance.startEdit(row.record, &menu.Trigger)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	})

@@ -190,7 +190,8 @@ func TestBankBalanceHistoryMatchesWailsAndKeepsReceipt(t *testing.T) {
 		t.Fatal("bank confirmation did not start")
 	}
 	h.clickAt(point)
-	h.click("Back", false)
+	h.shell.pendingNavigation = &navigationRequest{step: -1}
+	h.frame()
 	if !p.balanceTargetUnresolved() || p.target.account != bank {
 		t.Fatal("navigation escaped pending confirmation")
 	}

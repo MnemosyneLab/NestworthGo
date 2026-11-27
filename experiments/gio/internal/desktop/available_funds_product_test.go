@@ -162,7 +162,11 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				}
 				if entry.account {
 					h.focused(&d.form.principal.Editor)
-					label("Account cash available · 156 USD")
+					if entry.account {
+						label("Account cash available · US$156.00")
+					} else {
+						label("Account cash available · 156 USD")
+					}
 				} else {
 					h.focused(&d.form.currency.Trigger)
 					label("Available cash in USD: US$156.00")
@@ -213,13 +217,9 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			}
 			d := fill()
 			click(reviewLabel)
-			if entry.account {
-				click("Back to Accounts")
-				if accounts.target.account != ids.account || setup() != d {
-					t.Fatal("Back left the originating account detail")
-				}
-			} else {
-				click("Back to details")
+			click("Back to details")
+			if entry.account && (accounts.target.account != ids.account || setup() != d) {
+				t.Fatal("Back left the originating account detail")
 			}
 			h.focused(&d.form.principal.Editor)
 			if d.form.principal.Text() != principal {

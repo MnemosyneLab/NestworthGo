@@ -55,7 +55,8 @@ func TestLiabilityStartingPointRestoresAccountAndContinuesPosting(t *testing.T) 
 	h.press(key.NameReturn)
 	finish()
 	label("Could not verify the Starting Point. Retry checks the saved state.")
-	h.click("Back", false)
+	h.shell.pendingNavigation = &navigationRequest{step: -1}
+	h.frame()
 	finish()
 	if p.target.account != card || !p.liabilityPostingUnresolved() {
 		t.Fatal("an unresolved confirmation allowed navigation away from the account")

@@ -25,7 +25,7 @@ type accountRecordChoice struct {
 	start        func(layout.Context)
 }
 
-func (p *accountsPage) accountRecordChoices(view ui.View, account domain.Account) []accountRecordChoice {
+func (p *accountsPage) accountRecordChoices(account domain.Account) []accountRecordChoice {
 	entry := &p.detail.record.trigger
 	var choices []accountRecordChoice
 	if p.canTradeAccount() {
@@ -57,7 +57,7 @@ func (p *accountsPage) accountRecordChoices(view ui.View, account domain.Account
 	if p.canMoveCash() {
 		cash := func(kind history.CashMovement, label i18n.MessageID) {
 			choices = append(choices, accountRecordChoice{i18n.HistoryEntryCash, label, func(gtx layout.Context) {
-				p.beginAccountCash(gtx, view, kind, entry)
+				p.beginAccountCash(gtx, kind, entry)
 			}})
 		}
 		cash(history.CashContribution, i18n.AccountRecordAddMoney)
@@ -98,14 +98,13 @@ func (p *accountsPage) accountRecordChoices(view ui.View, account domain.Account
 }
 
 func (p *accountsPage) detailRecordButton(view ui.View, account domain.Account) layout.Widget {
-	if len(p.accountRecordChoices(view, account)) == 0 {
+	if len(p.accountRecordChoices(account)) == 0 {
 		return nil
 	}
 	d := &p.detail.record
 	return func(gtx layout.Context) layout.Dimensions {
 		if d.trigger.Clicked(gtx) {
 			d.open, d.focus = true, true
-			view.RestorePageScroll(0)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 		cash := &p.detail.cashActions
@@ -131,15 +130,7 @@ func (p *accountsPage) restoreAccountRecord(entry *widget.Clickable) {
 
 func (p *accountsPage) layoutAccountRecord(gtx layout.Context, view ui.View) layout.Dimensions {
 	d, l := &p.detail.record, view.Language
-	closed := d.cancel.Clicked(gtx)
-	for {
-		event, ok := gtx.Event(key.Filter{Name: key.NameEscape})
-		if !ok {
-			break
-		}
-		closed = closed || event.(key.Event).State == key.Press
-	}
-	if closed {
+	if d.cancel.Clicked(gtx) {
 		d.open, d.restore = false, true
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
@@ -149,7 +140,7 @@ func (p *accountsPage) layoutAccountRecord(gtx layout.Context, view ui.View) lay
 		ui.Rigid(view.Body(ui.TextLabel, p.name(), view.Colors.Ink)),
 	}
 	if row := p.freshDetail(); row != nil {
-		choices := p.accountRecordChoices(view, row.record.Account)
+		choices := p.accountRecordChoices(row.record.Account)
 		if d.choices == nil {
 			d.choices = make(map[i18n.MessageID]*widget.Clickable)
 		}

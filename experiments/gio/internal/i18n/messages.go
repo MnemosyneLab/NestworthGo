@@ -395,6 +395,11 @@ const (
 	AccountLoadError
 	AccountUnavailable
 	AccountReadList
+	AccountListDescription
+	AccountMemberScopeHelp
+	AccountProductsTitle
+	AccountProductsGuide
+	AccountProductsCreateHoldings
 	AccountCompositionTitle
 	AccountCompositionType
 	AccountCompositionDetail
@@ -425,6 +430,8 @@ const (
 	AccountCashConvertAction
 	AccountCashTransferAction
 	AccountCashHistoryTitle
+	AccountCashHistoryType
+	AccountCashHistoryCurrency
 	AccountCashHistoryLoadFailed
 	AccountCashHistoryActivity
 	AccountCashHistoryOpening

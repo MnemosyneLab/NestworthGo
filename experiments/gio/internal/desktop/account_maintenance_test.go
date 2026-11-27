@@ -143,7 +143,7 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	overview := newOverviewPage(ctx, gio, clock, func() {})
 	t.Cleanup(func() { release(); p.workers.Wait(); overview.workers.Wait() })
 	h := newShellHarnessWithPages(t, ledgerPages{accounts: p, overview: overview})
-	h.size = image.Pt(700, 620)
+	h.size = image.Pt(860, 890)
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 	label := func(value string) { assertPageLabel(t, &h.router, value) }
@@ -157,12 +157,14 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	finish()
 	h.click("Harbor Checking", false)
 	finish()
-	h.click("Account settings", false)
+	openAccountSettings(h)
 	h.frame()
 	d := p.maintenance.draft
 	if !d.custom || !slices.Contains(d.owners, former.ID) {
 		t.Fatal("the form discarded an existing custom allocation or archived owner")
 	}
+	h.click("Details", false)
+	h.frame()
 	label("Former group · Archived")
 	setBankField(h, "Account name", &d.name, "Harbor Renamed")
 	h.click("Former Sample · Archived", false)
@@ -249,12 +251,18 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	h.click("Forward", false)
 	finish()
 	label("Harbor Renamed")
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
+	}
 	h.click("Archive account", false)
 	h.frame()
 	h.click("Cancel", false)
 	h.frame()
 	if fault.archives.Load() != 0 {
 		t.Fatal("canceling archive wrote")
+	}
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
 	}
 	h.click("Archive account", false)
 	h.frame()
@@ -289,12 +297,17 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	finish()
 	h.click("Harbor Renamed", false)
 	finish()
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
+	}
 	h.click("Restore account", false)
 	h.frame()
 	h.click("Restore account", false)
 	finish()
 	label("Account restored.")
-	label("Account settings")
+	openAccountSettings(h)
+	h.press(key.NameEscape)
+	h.frame()
 	if err := wails.ArchiveAccount(ctx, id.String(), false); err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +317,7 @@ func TestBankMaintenanceRetainsBalanceAndHistoryAndMatchesWails(t *testing.T) {
 	}
 	h.click("Back to accounts", false)
 	finish()
-	label("Hide archived")
+	label("Show archived")
 	label("Harbor Renamed")
 	after, err := gio.ListActivityPage(ctx, domain.ActivityQuery{AccountID: &id})
 	if err != nil || !reflect.DeepEqual(after, history) {
@@ -346,10 +359,12 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		finish()
 	}
 	show(before.Account.ID)
-	h.click("Account settings", false)
+	openAccountSettings(h)
 	h.frame()
 	draft := p.maintenance.draft
 	setBankField(h, "Account name", &draft.name, "Should stay as a draft")
+	h.click("Details", false)
+	h.frame()
 	h.click("No group", false)
 	h.click("Filter options", true)
 	h.router.Queue(key.EditEvent{Text: "Pending group"})
@@ -402,9 +417,14 @@ func TestBankMaintenanceRejectsStaleAffiliationWithoutADifferentWrite(t *testing
 		t.Fatalf("Wails did not enforce the open contract guard: %v", wailsErr)
 	}
 	show(holdingAccount.Account.ID)
-	assertPageLabel(t, &h.router, "Account settings")
+	if p.target.account != holdingAccount.Account.ID {
+		t.Fatalf("account navigation did not open the managed position: %s", p.target.account)
+	}
 	beforeBlockedArchive := readBankRecord(t, gio, holdingAccount.Account.ID)
 	beforeBlockedActivity := openingActivity(t, gio, holdingAccount.Account.ID)
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
+	}
 	h.click("Archive account", false)
 	h.frame()
 	h.click("Archive account", false)

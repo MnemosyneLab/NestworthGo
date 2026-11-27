@@ -30,7 +30,8 @@ type accountSettingsDraft struct {
 	included, focusName                        bool
 	institutionPicker, groupPicker, iconPicker ui.Select
 	typePicker                                 ui.Select
-	include, save, cancel                      widget.Clickable
+	include, save, cancel, details             widget.Clickable
+	showDetails                                bool
 }
 
 type accountArchiveReview struct {
@@ -49,7 +50,8 @@ type accountMaintenance struct {
 	draft          *accountSettingsDraft
 	review         *accountArchiveReview
 	pending        <-chan accountMaintenanceResult
-	edit, archive  widget.Clickable
+	archive        widget.Clickable
+	entry          *widget.Clickable
 	focus          *widget.Clickable
 	success, issue i18n.MessageID
 }
@@ -83,10 +85,11 @@ func refValue[T ~string](value *T) string {
 	return string(*value)
 }
 
-func (m *accountMaintenance) startEdit(record domain.AccountRecord) {
+func (m *accountMaintenance) startEdit(record domain.AccountRecord, entry *widget.Clickable) {
+	m.entry = entry
 	a := record.Account
 	d := &accountSettingsDraft{
-		record: record, kind: a.AccountType, name: ui.NewTextField(true), focusName: true, institution: refValue(a.InstitutionID),
+		record: record, kind: a.AccountType, name: ui.NewTextField(true), focusName: canEditAccount(record), institution: refValue(a.InstitutionID),
 		group: refValue(a.GroupID), icon: refValue(a.IconKey), included: a.IncludeInNetWorth,
 		accountOwnershipDraft: newAccountOwnershipDraft(),
 	}
@@ -229,7 +232,7 @@ func (p *accountsPage) pollAccountMaintenance() bool {
 			m.issue = maintenanceProblem(result.err)
 			switch m.issue {
 			case i18n.AccountMaintenanceChanged:
-				m.draft = nil
+				m.draft, m.focus = nil, m.entry
 				p.read()
 			case i18n.AccountCreateInstitutionUnavailable, i18n.AccountMaintenanceGroupUnavailable, i18n.AccountCreateOwnersChanged:
 				p.read()
@@ -237,7 +240,7 @@ func (p *accountsPage) pollAccountMaintenance() bool {
 			return false
 		}
 		if result.message == i18n.AccountMaintenanceChanged {
-			m.draft, m.issue = nil, result.message
+			m.draft, m.issue, m.focus = nil, result.message, m.entry
 			p.read()
 			return false
 		}
@@ -246,7 +249,7 @@ func (p *accountsPage) pollAccountMaintenance() bool {
 			return false
 		}
 		if m.draft != nil {
-			m.focus, m.draft = &m.edit, nil
+			m.focus, m.draft = m.entry, nil
 		}
 		if p.createdID == p.target.account {
 			p.createdID = ""

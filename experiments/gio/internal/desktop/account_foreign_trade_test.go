@@ -133,7 +133,8 @@ func TestForeignTradesUseExplicitSettlementAndMatchWails(t *testing.T) {
 		t.Fatal("confirmation did not begin")
 	}
 	h.clickAt(box.Min.Add(box.Max).Div(2))
-	h.click("Back", false)
+	h.shell.pendingNavigation = &navigationRequest{step: -1}
+	h.frame()
 	if h.shell.activeRoute() != accountsRoute || !p.investment.unresolved() {
 		t.Fatal("pending trade allowed dismissal")
 	}
