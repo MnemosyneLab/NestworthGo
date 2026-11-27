@@ -52,6 +52,43 @@ func TestFrameDispatchesCheckboxPressAndPublishesItsState(t *testing.T) {
 	}
 }
 
+func TestFramePublishesRadioSelectionAndDispatchesPress(t *testing.T) {
+	var bridge frame
+	var router input.Router
+	var ops op.Ops
+	var choice widget.Clickable
+	selected := false
+	render := func(req request) element {
+		ops.Reset()
+		gtx := bridge.start(layout.Context{
+			Ops: &ops, Source: router.Source(), Constraints: layout.Exact(image.Pt(320, 240)),
+		}, req)
+		if choice.Clicked(gtx) {
+			selected = true
+		}
+		RadioButton(gtx, &choice, "Available soon", "One weekday", selected, func(gtx layout.Context) layout.Dimensions {
+			return choice.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				semantic.RadioButton.Add(gtx.Ops)
+				return testLabel(gtx, "Available soon")
+			})
+		})
+		bridge.snapshot(gtx)
+		router.Frame(gtx.Ops)
+		if len(bridge.last) != 1 {
+			t.Fatalf("expected one radio, got %+v", bridge.last)
+		}
+		return bridge.last[0]
+	}
+	before := render(request{})
+	if before.Role != radioButton || before.Name != "Available soon" || before.Help != "One weekday" ||
+		before.Selected || before.Editable || !before.Pressable || !before.Focusable {
+		t.Fatalf("wrong unselected native radio state: %+v", before)
+	}
+	if after := render(request{id: before.ID, action: press}); after.ID != before.ID || !after.Selected {
+		t.Fatalf("native press did not select the radio: %+v", after)
+	}
+}
+
 func TestFramePublishesControlsAndDispatchesNativeActions(t *testing.T) {
 	var bridge frame
 	var inputRouter input.Router

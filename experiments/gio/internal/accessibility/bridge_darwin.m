@@ -28,7 +28,7 @@
 // Must match Role and action in frame.go.
 typedef NS_ENUM(NSUInteger, NestworthAXRole) {
 	NestworthAXStaticText = 1, NestworthAXGroup, NestworthAXButton, NestworthAXPopup,
-	NestworthAXTextField, NestworthAXTextArea, NestworthAXList, NestworthAXSheet, NestworthAXCheckbox
+	NestworthAXTextField, NestworthAXTextArea, NestworthAXList, NestworthAXSheet, NestworthAXCheckbox, NestworthAXRadioButton
 };
 typedef NS_ENUM(uint8_t, NestworthAXAction) {
 	NestworthAXPress = 1, NestworthAXFocus, NestworthAXSetValue, NestworthAXSetSelection
@@ -48,6 +48,7 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 	case NestworthAXList: return NSAccessibilityListRole;
 	case NestworthAXSheet: return NSAccessibilitySheetRole;
 	case NestworthAXCheckbox: return NSAccessibilityCheckBoxRole;
+	case NestworthAXRadioButton: return NSAccessibilityRadioButtonRole;
 	default: return NSAccessibilityGroupRole;
 	}
 }
@@ -69,7 +70,7 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 - (id)accessibilityValue {
 	NSString *value = self.entry[@"Value"];
 	NSUInteger role = axNumber(self.entry, @"Role").unsignedIntegerValue;
-	if (role == NestworthAXCheckbox) {
+	if (role == NestworthAXCheckbox || role == NestworthAXRadioButton) {
 		return axNumber(self.entry, @"Selected");
 	}
 	return value.length || role == NestworthAXTextField || role == NestworthAXTextArea ? value : nil;
@@ -208,7 +209,9 @@ static NSAccessibilityRole axRole(NSUInteger role) {
 			layoutChanged = YES;
 		} else {
 			NSDictionary *previous = element.entry;
-			if (![previous[@"Value"] isEqual:entry[@"Value"]]) {
+			BOOL radioSelectionChanged = axNumber(entry, @"Role").unsignedIntegerValue == NestworthAXRadioButton &&
+				![previous[@"Selected"] isEqual:entry[@"Selected"]];
+			if (![previous[@"Value"] isEqual:entry[@"Value"]] || radioSelectionChanged) {
 				[valueChanges addObject:element];
 			}
 			if (![previous[@"SelectionStart"] isEqual:entry[@"SelectionStart"]] ||

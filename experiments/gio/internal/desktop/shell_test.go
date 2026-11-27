@@ -197,7 +197,8 @@ func semanticBounds(t *testing.T, router *input.Router, text string, field bool)
 	var find func([]input.SemanticNode) image.Rectangle
 	find = func(nodes []input.SemanticNode) image.Rectangle {
 		for _, node := range nodes {
-			if (field && node.Desc.Description == text) || (!field && (node.Desc.Class == semantic.Button || node.Desc.Class == semantic.CheckBox) && hasLabel(node)) {
+			action := node.Desc.Class == semantic.Button || node.Desc.Class == semantic.CheckBox || node.Desc.Class == semantic.RadioButton
+			if (field && node.Desc.Description == text) || (!field && action && hasLabel(node)) {
 				return node.Desc.Bounds
 			}
 			if child := find(node.Children); !child.Empty() {

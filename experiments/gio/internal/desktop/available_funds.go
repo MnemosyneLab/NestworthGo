@@ -189,13 +189,7 @@ func (p *availableFundsPage) update() {
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
-	p.openActionFocus(view)
-	if p.policy != nil {
-		p.pollPolicy()
-		if p.policy != nil {
-			return p.layoutPolicy(gtx, view)
-		}
-	}
+	p.openActionFocus(gtx, view)
 	if d := p.setup; d != nil {
 		if !d.poll() {
 			return d.layout(gtx, view, productFormCalendar{today: p.localDate, zone: p.timezone}, func() {
@@ -223,7 +217,7 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	if p.current != nil && p.request == nil && p.reservation == nil {
+	if p.current != nil && p.request == nil && p.reservation == nil && p.policy == nil {
 		switch {
 		case p.nextRefresh.IsZero():
 			p.nextRefresh = gtx.Now.Add(time.Minute)

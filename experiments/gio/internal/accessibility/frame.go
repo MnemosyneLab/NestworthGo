@@ -34,6 +34,7 @@ const (
 	list
 	sheet
 	checkbox
+	radioButton
 )
 
 type action uint8
@@ -193,6 +194,12 @@ func Checkbox(gtx layout.Context, box *widget.Bool, name string, widget layout.W
 
 func ButtonWithSelection(gtx layout.Context, click *widget.Clickable, name, value string, selected bool, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: click, role: button, name: name, value: value, button: click, selected: selected}, widget)
+}
+
+// RadioButton exposes one option in a mutually exclusive group. Its caller
+// owns the selection and keyboard navigation.
+func RadioButton(gtx layout.Context, click *widget.Clickable, name, help string, selected bool, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: radioButton, name: name, help: help, button: click, selected: selected}, widget)
 }
 
 // OptionFocus describes a picker option whose container owns keyboard events.

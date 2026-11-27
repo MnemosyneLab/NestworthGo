@@ -179,7 +179,7 @@ type navigationRequest struct {
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
-	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() {
+	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() {
 		return
 	}
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
@@ -206,11 +206,6 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		return
 	}
 	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved() || s.funds.policyUnresolved()) {
-		return
-	}
-	if request.step == -1 && s.activeRoute() == fundsRoute && s.funds.policy != nil && s.funds.policy.entry != nil {
-		s.funds.cancelPolicy(false)
-		gtx.Execute(op.InvalidateCmd{})
 		return
 	}
 	entry := s.trail.current()

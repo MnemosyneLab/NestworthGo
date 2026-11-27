@@ -222,13 +222,32 @@ func TestAvailableFundsOrdinaryPolicyResetConfirmation(t *testing.T) {
 	if p.policy.revision != 1 || p.policy.fields.advanced {
 		t.Fatalf("did not select the existing Soon quick choice: %+v", p.policy)
 	}
-	h.focused(&p.policy.fields.presets[policyNow])
-	h.press(key.NameReturn)
+	h.focused(&p.policy.fields.presets[policySoon])
+	h.press(key.NameLeftArrow)
 	settle()
+	h.focused(&p.policy.fields.presets[policyNow])
 	if current, ok := p.policy.fields.input(); !ok || selectedFundsPolicy(current) != policyNow {
 		t.Fatal("keyboard did not select the Available now quick choice")
 	}
+	largeWindow := h.size
+	h.size = image.Pt(720, 360)
+	settle()
+	h.press(key.NameTab)
+	settle()
+	h.focused(&p.policy.fields.toggle)
+	if p.policy.sheet.list.Position.Offset == 0 {
+		t.Fatal("Tab left the Advanced control below the sheet viewport")
+	}
+	h.router.Queue(key.Event{Name: key.NameTab, Modifiers: key.ModShift, State: key.Press},
+		key.Event{Name: key.NameTab, Modifiers: key.ModShift, State: key.Release})
+	settle()
+	h.focused(&p.policy.fields.presets[policyNow])
+	h.size = largeWindow
+	settle()
 	click("Available on a date")
+	h.press(key.NameTab)
+	settle()
+	h.focused(&p.policy.fields.quickUnlock.Trigger)
 	click("Save policy")
 	if p.policy == nil || p.policy.problem != i18n.FundsPolicyDateRequired || p.policy.revision != 1 {
 		t.Fatal("invalid date policy reached the ledger")

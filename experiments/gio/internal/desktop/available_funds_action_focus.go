@@ -3,13 +3,16 @@ package desktop
 import (
 	"slices"
 
+	"gioui.org/layout"
+	"gioui.org/op"
+
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *availableFundsPage) openActionFocus(view ui.View) {
+func (p *availableFundsPage) openActionFocus(gtx layout.Context, view ui.View) {
 	focus := p.actionFocus
 	if focus.kind == 0 || p.current == nil || p.request != nil {
 		return
@@ -28,6 +31,7 @@ func (p *availableFundsPage) openActionFocus(view ui.View) {
 			p.actionNotice = i18n.FundsPolicyReadOnly
 		default:
 			p.startPolicy(sources[at], p.sourceTitle(view, sources[at].Result), nil)
+			gtx.Execute(op.InvalidateCmd{})
 		}
 	case fundsActionReservations:
 		if p.reservationLedger == nil {

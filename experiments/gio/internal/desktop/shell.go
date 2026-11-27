@@ -755,7 +755,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	if fundsReservationOpen {
 		s.funds.pollReservations()
 	}
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || s.fundsPolicyConfirming() || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	if s.fundsPolicyOpen() {
+		s.funds.update()
+		s.funds.pollPolicy()
+	}
+	fundsPolicyOpen := s.fundsPolicyOpen()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -859,13 +864,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.funds.layoutReservationSheet(windowContext, view)
 		return dims
 	}
+	if fundsPolicyOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		s.funds.layoutPolicySheet(windowContext, view)
+		return dims
+	}
 	dims := background(gtx)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
 	} else if s.accountMaintenanceBlocking() && s.accounts.maintenance.review != nil {
 		s.accounts.layoutAccountArchive(windowContext, view)
-	} else if s.fundsPolicyConfirming() {
-		s.funds.layoutPolicyConfirmation(windowContext, view)
 	} else if s.returnDetailOpen() {
 		if s.returns.day != nil {
 			s.returns.layoutDay(windowContext, view)
@@ -957,8 +966,8 @@ func (s *shell) wealthDetailOpen() bool {
 	return s.activeRoute() == wealthHistoryRoute && s.wealthHistory != nil && s.wealthHistory.detail != nil
 }
 
-func (s *shell) fundsPolicyConfirming() bool {
-	return s.activeRoute() == fundsRoute && s.funds != nil && s.funds.policyConfirming()
+func (s *shell) fundsPolicyOpen() bool {
+	return s.activeRoute() == fundsRoute && s.funds != nil && s.funds.policy != nil
 }
 
 func (s *shell) assetDetailOpen() bool {
@@ -1230,6 +1239,10 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	}
 	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
 	focus := ui.PageFocus{Target: entry.focus}
+	returningFromPolicy := gtx.Enabled() && entry.target.route == fundsRoute && entry.target.product == "" && s.funds.policyFocus != nil
+	if returningFromPolicy {
+		focus.Target = s.funds.policyFocus
+	}
 	dims := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			headerView := view
@@ -1259,7 +1272,20 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 			return s.pageBody(gtx, view, body)
 		}),
 	)
-	s.finishPageFocus(gtx, focus)
+	if returningFromPolicy {
+		if s.funds.request == nil {
+			// A changed filter result can remove the original row or leave the
+			// matching chip outside the viewport. Keep the current scroll.
+			if !focus.TargetDrawn {
+				focus.Target = &s.funds.reload
+			}
+			s.funds.policyFocus = nil
+			entry.focus, s.restoreFocus = focus.Target, false
+			gtx.Execute(key.FocusCmd{Tag: focus.Target})
+		}
+	} else {
+		s.finishPageFocus(gtx, focus)
+	}
 	return dims
 }
 

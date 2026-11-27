@@ -117,6 +117,7 @@ func TestUpcomingActionLinksOpenFreshFundsTargetsAndRestoreOrigin(t *testing.T) 
 		funds.policy.revision != fresh.Revision || productString(funds.policy.fields.value.UnlockOn) != "2026-11-28" {
 		t.Fatalf("policy destination did not use the fresh account and currency: %+v", funds.policy)
 	}
+	click("Close")
 	click("Back")
 	if h.shell.activeRoute() != overviewRoute {
 		t.Fatal("back did not return to the Overview link")
