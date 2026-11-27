@@ -259,15 +259,18 @@ func TestPortfolioPositionImportSheetPreservesScrolledHoldingsAndFocus(t *testin
 	if f.draft == nil || !f.draft.contextualSheet {
 		t.Fatal("the titlebar action did not open the contextual sheet")
 	}
+	pressTab := func(modifiers key.Modifiers) {
+		h.router.Queue(input.SystemEvent{Event: key.Event{Name: key.NameTab, State: key.Press, Modifiers: modifiers}})
+		h.frame()
+	}
 	h.focused(&f.draft.selectAccount.Trigger)
-	h.press(key.NameTab)
+	pressTab(0)
 	h.focused(&f.draft.cancel)
-	h.press(key.NameTab)
+	pressTab(0)
 	h.focused(&portfolio.positionSheet.panel.close)
-	h.router.Queue(input.SystemEvent{Event: key.Event{Name: key.NameTab, State: key.Press, Modifiers: key.ModShift}})
-	h.frame()
+	pressTab(key.ModShift)
 	h.focused(&f.draft.cancel)
-	h.press(key.NameTab)
+	pressTab(0)
 	h.focused(&portfolio.positionSheet.panel.close)
 	if h.router.Source().Focused(&h.shell.railButton) {
 		t.Fatal("Tab navigation moved keyboard focus behind the import sheet")

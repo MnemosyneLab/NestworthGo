@@ -467,6 +467,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.portfolio != nil && s.portfolio.investment != nil {
 			s.portfolio.investment.onPosted = s.portfolio.positionImported
+			s.portfolio.openPostedActivity = s.historyPage.reads.open
 		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
