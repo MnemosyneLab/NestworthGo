@@ -257,6 +257,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 		}
 		if s.marketData != nil {
 			s.marketData.openHealth = func(focus *widget.Clickable) { openHealth(healthFindingFocus{}, focus) }
+			if s.historyPage != nil {
+				s.historyPage.openSnapshotHealth = func(focus event.Tag) { openHealth(healthFindingFocus{}, focus) }
+			}
 			if s.marketData.manual.service != nil {
 				s.dataHealth.openManual = s.marketData.openManualQuote
 			}
@@ -864,6 +867,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.historyPage.layoutRecord(windowContext, view)
+		return dims
+	}
+	if s.historyDetailOpen() {
+		dims := accessibility.Hidden(gtx.Disabled(), background)
+		windowContext.Locale = gtx.Locale
+		s.historyPage.layoutDetailSheet(windowContext, view)
 		return dims
 	}
 	if s.accountCreationOpen() {

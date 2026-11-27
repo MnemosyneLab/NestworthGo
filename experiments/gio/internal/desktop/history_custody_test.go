@@ -298,7 +298,7 @@ func TestLedgerCollapsedCustodyNamesAndExactQuantity(t *testing.T) {
 	h.click("Back", false)
 	h.click("Forward", false)
 	wait()
-	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY · Harbor Brokerage → Secondary custody")
+	assertPageLabel(t, &h.router, "Moved 0.62543217 QA-BUY from Harbor Brokerage to Secondary custody")
 	if page.reads.rowActions != nil || page.reads.detail != nil {
 		t.Fatal("custody names required opening the row")
 	}

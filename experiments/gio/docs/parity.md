@@ -158,6 +158,23 @@ recorded quantities and the direction of adjustments. Custody transfers
 show both readable account names. An unavailable holding reference leaves the
 other facts visible. Returning to Ledger from another page reads the references again.
 
+Historical rows open a contextual drawer over the retained list; Close and
+Escape restore the originating row and its filters and scroll. Direct links and
+post-write receipts keep their full detail route, including account, instrument
+and immutable amendment links. The list keeps its loaded count and selects All
+when the query is unbounded. It shows the History timezone and query period.
+The snapshot-health link opens the existing Data Health scan and repair page;
+it does not claim a health result or duplicate its rebuild operation on Ledger.
+
+Standalone bank-account fees with a single fee-classified cash effect use the
+same guarded correction and reversal path as eligible bank expenses. Linked
+reconciliation records, associated investment fees, tax and other unsupported
+shapes are not made eligible by that classification. An untouched ordinary cash
+draft retains its captured millisecond instant; explicitly choosing a date or
+time uses the selected local minute. List and contextual detail currency display
+respects the user's separators and retains a canonical exact value when normal
+rounding hides digits. Full receipts keep their exact amount-and-currency text.
+
 ### Reservation and grouped undo acceptance
 
 The paired macOS native run at `0df199b` started Gio and Wails from independent

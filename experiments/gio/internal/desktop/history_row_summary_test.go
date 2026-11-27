@@ -94,9 +94,9 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 	if all := findPageLabel(&h.router, "All history"); all == nil || !all.Desc.Selected {
 		t.Fatal("the unfiltered Ledger should select All history")
 	}
-	label("Money removed · A$15.00 · AUD Cash · Fee")
-	label("Cash dividend · US$12.50 · AAPL · Sample Brokerage")
-	label("Cash dividend · US$12.35 (12.3456 USD) · AAPL · Sample Brokerage")
+	label("Removed A$15.00 from AUD Cash (Fee)")
+	label("Dividend US$12.50 from AAPL into Sample Brokerage")
+	label("Dividend US$12.35 (12.3456 USD) from AAPL into Sample Brokerage")
 
 	pickAccountReference(h, "Account", "AUD Cash", "AUD Cash")
 	settle()
@@ -128,12 +128,12 @@ func TestHistoryActivitySummariesAndLocalDateShortcuts(t *testing.T) {
 	assertRange("2026-11-16", "2026-11-22")
 	click("1D")
 	assertRange("2026-11-22", "2026-11-22")
-	label("Money removed · A$15.00 · AUD Cash · Fee")
+	label("Removed A$15.00 from AUD Cash (Fee)")
 	click("View")
 	if page.reads.detail == nil || page.reads.detail.id.String() != fee.Activity.ID {
 		t.Fatal("View did not open the displayed fee")
 	}
-	click("Back to ledger activity")
+	click("Close")
 	assertRange("2026-11-22", "2026-11-22")
 	click("All history")
 	assertRange("2026-11-01", "2026-11-22")

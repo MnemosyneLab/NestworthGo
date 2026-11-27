@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
+
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -143,12 +145,12 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 	form := page.reads.detail.amendment
 	setBankField(h, "New amount · USD", &form.amount, "30")
 	click("Preview correction")
-	label("Replacement amount · 30 USD")
+	label("Replacement amount · US$30.00")
 	click("Edit amount")
 	setBankField(h, "New amount · USD", &form.amount, "40")
 	click("Preview correction")
-	label("Replacement amount · 40 USD")
-	label("Balance at original time · 1774.13 USD")
+	label("Replacement amount · US$40.00")
+	label("Balance at original time · US$1,774.13")
 	if _, err := service.CreateGroup(ctx, "Intervening synthetic change"); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +161,7 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 		t.Fatal("a stale correction wrote an activity")
 	}
 	click("Preview correction")
-	label("Balance at original time · 1774.13 USD")
+	label("Balance at original time · US$1,774.13")
 	pre := wire.FromReviewedChangePreview(form.review.Preview)
 	adapter := historyapi.NewService(reference)
 	request := historyapi.ChangeCommandRequest{Kind: historyapi.ChangeMoneyAdded, AccountID: bank.String(), Amount: "40", Currency: "USD",
@@ -177,7 +179,7 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 		t.Fatal("correction confirmation did not start")
 	}
 	h.clickAt(point)
-	h.click("Back", false)
+	h.press(key.NameEscape)
 	if page.reads.detail == nil || page.reads.detail.id != deposit || !page.amendmentUnresolved() {
 		t.Fatal("navigation escaped the unresolved confirmation")
 	}
@@ -245,8 +247,8 @@ func TestHistoryCashCorrectionAndReversalMatchWails(t *testing.T) {
 	}
 	click("Reverse activity")
 	label("Review reversal")
-	label("Reversal amount · 9 USD")
-	label("Balance after reversal · 1770.13 USD")
+	label("Reversal amount · US$9.00")
+	label("Balance after reversal · US$1,770.13")
 	click("Confirm reversal")
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
 	click("Retry same submission")

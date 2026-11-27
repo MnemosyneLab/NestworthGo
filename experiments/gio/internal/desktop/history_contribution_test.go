@@ -175,13 +175,15 @@ func TestContributionReviewRetryAndHistoryMatchWails(t *testing.T) {
 	}
 	h.click("Back to ledger activity", false)
 	finish()
-	label("Cash contribution · US$25.00 · Harbor Checking")
+	label("Added US$25.00 to Harbor Checking (Cash contribution)")
 	if len(timeline.model.Rows()) != 7 || timeline.model.Rows()[0].ID != fault.firstActivity {
 		t.Fatal("History did not reload from the first page")
 	}
 	h.click("View", false)
 	finish()
-	label("Contribution · 25 USD")
+	label("Contribution · US$25.00")
+	h.click("Close", false)
+	finish()
 	h.click("Overview", false)
 	finish()
 	label("US$1,759.13")

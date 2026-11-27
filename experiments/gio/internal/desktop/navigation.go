@@ -474,6 +474,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
+			if !entry.visited {
+				entry.historyDetail.contextual = source.target.route == historyRoute &&
+					(source.target.activity == "" && source.history.focused != "" ||
+						source.target.activity != "" && source.historyDetail.contextual && entry.target.activity != s.historyPage.reads.posted.ID)
+			}
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
 			s.historyPage.reads.detail.requested = request.historyAction
 		} else {

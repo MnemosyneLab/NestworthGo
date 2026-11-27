@@ -353,7 +353,7 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 		t.Fatal("Back lost activity selection")
 	}
 	h.focused(portfolioButton(ledger.reads.detail.instruments, full.ID))
-	click("Back to ledger activity")
+	click("Close")
 	if !ledger.model.Filters().Equal(filters) {
 		t.Fatal("Back lost instrument filter")
 	}

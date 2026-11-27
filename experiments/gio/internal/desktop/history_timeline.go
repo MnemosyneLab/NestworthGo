@@ -12,6 +12,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -36,6 +37,7 @@ type historyDetailState struct {
 	account    domain.AccountID
 	instrument domain.InstrumentID
 	linked     int
+	contextual bool
 }
 
 type historyDetailVisit struct {
@@ -59,6 +61,10 @@ type historyDetailVisit struct {
 	linked            [4]widget.Clickable
 	accounts          map[domain.AccountID]*widget.Clickable
 	instruments       map[domain.InstrumentID]*widget.Clickable
+	contextual        bool
+	sheet             analysisSheet
+	overlay           ui.Overlay
+	restoreFocus      event.Tag
 }
 
 func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickable {
@@ -69,7 +75,7 @@ func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickabl
 }
 
 func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
-	state := historyDetailState{scroll: v.scroll.Position}
+	state := historyDetailState{scroll: v.scroll.Position, contextual: v.contextual}
 	for i := range v.linked {
 		if focus == &v.linked[i] {
 			state.linked = i + 1
@@ -213,21 +219,26 @@ func (r *historyReads) leaveDetail() {
 }
 
 func (r *historyReads) enterDetail(id domain.ActivityID, state historyDetailState) event.Tag {
+	sheet := newAnalysisSheet()
+	sheet.width, sheet.modal = 680, true
+	if state.account != "" || state.instrument != "" || state.linked > 0 {
+		sheet.focus = false
+	}
 	r.detail = &historyDetailVisit{id: id,
 		scroll:      widget.List{List: layout.List{Axis: layout.Vertical, Position: state.scroll}},
 		accounts:    make(map[domain.AccountID]*widget.Clickable),
-		instruments: make(map[domain.InstrumentID]*widget.Clickable)}
+		instruments: make(map[domain.InstrumentID]*widget.Clickable), contextual: state.contextual, sheet: sheet}
 	r.loadDetail()
 	if state.account != "" {
-		return r.detail.accountButton(state.account)
+		r.detail.restoreFocus = r.detail.accountButton(state.account)
 	}
 	if state.instrument != "" {
-		return portfolioButton(r.detail.instruments, state.instrument)
+		r.detail.restoreFocus = portfolioButton(r.detail.instruments, state.instrument)
 	}
 	if state.linked > 0 {
-		return &r.detail.linked[state.linked-1]
+		r.detail.restoreFocus = &r.detail.linked[state.linked-1]
 	}
-	return nil
+	return r.detail.restoreFocus
 }
 
 func (r *historyReads) loadDetail() {

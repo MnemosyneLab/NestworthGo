@@ -149,9 +149,9 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 	setBankField(h, "Received amount · EUR", &form.received, changed.Received)
 	setBankField(h, "Fee (optional) · USD", &form.fee, changed.Fee)
 	click("Preview correction")
-	label("Sent from Harbor Checking · 62.5 USD")
-	label("Received by Cash Studio · 49.25 EUR")
-	label("Fee paid by Harbor Checking · 1.5 USD")
+	label("Sent from Harbor Checking · US$62.50")
+	label("Received by Cash Studio · €49.25")
+	label("Fee paid by Harbor Checking · US$1.50")
 	preview := form.review.Preview
 	click("Confirm correction")
 	label("Correction saved. Historical snapshots could not refresh.")
@@ -168,8 +168,8 @@ func TestHistoryPairedCashAmendmentsMatchWails(t *testing.T) {
 		assertAmendmentAttribution(t, app, "2026-11-21", "12.3", "-1.6", "-3.25")
 	}
 	click("Reverse activity")
-	label("Cash Studio · Removed 49.25 EUR")
-	label("Harbor Checking · Added 1.5 USD · Fee reversed")
+	label("Cash Studio · Removed €49.25")
+	label("Harbor Checking · Added US$1.50 · Fee reversed")
 	click("Confirm reversal")
 	label("Posting could not be confirmed. Retry the same submission to check its result.")
 	click("Retry same submission")

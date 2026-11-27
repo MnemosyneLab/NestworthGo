@@ -1191,6 +1191,10 @@ const (
 	OnboardingDateInvalid
 
 	HistoryCount
+	HistoryQueryRange
+	HistoryQueryAllDates
+	HistoryChangeDelta
+	HistorySnapshotHealth
 	HistoryLoading
 	HistoryLoadError
 	HistoryRetry

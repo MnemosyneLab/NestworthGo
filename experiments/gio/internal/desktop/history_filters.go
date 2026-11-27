@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"image"
 	"strings"
 	"time"
@@ -186,8 +187,16 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(ui.Space16), gtx.Dp(ui.Space16)))
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+					return historyFilterGrid.Layout(gtx, view, 3, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 						return pickers[i](gtx, view.Origin)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					columns := historyFilterGrid.Columns(gtx, gtx.Constraints.Max.X, 3)
+					rows := (3 + columns - 1) / columns
+					view.Origin.Y += rows * gtx.Dp(ui.PickerHeight+ui.Space8)
+					return historyDateFilterGrid.Layout(gtx, view, 3, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+						return pickers[i+3](gtx, view.Origin)
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -206,6 +215,21 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 						p.applyFilters(gtx, next)
 					})
 				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					period := l.Text(i18n.HistoryQueryAllDates)
+					if filters.From != "" || filters.To != "" {
+						from, to := filters.From, filters.To
+						if from == "" {
+							from = first
+						}
+						if to == "" {
+							to = today
+						}
+						period = historyDay(view, from) + " – " + historyDay(view, to)
+					}
+					text := fmt.Sprintf(l.Text(i18n.ContributionTimezone), refs.Origin.Timezone) + " · " + fmt.Sprintf(l.Text(i18n.HistoryQueryRange), period)
+					return view.Message(text, view.Colors.SecondaryInk)(gtx)
+				}),
 			)
 		})
 	})
@@ -213,4 +237,5 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 
 // historyFilterGrid flows the six filter cells into three columns on a wide
 // page, two on a medium one and one on a narrow one.
-var historyFilterGrid = ui.Grid{MinColumn: 180, Gap: ui.Space8, MaxColumns: 3, Balanced: true}
+var historyFilterGrid = ui.Grid{MinColumn: 260, Gap: ui.Space8, MaxColumns: 3, Balanced: true}
+var historyDateFilterGrid = ui.Grid{MinColumn: 180, Gap: ui.Space8, MaxColumns: 3, Balanced: true}
