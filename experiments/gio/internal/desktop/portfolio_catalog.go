@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -200,7 +203,7 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 	}
 	query := normalizeDirectoryQuery(c.search.Field.Text())
 	grouped := make(map[domain.InstrumentType][]domain.Instrument)
-	for _, item := range catalog.instruments {
+	for _, item := range sortPortfolioCatalogInstruments(catalog.instruments, l) {
 		if catalogMatches(item, query) {
 			grouped[item.Type] = append(grouped[item.Type], item)
 		}
@@ -224,6 +227,35 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 		return []layout.Widget{emptyState(view, l.Text(label))}
 	}
 	return rows
+}
+
+// Wails groups by domain type, then sorts each group by quote currency and
+// display label. Sorting the flattened slice first produces the same ordering
+// while retaining the existing type-section layout.
+func sortPortfolioCatalogInstruments(items []domain.Instrument, locale i18n.Language) []domain.Instrument {
+	result := slices.Clone(items)
+	types := domain.AllInstrumentTypes()
+	col := collate.New(language.Make(string(locale)))
+	slices.SortStableFunc(result, func(a, b domain.Instrument) int {
+		aType, bType := slices.Index(types, a.Type), slices.Index(types, b.Type)
+		if aType < 0 {
+			aType = len(types)
+		}
+		if bType < 0 {
+			bType = len(types)
+		}
+		if order := cmp.Compare(aType, bType); order != 0 {
+			return order
+		}
+		if a.Type != b.Type {
+			return col.CompareString(string(a.Type), string(b.Type))
+		}
+		if order := col.CompareString(a.QuoteCurrency.String(), b.QuoteCurrency.String()); order != 0 {
+			return order
+		}
+		return col.CompareString(a.DisplayLabel(), b.DisplayLabel())
+	})
+	return result
 }
 
 func catalogMatches(item domain.Instrument, query string) bool {

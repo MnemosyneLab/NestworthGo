@@ -13,6 +13,43 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
+func TestPortfolioCatalogSortMatchesWailsTypeCurrencyAndLabelOrder(t *testing.T) {
+	stringValue := func(value string) *string { return &value }
+	items := []domain.Instrument{
+		{ID: domain.InstrumentID("stock-usd-beta"), Type: domain.InstrumentStock, QuoteCurrency: "USD", Name: "Beta fund", ShortName: "Beta"},
+		{ID: domain.InstrumentID("fund-usd"), Type: domain.InstrumentETF, QuoteCurrency: "USD", Name: "Fund"},
+		{ID: domain.InstrumentID("stock-eur-zulu"), Type: domain.InstrumentStock, QuoteCurrency: "EUR", Name: "Zulu", Symbol: stringValue("ZULU")},
+		{ID: domain.InstrumentID("stock-usd-alpha"), Type: domain.InstrumentStock, QuoteCurrency: "USD", Name: "Alpha", Symbol: stringValue("ALPHA")},
+	}
+
+	got := sortPortfolioCatalogInstruments(items, i18n.Language(settings.LanguageEnglish))
+	ids := make([]string, len(got))
+	for index, item := range got {
+		ids[index] = item.ID.String()
+	}
+	want := []string{"stock-eur-zulu", "stock-usd-alpha", "stock-usd-beta", "fund-usd"}
+	if !slices.Equal(ids, want) {
+		t.Fatalf("catalog order = %v, want Wails type/currency/display-label order %v", ids, want)
+	}
+}
+
+func TestPortfolioCatalogSearchUsesWailsIdentityFields(t *testing.T) {
+	stringValue := func(value string) *string { return &value }
+	item := domain.Instrument{
+		Name: "Issuer full name", ShortName: "Short label", Type: domain.InstrumentStock, QuoteCurrency: "USD",
+		Symbol: stringValue("SYM"), ISIN: stringValue("US0123456789"), MarketCode: stringValue("NASDAQ"),
+		ProviderSymbol: stringValue("SYM.NASDAQ"), ProviderKey: stringValue("yahoo"),
+	}
+	for _, query := range []string{"short label", "issuer full name", "sym", "us0123456789", "nasdaq", "sym.nasdaq", "usd"} {
+		if !catalogMatches(item, normalizeDirectoryQuery(query)) {
+			t.Errorf("catalog search %q did not match an identity field used by Wails", query)
+		}
+	}
+	if catalogMatches(item, normalizeDirectoryQuery("yahoo")) {
+		t.Fatal("catalog search should not match provider key, which Wails does not search")
+	}
+}
+
 func TestPortfolioCatalogRequestedEditorUsesCurrentInstrument(t *testing.T) {
 	ctx := t.Context()
 	service, _, _, _ := openPortfolioFixture(t, "partial")
