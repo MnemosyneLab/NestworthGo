@@ -24,7 +24,7 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 		for i := range s.trail.recent {
 			choices = append(choices, ui.Choice{ID: strconv.Itoa(i), Label: s.visitLabel(view.Language, &s.trail.recent[i])})
 		}
-		y := (gtx.Dp(headerHeight) - size.Y) / 2
+		y := s.chrome.top + (s.chrome.height-s.chrome.top-size.Y)/2
 		bounds := image.Rectangle{Min: image.Pt(anchorX, y), Max: image.Pt(anchorX+size.X, y+size.Y)}
 		previous := &s.forward
 		if s.trail.adjacent(1) == nil {

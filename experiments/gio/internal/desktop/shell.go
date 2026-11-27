@@ -135,6 +135,8 @@ type shell struct {
 	wideCollapsed, narrowExpanded, narrow bool
 	overlay                               ui.Overlay
 	motion                                ui.Motion
+	titlebar                              titlebarMetrics
+	chrome                                titlebarLayout
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
@@ -773,6 +775,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 			s.wideCollapsed = !s.wideCollapsed
 		}
 	}
+	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth())
+	if !gtx.Enabled() {
+		s.chrome.drag = [2]image.Rectangle{}
+	}
 	gtx.Locale.Language = string(s.preferences.language)
 	colors := s.preferences.colors()
 	s.theme.Palette = material.Palette{
@@ -1112,9 +1118,14 @@ func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
 	size := image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect{Max: size}.Op())
-	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, 0, size.X, size.Y)).Op())
+	dividerTop := 0
+	if s.chrome.split > s.chrome.sidebar {
+		dividerTop = s.chrome.height
+	}
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, dividerTop, size.X, size.Y)).Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarTitlebar(gtx, view) }),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarBrand(gtx, view) }),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Inset{Left: 12, Right: 12, Top: 4, Bottom: 12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -1259,7 +1270,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 	if entry.target.product != "" {
 		body = s.funds.productPage.layout
 	}
-	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Dp(headerHeight))
+	view.Origin = image.Pt(gtx.Dp(s.sidebarWidth()), s.chrome.height)
 	focus := ui.PageFocus{Target: entry.focus}
 	returningFromPolicy := gtx.Enabled() && entry.target.route == fundsRoute && entry.target.product == "" && s.funds.policyFocus != nil
 	if returningFromPolicy {
@@ -1324,43 +1335,45 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	recordView := view
 	view.Focus = nil
 	colors := view.Colors
-	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(headerHeight))
+	size := image.Pt(gtx.Constraints.Max.X, s.chrome.height)
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
-	return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		gtx.Constraints.Min.Y = 0
-		return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			gap := gtx.Dp(2)
-			x := view.Origin.X + gtx.Dp(20)
-			direction := func(step int) layout.Widget {
-				return func(gtx layout.Context) layout.Dimensions {
-					dims := s.navigationButton(gtx, view, step)
-					x += dims.Size.X + gap
-					return dims
+	return s.layoutHeaderChrome(gtx, view, func(gtx layout.Context) layout.Dimensions {
+		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.Y = 0
+			return layout.Inset{Left: 20, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gap := gtx.Dp(2)
+				x := s.chrome.split + gtx.Dp(20)
+				direction := func(step int) layout.Widget {
+					return func(gtx layout.Context) layout.Dimensions {
+						dims := s.navigationButton(gtx, view, step)
+						x += dims.Size.X + gap
+						return dims
+					}
 				}
-			}
-			return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
-				layout.Rigid(direction(-1)),
-				layout.Rigid(direction(1)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
-				layout.Rigid(layout.Spacer{Width: 10}.Layout),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					for {
-						if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
-							break
+				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
+					layout.Rigid(direction(-1)),
+					layout.Rigid(direction(1)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
+					layout.Rigid(layout.Spacer{Width: 10}.Layout),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						for {
+							if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
+								break
+							}
 						}
-					}
-					defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-					event.Op(gtx.Ops, &s.headingFocus)
-					return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if s.activeRoute() == historyRoute && s.historyPage.canRecord() {
-						return s.historyPage.layoutRecordTrigger(gtx, recordView)
-					}
-					return layout.Dimensions{}
-				}),
-			)
+						defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+						event.Op(gtx.Ops, &s.headingFocus)
+						return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if s.activeRoute() == historyRoute && s.historyPage.canRecord() {
+							return s.historyPage.layoutRecordTrigger(gtx, recordView)
+						}
+						return layout.Dimensions{}
+					}),
+				)
+			})
 		})
 	})
 }

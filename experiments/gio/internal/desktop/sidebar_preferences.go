@@ -104,7 +104,9 @@ func (s *shell) sidebarBrand(gtx layout.Context, view ui.View) layout.Dimensions
 				})
 			}))
 		}
-		parts = append(parts, layout.Rigid(toggle))
+		if !s.titlebar.active {
+			parts = append(parts, layout.Rigid(toggle))
+		}
 		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: axis, Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, parts...)
 		})

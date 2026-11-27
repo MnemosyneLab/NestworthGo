@@ -148,6 +148,8 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 		}
 	}()
 
+	chrome := newNativeTitlebar(window)
+	defer chrome.Close()
 	ax := accessibility.New(window)
 	defer ax.Close()
 	var ops op.Ops
@@ -157,7 +159,9 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 			return event.Err
 		case app.ViewEvent:
 			ax.View(event)
+			chrome.View(event)
 		case app.ConfigEvent:
+			chrome.Config()
 			if !event.Config.Focused && s.overlay.Trigger != nil {
 				s.overlay.Close()
 				window.Invalidate()
@@ -175,7 +179,10 @@ func (s *shell) run(window *app.Window, prefs *preferences.Service) error {
 				pending <- size
 			}
 			gtx := ax.Begin(app.NewContext(&ops, event))
+			s.titlebar = chrome.Metrics()
 			s.layout(gtx)
+			// Queue the native hit regions before releasing this frame to AppKit.
+			chrome.Publish(s.onboarding == nil, s.preferences.dark, event.Size, event.Metric, s.titlebarDrags())
 			event.Frame(gtx.Ops)
 			ax.Publish(gtx)
 		}
