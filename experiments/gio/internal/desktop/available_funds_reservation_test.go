@@ -271,6 +271,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	}
 	reopened, _ := reopenBaselineProfile(t, paths)
 	reopened.SetClock(func() time.Time { return accountTestClock })
+	initialActivities[reopened] = initialActivities[app]
 	parity(reopened)
 	checkState(reopened, ids.bank, before, "40.125", "40.125", "85.3071", "0")
 	checkState(reference, ref.bank, refBefore, "40.125", "40.125", "85.3071", "0")

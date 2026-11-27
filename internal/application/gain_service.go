@@ -845,7 +845,10 @@ func (g *GainService) acquisitionFXRatio(ctx context.Context, snapshot domain.Po
 			return nil, false, err
 		}
 		effectiveAt := event.EffectiveAt
-		if event.Kind == domain.CostBasisStartingPoint && effectiveAt.IsZero() && origin != nil {
+		if event.Kind == domain.CostBasisStartingPoint && effectiveAt.IsZero() {
+			if origin == nil {
+				return nil, false, missingHistoryOrigin()
+			}
 			effectiveAt = origin.StartedAt
 		}
 		switch event.Kind {
