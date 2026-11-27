@@ -29,6 +29,7 @@ type previewHarness struct {
 	ops     op.Ops
 	now     time.Time
 	size    image.Point
+	drawn   image.Point
 	// scale is the pixel density used by frame; zero means one pixel per dp.
 	scale float32
 }
@@ -59,6 +60,7 @@ func newPreviewHarness(t *testing.T) *previewHarness {
 }
 
 func (h *previewHarness) frame() {
+	h.drawn = h.size
 	h.ops.Reset()
 	h.now = h.now.Add(time.Second / 60)
 	h.shell.layout(layout.Context{
@@ -82,18 +84,35 @@ func (h *previewHarness) click(label string, field bool) {
 	h.clickAt(bounds.Min.Add(bounds.Max).Div(2))
 }
 
+func (h *previewHarness) assertTitlebarAction(label string) {
+	h.t.Helper()
+	bounds := semanticBounds(h.t, &h.router, label, false)
+	if bounds.Empty() || bounds.Min.X < h.shell.chrome.split || bounds.Min.Y < 0 || bounds.Max.Y > h.shell.chrome.height {
+		h.t.Fatalf("%q is outside the titlebar: %v", label, bounds)
+	}
+}
+
 // revealed returns a control's bounds after scrolling the page when the control
 // is page content that lies below the window or under the page header, so a
 // click lands where a person could reach it. Header, sidebar and dialog
 // controls are never scrolled, and a page that fits the window stays put.
 func (h *previewHarness) revealed(label string, field bool) image.Rectangle {
 	h.t.Helper()
+	if h.drawn != h.size {
+		h.frame()
+	}
 	top := headerHeight + 8
 	hidden := func(bounds image.Rectangle) bool {
 		return bounds.Max.Y > h.size.Y || bounds.Min.Y < top
 	}
 	bounds := semanticBounds(h.t, &h.router, label, field)
-	if !hidden(bounds) || !h.inPage(label, field) {
+	center := h.shell.chrome.height / 2
+	if h.shell.titlebar.active {
+		center = h.shell.chrome.center
+	}
+	inHeader := !field && absTitlebarPixel(bounds.Min.Y+bounds.Dy()/2-center) <= 1 &&
+		bounds.Min.Y >= 0 && bounds.Max.Y <= h.shell.chrome.height
+	if inHeader || !hidden(bounds) || !h.inPage(label, field) {
 		return bounds
 	}
 	for range 40 {

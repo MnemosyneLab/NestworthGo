@@ -60,6 +60,7 @@ func TestAccountTypeChooserLeadsToTheDetailsForm(t *testing.T) {
 		t.Fatal("the fixture did not scroll the filtered account list")
 	}
 
+	h.assertTitlebarAction("Add account")
 	h.click("Add account", false)
 	finish()
 	if p.creation.chooser == nil || p.creation.draft != nil {

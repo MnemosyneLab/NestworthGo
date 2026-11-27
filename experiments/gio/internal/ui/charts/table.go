@@ -102,3 +102,33 @@ func (s DonutSpec) Table(labels TableLabels) Table {
 	}
 	return table
 }
+
+// Table lists every bar, including unavailable values.
+func (s BarSpec) Table(labels TableLabels) Table {
+	return itemTable(labels, s.Rows())
+}
+
+// Table lists every waterfall step, including totals and gaps.
+func (s WaterfallSpec) Table(labels TableLabels) Table {
+	return itemTable(labels, s.Rows())
+}
+
+// Table lists every node and link, including links omitted from the plot.
+func (s SankeySpec) Table(labels TableLabels) Table {
+	return itemTable(labels, s.Rows())
+}
+
+func itemTable(labels TableLabels, rows []TextRow) Table {
+	table := Table{Columns: []TableColumn{{Title: labels.Category, Wrap: true}, {Title: labels.Amount, Numeric: true}}, Selected: NoRow}
+	for i, row := range rows {
+		label := row.Label
+		if len(row.Detail) > 0 {
+			label += "\n" + strings.Join(row.Detail, " · ")
+		}
+		table.Rows = append(table.Rows, []string{label, row.Value})
+		if row.Selected {
+			table.Selected = i
+		}
+	}
+	return table
+}

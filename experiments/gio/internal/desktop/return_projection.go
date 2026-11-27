@@ -79,15 +79,11 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 	width := gtx.Constraints.Max.X
 	options := p.projectionOptions(gtx, view)
 	offset := options.Size.Y + gtx.Dp(10)
-	if p.reload.Clicked(gtx) && p.request == nil {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.readMonth(p.month, p.sunday)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	body := ui.Place(gtx, view, image.Pt(0, offset), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-		label := i18n.HistoryRefresh
-		if p.err != nil {
-			label = i18n.HistoryRetry
-		}
 		status := i18n.NoMessage
 		switch {
 		case !p.filters.selection.ready():
@@ -102,7 +98,7 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 		case p.current == nil || p.current.summaryFrom > p.current.summaryTo:
 			status = i18n.ReturnNoClosedDays
 		}
-		rows := []ui.ColumnChild{ui.Rigid(returnMonthButton(view, &p.reload, label, nil, true))}
+		var rows []ui.ColumnChild
 		if p.tab == returnTrendTab {
 			hint := i18n.ReturnTrendModeHint
 			if p.output.trendDisplay() == application.ReturnTrendLinkedRate {
@@ -118,8 +114,11 @@ func (p *returnAnalysisPage) layoutProjection(gtx layout.Context, view ui.View) 
 				ink = view.Colors.ErrorInk
 			}
 			rows = append(rows, ui.Rigid(view.Message(l.Text(status), ink)))
-			if status == i18n.ReturnFailed && p.current != nil {
-				rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))
+			if status == i18n.ReturnFailed {
+				rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, true)))
+				if p.current != nil {
+					rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))
+				}
 			}
 		}
 		if p.current != nil {
@@ -250,16 +249,23 @@ func returnTrendSummary(view ui.View, trend application.ReturnTrendResult, basis
 	if trend.Amount != nil && trend.Status == domain.CompletenessPartial {
 		amount += " · " + l.Text(i18n.OverviewKnownSubtotal)
 	}
-	values := [...]string{amount, returnRate(view, trend.Rate)}
-	fields := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate}
+	fields := [...]struct {
+		label i18n.MessageID
+		value string
+		style ui.TextStyle
+	}{
+		{i18n.ReturnAmount, amount, ui.TextMoneyMD},
+		{i18n.ReturnRate, returnRate(view, trend.Rate), ui.TextMetricMD},
+	}
 	figures := func(gtx layout.Context) layout.Dimensions {
 		return (ui.Grid{MinColumn: 140, Gap: ui.Space12, MaxColumns: 2}).Layout(gtx, view, len(fields),
 			func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-				name := l.Text(fields[i])
-				return semanticRow(gtx, name+" · "+values[i], func(gtx layout.Context) layout.Dimensions {
+				figure := fields[i]
+				name := l.Text(figure.label)
+				return semanticRow(gtx, name+" · "+figure.value, func(gtx layout.Context) layout.Dimensions {
 					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
 						ui.Rigid(view.Body(ui.TextCaption, name, view.Colors.SecondaryInk)),
-						ui.Rigid(summaryFigure(view, values[i], view.Colors.Ink)),
+						ui.Rigid(summaryFigure(view, figure.style, figure.value, view.Colors.Ink)),
 					)
 				})
 			})

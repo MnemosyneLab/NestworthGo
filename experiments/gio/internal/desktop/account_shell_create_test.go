@@ -293,7 +293,7 @@ func TestAccountShellRejectsInvalidRequestsAndShowsMissingValuation(t *testing.T
 	if _, err := session.DB.SQL.ExecContext(ctx, "DELETE FROM account_values WHERE account_id = ?", id.String()); err != nil {
 		t.Fatal(err)
 	}
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
 	finish()
 	assertPageLabel(t, &h.router, "AUD value unavailable")
 	value := p.current.rows[0].value

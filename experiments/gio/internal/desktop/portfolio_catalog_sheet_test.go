@@ -115,6 +115,7 @@ func TestPortfolioCatalogSheetPreservesFilteredListAndWritesOnlyOnSave(t *testin
 		}
 	}
 
+	h.assertTitlebarAction("Add instrument")
 	click("Add instrument")
 	add := assertSheet("Add instrument")
 	h.focused(&add.fields[portfolioInstrumentName].Editor)

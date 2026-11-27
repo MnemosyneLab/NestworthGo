@@ -116,14 +116,17 @@ func (f *overviewFunds) card(view ui.View) layout.Widget {
 			}
 			return (ui.Column{Gap: ui.Space12}).Layout(gtx, ui.Rigid(first), ui.Rigid(month))
 		}, caption(i18n.OverviewFundsPriceHint))
-		if f.open != nil {
-			label := l.Text(i18n.OverviewOpenFunds)
-			fields = append(fields, view.Hairline, func(gtx layout.Context) layout.Dimensions {
-				return layout.E.Layout(gtx, f.link(view, &f.detail, label, label, ""))
-			})
+	}
+	header := view.Body(ui.TextHeading, l.Text(i18n.NavAvailableFunds), view.Colors.Ink)
+	if f.current != nil && f.open != nil {
+		title := header
+		label := l.Text(i18n.OverviewOpenFunds)
+		header = func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Flexed(1, title), layout.Rigid(f.link(view, &f.detail, label, label, "")))
 		}
 	}
-	return fundsCard(view, l.Text(i18n.NavAvailableFunds), fields...)
+	return fundsCardWithHeader(view, header, fields...)
 }
 
 func (f *overviewFunds) horizon(view ui.View, day string, title i18n.MessageID, rules *widget.Clickable) layout.Widget {
@@ -163,8 +166,14 @@ func (f *overviewFunds) horizon(view ui.View, day string, title i18n.MessageID, 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-			ui.Rigid(view.Body(ui.TextLabel, titleText, view.Colors.SecondaryInk)),
-			ui.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return (ui.Wrap{Gap: ui.Space6, Middle: true}).Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
+					if i == 0 {
+						return view.Body(ui.TextLabel, titleText, view.Colors.SecondaryInk)(gtx)
+					}
+					return view.Badge(gtx, tone, l.Text(status))
+				})
+			}),
 			ui.Rigid(view.Body(ui.TextMoneyMD, display, view.Colors.Ink)),
 			ui.Rigid(view.Body(ui.TextCaption, l.Text(hint), view.Colors.SecondaryInk)),
 			ui.Rigid(rulesLine))

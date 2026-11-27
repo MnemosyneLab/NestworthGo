@@ -30,10 +30,7 @@ type textBlock struct {
 }
 
 func (b textBlock) label(view ui.View) material.LabelStyle {
-	label := material.Label(view.Theme, b.style.Size, b.content)
-	label.Color = b.ink
-	label.Font.Weight = b.style.Weight
-	label.LineHeightScale = b.style.LineHeight
+	label := view.TextLabelStyle(b.style, b.content, b.ink)
 	label.MaxLines = b.maxLines
 	label.Alignment = b.align
 	label.Truncator = truncator

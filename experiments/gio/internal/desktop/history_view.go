@@ -20,16 +20,16 @@ import (
 )
 
 type historyPage struct {
-	model                                 *history.Model
-	list                                  widget.List
-	reloadButton, retryButton, moreButton widget.Clickable
-	filter                                historyFilterControls
-	cashMovements                         *historyCashMovements
-	investment                            *accountInvestment
-	record                                historyRecordSheet
-	reads                                 *historyReads
-	bound, revision                       uint64
-	onPosted                              func()
+	model                   *history.Model
+	list                    widget.List
+	retryButton, moreButton widget.Clickable
+	filter                  historyFilterControls
+	cashMovements           *historyCashMovements
+	investment              *accountInvestment
+	record                  historyRecordSheet
+	reads                   *historyReads
+	bound, revision         uint64
+	onPosted                func()
 }
 
 func newHistoryPage(model *history.Model) *historyPage {
@@ -78,12 +78,6 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return p.layoutDetail(gtx, view)
 		}
 	}
-	if p.reloadButton.Clicked(gtx) {
-		p.model.Reload()
-		if p.reads != nil {
-			p.reads.loadReferences()
-		}
-	}
 	if p.retryButton.Clicked(gtx) {
 		p.model.Retry()
 	}
@@ -108,15 +102,6 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view ui.View) layout.Di
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
 					}
 					return layout.Dimensions{}
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.model.Err() != nil && len(p.model.Rows()) == 0 {
-						return layout.Dimensions{}
-					}
-					if p.model.Loading() {
-						gtx = gtx.Disabled()
-					}
-					return view.Button(&p.reloadButton, view.Language.Text(i18n.HistoryRefresh))(gtx)
 				}),
 			)
 		}),

@@ -35,18 +35,15 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		return ui.Column{Gap: 10}.Layout(gtx,
 			ui.Rigid(view.Message(l.Text(status), ink)),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-				label := i18n.HistoryRefresh
-				if p.err != nil {
-					label = i18n.HistoryRetry
+				if p.err == nil || p.originRead != nil {
+					return layout.Dimensions{}
 				}
-				if p.originRead != nil {
-					gtx = gtx.Disabled()
-				} else if p.load.Clicked(gtx) {
+				if p.load.Clicked(gtx) {
 					p.readOrigin()
 					gtx.Execute(op.InvalidateCmd{})
 				}
 				view.Focus.Watch(gtx, &p.load)
-				return view.Button(&p.load, l.Text(label))(gtx)
+				return view.Button(&p.load, l.Text(i18n.HistoryRetry))(gtx)
 			}),
 		)
 	}
@@ -86,7 +83,7 @@ func (p *wealthHistoryPage) layout(gtx layout.Context, view ui.View) layout.Dime
 			case p.err != nil && p.draft == p.requested:
 				label = i18n.HistoryRetry
 			case p.current != nil && p.draft == p.current.rangeRead:
-				label = i18n.HistoryRefresh
+				label = i18n.WealthHistoryRefreshRange
 			}
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

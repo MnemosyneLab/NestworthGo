@@ -54,16 +54,23 @@ func (v View) LineEnd(gtx layout.Context, style TextStyle, content string, fg co
 }
 
 func (v View) styled(gtx layout.Context, style TextStyle, content string, fg color.NRGBA, maxLines int, alignment text.Alignment) layout.Dimensions {
+	label := v.TextLabelStyle(style, content, fg)
+	label.MaxLines = maxLines
+	label.Alignment = alignment
+	return v.layoutText(gtx, label)
+}
+
+// TextLabelStyle supplies the shared typography to layouts that position
+// their own labels, such as charts.
+func (v View) TextLabelStyle(style TextStyle, content string, fg color.NRGBA) material.LabelStyle {
 	label := material.Label(v.Theme, style.Size, content)
 	label.Color = fg
 	label.Font.Weight = faceWeight(style.Weight, content)
 	label.LineHeightScale = style.LineHeight
-	label.MaxLines = maxLines
-	label.Alignment = alignment
 	if style.Serif {
 		label.Font.Typeface = systemTypeface(serifTypeface)
 	}
-	return label.Layout(gtx)
+	return label
 }
 
 // faceWeight maps a semibold request to bold when the text has non-Latin

@@ -2,7 +2,6 @@ import { ordinaryInstrument } from "@/lib/instrumentEligibility";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,7 +108,7 @@ export function HoldingsTab({ onOpenAccount, active = true, draftRequest }: { on
         actions={
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger className={buttonVariants({ size: "sm" })}>
-              <Plus className="size-4" aria-hidden="true" /> {t(origin.data ? "investmentAssets.recordExisting" : "portfolio.addHolding")}
+              {t(origin.data ? "investmentAssets.recordExisting" : "portfolio.addHolding")}
             </SheetTrigger>
             <SheetContent className="overflow-y-auto overscroll-contain">
               <SheetHeader>

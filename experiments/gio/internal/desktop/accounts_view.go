@@ -133,7 +133,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.open(navigationTarget{route: accountsRoute}, "", &p.clear)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.reload.Clicked(gtx) {
+	if p.err != nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
 	if p.archiveFilter.Clicked(gtx) && !detail && p.request == nil && !p.invalid {
@@ -142,17 +142,14 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			reload := func(gtx layout.Context) layout.Dimensions {
-				label := i18n.HistoryRefresh
-				if p.err != nil {
-					label = i18n.HistoryRetry
-				}
+				label := l.Text(i18n.HistoryRetry)
 				if p.request != nil {
 					gtx = gtx.Disabled()
 				}
 				if detail {
-					return view.ButtonOf(&p.reload, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(label)})(gtx)
+					return view.ButtonOf(&p.reload, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: label})(gtx)
 				}
-				return view.Button(&p.reload, l.Text(label))(gtx)
+				return view.Button(&p.reload, label)(gtx)
 			}
 			var left, right []layout.Widget
 			if detail {
@@ -162,9 +159,6 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.AccountBack)})(gtx)
 				})
 				if row := p.freshDetail(); row != nil {
-					if record := p.detailRecordButton(view, row.record.Account); record != nil {
-						right = append(right, record)
-					}
 					right = append(right, p.detailAnalysisActions(view, row.record.Account)...)
 				}
 				right = append(right, p.accountMaintenanceActions(gtx, view)...)
@@ -174,26 +168,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					right = append(right, returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false))
 				}
 			} else {
-				primary := true
-				add := func(button *widget.Clickable, id i18n.MessageID) {
-					draw := view.Button(button, l.Text(id))
-					if primary {
-						draw = view.PrimaryButton(button, l.Text(id))
-						primary = false
-					}
-					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						if p.focusCreate == button && gtx.Enabled() {
-							gtx.Execute(key.FocusCmd{Tag: button})
-							p.focusCreate = nil
-						}
-						return draw(gtx)
-					})
-				}
 				if p.canCreateBankAccount() {
-					add(&p.createBank, i18n.AccountCreateAdd)
-					add(&p.createShell, i18n.AccountCreateShellAdd)
-				} else if p.canCreateUnscoped() {
-					add(&p.createAccount, i18n.AccountAddEntry)
+					left = append(left, p.createAction(view, &p.createShell, i18n.AccountCreateShellAdd, false))
 				}
 				if p.target.institution != "" {
 					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearInstitution)))
@@ -217,7 +193,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					})
 				}
 			}
-			if !p.invalid {
+			if !p.invalid && p.err != nil {
 				right = append(right, reload)
 			}
 			if detail {
@@ -374,6 +350,7 @@ func (p *accountsPage) groupHeading(gtx layout.Context, view ui.View, row accoun
 }
 
 func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row accountRow, first, last bool) layout.Dimensions {
+	view = view.WithoutTextSelection()
 	account := row.record.Account
 	amounts := accountAmountLines(view, row, true)
 	labels := make([]string, len(amounts))

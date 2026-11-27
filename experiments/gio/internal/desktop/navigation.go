@@ -733,7 +733,14 @@ func (s *shell) navigationButton(gtx layout.Context, view ui.View, step int) lay
 	if step > 0 {
 		icon = navigationForwardIcon
 	}
-	dims := view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Name: name, ShortName: title, Icon: icon})(gtx)
+	size := ui.ButtonDefault
+	if s.titlebar.active {
+		size, icon = ui.ButtonSmall, lucide.ChevronLeft
+		if step > 0 {
+			icon = lucide.ChevronRight
+		}
+	}
+	dims := view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: size, Name: name, ShortName: title, Icon: icon})(gtx)
 	gtx.Constraints = layout.Exact(dims.Size)
 	hint.Layout(gtx, view, button.Hovered(), name)
 	return dims

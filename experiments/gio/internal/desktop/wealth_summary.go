@@ -83,6 +83,9 @@ func wealthAccountSummary(view ui.View, result application.HistoricalOverviewRes
 
 func wealthSummaryFigure(view ui.View, label i18n.MessageID, date string, value domain.ValuationAmount, style ui.TextStyle) []ui.ColumnChild {
 	_, display := wealthAmountParts(view, label, value)
+	if value.Total == nil && value.KnownSubtotal == nil {
+		style.Serif = false
+	}
 	if qualifier := wealthAmountQualifier(label, value); qualifier != i18n.NoMessage {
 		if date != "" {
 			date += " · "

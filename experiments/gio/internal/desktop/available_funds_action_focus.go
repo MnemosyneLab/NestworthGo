@@ -42,7 +42,7 @@ func (p *availableFundsPage) openActionFocus(gtx layout.Context, view ui.View) {
 		if at >= 0 {
 			ref = sources[at].Result.Ref
 		}
-		p.openReservations(ref, &p.reload)
+		p.openReservations(ref, &p.manageReservations)
 		p.reservation.focusTarget = focus.reservation
 		if at < 0 && focus.sourceKey != "" {
 			p.reservation.notice = i18n.TasksReserveSourceChanged

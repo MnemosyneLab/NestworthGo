@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -28,12 +27,10 @@ type overviewSummaryChart struct {
 }
 
 type overviewBreakdowns struct {
-	summaries  [2]overviewSummaryChart
-	jump       widget.Clickable
-	stretch    [3]ui.RowHeights // composition, then each pair of dimensions
-	focusFirst bool
-	links      map[accountListScope]*widget.Clickable
-	open       func(navigationTarget, string, event.Tag)
+	summaries [2]overviewSummaryChart
+	stretch   [3]ui.RowHeights // composition, then each pair of dimensions
+	links     map[accountListScope]*widget.Clickable
+	open      func(navigationTarget, string, event.Tag)
 }
 
 type overviewSummary struct {
@@ -69,7 +66,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: overviewBreakdownMoney(view, currency, summary.total, summary.liability),
-		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), Compact: true}
+		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), StackLegend: true, HideReadout: true}
 	bars := charts.BarSpec{Label: label, Messages: messages}
 	useDonut := summary.total.IsPositive()
 	for _, item := range summary.items {
@@ -89,6 +86,10 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 
 func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {
 	summaries := overviewSummaries(result)
+	var totals [2]string
+	for i, summary := range summaries {
+		totals[i] = overviewBreakdownMoney(view, result.Currency, summary.total, summary.liability)
+	}
 	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true, Rows: &b.stretch[0]}).Layout(gtx, view, len(summaries),
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			summary, chart := summaries[index], &b.summaries[0]
@@ -96,12 +97,15 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 				chart = &b.summaries[1]
 			}
 			donut, bars, useDonut := overviewSummarySpecs(view, summary, result.Currency)
+			donut.CenterFit = totals[:len(summaries)]
 			l := view.Language
 			rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(summary.label), view.Colors.Ink))}
 			if summary.quality.UnpricedCount > 0 {
 				rows = append(rows, ui.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.OverviewCompositionMissing), summary.quality.UnpricedCount), view.Colors.WarningInk)))
 			}
-			rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
+			if !useDonut {
+				rows = append(rows, ui.Rigid(view.Message(donut.CenterCaption+" · "+donut.CenterValue, view.Colors.SecondaryInk)))
+			}
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				var dims layout.Dimensions
 				var events []charts.Event
@@ -118,10 +122,6 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 				}
 				return dims
 			}))
-			rows = append(rows, ui.Rigid(chart.table.layout(view, len(donut.Slices), func() charts.Table {
-				donut.Selected = chart.selected
-				return donut.Table(chartTableLabels(l, i18n.ChartDetails))
-			})))
 			return overviewBreakdownCard(gtx, view, rows)
 		})
 }
@@ -186,10 +186,6 @@ func (b *overviewBreakdowns) dimensionRow(gtx layout.Context, view ui.View, dim 
 		b.links[scope] = button
 	}
 	view.Focus.Watch(gtx, button)
-	if b.focusFirst {
-		b.focusFirst = false
-		gtx.Execute(key.FocusCmd{Tag: button})
-	}
 	if button.Clicked(gtx) {
 		b.open(target, name, button)
 		gtx.Execute(op.InvalidateCmd{})

@@ -295,7 +295,8 @@ func TestLedgerCollapsedCustodyNamesAndExactQuantity(t *testing.T) {
 	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY")
 	assertPageLabel(t, &h.router, "Account")
 
-	h.click("Reload", false)
+	h.click("Back", false)
+	h.click("Forward", false)
 	wait()
 	assertPageLabel(t, &h.router, "Investment transfer · 0.62543217 · QA-BUY · Harbor Brokerage → Secondary custody")
 	if page.reads.rowActions != nil || page.reads.detail != nil {

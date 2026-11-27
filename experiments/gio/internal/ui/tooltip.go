@@ -45,7 +45,7 @@ func (t *Tooltip) Layout(gtx layout.Context, view View, hovered bool, label stri
 	gtx.Constraints = layout.Constraints{Max: image.Pt(gtx.Dp(250), gtx.Dp(40))}
 	view.Surface(gtx, SurfaceSpec{Radius: RadiusMD, Elevation: ElevationMD}, func(gtx layout.Context) layout.Dimensions {
 		return layout.Inset{Top: 6, Bottom: 6, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.Line(gtx, TextCaption, label, view.Colors.Ink)
+			return view.WithoutTextSelection().Line(gtx, TextCaption, label, view.Colors.Ink)
 		})
 	})
 	offset.Pop()

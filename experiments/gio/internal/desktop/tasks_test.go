@@ -246,7 +246,9 @@ func TestTermDepositTasksMatchWailsAndRouteByProduct(t *testing.T) {
 	// These two explicit settlements are outside the read-only baseline.
 	// First test a stale due row whose contract already closed elsewhere.
 	scrollToTop()
-	click("Reload")
+	h.shell.refreshLedgerReads()
+	drain()
+	h.frame()
 	recordTaskFixtureReceipt(t, app, fixture.ids["Same Day Deposit"], "100")
 	recordTaskFixtureReceipt(t, ref, reference.ids["Same Day Deposit"], "100")
 	const stale = "Verify receipt · Same Day Deposit"

@@ -112,6 +112,7 @@ func TestAvailableFundsTermProductPanelsKeepVisitAndHoldingIdentity(t *testing.T
 		}
 	}
 	const add = "Add product"
+	h.assertTitlebarAction("Add product")
 	click(add)
 	setup := funds.setup
 	if setup == nil || setup.form != nil || len(setup.choices) != 3 || findPageLabel(&h.router, "Ineligible checking") != nil {

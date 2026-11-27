@@ -270,6 +270,9 @@ func (p *componentPreview) footer(gtx layout.Context, view ui.View) layout.Dimen
 				Body: view.Message(view.Language.Text(i18n.PreviewInfoBody), view.Colors.Ink),
 			})
 		}
-		return view.Button(action.button, view.Language.Text(action.title))(gtx)
+		// These preview controls demonstrate equal-sized grid cells.
+		return view.ButtonOf(action.button, ui.ButtonSpec{
+			Variant: ui.ButtonOutline, Title: view.Language.Text(action.title), Fill: true,
+		})(gtx)
 	})
 }

@@ -105,9 +105,9 @@ the total is absent, and applies the liability sign for display. The read
 time uses the configured display timezone. Quote dates are civil evidence
 dates returned by the service.
 
-The page starts a single read off the frame loop and retains the last
-successful result across navigation and failed reloads. Reload uses the same
-read path. Market data fetching and historical replay are separate surfaces.
+The page reads off the frame loop and retains the last successful result across
+navigation and failed reads. Ledger changes and Retry use the same read path.
+Market data fetching and historical replay are separate surfaces.
 
 Accounts joins `ListAccounts` with `AccountValuations` by stable account ID.
 The account view uses the same reads scoped to one ID and resolves reference
@@ -142,7 +142,7 @@ and enabled. The page heading is the fallback. A reused form keeps its live
 draft or committed state without replaying its submit action.
 
 Directory object links store the entity kind and stable ID. Each arrival
-and explicit reload starts an asynchronous authoritative read, including
+starts an asynchronous authoritative read, including
 archived rows. Leaving cancels the outstanding read. A failed refresh retains
 the current object and offers retry. An absent or malformed target shows an
 unavailable state. Successful object reads can also update a settled list in

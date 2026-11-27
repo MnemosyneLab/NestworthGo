@@ -25,7 +25,7 @@ func (p *assetChangesPage) layout(gtx layout.Context, view ui.View) layout.Dimen
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if p.reload.Clicked(gtx) && p.refsRead == nil && p.request == nil {
+	if p.err != nil && p.refsRead == nil && p.request == nil && p.reload.Clicked(gtx) {
 		if p.refs.origin == nil {
 			p.readRefs()
 		} else {
@@ -96,10 +96,6 @@ func (p *assetChangesPage) options(gtx layout.Context, view ui.View) layout.Dime
 
 func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
-	reload := i18n.HistoryRefresh
-	if p.err != nil {
-		reload = i18n.HistoryRetry
-	}
 	var rows []ui.ColumnChild
 	status := i18n.NoMessage
 	switch {
@@ -120,17 +116,13 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 			ink = view.Colors.ErrorInk
 		}
 		rows = append(rows, ui.Rigid(view.Message(l.Text(status), ink)))
-		if status == i18n.AssetFailed && p.current == nil {
-			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)))
+		if status == i18n.AssetFailed {
+			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, true)))
 		}
 	}
 	if result := p.current; result != nil && result.query.From <= result.query.To {
 		rangeLabel := wealthDay(view, result.query.From) + " – " + wealthDay(view, result.query.To)
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-				layout.Flexed(1, view.Body(ui.TextLabel, rangeLabel, view.Colors.Ink)),
-				layout.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)))
-		}))
+		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, rangeLabel, view.Colors.Ink)))
 		switch {
 		case result.drivers != nil:
 			if result.drivers.Available && result.drivers.Status == domain.CompletenessPartial && p.openHealth != nil {
@@ -260,12 +252,19 @@ func assetSummary(view ui.View, totals application.AssetChangeSummary, debts boo
 }
 
 func assetSummaryFigures(view ui.View, totals application.AssetChangeSummary, debts, drivers bool) layout.Widget {
-	labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
-	values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
-		assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
+	figures := [...]struct {
+		label i18n.MessageID
+		value string
+		style ui.TextStyle
+	}{
+		{i18n.AssetBeginning, assetLevelMoney(view, totals.BeginningValue, debts), ui.TextMoneyMD},
+		{i18n.AssetEnding, assetLevelMoney(view, totals.EndingValue, debts), ui.TextMoneyMD},
+		{i18n.AssetNetChange, assetMoney(view, totals.Change, debts), ui.TextMoneyMD},
+		{i18n.AssetChangeRate, returnRate(view, totals.ChangeRate), ui.TextMetricMD},
+	}
 	if drivers {
-		labels[2], labels[3] = i18n.AssetSummaryChange, i18n.AssetSummaryRate
-		values[2] = assetSignedMoney(view, totals.Change)
+		figures[2].label, figures[3].label = i18n.AssetSummaryChange, i18n.AssetSummaryRate
+		figures[2].value = assetSignedMoney(view, totals.Change)
 	}
 	// The change and its rate carry the gain or loss color. A debt that grows
 	// is a loss, so its sign flips.
@@ -283,11 +282,12 @@ func assetSummaryFigures(view ui.View, totals application.AssetChangeSummary, de
 		return view.Colors.Destructive
 	}
 	return func(gtx layout.Context) layout.Dimensions {
-		return (ui.Grid{MinColumn: 135, Gap: 12, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
+		return (ui.Grid{MinColumn: 135, Gap: 12, MaxColumns: len(figures), Balanced: true}).Layout(gtx, view, len(figures),
 			func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+				figure := figures[i]
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-					layout.Rigid(view.Message(view.Language.Text(labels[i]), view.Colors.SecondaryInk)),
-					layout.Rigid(summaryFigure(view, values[i], ink(i))))
+					layout.Rigid(view.Message(view.Language.Text(figure.label), view.Colors.SecondaryInk)),
+					layout.Rigid(summaryFigure(view, figure.style, figure.value, ink(i))))
 			})
 	}
 }

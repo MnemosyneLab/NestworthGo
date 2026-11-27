@@ -158,7 +158,7 @@ func TestDirectoryObjectNavigationRevalidatesAndDoesNotReplayWrites(t *testing.T
 	assertPageLabel(t, &h.router, "Archived")
 
 	svc.failRead = true
-	h.click("Reload", false)
+	s.directory.object.read()
 	finish()
 	assertPageLabel(t, &h.router, "Could not load the directory item.")
 	assertPageLabel(t, &h.router, "Target Renamed")

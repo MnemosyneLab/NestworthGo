@@ -59,6 +59,7 @@ func (p *returnAnalysisPage) layoutYear(gtx layout.Context, view ui.View, earlie
 }
 
 func returnYearMonth(gtx layout.Context, view ui.View, button *widget.Clickable, name string, data application.ReturnCalendarMonthResult) layout.Dimensions {
+	view = view.WithoutTextSelection()
 	l := view.Language
 	coverage := l.Text(i18n.ReturnNoData)
 	status := i18n.NoMessage

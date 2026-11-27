@@ -13,6 +13,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -95,6 +96,8 @@ type shell struct {
 	// stage scrolls the active page; stageEntry is the visit it was reset for.
 	stage                                 widget.List
 	stageEntry                            *navigationEntry
+	textSelection                         ui.TextSelection
+	textSelectionEntry                    *navigationEntry
 	prefs                                 *preferenceState
 	onboarding                            *onboardingPage
 	settingsPage                          *settingsPage
@@ -137,6 +140,9 @@ type shell struct {
 	motion                                ui.Motion
 	titlebar                              titlebarMetrics
 	chrome                                titlebarLayout
+
+	accountTitleMenu                                      ui.Select
+	openWealthHistory, exitWealthHistory, refreshUpcoming widget.Clickable
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
@@ -202,6 +208,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if s.overviewPage != nil {
 		s.settingsPage.credential.changed = s.overviewPage.healthScan.invalidate
+	}
+	if s.funds != nil && s.funds.productPage != nil {
+		s.funds.productPage.focusFallback = &s.headingFocus
 	}
 	maintenance := newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout)
 	if s.marketData == nil && s.dataHealth != nil {
@@ -653,6 +662,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	// Drop animation state for controls that were not drawn this frame.
 	defer s.motion.EndFrame()
+	defer s.textSelection.EndFrame()
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
 	if p := s.onboarding; p != nil {
@@ -750,11 +760,13 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	directoryArchiveOpen := s.confirmingArchive()
 	catalogEditorOpen := s.instrumentCatalogEditorOpen()
 	fundsReservationOpen := s.fundsReservationOpen()
+	if s.activeRoute() == fundsRoute && s.funds != nil && s.trail.current().target.product == "" {
+		s.funds.update()
+	}
 	if fundsReservationOpen {
 		s.funds.pollReservations()
 	}
 	if s.fundsPolicyOpen() {
-		s.funds.update()
 		s.funds.pollPolicy()
 	}
 	fundsPolicyOpen := s.fundsPolicyOpen()
@@ -770,10 +782,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		} else {
 			s.wideCollapsed = !s.wideCollapsed
 		}
-	}
-	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth())
-	if !gtx.Enabled() {
-		s.chrome.drag = [2]image.Rectangle{}
 	}
 	gtx.Locale.Language = string(s.preferences.language)
 	colors := s.preferences.colors()
@@ -791,16 +799,29 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	paint.Fill(gtx.Ops, colors.PageBackground)
 	if p := s.onboarding; p != nil {
+		view := view.WithTextSelection(&s.textSelection)
 		dims := p.layout(gtx, view, s.prefs, s.wordmark)
 		s.overlay.Layout(gtx, view)
 		return dims
 	}
 	s.observeLedger(gtx)
 	s.updateNavigation(gtx)
+	if s.activeRoute() == marketDataRoute && s.marketData != nil {
+		s.marketData.update()
+	}
+	// A navigation visit can collapse the sidebar in the same frame.
+	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth(), !s.collapsed())
+	if !gtx.Enabled() {
+		s.chrome.drag = [2]image.Rectangle{}
+	}
 	if s.tasks != nil {
 		s.tasks.pollReviewAcknowledgement(s.activeRoute() == tasksRoute)
 	}
 	entry := s.trail.current()
+	if entry != s.textSelectionEntry {
+		s.textSelection.Reset()
+		s.textSelectionEntry = entry
+	}
 	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
 		s.trail.rename(entry.target, s.directory.object.name())
 	}
@@ -814,11 +835,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	background := func(gtx layout.Context) layout.Dimensions {
+		pageView := view.WithTextSelection(&s.textSelection)
 		dims := layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, pageView) }),
 		)
-		s.overlay.Layout(gtx, view)
+		s.overlay.Layout(gtx, pageView)
 		return dims
 	}
 	if s.historyRecordOpen() {
@@ -1113,12 +1135,12 @@ func (s *shell) sidebar(gtx layout.Context, view ui.View) layout.Dimensions {
 	colors := view.Colors
 	size := image.Pt(gtx.Dp(s.sidebarWidth()), gtx.Constraints.Max.Y)
 	gtx.Constraints = layout.Exact(size)
-	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect{Max: size}.Op())
-	dividerTop := 0
-	if s.chrome.split > s.chrome.sidebar {
-		dividerTop = s.chrome.height
+	top := 0
+	if s.titlebar.active && s.collapsed() {
+		top = s.chrome.height
 	}
-	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, dividerTop, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.SidebarBackground, clip.Rect(image.Rect(0, top, size.X, size.Y)).Op())
+	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(size.X-1, top, size.X, size.Y)).Op())
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebarTitlebar(gtx, view) }),
@@ -1306,7 +1328,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 			// A changed filter result can remove the original row or leave the
 			// matching chip outside the viewport. Keep the current scroll.
 			if !focus.TargetDrawn {
-				focus.Target = &s.funds.reload
+				focus.Target = &s.headingFocus
 			}
 			s.funds.policyFocus = nil
 			entry.focus, s.restoreFocus = focus.Target, false
@@ -1314,6 +1336,13 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 		}
 	} else {
 		s.finishPageFocus(gtx, focus)
+	}
+	if gtx.Enabled() && entry.target.route == fundsRoute && entry.target.product == "" && s.funds.request == nil {
+		// A removed or offscreen action has no visible button to take focus.
+		if s.funds.reservationFocus != nil || s.funds.restoreAddFocus {
+			s.funds.reservationFocus, s.funds.restoreAddFocus = nil, false
+			gtx.Execute(key.FocusCmd{Tag: &s.headingFocus})
+		}
 	}
 	return dims
 }
@@ -1328,18 +1357,24 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	if entry := s.trail.current(); entry.target.route == portfolioRoute && entry.target.instrument != "" && entry.name != "" {
 		name = entry.name
 	}
-	recordView := view
+	action := s.pageTitleAction(gtx, view)
+	headerView := view
 	view.Focus = nil
 	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, s.chrome.height)
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return s.layoutHeaderChrome(gtx, view, func(gtx layout.Context) layout.Dimensions {
+		gtx = s.accountHeaderActions(gtx, headerView)
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
-			return layout.Inset{Left: 20, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				gap := gtx.Dp(2)
-				x := s.chrome.split + gtx.Dp(20)
+			left := unit.Dp(20)
+			if s.titlebar.active {
+				left = 12
+			}
+			return layout.Inset{Left: left, Right: titlebarRightPadding}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gap := gtx.Dp(titlebarNavGap)
+				x := s.chrome.split + gtx.Dp(left)
 				direction := func(step int) layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions {
 						dims := s.navigationButton(gtx, view, step)
@@ -1347,12 +1382,17 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						return dims
 					}
 				}
-				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx,
-					layout.Rigid(direction(-1)),
-					layout.Rigid(direction(1)),
+				var controls []layout.FlexChild
+				if s.chrome.sidebarNav.Empty() {
+					controls = append(controls, layout.Rigid(direction(-1)), layout.Rigid(direction(1)))
+				}
+				controls = append(controls,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 					layout.Rigid(layout.Spacer{Width: 10}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						if action != nil {
+							gtx.Constraints.Min.X = 0
+						}
 						for {
 							if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
 								break
@@ -1362,13 +1402,13 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						event.Op(gtx.Ops, &s.headingFocus)
 						return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if s.activeRoute() == historyRoute && s.historyPage.canRecord() {
-							return s.historyPage.layoutRecordTrigger(gtx, recordView)
-						}
-						return layout.Dimensions{}
-					}),
 				)
+				if action != nil {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: ui.Space8}.Layout(gtx, action)
+					}))
+				}
+				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx, controls...)
 			})
 		})
 	})
