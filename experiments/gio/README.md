@@ -162,6 +162,121 @@ use 2x density. Keep a copy before changing a control and compare the same
 file names afterwards. Review them separately from native macOS checks:
 headless frames do not exercise the window system, input methods or VoiceOver.
 
+## Integrated macOS main-window titlebar
+
+The main ledger shell on macOS retains the real AppKit close, minimize and
+zoom/full-screen controls and the underlying `Nestworth Gio` window title.
+`desktop/window.go` receives the public Gio `AppKitViewEvent`; the Darwin-only
+adapter in `desktop/titlebar_darwin.{go,m}` changes the window's full-size-content,
+title visibility, transparent titlebar and appearance on AppKit's main queue.
+Gio v0.10.3 reports `Config.Decorated=false` whenever
+`FullSizeContentView` is set; leaving Gio's decoration request enabled creates
+its unwanted client-side material titlebar and offsets the app frame. After
+the native attachment preflight and the first ledger frame, the adapter uses
+the public `Window.Option(app.Decorated(false))` to relinquish that fallback,
+then immediately restores all **three native AppKit buttons** through
+`Window.Run` on the native event thread. The option alone would hide them.
+The adapter does not replace the delegate or swizzle Gio classes; it reconciles
+native style/buttons after Gio config, remounts, resize/screen changes and
+full-screen transitions. The existing accessibility bridge is independent.
+
+The handshake is accepted only when the actual AppKit backing view size
+equals Gio's full FrameEvent size (no client-side decoration offset), full-size
+content is present, and all three standard buttons are visible in the normal
+window. A transient mismatch disables native drag regions; a persistent
+mismatch or unavailable controls rolls back to `Decorated(true)` and the
+ordinary native titlebar. The first integrated frame preserves the previous
+content size rather than adding the native titlebar height. Startup-blocked windows, onboarding
+(before the ledger shell) and other platforms retain ordinary decorations.
+
+The adapter reports native button extent and safe-area insets in AppKit points.
+`desktop/titlebar.go` converts these to the current Gio pixel metric. The
+sidebar and page backgrounds continue to the top using the current palette.
+The toggle sits after the native buttons; in the collapsed rail only the top
+sidebar segment extends beyond the rail. The page's navigation/history/title
+row keeps its controls, absolute popup anchors and focus. In full screen the
+layout drops the traffic-light reservation when AppKit hides them, retaining
+the reported safe area. Only explicit blank rectangles of the rendered
+toolbar accept native window drag; they are disabled while a Gio sheet/menu
+is open or when the native frame geometry is stale. Double click respects
+the system titlebar preference (Zoom, Minimize, None and, for Fill, public
+screen/frame APIs with a restore frame). Native double-click behavior,
+especially macOS window tiling/Fill, must still be checked on the target
+macOS version.
+
+### Reproduce application-layer evidence (Linux or macOS headless)
+
+These tests seed an isolated synthetic **Harbor Sample Household**, never the
+default profile. Ordinary tests verify control geometry, click routing,
+Recent menu dismissal/focus, theme switching, sidebar state, scale and safe
+area. The opt-in GPU snapshots sample actual rendered colors and save PNGs
+for Indigo, Lavender, Mint, Sky and Peach, light/dark, expanded/collapsed,
+plus a 640dp 2x narrow window and simulated full-screen safe area.
+
+```sh
+go -C experiments/gio test -mod=readonly -count=1 \
+  -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)' ./internal/desktop
+shots=$(mktemp -d)
+NESTWORTH_GIO_SNAPSHOT_DIR="$shots" go -C experiments/gio test -mod=readonly -count=1 \
+  -run '^TestIntegratedTitlebarSnapshots$' ./internal/desktop
+printf '%s\n' "$shots"
+```
+
+On Linux with Mesa, `EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1` may be
+used for headless GPU rendering. These snapshots are Gio app-layer frames with
+representative **synthetic native geometry**: the blank area at the left is
+intentional. They do not draw or validate macOS traffic lights, native titlebar
+hit testing, window dragging, full-screen animations or VoiceOver.
+
+### Native and launcher QA (isolated synthetic data)
+
+The Gio CI workflow has a separate Darwin build job on the trusted native
+runner. It builds and verifies the actual preview bundle without launching it,
+then runs the synthetic titlebar layout tests; it is not native GUI acceptance.
+
+From the repository root on a Mac, use the existing Gio app ID and explicit
+disposable paths. The seed export requires a new empty directory and refuses
+existing files.
+
+```sh
+gio_run=$(mktemp -d)
+NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR="$gio_run" go -C experiments/gio test \
+  -mod=readonly -count=1 -run '^TestExportIntegratedTitlebarFixture$' -v ./internal/desktop
+test "$(sqlite3 -readonly "$gio_run/nestworth.db" 'SELECT name FROM households;')" = "Harbor Sample Household" || exit 1
+test -f "$gio_run/settings.json" || exit 1
+NESTWORTH_DATABASE_PATH="$gio_run/nestworth.db" \
+NESTWORTH_SETTINGS_PATH="$gio_run/settings.json" \
+  sh experiments/gio/preview-macos.sh
+```
+
+For Linux launcher QA, substitute `preview-linux.sh` (ordinary platform
+decorations are expected). On macOS, verify all of the following on the
+actual bundle, not a headless snapshot:
+
+- Let Overview settle, then check the synthetic profile's
+  `$gio_run/logs/nestworth.log` for **Gio titlebar native handshake verified**.
+  `gio_frame_px` must equal `appkit_view_px`, `native_buttons=3`,
+  `native_full_size=true` and `gio_decorated_requested=false`; the log also
+  records the actual outer window frame in points. A rejection/unavailable log
+  means ordinary system-titlebar fallback, not integrated acceptance.
+- Native lights remain functional (verify accessibility close/minimize/full
+  screen and actual clicks), including close, minimize, zoom and full-screen;
+  the original title is not painted but remains in the Window menu.
+  No blue-purple Gio client decoration bar or right-side window buttons may
+  appear. Overview/Back/Forward/Recent and Toggle Sidebar must remain visible
+  and interactive at the top.
+- Each of the five themes in light and dark, and live switching (including
+  system appearance), has no separate titlebar-colored strip.
+- Collapse/expand at wide and minimum widths; move between Retina and
+  non-Retina screens; enter/exit full screen including a notched display and
+  hover-revealed native controls; confirm no control is hidden.
+- Drag the blank toolbar sections, not the toggle/nav/history controls.
+  Check system titlebar double-click preferences, window activation and
+  keyboard focus, Recent menu anchor and dismissal, and VoiceOver navigation.
+- Close normally and reopen with the same explicit paths. Confirm the
+  synthetic household and the window size persist without growth or a restored
+  duplicate titlebar.
+
 ## Visual design system
 
 `internal/ui` carries the Wails design tokens: OKLCH colors converted to sRGB

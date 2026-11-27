@@ -54,5 +54,52 @@ jobs:
         run: |
           # These flags request manual snapshot/fixture exports; a sample-ledger
           # snapshot can read the default profile. Never enable them in CI.
-          unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR
+          unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR
           go test -mod=readonly -count=1 ./...
+
+  # Gio is a separate module; the parent/Wails Mac check does not compile
+  # its Darwin AppKit adapters. Use the existing trusted-origin Mac runner,
+  # without launching the app, reading a household, or changing host settings.
+  gio-darwin-build:
+    name: gio-darwin-build
+    if: github.repository == 'MnemosyneLab/NestworthGo' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: experiments/gio/go.mod
+          cache: false
+      - name: Select native SDK and isolated caches
+        working-directory: .
+        run: |
+          set -euo pipefail
+          export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          sdk="$(xcrun --sdk macosx --show-sdk-version)"
+          os="$(sw_vers -productVersion)"
+          test "$(uname -m)" = arm64
+          test "${sdk%%.*}" -ge 27
+          test "${os%%.*}" -ge 27
+          export MACOSX_DEPLOYMENT_TARGET=27.0
+          export CGO_CFLAGS="-O2 -g -mmacosx-version-min=27.0"
+          export CGO_CXXFLAGS="$CGO_CFLAGS"
+          export CGO_LDFLAGS="$CGO_CFLAGS"
+          fence="$( { printf '%s\n' "$SDKROOT" "$sdk" "$os" "$CGO_CFLAGS"; xcrun clang --version; go version; cat go.mod go.sum experiments/gio/go.mod experiments/gio/go.sum; } | shasum -a 256 | cut -c1-24 )"
+          cache="$(cd "$RUNNER_TEMP/.." && pwd -P)/nestworth-ci-cache-v1"
+          export GOMODCACHE="$cache/go-modules"
+          export GOCACHE="$cache/gio-darwin-arm64/$fence/go-build"
+          mkdir -p "$GOMODCACHE" "$GOCACHE"
+          for key in SDKROOT MACOSX_DEPLOYMENT_TARGET CGO_CFLAGS CGO_CXXFLAGS CGO_LDFLAGS GOMODCACHE GOCACHE; do
+            printf '%s=%s\n' "$key" "${!key}" >> "$GITHUB_ENV"
+          done
+          printf 'macOS %s, SDK %s, %s\n' "$os" "$sdk" "$(go version)"
+      - name: Build and verify the Gio preview bundle (no launch)
+        working-directory: .
+        run: sh experiments/gio/preview-macos.sh --build-only
+      - name: Run synthetic integrated-titlebar layout tests on Darwin
+        run: |
+          unset NESTWORTH_GIO_SNAPSHOT_DIR NESTWORTH_STAGE6_QA_DIR NESTWORTH_GIO_TITLEBAR_FIXTURE_DIR
+          go test -mod=readonly -count=1 -run '^TestIntegratedTitlebar($|Geometry$|HostContract$)' ./internal/desktop

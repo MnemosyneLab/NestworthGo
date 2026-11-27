@@ -13,6 +13,9 @@ Gio is a separate Go module. Its full non-race suite, including the former
 `gio-i18n` translation and UI-source checks, runs independently on GitHub-hosted
 Linux in [`gio-unit-tests.yml`](../../.github/workflows/gio-unit-tests.yml).
 The Mac `test` aggregate covers the parent module and Wails gates only.
+The Gio workflow also has a separate `gio-darwin-build` job on the same
+trusted native runner to build the Gio preview bundle and run its synthetic
+titlebar layout tests, without launching a GUI or opening a user profile.
 
 ## Automatic checks, trust and rollback
 
