@@ -61,6 +61,9 @@ type DonutSpec struct {
 	Compact bool
 	// StackLegend gives the chart its own row and scales the ring to the available width.
 	StackLegend bool
+	// StackedDiameter caps only the ring size when StackLegend is true. A zero
+	// value preserves the standard responsive size.
+	StackedDiameter unit.Dp
 	// HideReadout removes the footer when the interactive legend already
 	// shows the same information.
 	HideReadout bool
@@ -252,6 +255,9 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 	diameter := min(gtx.Dp(diameterDp), inner)
 	if spec.StackLegend {
 		diameter = min(inner, max(gtx.Dp(200), min(gtx.Dp(300), inner*3/5)))
+		if spec.StackedDiameter > 0 {
+			diameter = min(inner, gtx.Dp(spec.StackedDiameter))
+		}
 	} else if !stacked {
 		diameter = min(diameter, inner*2/5)
 	} else if spec.Compact {

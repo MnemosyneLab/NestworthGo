@@ -25,7 +25,10 @@ type portfolioAllocationRead struct {
 	accounts  []domain.AccountValuation
 }
 
-const portfolioAllocationSideBySideWidth = 1024
+// At a 900px window, the sidebar and padded card leave too little room for
+// the allocation legend to sit beside the chart. This uses the chart's actual
+// available content width, not the outer window width.
+const portfolioAllocationSideBySideWidth = 900
 
 func portfolioAllocationStacksLegend(gtx layout.Context) bool {
 	return !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, portfolioAllocationSideBySideWidth)
@@ -114,7 +117,8 @@ func portfolioAllocationSpecs(view ui.View, data domain.PortfolioValuation) (cha
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.PortfolioValuedHoldings), CenterValue: l.Text(i18n.OverviewNoValue),
-		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), ZeroTotal: l.Text(i18n.WealthAllocationZero)}
+		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), ZeroTotal: l.Text(i18n.WealthAllocationZero),
+		StackedDiameter: 224}
 	center := data.ValuedSubtotal
 	useDonut := false
 	if center != nil {
@@ -151,7 +155,9 @@ func (p *portfolioPage) portfolioAllocationCard(view ui.View, data domain.Portfo
 			var dims layout.Dimensions
 			var events []charts.Event
 			if useDonut {
+				p.allocation.chartWidth = gtx.Constraints.Max.X
 				donut.StackLegend = portfolioAllocationStacksLegend(gtx)
+				p.allocation.stackLegend = donut.StackLegend
 				donut.Selected = chart.selected
 				view.Focus.Watch(gtx, &chart.donut)
 				dims, events = chart.donut.Layout(gtx, view, donut)

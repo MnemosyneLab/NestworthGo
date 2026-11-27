@@ -108,6 +108,24 @@ func TestDonutPlanStackedFitsNarrowWidth(t *testing.T) {
 	}
 }
 
+func TestDonutStackedDiameterCanBeCappedForItsOwningView(t *testing.T) {
+	r := newRig(700, false)
+	base := DonutSpec{Label: "Composition", StackLegend: true, CenterCaption: "Holdings", CenterValue: "$60",
+		Slices: []Slice{{ID: "a", Label: "Stocks", Value: Num(40), Text: "$40", Share: "67%"},
+			{ID: "b", Label: "Funds", Value: Num(20), Text: "$20", Share: "33%"}}}
+	var standard, capped DonutChart
+	standardSize, _ := r.frame(func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return standard.Layout(gtx, view, base)
+	}, Selection{})
+	base.StackedDiameter = 224
+	cappedSize, _ := r.frame(func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return capped.Layout(gtx, view, base)
+	}, Selection{})
+	if standardSize.Y-cappedSize.Y != 76 {
+		t.Fatalf("a view-local 224dp cap changed stacked height by %dpx, want only the 76px ring difference (standard %v, capped %v)", standardSize.Y-cappedSize.Y, standardSize, cappedSize)
+	}
+}
+
 func TestDonutRowsCarryShareAndMissingText(t *testing.T) {
 	spec := DonutSpec{
 		Messages: Messages{Missing: "n/a"},

@@ -25,17 +25,19 @@ type portfolioAllocation struct {
 	dates       analysisDateShortcuts
 	window      analysisDateWindow
 
-	request   <-chan historyResult[domain.PortfolioTrend]
-	cancel    context.CancelFunc
-	period    domain.TrendRange
-	queriedOn string
-	current   *domain.PortfolioTrend
-	stale     bool
-	err       error
-	retry     widget.Clickable
-	chart     charts.LineChart
-	table     chartDataTable
-	selected  charts.Selection
+	request     <-chan historyResult[domain.PortfolioTrend]
+	cancel      context.CancelFunc
+	period      domain.TrendRange
+	queriedOn   string
+	current     *domain.PortfolioTrend
+	stale       bool
+	err         error
+	retry       widget.Clickable
+	chart       charts.LineChart
+	table       chartDataTable
+	selected    charts.Selection
+	stackLegend bool
+	chartWidth  int
 }
 
 type portfolioAllocationVisit struct {

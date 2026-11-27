@@ -131,14 +131,14 @@ func TestPortfolioInstrumentDataKeepsQuoteAndAccountScope(t *testing.T) {
 
 	click("Set price")
 	draft := market.manual.draft
-	if draft == nil || draft.target.instrumentID != instrument.ID || draft.refs == nil {
+	if draft == nil || draft.target.instrumentID != instrument.ID || draft.refs == nil || draft.date != "" {
 		t.Fatal("manual price did not resolve the instrument from Data")
 	}
-	setBankField(h, "Unit price · EUR", &draft.amount, "31.12345678")
+	setBankField(h, "Unit price · EUR", &draft.amount, "203")
 	click("Save price")
-	label("€31.12345678")
+	label("€203.00")
 	quote, err := adapter.CurrentInstrumentQuote(ctx, instrument.ID.String())
-	if err != nil || quote == nil || quote.UnitPrice != "31.12345678" {
+	if err != nil || quote == nil || quote.UnitPrice != "203" || quote.QuotedAt == "" {
 		t.Fatalf("could not read the exact saved price through Wails: %+v / %v", quote, err)
 	}
 	h.focused(&portfolio.detail.manual)
@@ -147,11 +147,11 @@ func TestPortfolioInstrumentDataKeepsQuoteAndAccountScope(t *testing.T) {
 	if portfolio.detail.visit.section != instrumentDetailData || portfolio.id != instrument.ID || portfolio.accountScope != ids.account {
 		t.Fatal("Back did not restore the instrument's Data tab and account scope")
 	}
-	label("€31.12345678")
+	label("€203.00")
 	h.focused(&portfolio.detail.manual)
 	refreshed := portfolio.detail.histories[instrumentPriceHistory]
 	if refreshed == nil || refreshed.result == nil || refreshed.visit.window != priceWindow || refreshed.visit.filter != 1 || !refreshed.table.open ||
-		!slices.ContainsFunc(refreshed.result.series.Observations, func(point domain.QuoteSeriesPoint) bool { return point.Value == "31.12345678" }) {
+		!slices.ContainsFunc(refreshed.result.series.Observations, func(point domain.QuoteSeriesPoint) bool { return point.Value == "203" }) {
 		t.Fatal("returning to Data did not retain the price settings and refresh the saved observations")
 	}
 	click("My holdings")

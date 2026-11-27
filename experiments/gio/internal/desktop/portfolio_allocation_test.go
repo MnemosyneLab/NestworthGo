@@ -20,6 +20,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	"github.com/waltwang/nestworth-go/internal/testfixture"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	portapi "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 )
@@ -31,11 +32,165 @@ type portfolioTrendProbe struct {
 	failed atomic.Bool
 }
 
+func seedPortfolioTrendHistory(ctx context.Context, service *application.Service, now time.Time) error {
+	clock := now.AddDate(0, 0, -4)
+	testfixture.SetClock(service, func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{
+		HouseholdName: "Synthetic securities history", BaseCurrency: "USD", MemberNames: []string{"Ana Example"},
+	}); err != nil {
+		return err
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		return err
+	}
+	broker, err := testfixture.CreateAccount(service, ctx, application.AccountInput{
+		Name: "Synthetic brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}, IncludeInNetWorth: true, IncludeInPortfolio: true,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := testfixture.AppendAccountCashValue(service, ctx, broker.Account.ID, "1000000", "USD", ""); err != nil {
+		return err
+	}
+	instrument, err := testfixture.CreateInstrument(service, ctx, application.InstrumentInput{
+		Name: "Synthetic history fund", Symbol: "QA-HISTORY", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual",
+	})
+	if err != nil {
+		return err
+	}
+	holding, err := testfixture.CreateHolding(service, ctx, application.HoldingInput{
+		AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2", UnitCost: "10",
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := testfixture.CaptureSyntheticOriginWithCosts(service, ctx, "Asia/Singapore", map[domain.HoldingID]string{holding.ID: "10"}); err != nil {
+		return err
+	}
+	clock = now
+	for _, quote := range []struct{ date, amount string }{
+		{"2026-11-20T12:00:00+08:00", "10"},
+		{"2026-11-21T12:00:00+08:00", "20"},
+		{"2026-11-22T12:00:00+08:00", "30"},
+	} {
+		if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, quote.amount, quote.date, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T) {
+	ctx := t.Context()
+	now := time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)
+	gioPaths, wailsPaths := prepareOnboardingProfile(t), prepareOnboardingProfile(t)
+	gio, _ := reopenOnboardingProfile(t, gioPaths)
+	wails, _ := reopenOnboardingProfile(t, wailsPaths)
+	if err := seedPortfolioTrendHistory(ctx, gio, now); err != nil {
+		t.Fatalf("seed Gio history: %v", err)
+	}
+	if err := seedPortfolioTrendHistory(ctx, wails, now); err != nil {
+		t.Fatalf("seed Wails history: %v", err)
+	}
+	adapter := portapi.NewService(wails)
+	allGio, err := gio.PortfolioTrend(ctx, domain.TrendAllTime)
+	if err != nil {
+		t.Fatalf("Gio service PortfolioTrend: %v", err)
+	}
+	allWails, err := adapter.PortfolioTrend(ctx, string(domain.TrendAllTime))
+	if err != nil {
+		t.Fatalf("Wails API PortfolioTrend: %v", err)
+	}
+	if len(allGio.Points) != 5 || len(allWails.Points) != len(allGio.Points) {
+		t.Fatalf("all-time history points = %d / %d, want four closed dates and today: %+v / %+v", len(allGio.Points), len(allWails.Points), allGio.Points, allWails.Points)
+	}
+	wantDates := []string{"2026-11-20", "2026-11-21", "2026-11-22", "2026-11-23", "2026-11-24"}
+	wantValues := []string{"20", "40", "60", "60", "60"}
+	for i, point := range allGio.Points {
+		want := allWails.Points[i]
+		if point.LocalDate != wantDates[i] || point.LocalDate != want.LocalDate || point.Current != want.Current ||
+			string(point.Status) != want.Status || point.Complete != want.Complete || point.MissingCount != want.MissingCount {
+			t.Fatalf("portfolio history point %d differed from Wails: Gio %+v, Wails %+v", i, point, want)
+		}
+		amount := point.ValuedSubtotal
+		if amount == nil || amount.CanonicalAmount() != wantValues[i] || want.ValuedSubtotal == nil || want.ValuedSubtotal.Amount != wantValues[i] {
+			t.Fatalf("portfolio securities total on %s = Gio %+v / Wails %+v, want %s (brokerage cash is $1,000,000)", point.LocalDate, amount, want.ValuedSubtotal, wantValues[i])
+		}
+		if total := portfolioTrendTotal(point); total == nil || total.Amount != wantValues[i] {
+			t.Fatalf("chart total on %s = %+v, want holdings only $%s", point.LocalDate, total, wantValues[i])
+		}
+	}
+	wealth, err := gio.NetWorthTrend(ctx, domain.TrendAllTime)
+	if err != nil || len(wealth.Points) < 2 || wealth.Points[0].NetWorth == nil || wealth.Points[0].NetWorth.CanonicalAmount() != "1000020" {
+		t.Fatalf("synthetic net-worth comparison failed: %+v, %v", wealth, err)
+	}
+	if wealth.Points[0].NetWorth.CanonicalAmount() == allGio.Points[0].ValuedSubtotal.CanonicalAmount() {
+		t.Fatal("portfolio trend included the synthetic brokerage cash balance")
+	}
+	selected, err := adapter.PortfolioTrend(ctx, "2026-11-21:2026-11-22")
+	if err != nil || len(selected.Points) != 2 || selected.Points[0].LocalDate != "2026-11-21" || selected.Points[1].LocalDate != "2026-11-22" ||
+		selected.Points[0].ValuedSubtotal == nil || selected.Points[0].ValuedSubtotal.Amount != "40" ||
+		selected.Points[1].ValuedSubtotal == nil || selected.Points[1].ValuedSubtotal.Amount != "60" {
+		t.Fatalf("selected Wails date range = %+v, %v", selected, err)
+	}
+	spec := portfolioTrendSpec(ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}, allGio)
+	if len(spec.Series) != 1 || len(spec.Series[0].Points) != len(allGio.Points) ||
+		!spec.Series[0].Points[0].Value.Valid() || spec.Series[0].Points[0].Value.Number != 20 ||
+		!spec.Series[0].Points[3].Value.Valid() || spec.Series[0].Points[3].Value.Number != 60 ||
+		!allGio.Points[4].Current || !spec.Series[0].Points[4].Provisional {
+		t.Fatalf("portfolio chart did not plot historical securities-only totals: %+v", spec.Series)
+	}
+	table := portfolioTrendTable(ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}, allGio, charts.Selection{Item: "2026-11-22"})
+	if table.Selected != 2 || table.Rows[2][1] != "US$60.00" || table.Rows[2][3] == "" {
+		t.Fatalf("portfolio history table did not preserve the selected daily close: %+v", table)
+	}
+
+	probe := &portfolioTrendProbe{Service: gio}
+	pageCtx, cancel := context.WithCancel(ctx)
+	page := newPortfolioPage(pageCtx, probe, func() {})
+	page.clock = func() time.Time { return now }
+	accountsPage := newAccountsPage(pageCtx, gio, page.clock, func() {})
+	t.Cleanup(func() {
+		cancel()
+		page.workers.Wait()
+		accountsPage.workers.Wait()
+	})
+	h := newShellHarnessWithPages(t, ledgerPages{portfolio: page, accounts: accountsPage})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	settle := func() {
+		for range 4 {
+			h.frame()
+			page.workers.Wait()
+			accountsPage.workers.Wait()
+		}
+		h.frame()
+	}
+	h.size = image.Pt(1280, 800)
+	settle()
+	h.click("Investment assets", false)
+	settle()
+	h.click("Allocation & trend", false)
+	settle()
+	if page.allocation.stackLegend {
+		t.Fatalf("the real 1280x800 portfolio shell stacked its allocation legend at %dpx content width", page.allocation.chartWidth)
+	}
+	if heading := assertPageLabel(t, &h.router, "Portfolio value"); heading.Min.Y < 0 || heading.Min.Y >= h.size.Y {
+		t.Fatalf("the real 1280x800 shell placed the trend section below the viewport: %v", heading)
+	}
+	h.size = image.Pt(900, 600)
+	settle()
+	if !page.allocation.stackLegend {
+		t.Fatalf("the real 900x600 portfolio shell should stack its allocation legend, got content width %dpx", page.allocation.chartWidth)
+	}
+}
+
 func TestPortfolioAllocationResponsiveLegendBreakpoint(t *testing.T) {
 	for _, tc := range []struct {
 		width   int
 		stacked bool
-	}{{900, true}, {1024, false}, {1280, false}} {
+	}{{899, true}, {900, false}, {1024, false}, {1280, false}} {
 		gtx := layout.Context{Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
 			Constraints: layout.Constraints{Max: image.Pt(tc.width, 600)}}
 		if got := portfolioAllocationStacksLegend(gtx); got != tc.stacked {
