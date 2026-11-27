@@ -65,7 +65,8 @@ type ButtonSpec struct {
 	// Radio opts into a radio role. The caller manages the group and selection.
 	Radio bool
 	Icon  Glyph
-	// Fill stretches the button across the available width.
+	// Fill stretches the button across the available width. Text and custom
+	// actions otherwise size to their content, even inside a full-width card.
 	Fill bool
 	// Content replaces the title with a custom layout, as in a clickable row.
 	// The button grows to fit it and Name carries the accessible label.
@@ -237,6 +238,8 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 	}
 	if spec.Fill {
 		width = gtx.Constraints.Max.X
+	} else if spec.Title != "" || spec.Content != nil {
+		gtx.Constraints.Min.X = 0
 	}
 	size := gtx.Constraints.Constrain(image.Pt(width, height))
 	bounds := image.Rectangle{Max: size}

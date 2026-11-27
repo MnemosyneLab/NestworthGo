@@ -66,7 +66,7 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 	messages := charts.Messages{Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected), Empty: l.Text(i18n.OverviewAllocationUnavailable)}
 	donut := charts.DonutSpec{Label: label, Messages: messages,
 		CenterCaption: l.Text(i18n.OverviewKnownSubtotal), CenterValue: overviewBreakdownMoney(view, currency, summary.total, summary.liability),
-		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), StackLegend: true}
+		NotDrawn: l.Text(i18n.WealthAllocationNotDrawn), StackLegend: true, HideReadout: true}
 	bars := charts.BarSpec{Label: label, Messages: messages}
 	useDonut := summary.total.IsPositive()
 	for _, item := range summary.items {

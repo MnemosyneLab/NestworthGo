@@ -679,6 +679,7 @@ var englishCatalog = catalog{
 	OverviewTaskSessions:       "Open reconciliations · %d",
 	OverviewTaskReadFailed:     "Some task counts could not be refreshed.",
 	OverviewUpcomingTitle:      "Next 30 days",
+	OverviewUpcomingWindow:     "Upcoming window · %[1]s to %[2]s",
 	OverviewUpcomingCounts:     "Needs attention: %d · Scheduled: %d",
 	OverviewUpcomingEmpty:      "No upcoming actions.",
 	OverviewUpcomingOther:      "Eligible sources: %d · Data checks: %d · Notes: %d",
@@ -703,6 +704,15 @@ var englishCatalog = catalog{
 	HealthFocused:              "Coverage findings · %s",
 	HealthShowAll:              "Show all Data health findings",
 	HealthFocusedEmpty:         "No saved findings match this focus.",
+
+	OverviewRecentDividend:         "Dividend %[2]s from %[3]s into %[1]s",
+	OverviewRecentBought:           "Bought %[3]s %[4]s in %[1]s for %[2]s",
+	OverviewRecentSold:             "Sold %[3]s %[4]s in %[1]s for %[2]s",
+	OverviewRecentTransferred:      "Transferred %[3]s from %[1]s to %[2]s",
+	OverviewRecentTransferReceived: "Transferred %[3]s from %[1]s, with %[4]s received in %[2]s",
+	OverviewRecentConverted:        "Converted %[2]s to %[3]s in %[1]s",
+	OverviewRecentMovedPosition:    "Moved %[3]s %[4]s from %[1]s to %[2]s",
+	OverviewRecentWithFee:          "%[1]s (fee %[2]s)",
 
 	OverviewKnownSubtotal:       "Known subtotal",
 	OverviewKnownNet:            "Known net contribution",

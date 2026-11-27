@@ -678,6 +678,7 @@ var japaneseCatalog = catalog{
 	OverviewTaskSessions:       "処理中の照合 · %d",
 	OverviewTaskReadFailed:     "一部のタスク件数を更新できませんでした。",
 	OverviewUpcomingTitle:      "今後30日間",
+	OverviewUpcomingWindow:     "今後の対象期間 · %[1]s〜%[2]s",
 	OverviewUpcomingCounts:     "要対応 %d 件 · 予定 %d 件",
 	OverviewUpcomingEmpty:      "今後の対応事項はありません。",
 	OverviewUpcomingOther:      "対象の資金源 %d 件 · データ確認 %d 件 · 注記 %d 件",
@@ -702,6 +703,15 @@ var japaneseCatalog = catalog{
 	HealthFocused:              "対象の確認結果 · %s",
 	HealthShowAll:              "すべてのデータ健全性の結果を表示",
 	HealthFocusedEmpty:         "この条件に一致する確認結果はありません。",
+
+	OverviewRecentDividend:         "%[3]s からの配当 %[2]s を %[1]s で受取",
+	OverviewRecentBought:           "%[1]s で %[4]s を %[3]s 単位、%[2]s で買付",
+	OverviewRecentSold:             "%[1]s で %[4]s を %[3]s 単位、%[2]s で売却",
+	OverviewRecentTransferred:      "%[1]s から %[2]s に %[3]s を移動",
+	OverviewRecentTransferReceived: "%[1]s から %[3]s を送金し、%[2]s で %[4]s を受取",
+	OverviewRecentConverted:        "%[1]s で %[2]s を %[3]s に交換",
+	OverviewRecentMovedPosition:    "%[1]s から %[2]s に %[4]s を %[3]s 単位移管",
+	OverviewRecentWithFee:          "%[1]s（手数料 %[2]s）",
 
 	OverviewKnownSubtotal:       "判明分の小計",
 	OverviewKnownNet:            "判明分の純額",

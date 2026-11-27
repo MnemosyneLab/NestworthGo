@@ -679,6 +679,7 @@ var traditionalChineseCatalog = catalog{
 	OverviewTaskSessions:       "進行中的對帳 · %d",
 	OverviewTaskReadFailed:     "部分待辦數量無法重新整理。",
 	OverviewUpcomingTitle:      "未來 30 天",
+	OverviewUpcomingWindow:     "近期區間 · %[1]s 至 %[2]s",
 	OverviewUpcomingCounts:     "待處理 %d 項 · 已安排 %d 項",
 	OverviewUpcomingEmpty:      "暫無近期事項。",
 	OverviewUpcomingOther:      "符合條件的來源 %d 個 · 資料檢查 %d 項 · 備註 %d 項",
@@ -703,6 +704,15 @@ var traditionalChineseCatalog = catalog{
 	HealthFocused:              "指定範圍的涵蓋問題 · %s",
 	HealthShowAll:              "顯示全部資料健康問題",
 	HealthFocusedEmpty:         "沒有符合此範圍的已儲存問題。",
+
+	OverviewRecentDividend:         "從 %[3]s 分得 %[2]s 至 %[1]s",
+	OverviewRecentBought:           "在 %[1]s 以 %[2]s 買入 %[3]s %[4]s",
+	OverviewRecentSold:             "在 %[1]s 以 %[2]s 賣出 %[3]s %[4]s",
+	OverviewRecentTransferred:      "將 %[3]s 從 %[1]s 轉到 %[2]s",
+	OverviewRecentTransferReceived: "從 %[1]s 轉出 %[3]s，%[2]s 收到 %[4]s",
+	OverviewRecentConverted:        "在 %[1]s 將 %[2]s 兌換為 %[3]s",
+	OverviewRecentMovedPosition:    "將 %[3]s %[4]s 從 %[1]s 轉到 %[2]s",
+	OverviewRecentWithFee:          "%[1]s（費用 %[2]s）",
 
 	OverviewKnownSubtotal:       "已知小計",
 	OverviewKnownNet:            "已知淨額",

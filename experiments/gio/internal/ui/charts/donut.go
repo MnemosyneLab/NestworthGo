@@ -59,6 +59,9 @@ type DonutSpec struct {
 	Compact bool
 	// StackLegend gives the chart its own row and scales the ring to the available width.
 	StackLegend bool
+	// HideReadout removes the footer when the interactive legend already
+	// shows the same information.
+	HideReadout bool
 }
 
 // Rows returns the text form of every slice in order, with the share appended
@@ -303,17 +306,20 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 		c.drawRing(gtx, view, spec, plan, active, image.Rect(0, 0, inner, plan.height))
 		c.drawCenter(gtx, view, spec, plan)
 		c.drawLegend(gtx, view, spec, plan, columns, active, legendMetrics{inset: rowInset, swatch: swatch, pad: rowPad, labelW: labelW, rightW: rightW, compact: compact})
-		y := plan.height + gtx.Dp(ui.Space8)
-		rgtx := gtx
-		rgtx.Constraints.Max.X = inner
-		shown := active
-		if shown.IsZero() {
-			shown = spec.Selected
+		y := plan.height
+		if !spec.HideReadout {
+			y += gtx.Dp(ui.Space8)
+			rgtx := gtx
+			rgtx.Constraints.Max.X = inner
+			shown := active
+			if shown.IsZero() {
+				shown = spec.Selected
+			}
+			offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
+			read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
+			offset.Pop()
+			y += read.Size.Y
 		}
-		offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
-		read := layoutReadout(rgtx, view, spec.Messages, spec.Summary, spec.readout(shown))
-		offset.Pop()
-		y += read.Size.Y
 
 		size := image.Pt(width, y+2*pad)
 		func() {

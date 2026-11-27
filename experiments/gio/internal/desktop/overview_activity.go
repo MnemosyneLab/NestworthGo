@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"gioui.org/io/event"
@@ -14,6 +15,8 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/format"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 type overviewUpcoming struct {
@@ -181,10 +184,10 @@ func (p *overviewPage) overviewUpcomingCard(gtx layout.Context, view ui.View) la
 		fields = append(fields, view.Message(l.Text(i18n.FundsLoading), view.Colors.SecondaryInk))
 	}
 	if data := u.current; data != nil {
-		window := fmt.Sprintf(l.Text(i18n.TasksWindow), historyDay(view, data.WindowStartOn), historyDay(view, data.WindowEndOn), data.Timezone)
+		window := fmt.Sprintf(l.Text(i18n.OverviewUpcomingWindow), historyDay(view, data.WindowStartOn), historyDay(view, data.WindowEndOn))
 		fields = append(fields, view.Body(ui.TextCaption, window, view.Colors.SecondaryInk))
 		if zone, err := time.LoadLocation(data.Timezone); err == nil && !data.AsOf.IsZero() {
-			stamp := tradeTimestamp(view, data.AsOf, zone)
+			stamp := format.LocalDateTimeSeconds(data.AsOf.In(zone), settings.Settings{DateFormat: view.DateFormat, TimeFormat: view.TimeFormat}, settings.Language(l))
 			fields = append(fields, view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.TasksReadAt), stamp), view.Colors.SecondaryInk))
 		}
 		if data.Counts.Total > 0 {
@@ -216,7 +219,9 @@ func (p *overviewPage) overviewUpcomingCard(gtx layout.Context, view ui.View) la
 				u.openTasks(tasksUpcoming, &u.all)
 				gtx.Execute(op.InvalidateCmd{})
 			}
-			fields = append(fields, returnMonthButton(view, &u.all, i18n.OverviewUpcomingAll, nil, true))
+			fields = append(fields, view.ButtonOf(&u.all, ui.ButtonSpec{
+				Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: l.Text(i18n.OverviewUpcomingAll),
+			}))
 		}
 	}
 	return fundsCard(view, l.Text(i18n.OverviewUpcomingTitle), fields...)(gtx)
@@ -289,7 +294,9 @@ func (p *overviewPage) overviewRecentActivity(gtx layout.Context, view ui.View, 
 	if len(result.RecentActivities) == 0 {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewRecentEmpty), view.Colors.SecondaryInk)))
 	}
-	names := historyRowNames{accounts: make(map[domain.AccountID]domain.Account), instruments: make(map[domain.InstrumentID]string)}
+	names := historyRowNames{
+		accounts: make(map[domain.AccountID]domain.Account), instruments: make(map[domain.InstrumentID]string),
+	}
 	for _, row := range result.AccountLabels {
 		if row.Name != row.ID {
 			names.accounts[domain.AccountID(row.ID)] = domain.Account{Name: row.Name, BalanceSheetRole: row.BalanceSheetRole}
@@ -297,6 +304,14 @@ func (p *overviewPage) overviewRecentActivity(gtx layout.Context, view ui.View, 
 	}
 	for _, row := range result.InstrumentLabels {
 		names.instruments[domain.InstrumentID(row.ID)] = domain.InstrumentDisplayLabel(row.Name, row.Symbol, row.ShortName)
+	}
+	if slices.ContainsFunc(result.RecentActivities, func(activity domain.Activity) bool {
+		return activity.Kind == domain.ActivityPositionTransfer
+	}) {
+		names.holdingAccounts = make(map[domain.HoldingID]domain.AccountID, len(result.HoldingLabels))
+		for _, row := range result.HoldingLabels {
+			names.holdingAccounts[domain.HoldingID(row.ID)] = domain.AccountID(row.AccountID)
+		}
 	}
 	for start := 0; start < len(result.RecentActivities); {
 		day := result.RecentActivities[start].EffectiveLocalDate
@@ -354,16 +369,33 @@ func overviewActivitySentence(view ui.View, activity domain.Activity, names hist
 	if activity.ReversesActivityID != nil || activity.ProductContext != nil {
 		return fallback()
 	}
-	var account, value string
+	role := func(want domain.EffectRole) domain.ActivityEffect {
+		for _, effect := range activity.Effects {
+			if effect.Role == want {
+				return effect
+			}
+		}
+		return domain.ActivityEffect{}
+	}
+	preference := settings.Settings{DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator}
+	money := func(value *domain.Money) string {
+		if value == nil {
+			return ""
+		}
+		return format.AuditMoney(value.CanonicalAmount(), value.Currency().String(), preference)
+	}
+	var first domain.ActivityEffect
 	for _, effect := range activity.Effects {
 		if effect.Money != nil {
-			account = names.endpoint(effect)
-			value = valuationMoney(view, domain.MoneyView{Amount: effect.Money.CanonicalAmount(), Currency: effect.Money.Currency()}, false)
+			first = effect
 			break
 		}
 	}
+	account, value := names.endpoint(first), money(first.Money)
 	reason := repeatReasonLabels[activity.Reason]
 	var sentence i18n.MessageID
+	var text string
+	var fee *domain.Money
 	switch {
 	case activity.Reason == domain.ReasonCardPurchase:
 		sentence, reason = i18n.OverviewRecentCardPurchase, i18n.NoMessage
@@ -373,6 +405,62 @@ func overviewActivitySentence(view ui.View, activity domain.Activity, names hist
 		sentence = i18n.OverviewRecentAdded
 	case activity.Kind == domain.ActivityCashOut:
 		sentence = i18n.OverviewRecentRemoved
+	case activity.Kind == domain.ActivityCashDividend:
+		detail := activity.DividendDetail
+		if detail == nil || account == "" || names.instruments[detail.InstrumentID] == "" {
+			return fallback()
+		}
+		text = fmt.Sprintf(l.Text(i18n.OverviewRecentDividend), account, money(&detail.Amount), names.instruments[detail.InstrumentID])
+		reason = i18n.NoMessage
+	case activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell:
+		principal, movement := role(domain.EffectRolePrincipal), role(domain.EffectRoleQuantity)
+		gross, quantity := principal.Money, movement.Quantity
+		var instrument domain.InstrumentID
+		if movement.InstrumentID != nil {
+			instrument = *movement.InstrumentID
+		}
+		if detail := activity.TradeDetail; detail != nil {
+			gross, quantity, instrument, fee = &detail.Gross, &detail.Quantity, detail.InstrumentID, detail.Fee
+		} else {
+			fee = role(domain.EffectRoleFee).Money
+		}
+		account, value = names.endpoint(principal), money(gross)
+		if account == "" || value == "" || quantity == nil || names.instruments[instrument] == "" {
+			return fallback()
+		}
+		trade := i18n.OverviewRecentBought
+		if activity.Kind == domain.ActivitySell {
+			trade = i18n.OverviewRecentSold
+		}
+		text = fmt.Sprintf(l.Text(trade), account, value, format.ExactDecimal(quantity.Canonical(), preference), names.instruments[instrument])
+		reason = i18n.NoMessage
+	case activity.Kind == domain.ActivityCashTransfer || activity.Kind == domain.ActivityFXConversion:
+		from, to := role(domain.EffectRoleTransferFrom), role(domain.EffectRoleTransferTo)
+		sent, received := money(from.Money), money(to.Money)
+		fromName, toName := names.endpoint(from), names.endpoint(to)
+		if fromName == "" || toName == "" || sent == "" || received == "" {
+			return fallback()
+		}
+		switch {
+		case activity.Kind == domain.ActivityFXConversion:
+			text = fmt.Sprintf(l.Text(i18n.OverviewRecentConverted), fromName, sent, received)
+		case sent != received:
+			text = fmt.Sprintf(l.Text(i18n.OverviewRecentTransferReceived), fromName, toName, sent, received)
+		default:
+			text = fmt.Sprintf(l.Text(i18n.OverviewRecentTransferred), fromName, toName, sent)
+		}
+		fee = role(domain.EffectRoleFee).Money
+	case activity.Kind == domain.ActivityPositionTransfer:
+		from, to := role(domain.EffectRoleTransferFrom), role(domain.EffectRoleTransferTo)
+		fromName, toName := names.endpoint(from), names.endpoint(to)
+		if fromName == "" || toName == "" || from.Quantity == nil || from.InstrumentID == nil {
+			return fallback()
+		}
+		instrument := names.instruments[*from.InstrumentID]
+		if instrument == "" {
+			return fallback()
+		}
+		text = fmt.Sprintf(l.Text(i18n.OverviewRecentMovedPosition), fromName, toName, format.ExactDecimal(from.Quantity.Canonical(), preference), instrument)
 	case activity.Kind == domain.ActivityValueUpdate:
 		if len(activity.Resulting) == 0 {
 			return fallback()
@@ -391,10 +479,15 @@ func overviewActivitySentence(view ui.View, activity domain.Activity, names hist
 	default:
 		return fallback()
 	}
-	if account == "" || value == "" {
-		return fallback()
+	if text == "" {
+		if account == "" || value == "" {
+			return fallback()
+		}
+		text = fmt.Sprintf(l.Text(sentence), account, value)
 	}
-	text := fmt.Sprintf(l.Text(sentence), account, value)
+	if fee != nil {
+		text = fmt.Sprintf(l.Text(i18n.OverviewRecentWithFee), text, money(fee))
+	}
 	if reason != i18n.NoMessage && activity.Reason != domain.ReasonOther {
 		text = fmt.Sprintf(l.Text(i18n.OverviewRecentWithReason), text, l.Text(reason))
 	}

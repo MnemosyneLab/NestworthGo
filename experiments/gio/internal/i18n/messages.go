@@ -550,6 +550,7 @@ const (
 	OverviewTaskSessions
 	OverviewTaskReadFailed
 	OverviewUpcomingTitle
+	OverviewUpcomingWindow
 	OverviewUpcomingCounts
 	OverviewUpcomingEmpty
 	OverviewUpcomingOther
@@ -565,6 +566,14 @@ const (
 	OverviewRecentCardRefund
 	OverviewRecentUpdated
 	OverviewRecentWithReason
+	OverviewRecentDividend
+	OverviewRecentBought
+	OverviewRecentSold
+	OverviewRecentTransferred
+	OverviewRecentTransferReceived
+	OverviewRecentConverted
+	OverviewRecentMovedPosition
+	OverviewRecentWithFee
 	OverviewRecentAll
 	OverviewRecentEmpty
 	OverviewTrendGaps
