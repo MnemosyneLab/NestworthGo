@@ -48,7 +48,7 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	click("Record a change")
+	click("Record debt activity")
 	d := p.liabilityPosting.draft
 	h.focused(&d.amount.Editor)
 	setBankField(h, "Amount", &d.amount, "12.34567")
@@ -63,7 +63,7 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 	h.focused(open)
 	assertBankObservations(t, session, card, 1, 1)
 
-	click("Record a change")
+	click("Record debt activity")
 	d = p.liabilityPosting.draft
 	setBankField(h, "Amount", &d.amount, "12.3456")
 	setBankField(h, "Notes", &d.note, "  Stationery sample  ")
@@ -130,7 +130,7 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 	}
 
 	now = now.Add(time.Minute)
-	click("Record a change")
+	click("Record debt activity")
 	d = p.liabilityPosting.draft
 	click("Card refund")
 	setBankField(h, "Amount", &d.amount, "99")
@@ -181,7 +181,7 @@ func TestLiabilityDebtPostingCompactMatchesWails(t *testing.T) {
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
 	adapter := historyapi.NewService(ref)
 
-	click("Record a change")
+	click("Record debt activity")
 	click("Debt draw")
 	d := p.liabilityPosting.draft
 	h.click("Cash account", true)
@@ -206,7 +206,7 @@ func TestLiabilityDebtPostingCompactMatchesWails(t *testing.T) {
 
 	now = now.Add(time.Minute)
 	setBalanceTargetClock(time.Minute, app, ref)
-	click("Record a change")
+	click("Record debt activity")
 	click("Debt payment")
 	d = p.liabilityPosting.draft
 	h.click("Cash account", true)

@@ -101,10 +101,24 @@ func Run(ctx context.Context, service *application.Service, prefs *preferences.S
 		funds.workers.Wait()
 		funds.productPage.workers.Wait()
 		accounts.workers.Wait()
+		accounts.detail.cashActions.form.workers.Wait()
 		onboarding.workers.Wait()
 	}()
 	shell := newShell(wordmark, mark, ledgerPages{directory: directory, history: timeline, overview: overview, wealthHistory: wealthHistory, returns: returns, assets: assets, marketData: marketData, dataHealth: dataHealth, funds: funds, tasks: tasks, accounts: accounts, portfolio: portfolio, prefs: state,
 		version: service.MobileDataVersion})
+	shell.settingsPage.data = settingsDataRebuild{
+		cancelLatest: func() {
+			latest := &marketData.latest
+			if latest.stop != nil {
+				latest.stopping = true
+				latest.stop()
+			}
+		},
+		run: func(ctx context.Context) (application.DerivedDataRebuildResult, error) {
+			service.CancelMarketDataSyncAndWait()
+			return service.RebuildDerivedData(ctx)
+		},
+	}
 	shell.onboarding = onboarding
 	return shell.run(window, prefs)
 }

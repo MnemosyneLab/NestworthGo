@@ -99,6 +99,7 @@ func TestAccountsCustodyTransferKeepsItsAccountAndHoldingScope(t *testing.T) {
 	}
 
 	rowLabel := "Transfer · " + instrument.DisplayLabel()
+	scrollToAccountDetailLabel(h, rowLabel)
 	click(rowLabel)
 	d = f.draft
 	h.focused(&d.custody.toPicker.Trigger)

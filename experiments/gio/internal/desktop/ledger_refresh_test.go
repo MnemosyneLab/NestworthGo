@@ -136,12 +136,12 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	}
 
 	click("Ledger activity")
-	h.click("Activity type", true)
+	h.click("Kind", true)
 	click("Money removed")
 	wantFilter := history.Filters{Kind: domain.ActivityCashOut}
 	timelineID := h.shell.trail.current().id
 	label("Loaded records: 1")
-	click("Record contribution")
+	click("Record change")
 	draft := ledger.cashMovements.draft
 	setBankField(h, "Contribution amount", &draft.amount, "25")
 	click("Preview contribution")
@@ -164,7 +164,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 	}
 	label("Could not load account data.")
 	click("Retry")
-	label("USD · US$120.00")
+	label("US$120.00")
 	if row := accounts.current.rows[0]; row.record.LatestValue.Amount.CanonicalAmount() != "120" || row.value == nil {
 		t.Fatal("the account facts and valuation were not refreshed")
 	}
@@ -205,7 +205,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 		ledger.model.Rows()[0].ID != previousID {
 		t.Fatal("History return discarded the visit, filter, or matching row")
 	}
-	h.focused(&ledger.cashMovements.actions[history.CashContribution])
+	h.focused(&ledger.record.trigger)
 
 	// Open a different activity, cross to its account, then change the same
 	// ledger through the application API without a Gio posting callback.
@@ -218,7 +218,7 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	settle()
-	label("USD · US$125.00")
+	label("US$125.00")
 	if h.shell.seenLedgerVersion != app.MobileDataVersion() || probe.writes.Load() != 1 {
 		t.Fatal("the shell did not observe an outside-page service update")
 	}

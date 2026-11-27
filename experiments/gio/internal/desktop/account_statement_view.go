@@ -74,6 +74,14 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 		} else {
 			detail := d.data.detail
 			a := statementAccount(detail, d.account.ID.String())
+			if f.openReconciliation != nil && d.account.ArchivedAt == nil {
+				button := &f.reconciliation
+				if d.previewing == nil && button.Clicked(gtx) {
+					f.openReconciliation(detail.ID, d.account.Name, button)
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				children = append(children, layout.Rigid(returnMonthButton(view, button, i18n.StatementOpenFullSession, nil, d.previewing == nil)))
+			}
 			children = append(children, p.statementActions(gtx, view, *a)...)
 			children = append(children, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 				return statementLines(gtx, view, &d.list, statementDetails(view, detail, *a))

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"slices"
 
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -27,10 +26,13 @@ type fundsPolicyDraft struct {
 	currency                    string
 	id                          domain.LiquidityPolicyID
 	revision                    int
-	entry                       *widget.Clickable
+	entry                       *widget.Clickable // nil when opened from another page
 	fields                      fundsPolicyFields
-	list                        widget.List
+	sheet                       analysisSheet
+	overlay                     ui.Overlay
 	openingFocus                bool
+	revealFocus                 *widget.Clickable
+	revealBounds                [2]int
 	footerFocus                 *widget.Clickable
 	problem                     i18n.MessageID
 	latest                      *application.LiquidityReadSource
@@ -66,20 +68,18 @@ func (p *availableFundsPage) policyButton(view ui.View, row application.Liquidit
 			p.startPolicy(row, title, button)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		if gtx.Enabled() && p.policyFocus == button {
-			p.policyFocus = nil
-			gtx.Execute(key.FocusCmd{Tag: button})
-		}
 		label := view.Language.Text(name)
-		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: label, Name: label + " · " + title})(gtx)
+		return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: label, Name: label + " · " + title})(gtx)
 	}
 }
 
 func (p *availableFundsPage) startPolicy(row application.LiquidityReadSource, title string, entry *widget.Clickable) {
 	id, revision := fundsPolicyVersion(&row)
 	p.policyNotice = i18n.NoMessage
+	sheet := newAnalysisSheet()
+	sheet.modal, sheet.focus = true, false
 	p.policy = &fundsPolicyDraft{source: row.Result.Ref, title: title, currency: row.Result.NativeCurrency.String(), id: id, revision: revision,
-		entry: entry, fields: newFundsPolicyFields(row.Result.Policy), list: widget.List{List: layout.List{Axis: layout.Vertical}}, openingFocus: true}
+		entry: entry, fields: newFundsPolicyFields(row.Result.Policy), sheet: sheet, openingFocus: true}
 }
 
 func (p *availableFundsPage) policyUnresolved() bool {
@@ -106,10 +106,12 @@ func (p *availableFundsPage) policySource(ref domain.LiquiditySourceRef) *applic
 func (p *availableFundsPage) cancelPolicy(refresh bool) {
 	d := p.policy
 	p.policy = nil
-	if row := p.policySource(d.source); row != nil && editableFundsPolicy(*row) && fundsMatchesSourceFilter(row.Result, p.selectedFundsBucket().HorizonOn, p.state.filter) {
-		p.policyFocus = d.entry
-	} else {
-		p.state.focusSources = true
+	p.policyFocus = &p.reload
+	if d.entry != nil {
+		p.policyFocus = &p.controls.filters[p.state.filter]
+		if row := p.policySource(d.source); row != nil && editableFundsPolicy(*row) && fundsMatchesSourceFilter(row.Result, p.selectedFundsBucket().HorizonOn, p.state.filter) {
+			p.policyFocus = d.entry
+		}
 	}
 	if refresh {
 		p.read()

@@ -73,7 +73,7 @@ func returnYearMonth(gtx layout.Context, view ui.View, button *widget.Clickable,
 	}
 	value := ""
 	if data.ReturnAmount != nil || data.ReturnRate != nil || data.Coverage.TotalDays > 0 {
-		value = returnMoney(view, data.ReturnAmount) + " · " + returnRate(view, data.ReturnRate)
+		value = returnSignedMoney(view, data.ReturnAmount) + " · " + returnRate(view, data.ReturnRate)
 	}
 	if status != i18n.NoMessage {
 		coverage += " · " + l.Text(status)

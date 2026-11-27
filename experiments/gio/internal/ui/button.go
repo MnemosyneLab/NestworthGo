@@ -62,7 +62,9 @@ type ButtonSpec struct {
 	Description string
 	// Toggle marks a button that reports Selected as its state, as a tab does.
 	Toggle, Selected bool
-	Icon             Glyph
+	// Radio opts into a radio role. The caller manages the group and selection.
+	Radio bool
+	Icon  Glyph
 	// Fill stretches the button across the available width.
 	Fill bool
 	// Content replaces the title with a custom layout, as in a clickable row.
@@ -177,9 +179,13 @@ func (v View) ButtonOf(button *widget.Clickable, spec ButtonSpec) layout.Widget 
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		v.Focus.Watch(gtx, button)
-		return accessibility.Button(gtx, button, name, spec.Description, false, func(gtx layout.Context) layout.Dimensions {
+		content := func(gtx layout.Context) layout.Dimensions {
 			return v.layoutButton(gtx, button, spec, name)
-		})
+		}
+		if spec.Radio {
+			return accessibility.RadioButton(gtx, button, name, spec.Description, spec.Selected, content)
+		}
+		return accessibility.ButtonWithSelection(gtx, button, name, spec.Description, spec.Selected, content)
 	}
 }
 
@@ -241,7 +247,11 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 	cgtx := gtx
 	cgtx.Constraints = layout.Exact(size)
 	dims := button.Layout(cgtx, func(gtx layout.Context) layout.Dimensions {
-		semantic.Button.Add(gtx.Ops)
+		role := semantic.Button
+		if spec.Radio {
+			role = semantic.RadioButton
+		}
+		role.Add(gtx.Ops)
 		semantic.SelectedOp(spec.Selected).Add(gtx.Ops)
 		semantic.LabelOp(name).Add(gtx.Ops)
 		if spec.Title == "" || spec.Toggle {

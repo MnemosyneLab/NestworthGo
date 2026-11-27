@@ -62,17 +62,18 @@ func (p *assetChangesPage) options(gtx layout.Context, view ui.View) layout.Dime
 	l := view.Language
 	var fields []analysisFilterField
 	if p.state.tab == assetCategoriesTab {
-		types := []ui.Choice{
-			{ID: string(application.CategoryIncome), Label: l.Text(i18n.AssetIncome)},
-			{ID: string(application.CategorySpending), Label: l.Text(i18n.AssetSpending)},
-			{ID: string(application.CategoryFees), Label: l.Text(i18n.AssetFees)},
-			{ID: string(application.CategoryDividendInterest), Label: l.Text(i18n.ReturnIncome)},
-			{ID: string(application.CategoryInvestmentReturn), Label: l.Text(i18n.ReturnTotal)},
+		kinds := []application.AnalysisCategoryType{application.CategoryIncome, application.CategorySpending, application.CategoryFees,
+			application.CategoryInvestmentReturn, application.CategoryDividendInterest}
+		types := make([]ui.Choice, 0, len(kinds))
+		for _, kind := range kinds {
+			types = append(types, ui.Choice{ID: string(kind), Label: l.Text(assetCategoryLabel(kind))})
 		}
 		fields = append(fields, analysisSelect(&p.category, i18n.AssetCategoryType, types, string(p.categoryType()), false, func(value string) {
 			p.state.category = application.AnalysisCategoryType(value)
 			p.change()
-		}))
+		}), func(gtx layout.Context, view ui.View) layout.Dimensions {
+			return view.Message(l.Text(i18n.AssetCategoryHint), view.Colors.SecondaryInk)(gtx)
+		})
 	} else {
 		intervals := []ui.Choice{
 			{ID: string(application.TrendDay), Label: l.Text(i18n.AssetDaily)},
@@ -114,7 +115,14 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		status = i18n.ReturnNoClosedDays
 	}
 	if status != i18n.NoMessage {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)))
+		ink := view.Colors.SecondaryInk
+		if status == i18n.AssetFailed {
+			ink = view.Colors.ErrorInk
+		}
+		rows = append(rows, ui.Rigid(view.Message(l.Text(status), ink)))
+		if status == i18n.AssetFailed && p.current == nil {
+			rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, reload, nil, true)))
+		}
 	}
 	if result := p.current; result != nil && result.query.From <= result.query.To {
 		rangeLabel := wealthDay(view, result.query.From) + " – " + wealthDay(view, result.query.To)
@@ -125,7 +133,10 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 		}))
 		switch {
 		case result.drivers != nil:
-			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query.Valuation)...)
+			if result.drivers.Available && result.drivers.Status == domain.CompletenessPartial && p.openHealth != nil {
+				rows = append(rows, ui.Rigid(p.assetCoverageLink(view, result.query)))
+			}
+			rows = append(rows, p.assetDriverRows(view, *result.drivers, result.query)...)
 		case result.trend != nil:
 			rows = append(rows, p.assetTrendRows(view, *result.trend, result.query)...)
 		case result.categories != nil:
@@ -135,17 +146,31 @@ func (p *assetChangesPage) content(gtx layout.Context, view ui.View) layout.Dime
 	return (ui.Column{Gap: 10, MinFill: 300}).Layout(gtx, rows...)
 }
 
-func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetChangeResult, valuation domain.Valuation) []ui.ColumnChild {
+func (p *assetChangesPage) assetCoverageLink(view ui.View, query domain.AnalysisQuery) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		ready := p.request == nil && p.err == nil
+		if p.coverage.Clicked(gtx) && ready {
+			p.openHealth(healthFindingFocus{from: query.From, to: query.To}, &p.coverage)
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return returnMonthButton(view, &p.coverage, i18n.OverviewTrendGaps, nil, ready)(gtx)
+	}
+}
+
+func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetChangeResult, query domain.AnalysisQuery) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(view.Message(analysisBasis(l, valuation, data.ValuationForced), view.Colors.SecondaryInk))}
+	var rows []ui.ColumnChild
+	if data.ValuationForced == nil || !data.Available {
+		rows = append(rows, ui.Rigid(view.Message(analysisBasis(l, query.Valuation, data.ValuationForced), view.Colors.SecondaryInk)))
+	}
 	if !data.Available {
-		return append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
+		hint := i18n.AssetDriverNoDataHint
+		if data.MissingReason == "no usable asset days are available for this period" {
+			hint = i18n.AssetDriverNoUsableDays
+		}
+		return append(rows, ui.Rigid(assetEmpty(view, i18n.AssetDriverNoData, hint)))
 	}
-	rows = append(rows, ui.Rigid(assetSummary(view, data.Summary, false)))
-	if data.Status == domain.CompletenessPartial {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
-	}
-	rows = append(rows, ui.Rigid(p.driverWaterfall(view, data)))
+	rows = append(rows, ui.Rigid(assetDriverSummary(view, data, query.Scope.Kind)), ui.Rigid(p.driverContributions(view, data)))
 	if len(data.Groups) > 0 || data.ResidualIssueCount > 0 {
 		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.AssetAttribution), view.Colors.Ink)))
 	}
@@ -166,9 +191,9 @@ func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetC
 		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				label, amount := l.Text(groupLabel), assetSignedMoney(view, group.Amount)
 				lines := []layout.FlexChild{
-					layout.Rigid(headingRow(view, l.Text(groupLabel)+" · "+returnMoney(view, group.Amount), l.Text(groupLabel),
-						returnMoney(view, group.Amount), view.Colors.Ink)),
+					layout.Rigid(headingRow(view, label+" · "+amount, label, amount, view.Colors.Ink)),
 					layout.Rigid(view.Hairline),
 				}
 				for _, row := range group.Rows {
@@ -188,36 +213,82 @@ func (p *assetChangesPage) assetDriverRows(view ui.View, data application.AssetC
 	return rows
 }
 
-func assetSummary(view ui.View, totals application.AssetChangeSummary, debts bool) layout.Widget {
+func assetDriverSummary(view ui.View, data application.AssetChangeResult, scope domain.ScopeKind) layout.Widget {
+	title := i18n.AssetNetWorthChange
+	switch scope {
+	case domain.ScopeAccount:
+		title = i18n.AssetAccountValueChange
+	case domain.ScopeInstrument:
+		title = i18n.AssetInvestmentValueChange
+	}
 	l := view.Language
 	return func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
-			labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
-			values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
-				assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
-			// The change and its rate carry the gain or loss color. A debt that
-			// grows is a loss, so its sign flips.
-			tone := returnTone(totals.ChangeRate, totals.Change)
-			if debts {
-				tone = -tone
+			rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(title), view.Colors.Ink))}
+			if data.ValuationForced != nil {
+				rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetValuationForced), view.Colors.WarningInk)))
 			}
-			ink := func(i int) color.NRGBA {
-				switch {
-				case i < 2 || tone == 0:
-					return view.Colors.Ink
-				case tone > 0:
-					return view.Colors.Success
+			rows = append(rows, ui.Rigid(assetSummaryFigures(view, data.Summary, false, true)))
+			rateHint := l.Text(i18n.AssetSummaryRateHint)
+			if data.Summary.ChangeRate == nil {
+				reason := i18n.AssetSummaryRateIncomplete
+				if data.Summary.ChangeRateMissingReason == "nonpositive_beginning" {
+					reason = i18n.AssetSummaryRateNonpositive
 				}
-				return view.Colors.Destructive
+				rateHint += " " + l.Text(reason)
 			}
-			return (ui.Grid{MinColumn: 135, Gap: 12, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
-				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-						layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
-						layout.Rigid(summaryFigure(view, values[i], ink(i))))
-				})
+			rows = append(rows, ui.Rigid(view.Message(rateHint, view.Colors.SecondaryInk)))
+			if data.Status == domain.CompletenessPartial {
+				coverage := l.Text(i18n.AssetPartialCoverage)
+				if data.MissingReason != "" {
+					coverage += " · " + l.Text(assetCoverageCopy(data.MissingReason))
+				}
+				rows = append(rows, ui.Rigid(view.Message(coverage, view.Colors.WarningInk)))
+			}
+			return (ui.Column{Gap: ui.Space12}).Layout(gtx, rows...)
 		})
+	}
+}
+
+func assetSummary(view ui.View, totals application.AssetChangeSummary, debts bool) layout.Widget {
+	figures := assetSummaryFigures(view, totals, debts, false)
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, figures)
+	}
+}
+
+func assetSummaryFigures(view ui.View, totals application.AssetChangeSummary, debts, drivers bool) layout.Widget {
+	labels := [...]i18n.MessageID{i18n.AssetBeginning, i18n.AssetEnding, i18n.AssetNetChange, i18n.AssetChangeRate}
+	values := [...]string{assetLevelMoney(view, totals.BeginningValue, debts), assetLevelMoney(view, totals.EndingValue, debts),
+		assetMoney(view, totals.Change, debts), returnRate(view, totals.ChangeRate)}
+	if drivers {
+		labels[2], labels[3] = i18n.AssetSummaryChange, i18n.AssetSummaryRate
+		values[2] = assetSignedMoney(view, totals.Change)
+	}
+	// The change and its rate carry the gain or loss color. A debt that grows
+	// is a loss, so its sign flips.
+	tone := returnTone(totals.ChangeRate, totals.Change)
+	if debts {
+		tone = -tone
+	}
+	ink := func(i int) color.NRGBA {
+		switch {
+		case i < 2 || tone == 0:
+			return view.Colors.Ink
+		case tone > 0:
+			return view.Colors.Success
+		}
+		return view.Colors.Destructive
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return (ui.Grid{MinColumn: 135, Gap: 12, MaxColumns: len(labels), Balanced: true}).Layout(gtx, view, len(labels),
+			func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
+					layout.Rigid(view.Message(view.Language.Text(labels[i]), view.Colors.SecondaryInk)),
+					layout.Rigid(summaryFigure(view, values[i], ink(i))))
+			})
 	}
 }
 
@@ -237,15 +308,26 @@ func assetLevelMoney(view ui.View, value *domain.SignedMoney, debts bool) string
 
 func (p *assetChangesPage) categoryRows(view ui.View, data application.CategoriesResult) []ui.ColumnChild {
 	l := view.Language
-	rows := []ui.ColumnChild{ui.Rigid(labeledAmount(view, i18n.AssetCategoryTotal, returnMoney(view, data.Total), view.Colors.Ink))}
+	if !data.Available {
+		title, hint := i18n.AssetCategoryNoPositions, i18n.AssetCategoryNoPositionsHint
+		if len(data.Rows) > 0 {
+			title, hint = i18n.AssetCategoryLowHistory, i18n.AssetCategoryLowHistoryHint
+		}
+		return []ui.ColumnChild{ui.Rigid(assetEmpty(view, title, hint))}
+	}
+	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(assetCategoryLabel(p.categoryType())), view.Colors.Ink))}
+	if data.Total != nil {
+		label, total := l.Text(i18n.AssetCategoryTotal), assetSignedMoney(view, data.Total)
+		rows = append(rows, ui.Rigid(labeledRow(view, label+" · "+total, label, total, view.Colors.Ink)))
+	}
 	if data.ValuationForced != nil {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk)))
 	}
 	if data.Status == domain.CompletenessPartial {
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewIncomplete), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(assetCoverageCopy(data.MissingReason)), view.Colors.WarningInk)))
 	}
-	if !data.Available || len(data.Rows) == 0 {
-		return append(rows, ui.Rigid(view.Message(l.Text(i18n.AssetNoData), view.Colors.SecondaryInk)))
+	if len(data.Rows) == 0 {
+		return append(rows, ui.Rigid(assetEmpty(view, i18n.AssetCategoryEmpty, i18n.AssetCategoryEmptyHint)))
 	}
 	if len(data.Rows) <= 6 {
 		// A short list is one card as tall as its rows, not a scroller with
@@ -275,6 +357,44 @@ func (p *assetChangesPage) categoryRows(view ui.View, data application.Categorie
 	}))
 }
 
+func assetCategoryLabel(kind application.AnalysisCategoryType) i18n.MessageID {
+	switch kind {
+	case application.CategoryIncome:
+		return i18n.AssetIncome
+	case application.CategoryFees:
+		return i18n.AssetFees
+	case application.CategoryInvestmentReturn:
+		return i18n.AssetCategoryInvestment
+	case application.CategoryDividendInterest:
+		return i18n.AssetCategoryDividend
+	default:
+		return i18n.AssetSpending
+	}
+}
+
+func assetEmpty(view ui.View, title, hint i18n.MessageID) layout.Widget {
+	l := view.Language
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+				ui.Rigid(view.Body(ui.TextLabel, l.Text(title), view.Colors.Ink)),
+				ui.Rigid(view.Message(l.Text(hint), view.Colors.SecondaryInk)))
+		})
+	}
+}
+
+func assetCoverageCopy(reason string) i18n.MessageID {
+	switch reason {
+	case "one or more asset days are incomplete":
+		return i18n.AssetDaysIncomplete
+	case "funding cash is recorded after the product start":
+		return i18n.WealthHistoryFundingGap
+	default:
+		return i18n.OverviewIncomplete
+	}
+}
+
 func assetBucketLabel(l i18n.Language, bucket domain.AttributionBucket) string {
 	switch bucket {
 	case domain.BucketExternalFlow:
@@ -283,6 +403,14 @@ func assetBucketLabel(l i18n.Language, bucket domain.AttributionBucket) string {
 		return l.Text(i18n.AssetIncome)
 	case domain.BucketSpending:
 		return l.Text(i18n.AssetSpending)
+	case domain.BucketDividendInterest:
+		return l.Text(i18n.AssetCategoryDividend)
+	case domain.BucketPriceChange:
+		return l.Text(i18n.AssetDriverPrice)
+	case domain.BucketFXImpact:
+		return l.Text(i18n.AssetDriverFX)
+	case domain.BucketFXConversionSpread:
+		return l.Text(i18n.AssetDriverFXSpread)
 	case domain.BucketFee:
 		return l.Text(i18n.AssetFees)
 	case domain.BucketLiabilityImpact:

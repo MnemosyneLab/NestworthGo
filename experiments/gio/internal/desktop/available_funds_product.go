@@ -36,6 +36,10 @@ type fundsProductSetup struct {
 	choices          []domain.Account
 	accountButtons   map[domain.AccountID]*widget.Clickable
 	form             *holdingProductAdd
+	sheet            analysisSheet
+	overlay          ui.Overlay
+	currencyFocus    bool
+	requiredField    i18n.MessageID
 	currency         string
 	cash             *domain.AccountValuation
 	cashRead         <-chan historyResult[[]domain.AccountValuation]
@@ -65,7 +69,9 @@ func (p *availableFundsPage) productAccounts() []domain.Account {
 }
 
 func newProductSetup(runtime productSetupRuntime, accounts []domain.Account, defaultName string) *fundsProductSetup {
-	d := &fundsProductSetup{runtime: runtime, choices: accounts, focus: true, accountButtons: make(map[domain.AccountID]*widget.Clickable)}
+	sheet := newAnalysisSheet()
+	sheet.modal, sheet.focus = true, false
+	d := &fundsProductSetup{runtime: runtime, choices: accounts, focus: true, sheet: sheet, accountButtons: make(map[domain.AccountID]*widget.Clickable)}
 	if len(accounts) == 1 {
 		d.chooseAccount(accounts[0], defaultName)
 	}
@@ -74,7 +80,7 @@ func newProductSetup(runtime productSetupRuntime, accounts []domain.Account, def
 
 func (d *fundsProductSetup) chooseAccount(account domain.Account, defaultName string) {
 	d.account, d.currency, d.form = account, account.DefaultCurrency.String(), newHoldingProductAdd(defaultName)
-	d.focus = true
+	d.focus, d.currencyFocus = true, true
 	d.readCash()
 }
 
@@ -86,18 +92,23 @@ func (d *fundsProductSetup) readCash() {
 }
 
 func (d *fundsProductSetup) cashValue(view ui.View) string {
-	if d.cash == nil {
+	amount, ok := d.cashAmount()
+	if !ok {
 		return view.Language.Text(i18n.OverviewNoValue)
+	}
+	return holdingSnapshotValue(view, amount, d.currency)
+}
+
+func (d *fundsProductSetup) cashAmount() (string, bool) {
+	if d.cash == nil {
+		return "", false
 	}
 	for _, component := range d.cash.Components {
 		if component.HoldingID == nil && component.NativeCurrency.String() == d.currency {
-			if component.NativeAmount != "" {
-				return holdingSnapshotValue(view, component.NativeAmount, d.currency)
-			}
-			return view.Language.Text(i18n.OverviewNoValue)
+			return component.NativeAmount, component.NativeAmount != ""
 		}
 	}
-	return holdingSnapshotValue(view, "0", d.currency)
+	return "0", true
 }
 
 func (d *fundsProductSetup) requestReview() {

@@ -156,6 +156,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	label("US$236.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record buy")
 	click("Record buy")
 	d := accounts.investment.draft
 	chooseTradeInstrument(t, h, d, ids.instrument, settle)
@@ -278,6 +279,7 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	if accounts.canSell() || accounts.canFirstBuy() {
 		t.Fatal("a liquidated holding became eligible for sell or a new first holding")
 	}
+	scrollToAccountDetailLabel(h, "Record buy")
 	click("Record buy")
 	chooseTradeInstrument(t, h, accounts.investment.draft, ids.instrument, settle)
 	d = accounts.investment.draft

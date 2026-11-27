@@ -705,6 +705,20 @@ func (s *Service) ReconciliationLinkedChanges(ctx context.Context, id string) ([
 	return r.ReconciliationLinks(ctx, h.ID.String(), id)
 }
 
+// HasReconciliationActivityLink reports whether an activity was posted through
+// a reconciliation session in the current household.
+func (s *Service) HasReconciliationActivityLink(ctx context.Context, account domain.AccountID, activity domain.ActivityID) (bool, error) {
+	r, err := s.reconciliationRepo()
+	if err != nil {
+		return false, err
+	}
+	h, err := s.requireHousehold(ctx)
+	if err != nil {
+		return false, err
+	}
+	return r.HasReconciliationActivityLink(ctx, h.ID.String(), account, activity)
+}
+
 // ValidateReconciliationLink fences previews as well as the repository's atomic
 // commit check. An attestation is never implied by an attached correction.
 func (s *Service) ValidateReconciliationLink(ctx context.Context, link *domain.ReconciliationLink, previews []domain.ChangePreview) error {

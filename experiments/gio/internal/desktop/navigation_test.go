@@ -143,7 +143,8 @@ func TestDirectoryObjectNavigationRevalidatesAndDoesNotReplayWrites(t *testing.T
 	recentRect := semanticBounds(t, &h.router, "Recent", false)
 	beforeRecent := recentTitles(s)
 	h.click("Archive", false)
-	assertPageLabel(t, &h.router, "Archive group?")
+	h.frame()
+	assertPageLabel(t, &h.router, "Archive")
 	h.clickAt(backRect.Min.Add(backRect.Max).Div(2))
 	h.clickAt(recentRect.Min.Add(recentRect.Max).Div(2))
 	if !s.confirmingArchive() || s.trail.cursor != 1 || s.overlay.Trigger != nil || !slices.Equal(recentTitles(s), beforeRecent) {
@@ -256,7 +257,7 @@ func TestNavigationRestoresDirectoryScopeAndScrollAcrossVisits(t *testing.T) {
 	}
 	h.click("Settings", false)
 	h.click("Directory", false)
-	h.click("Hide archived", false)
+	h.click("Show archived", false)
 	finish()
 	h.click("Clear search", true)
 	h.click("Members", false)

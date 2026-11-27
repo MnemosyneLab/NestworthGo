@@ -36,6 +36,7 @@ func TestTransferQuoteFillsDraftAndActualAmountsMatchWails(t *testing.T) {
 	c, page, h, finish := cashMovementHarness(t, fault)
 	click := func(label string) { t.Helper(); h.click(label, false); finish() }
 	require := func(label string) { t.Helper(); assertPageLabel(t, &h.router, label) }
+	click("Record change")
 	click("Record transfer")
 	pickAccountReference(h, "From account", "Harbor", "Harbor Checking · USD")
 	pickAccountReference(h, "To account", "Euro", "Euro Cash · EUR")
@@ -192,6 +193,7 @@ func TestTransferQuoteIgnoresAbandonedReadAndRetriesOnlyRead(t *testing.T) {
 	release := sync.OnceFunc(func() { close(fault.release) })
 	c, _, h, finish := cashMovementHarness(t, fault)
 	t.Cleanup(release)
+	h.click("Record change", false)
 	h.click("Record transfer", false)
 	finish()
 	pickAccountReference(h, "From account", "Harbor", "Harbor Checking · USD")

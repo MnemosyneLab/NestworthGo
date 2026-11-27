@@ -11,6 +11,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 )
 
@@ -75,7 +76,9 @@ func (p *TimePicker) LayoutSeconds(gtx layout.Context, view View, field PickerFi
 func (p *TimePicker) layout(gtx layout.Context, view View, field PickerField, value, format string, twelveHour, clearable bool, change func(string)) {
 	parts, valid := clockParts(value, format)
 	pane := Popover{focus: p, Body: func(gtx layout.Context) layout.Dimensions {
-		return p.popup(gtx, view, value, format, timeChoices(view, format, twelveHour), clearable, change)
+		return accessibility.List(gtx, p, view.Language.Text(field.Label), func(gtx layout.Context) layout.Dimensions {
+			return p.popup(gtx, view, value, format, timeChoices(view, format, twelveHour), clearable, change)
+		})
 	}}
 	if pickerTrigger(gtx, view, field, &p.Trigger, displayClock(view, value, format, twelveHour), value != "" && !valid, pane) {
 		p.active = 0
@@ -155,7 +158,8 @@ func (p *TimePicker) popup(gtx layout.Context, view View, value, format string, 
 			selected = clockPartID(parts[i])
 		}
 		columns = append(columns, layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-			return clockColumn(gtx, view, titles[i], &p.columns[i], items, selected, gtx.Focused(p) && p.active == i,
+			nav := optionNavigation{tag: p, active: p.active == i, enter: func() { p.active = i }}
+			return clockColumn(gtx, view, titles[i], &p.columns[i], items, selected, nav,
 				func(item Choice) { pick(i, item) })
 		}))
 	}
@@ -173,14 +177,14 @@ func (p *TimePicker) popup(gtx layout.Context, view View, value, format string, 
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(6)}.Layout(gtx, children...)
 }
 
-func clockColumn(gtx layout.Context, view View, title i18n.MessageID, list *optionList, items []Choice, selected string, active bool, pick func(Choice)) layout.Dimensions {
+func clockColumn(gtx layout.Context, view View, title i18n.MessageID, list *optionList, items []Choice, selected string, nav optionNavigation, pick func(Choice)) layout.Dimensions {
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Label(gtx, view.Language.Text(title), 13, font.Medium, view.Colors.Ink)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.Y = max(0, gtx.Constraints.Max.Y-gtx.Dp(36))
-			return list.layout(gtx, view, items, selected, active, pick)
+			return list.layout(gtx, view, items, selected, nav, pick)
 		}),
 	)
 }

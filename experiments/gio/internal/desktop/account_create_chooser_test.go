@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"gioui.org/io/key"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -47,6 +49,16 @@ func TestAccountTypeChooserLeadsToTheDetailsForm(t *testing.T) {
 	service, session := openBankFixture(t, root)
 	defer func() { _ = session.Close() }()
 	p, h, finish := accountShellHarness(t, service, service, "")
+	h.size.Y = 410
+	h.frame()
+	h.click("Show archived", false)
+	finish()
+	p.list.ScrollTo(len(p.rows) - 1)
+	h.frame()
+	before := p.list.Position
+	if before.First == 0 && before.Offset == 0 {
+		t.Fatal("the fixture did not scroll the filtered account list")
+	}
 
 	h.click("Add account", false)
 	finish()
@@ -60,18 +72,36 @@ func TestAccountTypeChooserLeadsToTheDetailsForm(t *testing.T) {
 		t.Fatal("cancelling the chooser left a draft behind")
 	}
 	h.focused(&p.createAccount)
+	if !p.archived || p.list.Position != before {
+		t.Fatalf("Cancel changed the archived filter or list position: %+v, want %+v", p.list.Position, before)
+	}
 
 	startNewAccount(h, finish, "Brokerage")
 	d := p.creation.draft
-	if p.creation.chooser != nil || d == nil || d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings || d.role != domain.RoleAsset {
+	if p.creation.sheet.step != accountDetails || d == nil || d.kind != domain.TypeBrokerage || d.mode != domain.TrackingHoldings || d.role != domain.RoleAsset {
 		t.Fatalf("continuing with Brokerage started %+v", d)
 	}
 	assertPageLabel(t, &h.router, "Account details")
-	h.click("Cancel", false)
+	h.click("Back", false)
 	finish()
-	if p.creation.draft != nil {
-		t.Fatal("cancelling the form kept the draft")
+	assertPageLabel(t, &h.router, "How should this account be tracked?")
+	h.click("Back", false)
+	finish()
+	assertPageLabel(t, &h.router, "Where is it held?")
+	h.click("Pacific Sample Brokerage", false)
+	h.click("Continue", false)
+	finish()
+	h.click("Continue", false)
+	finish()
+	if d.institution.Name != "Pacific Sample Brokerage" || !d.institutionExplicit || d.mode != domain.TrackingHoldings {
+		t.Fatal("the existing institution choice did not reach brokerage details with holdings selected")
 	}
+	h.press(key.NameEscape)
+	finish()
+	if p.creation.draft != nil || p.creation.sheet != nil || !p.archived || p.list.Position != before {
+		t.Fatal("Escape left a creation draft or changed the filtered list")
+	}
+	h.focused(&p.createAccount)
 }
 
 func TestNewAccountChoosesTrackingWithoutChangingType(t *testing.T) {
@@ -112,6 +142,10 @@ func TestNewAccountChoosesTrackingWithoutChangingType(t *testing.T) {
 	h.click("Bank account", false)
 	h.click("Continue", false)
 	finish()
+	assertPageLabel(t, &h.router, "Where is it held?")
+	h.click("No institution", false)
+	h.click("Continue", false)
+	finish()
 	assertPageLabel(t, &h.router, "How should this account be tracked?")
 	assertPageLabel(t, &h.router, "Choose a tracking method for Bank account.")
 	if findPageLabel(&h.router, "Manual valuation") != nil {
@@ -121,8 +155,9 @@ func TestNewAccountChoosesTrackingWithoutChangingType(t *testing.T) {
 	h.click("Continue", false)
 	finish()
 	d := p.creation.draft
-	if p.creation.chooser != nil || d == nil || d.kind != domain.TypeBankAccount || d.mode != domain.TrackingHoldings {
-		t.Fatalf("bank holdings draft = %+v, chooser open %v", d, p.creation.chooser != nil)
+	if p.creation.sheet.step != accountDetails || d == nil || d.kind != domain.TypeBankAccount || d.mode != domain.TrackingHoldings ||
+		d.institution.ID != "" || !d.institutionExplicit {
+		t.Fatalf("bank holdings draft = %+v, sheet step %v", d, p.creation.sheet.step)
 	}
 	reviewNamed("Synthetic bank holdings")
 	got := p.creation.review.input
@@ -133,6 +168,8 @@ func TestNewAccountChoosesTrackingWithoutChangingType(t *testing.T) {
 
 	openType()
 	h.click("Bank account", false)
+	h.click("Continue", false)
+	finish()
 	h.click("Continue", false)
 	finish()
 	h.click("Continue", false)
@@ -152,11 +189,14 @@ func TestNewAccountChoosesTrackingWithoutChangingType(t *testing.T) {
 	h.click("Crypto exchange", false)
 	h.click("Continue", false)
 	finish()
+	assertPageLabel(t, &h.router, "Where is it held?")
+	h.click("Continue", false)
+	finish()
 	if findPageLabel(&h.router, "How should this account be tracked?") != nil {
 		t.Fatal("a single-mode account stopped to choose a tracking method")
 	}
 	d = p.creation.draft
-	if p.creation.chooser != nil || d == nil || d.kind != domain.TypeCryptoExchange || d.mode != domain.TrackingHoldings {
+	if p.creation.sheet.step != accountDetails || d == nil || d.kind != domain.TypeCryptoExchange || d.mode != domain.TrackingHoldings {
 		t.Fatalf("crypto draft = %+v", d)
 	}
 	assertPageLabel(t, &h.router, "Account details")

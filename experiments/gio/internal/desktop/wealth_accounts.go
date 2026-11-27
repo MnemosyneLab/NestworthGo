@@ -31,6 +31,7 @@ type wealthAccountCapture struct {
 	err                        error
 	modes                      [3]widget.Clickable
 	changes, reload, swap      widget.Clickable
+	shortcuts                  [wealthCaptureShortcutCount]widget.Clickable
 	changesOnly                bool
 	category                   wealthAllocationFilter
 	earlier, later             ui.DatePicker
@@ -96,9 +97,7 @@ func (p *wealthHistoryPage) selectEndpointLens(lens wealthHistoryLens) {
 	p.lens = lens
 	if p.accounts.draft.from == "" {
 		now := p.clock()
-		local := now.In(p.origin.location)
-		monthEnd := time.Date(local.Year(), local.Month(), 0, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
-		chosen := max(monthEnd, p.origin.first)
+		chosen := max(p.origin.previousMonthEnd(now), p.origin.first)
 		if !p.validAccountDates(wealthAccountDates{from: chosen}, now) {
 			chosen = p.draft.to
 		}

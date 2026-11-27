@@ -16,7 +16,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
-func seedStage6Market(t *testing.T, start time.Time) ([]byte, domain.InstrumentID) {
+func seedStage6Market(t *testing.T, start time.Time, withInstrument bool) ([]byte, domain.InstrumentID) {
 	t.Helper()
 	ctx := t.Context()
 	db, _, svc := openStage6Database(t, filepath.Join(t.TempDir(), "source.db"), func() time.Time { return start },
@@ -40,17 +40,21 @@ func seedStage6Market(t *testing.T, start time.Time) ([]byte, domain.InstrumentI
 			t.Fatal(err)
 		}
 	}
-	instrument, err := svc.CreateInstrument(ctx, application.InstrumentInput{
-		Name: "Synthetic provider fund", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
-		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "DEMO", MarketCode: "US",
-	})
-	if err != nil {
-		t.Fatal(err)
+	var id domain.InstrumentID
+	if withInstrument {
+		instrument, err := svc.CreateInstrument(ctx, application.InstrumentInput{
+			Name: "Synthetic provider fund", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
+			ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "DEMO", MarketCode: "US",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		id = instrument.ID
 	}
 	if _, err := svc.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	return stage6SeedBytes(t, db), instrument.ID
+	return stage6SeedBytes(t, db), id
 }
 
 type stage6LatestFXProvider struct {
@@ -118,7 +122,7 @@ func TestStage6PairedMixedLatestRefresh(t *testing.T) {
 	defer stop()
 	now := time.Date(2026, 11, 6, 18, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	seed, instrument := seedStage6Market(t, now.AddDate(0, 0, -4))
+	seed, instrument := seedStage6Market(t, now.AddDate(0, 0, -4), true)
 	gioPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "gio"), seed)
 	wailsPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "wails"), seed)
 	newProviders := func() (*stage6LatestFXProvider, *stage6LatestInstrumentProvider, *application.MarketDataRegistry) {
@@ -166,7 +170,7 @@ func TestStage6PairedMixedLatestRefresh(t *testing.T) {
 			t.Fatal("cancelled refresh stored an observation")
 		}
 	}
-	h.click("Update latest data", false)
+	h.click("Update latest prices", false)
 	adapter.StartRefreshMissingOrStale("cancel")
 	waitMarketOperations(t, h, func() bool { return gioFX.latestCalls.Load() == 1 && wailsFX.latestCalls.Load() == 1 })
 	h.click("Cancel refresh", false)

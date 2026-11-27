@@ -19,6 +19,7 @@ import (
 type historyFilterControls struct {
 	kind, account, instrument ui.Select
 	from, to                  ui.DatePicker
+	dates                     analysisDateShortcuts
 	clear, retry              widget.Clickable
 }
 
@@ -36,6 +37,9 @@ func (p *historyPage) noHistory() bool {
 func (p *historyPage) applyFilters(gtx layout.Context, filters history.Filters) {
 	if p.model.Filters().Equal(filters) {
 		return
+	}
+	if p.reads != nil {
+		p.reads.closeRowActions()
 	}
 	p.model.SetFilters(filters)
 	p.list.Position = layout.Position{}
@@ -63,6 +67,7 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 
 	refs, filters := r.references, p.model.Filters()
 	if c.clear.Clicked(gtx) {
+		c.dates.at = analysisDateWindow{}
 		p.applyFilters(gtx, history.Filters{})
 		filters = history.Filters{}
 		gtx.Execute(key.FocusCmd{Tag: &c.kind.Trigger})
@@ -159,11 +164,13 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 		layoutDate(&c.from, i18n.HistoryFilterFrom, filters.From, first, fromMax, func(day string) {
 			next := p.model.Filters()
 			next.From = day
+			c.dates.at = analysisDateWindow{}
 			p.applyFilters(gtx, next)
 		}),
 		layoutDate(&c.to, i18n.HistoryFilterTo, filters.To, toMin, today, func(day string) {
 			next := p.model.Filters()
 			next.To = day
+			c.dates.at = analysisDateWindow{}
 			p.applyFilters(gtx, next)
 		}),
 		// The clear button sits level with the controls, below the label line.
@@ -181,9 +188,29 @@ func (p *historyPage) layoutFilters(gtx layout.Context, view ui.View) layout.Dim
 	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.UniformInset(ui.Space16).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			view.Origin = view.Origin.Add(image.Pt(gtx.Dp(ui.Space16), gtx.Dp(ui.Space16)))
-			return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-				return pickers[i](gtx, view.Origin)
-			})
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return historyFilterGrid.Layout(gtx, view, len(pickers), func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+						return pickers[i](gtx, view.Origin)
+					})
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					current := analysisDateWindow{from: filters.From, to: filters.To}
+					if current.from == "" {
+						current.from = first
+					}
+					if current.to == "" {
+						current.to = today
+					}
+					c.dates.oneDayLabel = i18n.AnalysisDayShort
+					c.dates.pinned, c.dates.pinnedPreset = filters.From == "" && filters.To == "", analysisAllDates
+					return c.dates.layout(gtx, view, current, first, today, func(window analysisDateWindow) {
+						next := p.model.Filters()
+						next.From, next.To = window.from, window.to
+						p.applyFilters(gtx, next)
+					})
+				}),
+			)
 		})
 	})
 }

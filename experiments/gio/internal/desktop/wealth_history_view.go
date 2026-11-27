@@ -142,9 +142,9 @@ func (p *wealthHistoryPage) dateFields(gtx layout.Context, view ui.View, now tim
 	}
 	return (ui.Grid{MinColumn: 150, MaxColumns: 2, Gap: 10}).Layout(gtx, view, 2,
 		func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-			picker, label, value := &p.from, i18n.HistoryFilterFrom, &p.draft.from
+			picker, label, value := &p.from, i18n.WealthTrendFromDate, &p.draft.from
 			if i == 1 {
-				picker, label, value = &p.to, i18n.HistoryFilterTo, &p.draft.to
+				picker, label, value = &p.to, i18n.WealthTrendToDate, &p.draft.to
 			}
 			picker.Layout(gtx, view, ui.PickerField{Label: label, Origin: view.Origin}, options, *value, func(day string) {
 				*value = day
@@ -242,24 +242,32 @@ func wealthAmount(view ui.View, label i18n.MessageID, value domain.ValuationAmou
 // wealthAmountParts splits wealthAmount into its caption and the figure.
 func wealthAmountParts(view ui.View, label i18n.MessageID, value domain.ValuationAmount) (name, display string) {
 	l := view.Language
-	parts := []string{l.Text(label)}
+	name = l.Text(label)
+	if qualifier := wealthAmountQualifier(label, value); qualifier != i18n.NoMessage {
+		name += " · " + l.Text(qualifier)
+	}
 	money := value.Total
-	switch {
-	case money == nil && value.KnownSubtotal != nil:
+	if money == nil {
 		money = value.KnownSubtotal
-		qualifier := i18n.OverviewKnownSubtotal
-		if label == i18n.NetWorth {
-			qualifier = i18n.OverviewKnownNet
-		}
-		parts = append(parts, l.Text(qualifier))
-	case money != nil && value.Quality.Coverage == domain.CoverageProvisional:
-		parts = append(parts, l.Text(i18n.WealthHistoryProvisional))
 	}
 	display = l.Text(i18n.OverviewNoValue)
 	if money != nil {
 		display = valuationMoney(view, *money, label == i18n.Liabilities)
 	}
-	return strings.Join(parts, " · "), display
+	return name, display
+}
+
+func wealthAmountQualifier(label i18n.MessageID, value domain.ValuationAmount) i18n.MessageID {
+	switch {
+	case value.Total == nil && value.KnownSubtotal != nil:
+		if label == i18n.NetWorth {
+			return i18n.OverviewKnownNet
+		}
+		return i18n.OverviewKnownSubtotal
+	case value.Total != nil && value.Quality.Coverage == domain.CoverageProvisional:
+		return i18n.WealthHistoryProvisional
+	}
+	return i18n.NoMessage
 }
 
 func wealthCoverage(view ui.View, point *application.HistoricalSeriesPoint) string {

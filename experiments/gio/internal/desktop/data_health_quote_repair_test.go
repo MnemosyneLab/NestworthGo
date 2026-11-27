@@ -31,7 +31,7 @@ func TestDataHealthScopedQuoteRepairRetainsFindingAndRetryScope(t *testing.T) {
 	source := market.operation.source
 	request := application.SyncRequest{Scope: application.SyncScopeFX, CurrencyA: "JPY", CurrencyB: "USD"}
 	reference, err := wails.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: string(request.Scope), CurrencyA: request.CurrencyA, CurrencyB: request.CurrencyB})
-	if err != nil || !reflect.DeepEqual(marketdata.SyncPreviewDTO(*market.sync.plan), reference) {
+	if err != nil || !reflect.DeepEqual(marketSyncEvidence(*market.sync.plan), reference) {
 		t.Fatalf("Gio plan = %+v, Wails = %+v, %v", market.sync.plan, reference, err)
 	}
 	h.press(key.NameEscape)

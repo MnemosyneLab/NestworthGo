@@ -136,12 +136,12 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 	click("More filters")
 	click("Previous month")
 	click("Contribution")
-	choose("Return type", "Dividend and interest")
-	click("Negative contributions")
+	choose("Return type", "Dividend & Interest")
+	click("Negative")
 	h.click("Search contributions", true)
 	h.router.Queue(key.EditEvent{Text: "EURO"})
 	settle()
-	assertPageLabel(t, &h.router, "EURO · €12.35")
+	assertPageLabel(t, &h.router, "EURO · +€12.35")
 	trigger := page.output.rankButtons[fund.String()]
 	h.router.Source().Execute(key.FocusCmd{Tag: trigger})
 	h.frame()
@@ -150,6 +150,11 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 	settle()
 	if page.item == nil || page.item.value == nil || page.item.value.Amount == nil || page.item.value.Amount.CanonicalAmount() != item.Amount.Amount {
 		t.Fatalf("Gio Contribution did not match Wails: %+v", page.item)
+	}
+	for _, label := range []string{"Return rate · Unavailable", "Rated days 0/0", "Ledger activity will open for all accounts and instruments in the selected period."} {
+		if findPageLabel(&h.router, label) != nil {
+			t.Fatalf("the scoped dividend detail shows unrelated metrics or scope: %q", label)
+		}
 	}
 	assertPageLabel(t, &h.router, "Ledger activity keeps dates, account, instrument and activity type filters. Currency and asset-class filters do not carry over.")
 	click("View in Ledger activity")
@@ -177,5 +182,115 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 	settle()
 	if page.item == nil || page.item.value == nil || page.item.key != fund.String() || gioProvider.requests != 0 || wailsProvider.requests != 0 {
 		t.Fatal("Back reopened the wrong contribution or analysis requested a live quote")
+	}
+}
+
+func TestStage6PairedContributionShowsFullLedgerScope(t *testing.T) {
+	const from, to = "2026-10-01", "2026-10-31"
+	const scopeNotice = "Ledger activity will open for all accounts and instruments in the selected period."
+	ctx := t.Context()
+	clock := func() time.Time { return time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC) }
+	seed, _, _, _ := seedStage6Contribution(t, time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC))
+	gioPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "gio"), seed)
+	wailsPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "wails"), seed)
+	gioProvider, wailsProvider := &unavailableOverviewProvider{}, &unavailableOverviewProvider{}
+	_, _, gio := openStage6Database(t, gioPath, clock, application.NewMarketDataRegistry(gioProvider))
+	_, _, wails := openStage6Database(t, wailsPath, clock, application.NewMarketDataRegistry(wailsProvider))
+	request := wailsanalysis.AnalysisQueryRequest{ScopeKind: string(domain.ScopeHousehold), From: from, To: to, Valuation: "native", Basis: "investment", IncludeCash: true}
+	wantQuery, err := request.ToDomain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := wailsanalysis.NewService(wails).ContributionItem(ctx, request, string(application.ContributionTotalReturn), string(application.ContributionGroupCurrency), "EUR")
+	if err != nil || item.Amount == nil || item.Rate == nil || len(item.ByAccount) != 2 {
+		t.Fatalf("expected a rated, multi-account contribution in the Wails fixture: %+v (%v)", item, err)
+	}
+	hint := item.HistoryHint
+	if hint.From != from || hint.To != to || hint.AccountID != "" || hint.InstrumentID != "" || len(hint.Kinds) != 0 {
+		t.Fatalf("expected the entire period in the Wails hint: %+v", hint)
+	}
+	t.Logf("EUR %s, rate %s; Ledger period %s through %s across %d contribution accounts", item.Amount.Amount, *item.Rate, hint.From, hint.To, len(item.ByAccount))
+	wantLedger, err := wailshistory.NewService(wails).ListActivityPage(ctx, wailshistory.ActivityQueryRequest{FromLocalDate: hint.From, ToLocalDate: hint.To})
+	if err != nil || len(wantLedger.Activities) < 3 || wantLedger.HasMore {
+		t.Fatalf("the Ledger fixture did not include both accounts and the cash-only control: %+v (%v)", wantLedger, err)
+	}
+
+	page := &returnAnalysisPage{ctx: ctx, reader: gio, clock: clock, invalidate: func() {}}
+	ledger := newLedgerHistory(ctx, gio, clock, func() {})
+	t.Cleanup(page.workers.Wait)
+	t.Cleanup(ledger.model.Wait)
+	t.Cleanup(ledger.reads.workers.Wait)
+	h := newShellHarnessWithPages(t, ledgerPages{returns: page, history: ledger})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1140, 960)
+	settle := func() {
+		for range 3 {
+			h.frame()
+			page.workers.Wait()
+			ledger.model.Wait()
+			ledger.reads.workers.Wait()
+		}
+		h.frame()
+	}
+	click := func(label string) { t.Helper(); h.click(label, false); settle() }
+	choose := func(field, name string) { t.Helper(); h.click(field, true); click(name) }
+	settle()
+	click("Return analysis")
+	click("Previous month")
+	choose("Scope", "Portfolio")
+	click("More filters")
+	choose("Valuation", "Native currency")
+	click("More filters")
+	click("Contribution")
+	choose("Group by", "By currency")
+	if page.current == nil || !reflect.DeepEqual(page.current.query, wantQuery) {
+		t.Fatalf("Gio selected a different Contribution query: got %+v, want %+v", page.current, wantQuery)
+	}
+	h.click("Search contributions", true)
+	h.router.Queue(key.EditEvent{Text: "EUR"})
+	settle()
+	trigger := page.output.rankButtons["EUR"]
+	h.router.Source().Execute(key.FocusCmd{Tag: trigger})
+	h.frame()
+	h.focused(trigger)
+	h.press(key.NameReturn)
+	settle()
+	if page.item == nil || page.item.value == nil || page.item.value.Amount == nil || page.item.value.Amount.CanonicalAmount() != item.Amount.Amount ||
+		page.item.value.Rate == nil || page.item.value.Rate.String() != *item.Rate || len(page.item.value.ByAccount) != len(item.ByAccount) {
+		t.Fatalf("Gio detail did not match Wails: %+v / %+v", page.item, item)
+	}
+	for i, account := range page.item.value.ByAccount {
+		want := item.ByAccount[i]
+		if account.AccountID != want.AccountID || account.Amount == nil || want.Amount == nil || account.Amount.CanonicalAmount() != want.Amount.Amount {
+			t.Fatalf("Gio account composition did not match Wails: %+v / %+v", account, want)
+		}
+	}
+	assertPageLabel(t, &h.router, scopeNotice)
+	h.size = image.Pt(665, 480)
+	h.frame()
+	notice := assertPageLabel(t, &h.router, scopeNotice)
+	action := assertPageLabel(t, &h.router, "View in Ledger activity")
+	if notice.Min.Y < 0 || notice.Min.Y >= action.Min.Y || action.Max.Y > h.size.Y {
+		t.Fatalf("scope information and action must remain visible at compact size: %v / %v", notice, action)
+	}
+	click("View in Ledger activity")
+	gotLedger := ledger.model.Rows()
+	if h.shell.activeRoute() != historyRoute || !ledger.model.Filters().Equal(history.Filters{From: from, To: to}) || len(gotLedger) != len(wantLedger.Activities) {
+		t.Fatalf("Gio Ledger did not open the full period: %+v / %+v", ledger.model.Filters(), gotLedger)
+	}
+	for i, row := range gotLedger {
+		if row.ID.String() != wantLedger.Activities[i].ID {
+			t.Fatalf("Ledger activity %d is %s, Wails returned %s", i, row.ID, wantLedger.Activities[i].ID)
+		}
+	}
+	h.size = image.Pt(1140, 960)
+	click("Back")
+	h.focused(trigger)
+	if page.current == nil || !reflect.DeepEqual(page.current.query, wantQuery) || page.output.contributionGroup() != application.ContributionGroupCurrency ||
+		page.output.ranking.search.Field.Text() != "EUR" || page.output.selectedKey != "EUR" {
+		t.Fatal("Back discarded the Contribution period, group, search or selection")
+	}
+	if gioProvider.requests != 0 || wailsProvider.requests != 0 {
+		t.Fatal("the broad Contribution read requested live quotes")
 	}
 }

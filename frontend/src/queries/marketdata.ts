@@ -266,14 +266,16 @@ export function MarketDataSyncWorkspaceObserver() {
 
 export function usePreviewMarketDataSync() {
 	return useMutation<SyncPlanPreviewDTO, Error, SyncRequestDTO>({
-		mutationFn: (request) => callService(() => MarketDataService.PreviewMarketDataSync(request)),
+		mutationFn: (request) => callService(() => MarketDataService.ReviewMarketDataSync(request)),
 	});
 }
 
 export function useStartMarketDataSync() {
 	const queryClient = useQueryClient();
-	return useMutation<SyncStartResultDTO, Error, SyncRequestDTO>({
-		mutationFn: (request) => callService(() => MarketDataService.StartMarketDataSync(request)),
+	return useMutation<SyncStartResultDTO, Error, { request: SyncRequestDTO; reviewId?: string }>({
+		mutationFn: ({ request, reviewId }) => callService(() => reviewId
+			? MarketDataService.ConfirmMarketDataSync(request, reviewId)
+			: MarketDataService.StartMarketDataSync(request)),
 		onSuccess: (result) => {
 			if (result.job?.jobId) {
 				queryClient.setQueryData(queryKeys.marketdata.currentSync, result.job);

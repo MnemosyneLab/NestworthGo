@@ -182,10 +182,10 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	label("Partial coverage")
 	reveal("Native amounts · EUR", 100)
 	label("Native amounts · EUR")
-	reveal("Available after reservations · 25.25 EUR", 80)
-	label("Available after reservations · 25.25 EUR")
-	reveal("Known available after reservations · 85.3071 USD", 80)
-	label("Known available after reservations · 85.3071 USD")
+	reveal("Available after reservations · €25.25", 80)
+	label("Available after reservations · €25.25")
+	reveal("Known available after reservations · US$85.31", 80)
+	label("Known available after reservations · US$85.31")
 	reveal("Missing exchange rate to the base currency.", 80)
 	label("Missing exchange rate to the base currency.")
 	if fault.attempts.Load() != 2 {
@@ -198,8 +198,8 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 
 	reveal("Open account · Harbor Savings", 80)
 	label("Harbor Savings · USD")
-	label("Reserved from available funds · 40.125 USD")
-	label("Available after reservations · 85.3071 USD")
+	label("Reserved from available funds · US$40.12")
+	label("Available after reservations · US$85.31")
 	bankLink := "Open account · Harbor Savings"
 	label(bankLink)
 	before := funds.list.Position
@@ -265,7 +265,7 @@ func TestAvailableFundsWithoutSourcesShowsKnownZero(t *testing.T) {
 	funds.workers.Wait()
 	h.frame()
 	assertPageLabel(t, &h.router, "No funding sources.")
-	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
+	assertPageLabel(t, &h.router, "Available after reservations · US$0.00")
 	want, err := liquidityapi.NewService(reference).Overview(ctx, liquidityapi.OverviewRequest{})
 	if err != nil {
 		t.Fatal(err)

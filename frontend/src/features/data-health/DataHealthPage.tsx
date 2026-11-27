@@ -173,8 +173,7 @@ export function DataHealthPage({
   };
 
   const confirmRepair = () => {
-    setPreviewOpen(false);
-    sync.startScope({ scope: "repair_all" });
+    sync.startReviewed({ scope: "repair_all" }, sync.preview.data?.reviewId, () => setPreviewOpen(false));
   };
 
   if (health.isLoading) {
@@ -279,6 +278,13 @@ export function DataHealthPage({
             {focus && <p>{t("connections.globalRepairScope")}</p>}
             <p className="text-sm text-muted-foreground">{t("dataHealth.repairDescription")}</p>
           </SheetHeader>
+          {sync.preview.isPending && <LoadingState label={t("common.loading")} variant="list" />}
+          {sync.preview.isError && <ErrorState
+            title={t("dataHealth.loadError")}
+            description={displayError(sync.preview.error, t("dataHealth.loadError"))}
+            onRetry={openPreview}
+            retryLabel={t("common.retry")}
+          />}
           {sync.preview.data && (
             <ul className="flex flex-col gap-2 text-sm" data-testid="repair-preview">
               <li>{t("marketData.previewRequests", { count: sync.preview.data.estimatedRequestCount })}</li>
@@ -303,7 +309,7 @@ export function DataHealthPage({
             <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="button" onClick={confirmRepair} disabled={sync.start.isPending} data-testid="confirm-repair">
+            <Button type="button" onClick={confirmRepair} disabled={!sync.preview.data?.reviewId || sync.start.isPending || running} data-testid="confirm-repair">
               {t("dataHealth.confirmRepair")}
             </Button>
           </SheetFooter>

@@ -31,8 +31,10 @@ type navigationTarget struct {
 	health      healthFindingFocus
 	accountList accountListScope
 	fundsDay    string
+	fundsAction fundsActionFocus
 
 	portfolioAccount domain.AccountID
+	instrumentData   bool
 }
 
 func (t navigationTarget) hasObject() bool {
@@ -50,9 +52,17 @@ type navigationEntry struct {
 	historyFilters   history.Filters
 	historyDetail    historyDetailState
 	accountsArchived bool
+	accountPositions accountPositionsVisit
+
+	accountComposition accountCompositionVisit
+
+	accountStatement statementVisit
 	funds            fundsViewState
 	portfolioSearch  string
 	holdings         portfolioHoldingsVisit
+	catalog          portfolioCatalogVisit
+	portfolioTabs    portfolioTabsVisit
+	instrumentDetail instrumentDetailVisit
 	tasks            tasksVisit
 	asset            assetChangesVisit
 	returns          *returnAnalysisVisit
@@ -112,7 +122,7 @@ func sameRecentDestination(a, b navigationEntry) bool {
 		return a.accountsArchived == b.accountsArchived
 	}
 	if a.target.route == tasksRoute {
-		return a.tasks.tab == b.tasks.tab
+		return a.tasks.tab == b.tasks.tab && a.tasks.reconciliationAccount == b.tasks.reconciliationAccount
 	}
 	if a.target.route == assetChangesRoute {
 		return a.asset.tab == b.asset.tab && a.asset.selection == b.asset.selection
@@ -153,22 +163,29 @@ type navigationRequest struct {
 	recent               *navigationEntry
 	accountsArchived     bool
 	providerSettings     bool
+	settingsProvider     string
 	verifyProductReceipt bool
+	tasksTab             tasksTab
+	tasksSession         string
+	tasksAccount         domain.AccountID
 	asset                assetChangesVisit
 	returns              *returnAnalysisVisit
 	historyFilters       history.Filters
+	historyAction        historyRowAction
+	maintenanceTab       bool
+	catalogEditor        *domain.Instrument
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
-	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.confirmingAccountCreation() || s.savingAccountInstitution() || s.accountMaintenanceBlocking() {
+	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() || s.fundsProductSetupOpen() || s.fundsProductTermsOpen() {
 		return
 	}
 	if s.historyPage != nil && (s.historyPage.cashMovements.writing() || s.historyPage.amendmentUnresolved() || s.historyPage.repeatUnresolved() || s.historyPage.startPoint.unresolved() || s.historyPage.investment.unresolved()) {
 		return
 	}
-	if s.accounts != nil && (s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
+	if s.accounts != nil && (s.accounts.detail.cashActions.unresolved() || s.accounts.cashBalanceUnresolved() || s.accounts.balanceTargetUnresolved() || s.accounts.liabilityPostingUnresolved() || s.accounts.statementUnresolved() || s.accounts.investment.unresolved() || s.accounts.openingPositionUnresolved() || s.accounts.productSetup.unresolved()) {
 		return
 	}
 	if request.step == -1 && s.accounts != nil && s.activeRoute() == accountsRoute && s.accounts.productSetup != nil {
@@ -184,15 +201,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if s.tasks != nil && s.tasks.holdingRecon.unresolved() {
 		return
 	}
-	if s.portfolio != nil && s.portfolio.investment.unresolved() {
+	if s.portfolio != nil && (s.portfolio.investment.unresolved() ||
+		s.portfolio.catalog.draft != nil && s.portfolio.catalog.draft.pending != nil) {
 		return
 	}
 	if s.funds != nil && (s.funds.reservationUnresolved() || s.funds.setup.unresolved() || s.funds.productPage.unresolved() || s.funds.policyUnresolved()) {
-		return
-	}
-	if request.step == -1 && s.activeRoute() == fundsRoute && s.funds.policy != nil {
-		s.funds.cancelPolicy(false)
-		gtx.Execute(op.InvalidateCmd{})
 		return
 	}
 	entry := s.trail.current()
@@ -201,6 +214,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			return
 		}
 	} else {
+		request = resolveMaintenanceTarget(request)
 		item := s.routes[request.target.route]
 		if item == nil || !item.available() || (request.recent == nil && entry.target == request.target) {
 			return
@@ -246,14 +260,20 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
 		s.directory.object.leave()
 	}
-	if entry.target.route == historyRoute && entry.target.activity != "" {
-		s.historyPage.reads.leaveDetail()
+	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.reads != nil {
+		if entry.target.activity != "" {
+			s.historyPage.reads.leaveDetail()
+		} else {
+			s.historyPage.reads.closeRowActions()
+		}
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil && s.historyPage.investment != nil {
 		s.historyPage.investment.draft, s.historyPage.investment.restore = nil, nil
 	}
 	if entry.target.route == accountsRoute {
 		s.accounts.leave()
+		s.accounts.detail.cashActions.leave()
+		s.accounts.detail.record.open, s.accounts.detail.record.restore = false, false
 		s.accounts.productSetup = nil
 		s.accounts.creation.discard()
 		if cash := s.accounts.cashBalance; cash != nil {
@@ -301,13 +321,14 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		if f := s.portfolio.investment; f != nil {
 			f.draft, f.restore = nil, nil
 		}
+		s.portfolio.catalog.cancelDraft()
 		s.portfolio.leave()
 	}
 	if entry.target.route == overviewRoute && s.overviewPage != nil {
 		s.overviewPage.leave()
 	}
 	if entry.target.route == wealthHistoryRoute {
-		s.wealthHistory.leave()
+		s.wealthHistory.suspend()
 	}
 	if entry.target.route == returnAnalysisRoute {
 		s.returns.leave()
@@ -337,7 +358,33 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.restoreVisit(s.trail.current())
 	} else {
 		s.trail.push(navigationEntry{target: request.target, name: request.name, accountsArchived: request.accountsArchived,
-			asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+			tasks: tasksVisit{tab: request.tasksTab, holdingSession: request.tasksSession, reconciliationAccount: request.tasksAccount}, asset: request.asset, returns: request.returns, historyFilters: request.historyFilters})
+		entry = s.trail.current()
+		if request.maintenanceTab {
+			entry.focus = request.focus
+			if entry.target.route == marketDataRoute {
+				entry.marketData = s.marketData.visit()
+			}
+		}
+		if entry.target.route == marketDataRoute {
+			// Switching a top-level tab can reuse search and the inner tab.
+			// Only a link that names a finding applies its scope to a new visit.
+			entry.marketData.focus = entry.target.health
+			if marketFindingFXPair(entry.marketData.focus) != (marketFXPair{}) {
+				entry.marketData.tab = marketFX
+			}
+		}
+		if request.catalogEditor != nil {
+			entry.portfolioTabs.active = portfolioInstruments
+		}
+		if entry.target.instrumentData {
+			window := marketQuoteFindingWindow(entry.target.health)
+			entry.instrumentDetail.section = instrumentDetailData
+			entry.instrumentDetail.actionDates = window
+			for i := range entry.instrumentDetail.histories {
+				entry.instrumentDetail.histories[i].window = window
+			}
+		}
 	}
 	entry = s.trail.current()
 	if entry.target.route == directoryRoute && entry.target.hasObject() {
@@ -351,6 +398,11 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	if entry.target.route == accountsRoute {
 		s.accounts.filterLabel = entry.name
 		s.accounts.enter(entry.target, entry.accountsArchived, entry.scroll)
+		s.accounts.positions.visit = entry.accountPositions.copy()
+		s.accounts.detail.restore(entry.accountComposition)
+		if statement := s.accounts.statement; statement != nil {
+			statement.restore = entry.accountStatement
+		}
 	}
 	if entry.target.route == fundsRoute {
 		if entry.target.product == "" {
@@ -364,6 +416,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 				}
 			}
 			s.funds.enter(entry.scroll, state)
+			if !entry.visited {
+				s.funds.actionFocus = entry.target.fundsAction
+			}
 		} else {
 			s.funds.productPage.enter(entry.target.product, entry.scroll, request.verifyProductReceipt)
 		}
@@ -374,9 +429,16 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	if entry.target.route == portfolioRoute {
-		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
 		if entry.target.instrument == "" {
 			s.portfolio.restoreHoldingsVisit(entry.holdings)
+			s.portfolio.catalog.restore(entry.catalog)
+			s.portfolio.restorePortfolioTabs(entry.portfolioTabs)
+		} else {
+			s.portfolio.detail.restoreVisit(entry.instrumentDetail)
+		}
+		s.portfolio.enterScoped(entry.target.instrument, entry.target.portfolioAccount, entry.portfolioSearch, entry.scroll)
+		if request.catalogEditor != nil {
+			s.portfolio.requestCatalogEditor(*request.catalogEditor)
 		}
 	}
 	if entry.target.route == wealthHistoryRoute {
@@ -403,10 +465,12 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 	}
 	if entry.target.route == settingsRoute && request.providerSettings {
 		s.settingsPage.active = settingsMarket
+		s.settingsPage.credential.reveal = request.settingsProvider == domain.CoinGeckoProviderKey
 	}
 	if entry.target.route == historyRoute && s.historyPage != nil {
 		if entry.target.activity != "" {
 			entry.focus = s.historyPage.reads.enterDetail(entry.target.activity, entry.historyDetail)
+			s.historyPage.reads.detail.requested = request.historyAction
 		} else {
 			filters := entry.historyFilters
 			if entry.target.instrument != "" {
@@ -415,6 +479,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 			s.historyPage.enterTimeline(entry.id, entry.visited, entry.history, filters)
 			if entry.history.focused != "" && s.historyPage.reads != nil {
 				entry.focus = s.historyPage.detailButton(entry.history.focused)
+				if entry.history.focusActions {
+					entry.focus = s.historyPage.historyActionButton(entry.history.focused)
+				}
 			}
 			if s.historyPage.reads != nil && source.target.route != historyRoute {
 				s.historyPage.reads.loadReferences()
@@ -422,7 +489,18 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		}
 	}
 	s.narrowExpanded = false
-	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject()
+	s.restoreFocus = request.step != 0 || request.recent != nil || entry.target.hasObject() || request.maintenanceTab
+	if s.restoreFocus && s.hasMaintenanceTabs() {
+		for i := range s.maintenanceTabs {
+			tab := &s.maintenanceTabs[i]
+			if gtx.Focused(tab) && entry.focus != tab {
+				// A shared tab is still mounted across both visits. Its old
+				// focus must not override the destination's saved control.
+				gtx.Execute(key.FocusCmd{})
+				break
+			}
+		}
+	}
 	gtx.Execute(op.InvalidateCmd{})
 }
 
@@ -457,9 +535,11 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 	switch entry.target.route {
 	case accountsRoute:
 		entry.accountsArchived = s.accounts.archived
+		entry.accountPositions = s.accounts.positions.visit.copy()
+		entry.accountComposition = s.accounts.detail.visit()
 		entry.scroll = s.accounts.list.Position
-		if entry.target.statement != "" && s.accounts.statement.screen != nil {
-			entry.scroll = s.accounts.statement.screen.list.Position
+		if statement := s.accounts.statement; statement != nil {
+			entry.accountStatement = statement.visit()
 		}
 	case fundsRoute:
 		if entry.target.product == "" {
@@ -476,6 +556,10 @@ func (s *shell) saveVisit(entry *navigationEntry) {
 		entry.scroll = s.portfolio.list.Position
 		if entry.target.instrument == "" {
 			entry.holdings = s.portfolio.holdingsVisit()
+			entry.catalog = s.portfolio.catalog.visit()
+			entry.portfolioTabs = s.portfolio.portfolioTabsVisit()
+		} else {
+			entry.instrumentDetail = s.portfolio.detail.savedVisit()
 		}
 	case overviewRoute:
 		if s.overviewPage != nil {
@@ -556,15 +640,25 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 	}
 	target := focus.Target
 	if !focus.TargetDrawn {
-		if s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.canImportPosition() {
-			if fallback := s.accounts.investment.holdingActionFallback(target); fallback != nil {
-				entry.focus = fallback
-				s.accounts.list.Position = layout.Position{}
+		if s.activeRoute() == accountsRoute && s.accounts != nil {
+			p := s.accounts
+			if p.revealInvestmentShortcut(target) {
 				gtx.Execute(op.InvalidateCmd{})
 				return
 			}
+			if p.canImportPosition() {
+				if fallback := p.investment.holdingActionFallback(target); fallback != nil {
+					entry.focus = fallback
+					gtx.Execute(op.InvalidateCmd{})
+					return
+				}
+			}
 		}
-		target = &s.headingFocus
+		if s.activeRoute() == dataHealthRoute && s.dataHealth != nil && focus.Target != nil {
+			target = &s.dataHealth.recheck
+		} else {
+			target = &s.headingFocus
+		}
 	}
 	gtx.Execute(key.FocusCmd{Tag: target})
 	s.restoreFocus = false
@@ -572,7 +666,9 @@ func (s *shell) finishPageFocus(gtx layout.Context, focus ui.PageFocus) {
 
 func (s *shell) waitingForPageFocus() bool {
 	if s.activeRoute() == overviewRoute && s.overviewPage != nil {
-		return s.overviewPage.loading || s.overviewPage.funds.request != nil
+		return s.overviewPage.loading || s.overviewPage.funds.request != nil ||
+			s.overviewPage.upcoming.request != nil || s.overviewPage.upcoming.summary.request != nil ||
+			s.overviewPage.healthScan.request != nil
 	}
 	if s.activeRoute() == historyRoute && s.historyPage != nil {
 		if r := s.historyPage.reads; r != nil && r.detail != nil {
@@ -672,6 +768,13 @@ func (s *shell) visitLabel(language i18n.Language, entry *navigationEntry) strin
 		return language.Text(i18n.DirectoryObjectUnavailable)
 	}
 	title := language.Text(s.routes[entry.target.route].label)
+	if isMaintenanceRoute(entry.target.route) && s.marketData != nil && s.dataHealth != nil {
+		label := i18n.MaintenanceIssues
+		if entry.target.route == marketDataRoute {
+			label = i18n.MaintenanceQuotes
+		}
+		title += " · " + language.Text(label)
+	}
 	if entry.target.route == tasksRoute && s.tasks.checks != nil && entry.visited {
 		return title + " · " + language.Text(taskTabLabels[entry.tasks.tab])
 	}

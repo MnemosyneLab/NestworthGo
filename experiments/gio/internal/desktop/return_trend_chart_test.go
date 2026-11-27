@@ -43,7 +43,8 @@ func returnTrendChartFixture(t *testing.T, display application.ReturnTrendDispla
 	case application.ReturnTrendPeriodReturnAmount:
 		points[0].Value, points[2].Value = positive, negative
 	}
-	return application.ReturnTrendResult{Display: display, Points: points, Amount: money("2.75"),
+	linked := decimal.RequireFromString("0.0044")
+	return application.ReturnTrendResult{Display: display, Points: points, Amount: money("2.75"), Rate: &linked,
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessPartial},
 		ReturnDayCoverage:    application.ReturnDayCoverage{MissingValuationDays: 1}, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3}}
 }
@@ -56,9 +57,9 @@ func TestReturnTrendChartProjectionKeepsCivilDatesAndGaps(t *testing.T) {
 		first, last                 float64
 		baseline                    bool
 	}{
-		{application.ReturnTrendCumulativeAmount, "2026-07-31", "US$5.25", "US$2.75", 5.25, 2.75, true},
+		{application.ReturnTrendCumulativeAmount, "2026-07-31", "+US$5.25", "+US$2.75", 5.25, 2.75, true},
 		{application.ReturnTrendLinkedRate, "2026-08-01", "+5.25%", "-2.5%", 0.0525, -0.025, false},
-		{application.ReturnTrendPeriodReturnAmount, "2026-08-01", "US$5.25", "-US$2.50", 5.25, -2.5, false},
+		{application.ReturnTrendPeriodReturnAmount, "2026-08-01", "+US$5.25", "-US$2.50", 5.25, -2.5, false},
 	} {
 		t.Run(string(tc.display), func(t *testing.T) {
 			spec := returnTrendLine(view, returnTrendChartFixture(t, tc.display), "2026-08-01", "2026-08-03")
@@ -118,6 +119,10 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 	// The open table sits under the chart; a taller window shows its rows.
 	h.size = image.Pt(1120, 1400)
 	h.frame()
+	for _, label := range []string{"Return summary", "Summary valuation · Base (USD)", "Return amount · +US$2.75 · Known subtotal",
+		"Return rate · +0.44%", "Cumulative Return", "Zero marks the start of the selected period, before the first day’s return."} {
+		assertPageLabel(t, &h.router, label)
+	}
 	h.click("View data table", false)
 	h.frame()
 	assertPageLabel(t, &h.router, "2026-07-31 · US$0.00 · Starting value before the selected range")
@@ -136,12 +141,30 @@ func TestReturnTrendChartAndTableThroughShell(t *testing.T) {
 		t.Fatal("Escape did not clear chart selection")
 	}
 	h.click("Display", true)
-	h.click("Linked return rate", false)
+	h.click("Period Return", false)
 	settle()
+	if p.current.trend.Display != application.ReturnTrendPeriodReturnAmount {
+		t.Fatal("the period amount control did not request the actual period display")
+	}
+	assertPageLabel(t, &h.router, "2026-08-03 · -US$2.50 · Rated days 1/1")
+	if findPageLabel(&h.router, "Zero marks the start of the selected period, before the first day’s return.") != nil {
+		t.Fatal("the period amount display advertised a zero baseline")
+	}
+	h.click("Display", true)
+	h.click("Return %", false)
+	settle()
+	assertPageLabel(t, &h.router, "Points show daily Modified Dietz rates. The linked period rate is shown in the summary.")
+	assertPageLabel(t, &h.router, "Return rate · +0.44%")
 	assertPageLabel(t, &h.router, "2026-08-01 · +5.25% · Rated days 1/1")
 	if findPageLabel(&h.router, "2026-07-31 · US$0.00 · Starting value before the selected range") != nil {
 		t.Fatal("linked return displayed a cumulative baseline")
 	}
+	h.shell.prefs.saved.Language = settings.LanguageZhCN
+	settle()
+	assertPageLabel(t, &h.router, "收益摘要")
+	assertPageLabel(t, &h.router, "摘要估值口径 · 基础货币（USD）")
+	assertPageLabel(t, &h.router, "收益率 · +0.44%")
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.shell.prefs.saved.Appearance = settings.AppearanceDark
 	h.size = image.Pt(700, 480)
 	settle()

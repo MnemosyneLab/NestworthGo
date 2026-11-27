@@ -1113,6 +1113,24 @@ available here to view.
 | Build and vet | The Linux Gio preview build and Gio vet passed. |
 | Open evidence | Multi-account editing, individual source comparisons and exceptions, partial finish and linked financial adjustments remain open in Gio. Wails GUI, native macOS, Linux Wayland, native IME and VoiceOver were unrun. Stage 3 production startup and target-platform cutover remain open. |
 
+#### From a card statement to its checkpoints and journal
+
+From an active credit card's statement record, **Review checkpoints and
+journal** opens the exact session in Tasks → Reconciliation. The shared
+session view provides individual balance and completeness checks, ordinary
+card postings and the linked and recent change journals. The statement view
+continues to show the exact amount owed and signed balance. Back reloads the
+same selected statement, restores its scroll and returns focus to the link.
+
+The paired fixture starts with a USD 30 card and a linked USD 12.3456
+purchase. On independent copies, the next linked USD 2.3456 purchase leaves
+USD 44.6912 owed and creates one new receipt on the balance checkpoint.
+Cancelling a reviewed purchase keeps the original journal and ledger.
+Opening a journal receipt resolves its exact activity ID, and Back restores the
+journal and receipt focus. This exercises the same Wails Go commands and
+session reads. The [native QA procedure](stage6-desktop-qa.md) names the
+`card-statement` profile for interactive checks.
+
 #### Repeat an ordinary cash activity
 
 **Ledger activity → Details → Repeat as new draft** opens a one-time draft.
@@ -1252,7 +1270,7 @@ the prior visit, including search, scroll and available source focus.
 | Linux X11 | Native Gio at 900×660 on Xvfb displayed complete, mixed and empty portfolios. The mixed profile showed missing price, missing FX and both gaps separately. The window exercised search, account navigation, instrument-filtered History and normal quit and reopen. A read-only SQLite comparison retained all financial and quote rows. A temporary overlay seeded the verified synthetic profiles and fixed the clock. |
 | Tests | The Gio module suite and Wails Go Portfolio, Quote and Analytics package tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. Allocation and performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
+| Follow-up | See [My holdings groups](#my-holdings-groups) for grouping and later native evidence. See [Allocation and portfolio trend](#allocation-and-portfolio-trend) for the composition and historical value. Performance views, market-data maintenance, broader trade support, dividends and products have separate milestones. |
 
 #### My holdings groups
 
@@ -1270,14 +1288,33 @@ Instrument, account and managed-product links use their existing destinations.
 The row actions open the existing Ledger activity, Return Analysis and Asset
 Changes with instrument and optional account scope. Back restores the search,
 disclosures, position and source focus. The shared money formatter supplies
-the currency symbol once. Table-column sorting and the other Investment Assets
-tabs remain open.
+the currency symbol once. Column sorting applies within the current instrument
+or account view.
 
 | Check | Evidence |
 | --- | --- |
 | Paired macOS 27.2.1 ARM64 | The same synthetic holdings showed USD 232.95 known value in both apps. Stocks had independent EUR 78.625 cost, 101.875 value and +23.25 gain, and GBP 133 cost, 82 value and −51 loss. The five EUR units expanded into two accounts with gains of EUR 10.5 and 12.75. [Wails groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/wails-holdings.jpg) · [Gio groups](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings.jpg) |
 | Native coverage and navigation | JPY 360 cost remained available with market value and gain missing. A separate pre-History fixture showed S$57.00 market value with unavailable cost and gain. Search, collapse and expand, account detail and Back worked. The Ledger link kept the account and instrument. At 700 × 480, Tab and Return opened the holding actions and scoped Return Analysis to the selected instrument. [Narrow JPY holding](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-narrow.jpg) · [SGD missing cost](../../../docs/qa/gio-my-holdings-2026-11-26/evidence/gio-holdings-missing-cost.jpg) |
 | Automated workflow | Compact frame tests compare the exact Go projection and Wails adapter, including zero, mixed currencies, independent cost and value availability, account-scoped detail, all three analysis actions and Back focus. VoiceOver, native IME and Wayland acceptance remain open. |
+
+#### Allocation and portfolio trend
+
+**Investment assets → Allocation & trend** shows instrument types and shares,
+portfolio value over time, and the accounts that contribute to the portfolio.
+The allocation and account rows use the shared portfolio read. The trend uses
+its own shared read, with the last month by default and the earliest day set by
+History. The date shortcuts and adjacent range buttons use ledger civil dates.
+Cash stays outside the portfolio. Incomplete valuations leave gaps in the line
+and show any known subtotal separately in the data table. The included accounts
+open exact Accounts records and Back restores the active tab, range, chart
+table and focus. The trend loads only when its tab is active and the portfolio
+has holdings. [Wails Allocation & trend](../../../frontend/src/features/portfolio/PortfolioPage.tsx)
+
+| Check | Evidence |
+| --- | --- |
+| Wails Go comparison | Independent synthetic ledgers agreed on USD 108.4442 of known holdings, instrument-type amounts and shares, and the current trend row's partial coverage. The ledgers also held USD 100 of cash. |
+| Gio shell test | Exercises the Singapore ledger-day boundary, last day and neighboring periods, retry, separate partial and zero values in the chart and table, and Back from an included account. |
+| Open evidence | Native Wails and Gio window acceptance remains open for this slice. |
 
 #### First recorded security buy
 
@@ -1404,13 +1441,13 @@ The compact form stacks the amount editors and retains the currency labels.
 | Wails and Gio parity | Independent Wails-format synthetic ledgers first rejected an unfunded EUR buy. A distinct USD 120.25 to EUR 100.125 conversion charged USD 0.1234. After a competing EUR deposit invalidated the first preview, three units bought for EUR 60.0001 plus EUR 0.0002 recorded an execution price of EUR 20.00003333 and a EUR −60.0003 cash delta. Selling 1.25 units for EUR 30.1251 less EUR 0.0001 recorded EUR +30.125 and left 1.75 units. Wails Go agreed on the command, linked holding, ledger and wallet balances across restart. The domestic holding and the USD wallet were unchanged by the EUR trades. |
 | Packaged Linux X11 | Posted a separate conversion and a buy at 1160×820, followed by a sale at 640×480. Selected the instrument and confirmed trades by keyboard. Back from each Ledger detail restored the initiating action. After quit and reopen, read-only SQLite showed exactly one conversion, one buy and one sale. The two trades shared a Holding ID, retained both EUR fees and left EUR 70.2497 and USD 79.6266. The unrelated domestic holding and its USD 40 quote remained intact. The untouched synthetic source database and settings matched their original hashes. |
 | Regression checks | The Gio tests covered cancel, stale review, note and civil-time handling, unchanged domestic positions, historical shortfall, duplicate confirmation and a lost response. The full Gio suite and vet, focused application/domain/Wails Go tests and four Wails frontend reference cases passed. |
-| Remaining coverage | Wails' optional market-price calculators in the trade form, more backdated additions or sales that change later cost replay, inline instrument creation, and foreign dividends remain open. Interactive Wails, native macOS, Wayland, VoiceOver and native IME were unrun. |
+| Remaining coverage | Wails' optional market-price calculators in the trade form, more backdated additions or sales that change later cost replay, and inline instrument creation remain open. Interactive Wails, native macOS, Wayland, VoiceOver and native IME were unrun. |
 
 #### Same-currency cash dividends
 
 From a Holdings account, **Record cash dividend** lists its ordinary,
-unarchived holdings whose quote currency matches the account's default
-currency. An unarchived holding remains eligible after liquidation. Enter the
+unarchived holdings. An unarchived holding remains eligible after liquidation.
+The account and holding entry points accept the payment currency. Enter the
 positive amount actually credited, with up to four decimal places. The Wails
 dividend command accepts one amount. Separately posted withholding or fees use
 distinct Wails cash-removal operations and remain outside this slice. Gio uses
@@ -1432,7 +1469,23 @@ realized trade gain and external flows unchanged by the dividend.
 | Linux X11 | In a 900×660 Xvfb window, rejected zero, reviewed USD 12.3456, double-clicked confirmation, and followed the History links to the instrument and account. Overview showed USD 266.35 with no separate contribution in this fixture. A normal quit and reopen retained the four records and the exact dividend. Read-only SQLite verification found one added activity, one income effect, one mutation receipt and USD 146.3456 cash in both event and replay projections. The holding, prior trades and market quotes were unchanged. A temporary build overlay seeded the verified synthetic profile and controlled the clock. |
 | Tests | The Gio module suite and focused shared application, domain and Wails Go dividend, gain and mutation tests passed. |
 | Build and vet | The independent Linux Gio preview build and Gio vet passed. |
-| Open evidence | Dividend notes, separate withholding or fees, foreign-currency dividends, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+| Open evidence | Dividend notes, separate withholding or fees, reinvestment and capital-return operations remain outside this slice. Wails GUI, native macOS, Wayland, native IME and VoiceOver remain unrun. Stage 3 production startup and target-platform cutover remain open. |
+
+#### Cash dividends paid in another currency
+
+The scoped account and holding entry points use the existing Wails Go
+`ChangeCashDividend` command. As in Wails, the account entry defaults to the
+selected holding's quote currency. The holding entry starts with the account's
+default currency and keeps the holding fixed. The currency selector represents
+the cash actually received. Review shows the exact balance before, net credit
+and resulting balance in the payment currency.
+
+The synthetic paired test uses a USD brokerage with one EUR holding and an
+existing EUR balance of 2.01. Gio and Wails Go both credit EUR 12.3456 once,
+resulting in EUR 14.3556. Each confirms one income effect, leaves USD 200
+unchanged, and retains the holding's 1.25 units and EUR 5.0001 cost. Preview
+leaves both balances unchanged, and Back from the receipt restores the exact
+holding action. Native interaction for this currency selector remains open.
 
 #### Opening position and original cost
 
@@ -2589,7 +2642,28 @@ lenses. Trend remains the initial lens while Allocation and Change are open.
 | Shared/Wails | Independent read-only SQLite copies matched the complete historical account capture for dated and current comparisons, including the missing AUD/USD pair and the stored manual rate `1 USD = 1.2345 AUD`. Both services made zero provider calls. The Wails Historical Overview interaction suites passed 85 tests. |
 | Gio | Frame checks covered date swap, changed-only filtering, expanding the account, both sides of the comparison, switching lenses with retained state and keyboard traversal into the Trend table. The full Gio module suite, including the independently merged chart component tests, and `go vet ./...` passed. |
 | Linux X11 | The packaged app opened a verified synthetic profile and compared November 24 with current. Both sides showed USD 125.00 known net contribution, named the missing rate for Synthetic Australian cash and expanded Synthetic broker to its fund. At 700×480 the summaries stacked. Logical SQLite fingerprints matched before launch and after quit. |
-| Open | Allocation, Change, full account detail and links to Ledger activity remain open, along with the Wails capture shortcuts and expanded evidence. Native Mac, VoiceOver, native IME and Wayland remain unverified. |
+| Open | Allocation, Change, full account detail and links to Ledger activity remain open, along with expanded evidence. The later capture shortcuts checkpoint covers date presets. Native Mac, VoiceOver, native IME and Wayland remain unverified. |
+
+#### Wealth History capture shortcuts
+
+In Allocation, Change and Accounts, the date controls offer Previous day,
+Next day, Last month end, Last closed day and Starting point. Compare dates
+and Compare with current also offer Last month end → last closed day and
+Baseline → captured current. Shortcuts capture through the same read-only
+Historical Overview endpoint as the date fields. The bounds and month end use
+the History Origin timezone. Navigation cancels a capture in flight and resumes
+the selected read on return. An obsolete response cannot replace the active
+result.
+
+Independent read-only copies of one synthetic ledger matched the Wails
+adapter on all selected dates, including the last closed day in Singapore
+while the UTC date was a day behind. The captured account opened Ledger
+activity with its closed date range. Opening and cancelling its existing
+contribution draft left all three seeded records intact. Back restored the
+same capture, selected account detail and focus. The Wails Wealth History page
+offers read-only captures and a scoped Ledger link. The
+[paired macOS run](stage6-desktop-qa.md#macos-acceptance-on-november-26-2026)
+verified both comparison presets and the scoped Ledger round trip.
 
 Shared chart components are available through #286. Return Trend is the first
 page integration. Each chart keeps a keyboard-readable table and needs its
@@ -3292,18 +3366,23 @@ choices remain selected.
 ### Stage 6 exit gates
 
 - Close the remaining capabilities listed in the [page-by-page parity matrix](parity.md).
-  Stage 6 still has Wealth History capture shortcuts, contribution detail,
-  the dated Data Health link and residual Ledger verification from Asset
-  Changes, instrument catalog work, and provider and coverage recovery cases.
+  Stage 6 still has detailed missing evidence and residual Ledger verification
+  from Asset Changes, instrument catalog work, and additional provider and
+  coverage recovery cases.
 - Run paired regressions in the interactive Wails and Gio apps with matching
   disposable inputs. Cover Return Calendar detail → Asset Changes with the
   selected day, account, instrument, currency, native valuation and cash
-  filters; Contribution → Ledger with supported dates and kinds plus feedback
-  for unsupported filters; Change drivers → Contribution with the same
-  filters and effective range; and Back to the originating selection and focus.
-  Compare Wealth History with priced and missing inputs, preserving date and
-  quote/FX provenance. Verify Market Data partial refresh and Data Health
-  canceled, retried and stale repair plans with a deterministic local provider.
+  filters; Change drivers → Contribution with the same filters and effective
+  range; and Back to the originating selection and focus. The
+  [paired macOS run](stage6-desktop-qa.md#macos-acceptance-on-november-26-2026)
+  covered Contribution → Ledger with native valuation, the Harbor dividend and
+  the broader currency breakdown.
+  The [second macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh)
+  covered the portfolio day handoffs and mixed latest refresh with local
+  providers. Paired macOS also covered the [account-filtered Ledger chain](stage6-desktop-qa.md#macos-account-filtered-return-and-ledger-chain)
+  and [expired historical plans and retries](stage6-desktop-qa.md#macos-historical-repair-expiry-and-retry).
+  Additional acceptance covers residual Ledger cases and Wealth History
+  comparisons with missing inputs and their quote or FX provenance.
   Check the exact values, scopes, failures, coverage and readback after reopen.
 - Exercise wide and compact layouts and keyboard traversal on the target
   platforms. Native macOS with VoiceOver and IME, Linux Wayland and paired
@@ -3322,8 +3401,8 @@ macOS-specific interactions in the last column.
 | Priority and flow | Automated reference | Remaining packaged desktop check | Native macOS check |
 | --- | --- | --- | --- |
 | 1. Data Health finding → preview → cancel or repair → recheck | Shared snapshot and repair tests plus Gio cancellation and batch retry cases. | Compare the selected dates and provider target, cancel before posting, stop mid-run, recover after a stale plan, and verify the repaired dates after quit and reopen. | Verify native window close during confirmation, focus after dismissal, and reopen from the bundled app. |
-| 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | Force one target to fail, confirm that the successful quote is visible, retry the failed target only, and compare the stored source and date in Quote history. | Verify progress and failure sheets, compact scrolling, and VoiceOver announcements. |
-| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes, with the same day, filters and visible focus after Back. The interactive Wails comparison remains open. | Verify native Back keyboard commands and focus in the Calendar side sheet. |
+| 2. Market Data mixed instrument and FX refresh → retry → Quote history | Shared refresh/status tests with local providers and Gio quote-history and per-target retry cases. | The [paired macOS run](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh) passed cancel, partial refresh, retry, quote provenance and reopen. | Verify compact scrolling and VoiceOver announcements. |
+| 3. Return Calendar day → Asset Changes → Back | [Wails filter and calendar regression](../../../frontend/src/features/insights/ReturnAnalysisPage.test.tsx) and independent-copy Go adapter comparison passed. | [Packaged Gio Linux X11 passed](#paired-filtered-return-calendar-keyboard-handoff) at wide and compact sizes. The [macOS pair](stage6-desktop-qa.md#macos-account-filtered-return-and-ledger-chain) matched the account-filtered chain and readback. | Full compact keyboard and Calendar side-sheet accessibility acceptance remain open. |
 | 4. Change Drivers → Contribution → Ledger → Back | [Change Drivers to Contribution](#change-drivers-to-contribution) and [independent-copy Contribution to Ledger](#paired-contribution-to-exact-ledger-record) cover the two handoffs. | Verify the combined workflow across paired interactive apps. | Verify search composition with native IME and screen reader focus after Back. |
 | 5. Wealth History → allocation detail with priced and missing inputs → Ledger | Paired Go read regression for exact quote and FX provenance and [Wails historical reference](../../../frontend/src/features/historical-overview/HistoricalOverviewPage.test.tsx). Gio Linux X11 evidence is below. | Repeat the priced and missing-FX fixture in packaged Wails, compare effective date and retrieval time, and return from Ledger to the same account detail. | Verify chart and table reading order with VoiceOver and keyboard traversal in a compact window. |
 
@@ -3332,6 +3411,8 @@ macOS-specific interactions in the last column.
 The [fixture exporter and desktop procedure](stage6-desktop-qa.md) produce
 independent SQLite copies for stock macOS snapshot repair and Market Data
 readback. Recorded Linux results and automated Wails evidence are below.
+The [macOS pair](stage6-desktop-qa.md#macos-card-statements-market-performance-and-refresh)
+also verified mixed refresh with in-process providers.
 
 | Workflow | Paired automated evidence | Packaged Linux X11 evidence |
 | --- | --- | --- |

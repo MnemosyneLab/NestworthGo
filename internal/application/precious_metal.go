@@ -94,7 +94,10 @@ func (s *Service) latestMetalQuote(ctx context.Context, instrument domain.Instru
 	delayed := raw.Delayed || s.clock().Sub(raw.QuotedAt) > 7*24*time.Hour
 	quotedAt := raw.QuotedAt
 	if instrument.QuoteCurrency != "USD" {
-		preferences, prefErr := s.repository.ListFXPreferences(ctx, instrument.HouseholdID)
+		if err := s.withReviewedMetalFXPolicy(ctx, instrument, func() error { return nil }); err != nil {
+			return LatestInstrumentQuote{}, "", err
+		}
+		preferences, prefErr := s.syncFXPreferences(ctx, instrument.HouseholdID)
 		if prefErr != nil {
 			return LatestInstrumentQuote{}, "", prefErr
 		}
@@ -198,7 +201,10 @@ func (s *Service) PreviewMetalQuote(ctx context.Context, template, unit, currenc
 func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, instrument domain.Instrument, rng DateRange, outcome MappingOutcome[InstrumentDailyObservation], stopped map[string]string) (MappingOutcome[InstrumentDailyObservation], error) {
 	var fxQuotes []domain.FXQuote
 	if instrument.QuoteCurrency != "USD" {
-		preferences, err := s.repository.ListFXPreferences(ctx, instrument.HouseholdID)
+		if err := s.withReviewedMetalFXPolicy(ctx, instrument, func() error { return nil }); err != nil {
+			return outcome, err
+		}
+		preferences, err := s.syncFXPreferences(ctx, instrument.HouseholdID)
 		if err != nil {
 			return outcome, err
 		}
@@ -229,7 +235,11 @@ func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, in
 			}
 		}
 		if preferenceSource == domain.QuoteSourceProvider && !localCoversAll {
-			provider, err := s.MarketDataRegistry().Resolve(s.FXProviderKey())
+			registry := s.syncMarketRegistry(ctx)
+			if registry == nil {
+				return outcome, &domain.Error{Code: domain.ErrUnavailable, Message: "FX history unavailable"}
+			}
+			provider, err := registry.Resolve(s.syncFXProvider(ctx))
 			if err != nil {
 				return outcome, err
 			}

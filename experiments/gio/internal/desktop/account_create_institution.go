@@ -128,9 +128,13 @@ func (p *accountsPage) pollInlineInstitution() bool {
 		}
 		d.institution, d.institutionExplicit = result.institution, true
 		d.savedInstitution = result.institution.Name
-		d.newInstitution, d.focusAddInstitution = nil, true
+		d.newInstitution = nil
+		d.focusAddInstitution = f.sheet.step != accountInstitution
 		d.problem = i18n.NoMessage
 		p.loadAccountCreationReferences()
+		if f.sheet.step == accountInstitution {
+			f.advanceFromInstitution()
+		}
 		return true
 	default:
 		return false

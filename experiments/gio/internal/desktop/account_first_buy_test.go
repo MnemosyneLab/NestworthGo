@@ -118,6 +118,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	label("US$200.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record first buy")
 	click("Record first buy")
 	d := accounts.investment.draft
 	if len(d.sources.Instruments) != 2 || d.instrument != "" || d.day != "2026-11-22" || d.time != "01:00:00" {
@@ -176,6 +177,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Cancel")
 	noBuy()
 
+	scrollToAccountDetailLabel(h, "Record first buy")
 	click("Record first buy")
 	chooseTradeInstrument(t, h, accounts.investment.draft, ids.instrument, settle)
 	d = accounts.investment.draft
@@ -217,7 +219,7 @@ func TestFirstBuyGioPreviewReplayAndWailsParity(t *testing.T) {
 	click("Open instrument · QA-BUY")
 	label("Cost basis · US$76.36")
 	label("Native market value · US$100.00")
-	label("Current price · USD 40 · manual · 2026-11-21 16:00")
+	label("Latest quote · US$40.00 · as of 2026-11-21 16:00 · Source: Manual")
 	click("Open account · Harbor Brokerage")
 	if accounts.target.account != ids.account || accounts.canFirstBuy() {
 		t.Fatal("the refreshed Holding did not close the first-buy entry")

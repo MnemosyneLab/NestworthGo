@@ -1,6 +1,8 @@
 package history
 
 import (
+	"context"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
@@ -12,6 +14,11 @@ type AmendableCash struct {
 	Principal domain.ActivityEffect
 	Received  domain.ActivityEffect
 	Fee       domain.ActivityEffect
+	reason    domain.ActivityReason
+}
+
+type reconciliationActivityReader interface {
+	HasReconciliationActivityLink(context.Context, domain.AccountID, domain.ActivityID) (bool, error)
 }
 
 type amendmentAccounts struct {
@@ -30,11 +37,14 @@ func (m AmendableCash) CrossCurrency() bool {
 
 func CashAmendment(activity domain.Activity) (AmendableCash, bool) {
 	movement, supported := CashMovementOf(activity.Kind, activity.Reason)
+	if activity.Kind == domain.ActivityCashOut && activity.Reason == domain.ReasonExpense {
+		movement, supported = CashWithdrawal, true
+	}
 	if !supported || activity.ReversesActivityID != nil || activity.ProductContext != nil || len(activity.Effects) == 0 {
 		return AmendableCash{}, false
 	}
 	effects := activity.Effects
-	m := AmendableCash{Movement: movement, Principal: effects[0]}
+	m := AmendableCash{Movement: movement, Principal: effects[0], reason: activity.Reason}
 	switch movement {
 	case CashContribution:
 		return m, len(effects) == 1 && matchesCashEffect(m.Principal, domain.EffectRoleAmount, domain.EffectAdded, domain.ClassificationExternalInflow)
@@ -91,20 +101,27 @@ func eligibleAmendmentAccount(rows []domain.AccountRecord, effect domain.Activit
 	return domain.Account{}, false
 }
 
-func (m AmendableCash) accounts(rows []domain.AccountRecord) (amendmentAccounts, bool) {
+func (m AmendableCash) accounts(ctx context.Context, reader reconciliationActivityReader, id domain.ActivityID, rows []domain.AccountRecord) (amendmentAccounts, bool, error) {
 	source, ok := eligibleAmendmentAccount(rows, m.Principal)
 	if !ok {
-		return amendmentAccounts{}, false
+		return amendmentAccounts{}, false, nil
+	}
+	if m.reason == domain.ReasonExpense {
+		if source.AccountType != domain.TypeBankAccount || source.TrackingMode != domain.TrackingBalance {
+			return amendmentAccounts{}, false, nil
+		}
+		linked, err := reader.HasReconciliationActivityLink(ctx, source.ID, id)
+		return amendmentAccounts{source: source}, err == nil && !linked, err
 	}
 	accounts := amendmentAccounts{source: source}
 	if m.Paired() {
 		accounts.destination, ok = eligibleAmendmentAccount(rows, m.Received)
 	}
-	return accounts, ok
+	return accounts, ok, nil
 }
 
 func (m AmendableCash) replacement(amounts AmendmentInput, accounts amendmentAccounts) (historyapi.ChangeCommandRequest, error) {
-	input := CashMovementInput{Movement: m.Movement, Currency: m.Principal.Money.Currency(), Amount: amounts.Amount}
+	input := CashMovementInput{Movement: m.Movement, Currency: m.Principal.Money.Currency(), Amount: amounts.Amount, Reason: m.reason}
 	if m.Paired() {
 		input.ToCurrency, input.Received, input.Fee = m.Received.Money.Currency(), amounts.Received, amounts.Fee
 	}

@@ -117,11 +117,17 @@ func (t *overviewTrend) retire() {
 
 func (p *overviewPage) leave() {
 	p.funds.invalidate()
+	if p.upcoming.request != nil || p.upcoming.summary.request != nil {
+		p.upcoming.invalidate()
+	}
 	if p.loading {
 		p.refresh()
 	}
 	if p.trend.request != nil {
 		p.trend.invalidate()
+	}
+	if p.healthScan.request != nil {
+		p.healthScan.invalidate()
 	}
 }
 
@@ -299,9 +305,9 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	})}
 	switch {
 	case t.request != nil:
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryLoading), view.Colors.SecondaryInk)))
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewTrendLoading), view.Colors.SecondaryInk)))
 	case t.err != nil:
-		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryFailed), view.Colors.ErrorInk)),
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.OverviewTrendLoadFailed), view.Colors.ErrorInk)),
 			ui.Rigid(returnMonthButton(view, &t.retry, i18n.HistoryRetry, nil, true)))
 		if t.current != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.WealthHistoryRetained), view.Colors.SecondaryInk)))
@@ -406,7 +412,16 @@ func overviewTrendCoverage(view ui.View, point domain.NetWorthTrendPoint) string
 	if point.MissingCount > 0 {
 		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), point.MissingCount))
 	}
-	q := point.DisplayValuation.NetWorth.Quality
+	parts = append(parts, trendQuoteCoverage(view, point.DisplayValuation.NetWorth.Quality)...)
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func trendQuoteCoverage(view ui.View, q domain.ValuationQuality) []string {
+	l := view.Language
+	var parts []string
 	if q.OldestMarketDate != nil {
 		dates := wealthDay(view, *q.OldestMarketDate)
 		if q.NewestMarketDate != nil && *q.NewestMarketDate != *q.OldestMarketDate {
@@ -417,10 +432,7 @@ func overviewTrendCoverage(view ui.View, point domain.NetWorthTrendPoint) string
 	if q.CarriedCount > 0 || q.StaleCount > 0 {
 		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryQuoteAge), q.CarriedCount, q.StaleCount))
 	}
-	if len(parts) == 0 {
-		return "—"
-	}
-	return strings.Join(parts, " · ")
+	return parts
 }
 
 // chartAxisNumber labels a value tick as a grouped whole number, as the Wails

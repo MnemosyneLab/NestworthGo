@@ -44,6 +44,11 @@ func (o wealthHistoryOrigin) lastClosed(now time.Time) time.Time {
 	return time.Date(year, month, day-1, 0, 0, 0, 0, time.UTC)
 }
 
+func (o wealthHistoryOrigin) previousMonthEnd(now time.Time) string {
+	year, month, _ := now.In(o.location).Date()
+	return time.Date(year, month, 0, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
+}
+
 func (o wealthHistoryOrigin) permits(r wealthDateRange, now time.Time) bool {
 	from, fromOK := ui.ParseCivilDay(r.from)
 	to, toOK := ui.ParseCivilDay(r.to)
@@ -74,6 +79,7 @@ type wealthHistoryPage struct {
 	invalidate func()
 	workers    sync.WaitGroup
 	cancel     context.CancelFunc
+	resumeRead bool
 
 	originRead       <-chan historyResult[*wealthHistoryOrigin]
 	seriesRead       <-chan historyResult[application.HistoricalOverviewSeriesResult]
@@ -110,15 +116,25 @@ func (p *wealthHistoryPage) enter() {
 	if p.returnDetail != nil {
 		p.detail, p.returnDetail = p.returnDetail, nil
 	}
-	if p.origin == nil {
+	resume := p.resumeRead
+	p.resumeRead = false
+	switch {
+	case p.origin == nil:
 		p.readOrigin()
-	} else if p.lens != wealthTrendLens {
-		if p.accounts.current == nil && p.accounts.err == nil && p.validAccountDates(p.accounts.draft, p.clock()) {
+	case p.lens != wealthTrendLens:
+		if resume {
+			p.readAccounts(p.accounts.requested)
+		} else if p.accounts.current == nil && p.accounts.err == nil && p.validAccountDates(p.accounts.draft, p.clock()) {
 			p.readAccounts(p.accounts.draft)
 		}
-	} else if p.current == nil && p.err == nil && p.origin.permits(p.requested, p.clock()) {
+	case resume || p.current == nil && p.err == nil && p.origin.permits(p.requested, p.clock()):
 		p.readSeries(p.requested)
 	}
+}
+
+func (p *wealthHistoryPage) suspend() {
+	p.resumeRead = p.accounts.request != nil || p.seriesRead != nil
+	p.leave()
 }
 
 func (p *wealthHistoryPage) leave() {

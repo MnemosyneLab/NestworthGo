@@ -53,7 +53,8 @@ func (p *accountsPage) layoutLiabilityPosting(gtx layout.Context, view ui.View) 
 	}
 	if !p.liabilityPostingUnresolved() && d.cancel.Clicked(gtx) {
 		f.draft = nil
-		f.restore = true
+		f.restore = f.entry == &f.open
+		p.restoreAccountRecord(f.entry)
 		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}

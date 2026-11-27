@@ -178,7 +178,15 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 	version := app.MobileDataVersion()
 	h.frame()
 	click("Tasks & checks")
-	label("Term deposit tasks")
+	label("Upcoming actions")
+	upcoming, err := liquidityapi.NewService(ref).UpcomingActions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	label(fmt.Sprintf("Upcoming needs attention · %d", upcoming.Counts.Attention))
+	label("Investment review · 1")
+	label("Open reconciliations · 4")
+	click("Receipts due")
 	label("Overdue. Receipt is unconfirmed.")
 	click("Investment review")
 	label("Original cost under 100 USD")
@@ -245,8 +253,9 @@ func TestTaskChecksMatchPublishedWailsReviewAndExactCardSession(t *testing.T) {
 		t.Fatal("Forward lost the exact statement session")
 	}
 	click("Back")
-	click("Upcoming")
-	label("Term deposit tasks")
+	click("Upcoming actions")
+	label("Upcoming actions")
+	click("All actions")
 	label("Receipt schedule incomplete")
 	if after, err := app.ListActivities(ctx, 30); err != nil || !reflect.DeepEqual(before, after) || version != app.MobileDataVersion() {
 		t.Fatalf("task browsing changed ledger facts or version: %v", err)
@@ -276,10 +285,12 @@ type delayedTasksReview struct {
 }
 
 func (s *delayedTasksReview) ListReviewAlertGroupsV2(ctx context.Context, filter domain.ReviewAlertFilter, cursor string, size int) (domain.ReviewAlertPage, error) {
-	s.first.Do(func() {
-		close(s.started)
-		<-s.release
-	})
+	if filter.Status == "pending" {
+		s.first.Do(func() {
+			close(s.started)
+			<-s.release
+		})
+	}
 	return s.Service.ListReviewAlertGroupsV2(context.WithoutCancel(ctx), filter, cursor, size)
 }
 
@@ -294,14 +305,27 @@ func TestTaskChecksSeparateEmptyStatesAndLateRead(t *testing.T) {
 	service := &delayedTasksReview{Service: app, started: make(chan struct{}), release: make(chan struct{})}
 	tasks := newTasksPage(ctx, app, func() {})
 	tasks.checks = service
+	health := &dataHealthPage{ctx: ctx, reader: fixedDataHealthRead{}, invalidate: func() {}}
+	t.Cleanup(health.workers.Wait)
 	release := sync.OnceFunc(func() { close(service.release) })
 	t.Cleanup(func() { release(); tasks.workers.Wait() })
-	h := newShellHarnessWithPages(t, ledgerPages{tasks: tasks})
+	h := newShellHarnessWithPages(t, ledgerPages{tasks: tasks, dataHealth: health})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
 	h.click("Tasks & checks", false)
 	tasks.workers.Wait()
 	h.frame()
+	h.click("Open Data maintenance", false)
+	health.workers.Wait()
+	h.frame()
+	if h.shell.activeRoute() != dataHealthRoute {
+		t.Fatal("the data maintenance action did not open its issues page")
+	}
+	h.click("Back", false)
+	tasks.workers.Wait()
+	h.frame()
+	h.frame()
+	h.focused(&tasks.upcomingHealth)
 	h.click("Investment review", false)
 	select {
 	case <-service.started:

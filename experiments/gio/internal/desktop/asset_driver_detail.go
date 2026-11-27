@@ -120,7 +120,7 @@ func (p *assetChangesPage) driverDetails(gtx layout.Context, view ui.View, sheet
 		rows = append(rows, view.Message(l.Text(i18n.AssetFailed), view.Colors.ErrorInk), view.Button(&sheet.retry, l.Text(i18n.HistoryRetry)))
 	case sheet.value != nil:
 		result := sheet.value
-		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetDriverTotal)+" · "+returnMoney(view, sheet.row.Amount), view.Colors.Ink))
+		rows = append(rows, view.Body(ui.TextLabel, l.Text(i18n.AssetDriverTotal)+" · "+assetSignedMoney(view, sheet.row.Amount), view.Colors.Ink))
 		if result.ValuationForced != nil {
 			rows = append(rows, view.Message(l.Text(i18n.AnalysisBaseFallback), view.Colors.SecondaryInk))
 		}
@@ -145,7 +145,7 @@ func (p *assetChangesPage) driverDetails(gtx layout.Context, view ui.View, sheet
 			rows = append(rows, view.Body(ui.TextLabel, l.Text(dimension.label), view.Colors.Ink))
 			for _, value := range dimension.rows {
 				name := p.driverDimension(l, value)
-				rows = append(rows, view.Message(name+" · "+returnMoney(view, value.Amount), view.Colors.Ink))
+				rows = append(rows, view.Message(name+" · "+assetSignedMoney(view, value.Amount), view.Colors.Ink))
 			}
 		}
 		if len(result.ResidualDetails)+len(result.ByInstrument)+len(result.ByAccount) == 0 {
@@ -187,7 +187,7 @@ func (p *assetChangesPage) driverResidual(view ui.View, sheet *assetDriverSheet,
 	if len(names) == 0 {
 		names = append(names, l.Text(i18n.OverviewEvidenceUnavailable))
 	}
-	row := strings.Join(append(names, wealthDay(view, value.Date), returnMoney(view, value.Amount)), " · ")
+	row := strings.Join(append(names, wealthDay(view, value.Date), assetSignedMoney(view, value.Amount)), " · ")
 	return func(gtx layout.Context) layout.Dimensions {
 		items := []ui.ColumnChild{ui.Rigid(view.Message(row, view.Colors.Ink))}
 		if p.openHistory != nil {

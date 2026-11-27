@@ -78,7 +78,7 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 }
 
 func (p *returnAnalysisPage) layoutTabs(gtx layout.Context, view ui.View) layout.Dimensions {
-	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContribution}
+	labels := [...]i18n.MessageID{i18n.ReturnCalendar, i18n.ReturnTrend, i18n.ReturnContributionTab}
 	return view.TabTrack(gtx, len(labels), func(gtx layout.Context, index int) layout.Dimensions {
 		return view.TabSegment(&p.tabs[index], view.Language.Text(labels[index]), p.tab == returnAnalysisTab(index))(gtx)
 	})
@@ -117,8 +117,11 @@ func (p *returnAnalysisPage) layoutCalendar(gtx layout.Context, view ui.View) la
 			return p.monthGrid(gtx, view, localNow.Format(time.DateOnly))
 		}
 		rows = append(rows,
-			ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.monthSummary(gtx, view) }),
-			ui.Rigid(grid))
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.monthSummary(gtx, view) }))
+		if p.current.gridBasis.currency != "" {
+			rows = append(rows, ui.Rigid(returnValuationLabel(view, i18n.ReturnCalendarValuation, p.current.gridBasis)))
+		}
+		rows = append(rows, ui.Rigid(grid))
 		if len(p.current.summary.TopContributors) > 0 {
 			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return p.contributors(gtx, view, p.current.summary.TopContributors)
@@ -224,7 +227,7 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 	}
 	summary := data.Summary
 	caption := fmt.Sprintf(l.Text(i18n.ReturnSummaryRange), wealthDay(view, string(p.current.summaryFrom)),
-		wealthDay(view, string(p.current.summaryTo)), string(data.Currency))
+		wealthDay(view, string(p.current.summaryTo)))
 	tone := returnTone(summary.ReturnRate, summary.ReturnAmount)
 	toneInk := func(figure int) color.NRGBA {
 		// Only the amount and the rate carry the gain or loss color.
@@ -239,8 +242,9 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
-			layout.Rigid(view.Body(ui.TextHeading, caption, view.Colors.Ink)),
-			layout.Rigid(view.Message(analysisBasis(l, data.Valuation, data.ValuationForced), view.Colors.SecondaryInk)),
+			layout.Rigid(view.Body(ui.TextHeading, l.Text(i18n.ReturnSummary), view.Colors.Ink)),
+			layout.Rigid(view.Body(ui.TextCaption, caption, view.Colors.SecondaryInk)),
+			layout.Rigid(returnValuationLabel(view, i18n.ReturnSummaryValuation, calendarValuation(data))),
 			layout.Rigid(view.Hairline),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				labels := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate, i18n.ReturnBeginning, i18n.ReturnEnding}
@@ -410,8 +414,9 @@ func (p *returnAnalysisPage) dayDetails(gtx layout.Context, view ui.View, sheet 
 	}
 	data := sheet.value
 	return view.List(&sheet.list).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
-		var children []layout.FlexChild
-		for _, value := range []string{analysisBasis(l, data.Valuation, data.ValuationForced) + " · " + string(data.Currency),
+		basis := returnValuationContext{data.Valuation, data.Currency, data.ValuationForced}
+		children := []layout.FlexChild{layout.Rigid(returnValuationLabel(view, i18n.ReturnDayValuation, basis))}
+		for _, value := range []string{
 			l.Text(i18n.ReturnAmount) + " · " + returnAmountText(view, data.ReturnAmount, data.AmountStatus),
 			l.Text(i18n.ReturnRate) + " · " + returnRate(view, data.ReturnRate),
 			returnCoverage(l, data.Coverage, application.ReturnDayCoverage{})} {
@@ -421,7 +426,7 @@ func (p *returnAnalysisPage) dayDetails(gtx layout.Context, view ui.View, sheet 
 			children = append(children, layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnComposition), view.Colors.Ink)))
 			for _, component := range data.Composition {
 				label := returnComponentLabel(l, component.Component)
-				children = append(children, layout.Rigid(view.Message(label+" · "+returnMoney(view, component.Amount), view.Colors.Ink)))
+				children = append(children, layout.Rigid(view.Message(label+" · "+returnSignedMoney(view, component.Amount), view.Colors.Ink)))
 			}
 		}
 		if len(data.Contributors) > 0 {
@@ -451,6 +456,26 @@ func analysisBasis(l i18n.Language, valuation domain.Valuation, forced *string) 
 	}
 }
 
+func returnValuationLabel(view ui.View, section i18n.MessageID, basis returnValuationContext) layout.Widget {
+	l := view.Language
+	label := i18n.ReturnBaseAmount
+	if basis.valuation == domain.ValuationNative && basis.forced == nil {
+		label = i18n.ReturnNativeAmount
+	}
+	denomination := basis.currency.String()
+	if denomination == "" {
+		denomination = l.Text(i18n.OverviewNoValue)
+	}
+	text := fmt.Sprintf(l.Text(section), fmt.Sprintf(l.Text(label), denomination))
+	rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextCaption, text, view.Colors.SecondaryInk))}
+	if basis.forced != nil {
+		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.AnalysisBaseFallback), view.Colors.WarningInk)))
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return (ui.Column{Gap: ui.Space2}).Layout(gtx, rows...)
+	}
+}
+
 func (p *returnAnalysisPage) contributors(gtx layout.Context, view ui.View, values []application.ReturnContributor) layout.Dimensions {
 	l := view.Language
 	rows := []layout.FlexChild{layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.ReturnContributors), view.Colors.Ink))}
@@ -465,7 +490,7 @@ func (p *returnAnalysisPage) contributors(gtx layout.Context, view ui.View, valu
 		case name == "":
 			name = l.Text(i18n.HistoryInstrumentUnavailable)
 		}
-		amount := returnMoney(view, value.Amount)
+		amount := returnSignedMoney(view, value.Amount)
 		rows = append(rows, layout.Rigid(labeledRow(view, name+" · "+amount, name, amount, view.Colors.Ink)))
 	}
 	return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -475,8 +500,8 @@ func (p *returnAnalysisPage) contributors(gtx layout.Context, view ui.View, valu
 
 func returnComponentLabel(l i18n.Language, component domain.ReturnComponent) string {
 	labels := map[domain.ReturnComponent]i18n.MessageID{
-		domain.ReturnPriceChange: i18n.ReturnPrice, domain.ReturnFXImpact: i18n.ReturnFX,
-		domain.ReturnFXConversionSpread: i18n.ReturnFXSpread, domain.ReturnDividendInterest: i18n.ReturnIncome,
+		domain.ReturnPriceChange: i18n.ReturnComponentPrice, domain.ReturnFXImpact: i18n.ReturnComponentHoldingFX,
+		domain.ReturnFXConversionSpread: i18n.ReturnComponentSpread, domain.ReturnDividendInterest: i18n.RankingDividendInterest,
 		domain.ReturnInvestmentFee: i18n.ReturnFee,
 	}
 	label, ok := labels[component]
@@ -504,8 +529,16 @@ func returnMoney(view ui.View, value *domain.SignedMoney) string {
 	return valuationMoney(view, domain.MoneyView{Amount: value.CanonicalAmount(), Currency: value.Currency()}, false)
 }
 
+func returnSignedMoney(view ui.View, value *domain.SignedMoney) string {
+	display := returnMoney(view, value)
+	if value != nil && value.Amount().RoundBank(int32(domain.CurrencyFractionDigits(value.Currency()))).IsPositive() {
+		return "+" + display
+	}
+	return display
+}
+
 func returnAmountText(view ui.View, value *domain.SignedMoney, status string) string {
-	text := returnMoney(view, value)
+	text := returnSignedMoney(view, value)
 	if status == application.ReturnAmountPartial {
 		return text + " · " + view.Language.Text(i18n.OverviewKnownSubtotal)
 	}
@@ -525,10 +558,14 @@ func returnTone(rate *decimal.Decimal, amount *domain.SignedMoney) int {
 }
 
 func returnRate(view ui.View, value *decimal.Decimal) string {
+	return returnRatePlaces(view, value, 2)
+}
+
+func returnRatePlaces(view ui.View, value *decimal.Decimal, places int32) string {
 	if value == nil {
 		return view.Language.Text(i18n.OverviewNoValue)
 	}
-	percentage := value.Shift(2).RoundBank(2)
+	percentage := value.Shift(2).RoundBank(places)
 	if percentage.IsZero() {
 		return "0%"
 	}

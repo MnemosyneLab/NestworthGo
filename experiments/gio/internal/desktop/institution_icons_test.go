@@ -96,11 +96,11 @@ func TestInstitutionIconsFollowTypeThenPersistExplicitChoice(t *testing.T) {
 	finish()
 
 	searchDirectory(h, "Search institutions", "Icon Test")
-	h.click("Add institution", false)
+	h.click("Add an institution", false)
 	h.router.Queue(key.EditEvent{Text: "Icon Test Institution"})
 	h.frame()
 	h.click("Institution type", true)
-	h.click("Insurer", false)
+	h.click("Insurance company", false)
 	h.frame()
 	if p.icon != domain.DefaultIconForInstitutionType(domain.InstitutionInsurer) {
 		t.Fatalf("type selection did not update the default icon: %q", p.icon)
@@ -136,7 +136,7 @@ func TestInstitutionIconsFollowTypeThenPersistExplicitChoice(t *testing.T) {
 	replaceDirectoryName(h, p, "")
 	h.click("Save", false)
 	finish()
-	assertPageLabel(t, &h.router, i18n.English.Text(i18n.PreviewNameRequired))
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.DirectoryNameRequired))
 	check(created.Name, domain.InstitutionBrokerage, bankKey)
 
 	replaceDirectoryName(h, p, "Icon Test Renamed")

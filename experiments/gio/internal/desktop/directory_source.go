@@ -71,15 +71,12 @@ func newInstitutionsPage(ctx context.Context, service institutionService, invali
 		},
 	}
 	copy := directoryCopy{
-		title: i18n.NavInstitutions, name: i18n.PreviewInstitutionName,
-		add: i18n.InstitutionsAdd, edit: i18n.InstitutionsEditTitle,
+		title: i18n.NavInstitutions, name: i18n.PreviewInstitutionName, nameHint: i18n.DirectoryInstitutionHint,
+		add:    i18n.DirectoryAddInstitution,
 		search: i18n.PreviewSearch, searchHint: i18n.InstitutionsSearchHint,
 		loading: i18n.InstitutionsLoading, loadError: i18n.InstitutionsLoadError,
-		empty: i18n.InstitutionsEmpty, emptyAll: i18n.InstitutionsEmptyAll, noMatches: i18n.PreviewNoMatches,
-		created: i18n.InstitutionsCreated, saved: i18n.InstitutionsSaved,
-		archived: i18n.InstitutionsArchived, restored: i18n.InstitutionsRestored,
-		archiveTitle: i18n.InstitutionsArchiveTitle, archiveError: i18n.InstitutionsArchiveError,
-		restoreError: i18n.InstitutionsRestoreError, saveError: i18n.InstitutionsSaveError,
+		empty: i18n.DirectoryInstitutionEmpty, noMatches: i18n.PreviewNoMatches,
+		archiveError: i18n.InstitutionsArchiveError, restoreError: i18n.InstitutionsRestoreError,
 	}
 	return newDirectoryList(ctx, source, copy, domain.DefaultInstitutionIcon, invalidate)
 }
@@ -111,8 +108,8 @@ func newMembersList(ctx context.Context, service memberService, invalidate func(
 		},
 	}
 	copy := memberGroupCopy()
-	copy.title, copy.name, copy.add, copy.edit = i18n.NavMembers, i18n.DirectoryMemberName, i18n.DirectoryAddMember, i18n.DirectoryEditMember
-	copy.search, copy.archiveTitle = i18n.DirectorySearchMembers, i18n.DirectoryArchiveMember
+	copy.title, copy.name, copy.add = i18n.NavMembers, i18n.DirectoryMemberName, i18n.DirectoryAddMember
+	copy.search, copy.nameHint, copy.empty = i18n.DirectorySearchMembers, i18n.DirectoryMemberHint, i18n.DirectoryMemberEmpty
 	return newDirectoryList(ctx, source, copy, domain.DefaultMemberIcon, invalidate)
 }
 
@@ -143,26 +140,23 @@ func newGroupsList(ctx context.Context, service groupService, invalidate func())
 		},
 	}
 	copy := memberGroupCopy()
-	copy.title, copy.name, copy.add, copy.edit = i18n.NavDirectoryGroups, i18n.DirectoryGroupName, i18n.DirectoryAddGroup, i18n.DirectoryEditGroup
-	copy.search, copy.archiveTitle = i18n.DirectorySearchGroups, i18n.DirectoryArchiveGroup
+	copy.title, copy.name, copy.add = i18n.NavDirectoryGroups, i18n.DirectoryGroupName, i18n.DirectoryAddGroup
+	copy.search, copy.nameHint, copy.empty = i18n.DirectorySearchGroups, i18n.DirectoryGroupHint, i18n.DirectoryGroupEmpty
 	return newDirectoryList(ctx, source, copy, domain.DefaultGroupIcon, invalidate)
 }
 
 type directoryCopy struct {
-	title, name, add, edit, search, searchHint          i18n.MessageID
-	loading, loadError, empty, emptyAll, noMatches      i18n.MessageID
-	created, saved, archived, restored                  i18n.MessageID
-	archiveTitle, archiveError, restoreError, saveError i18n.MessageID
+	title, name, add, search, searchHint, nameHint i18n.MessageID
+	loading, loadError, empty, noMatches           i18n.MessageID
+	archiveError, restoreError                     i18n.MessageID
 }
 
 func memberGroupCopy() directoryCopy {
 	return directoryCopy{
 		searchHint: i18n.DirectorySearchHint,
 		loading:    i18n.DirectoryLoading, loadError: i18n.DirectoryLoadError,
-		empty: i18n.DirectoryEmpty, emptyAll: i18n.DirectoryEmptyAll, noMatches: i18n.DirectoryNoMatches,
-		created: i18n.DirectoryCreated, saved: i18n.DirectorySaved,
-		archived: i18n.DirectoryArchiveDone, restored: i18n.DirectoryRestored,
-		archiveError: i18n.DirectoryArchiveError, restoreError: i18n.DirectoryRestoreError, saveError: i18n.DirectorySaveError,
+		noMatches:    i18n.DirectoryNoMatches,
+		archiveError: i18n.DirectoryArchiveError, restoreError: i18n.DirectoryRestoreError,
 	}
 }
 

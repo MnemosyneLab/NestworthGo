@@ -21,7 +21,10 @@ shows both. Ledger activity keeps its recorded civil dates.
 
 **Market data** sets the FX refresh provider and quote cache duration. Save,
 replace, or remove a CoinGecko key in its own card. The stored key stays in the
-local database. **Diagnostics** sets the application file log level and shows
+local database. **Data → Recalculate all data** rebuilds daily snapshots,
+current balances and returns from recorded facts after History has started.
+The result reports the date range, snapshot days and days with incomplete coverage.
+**Diagnostics** sets the application file log level and shows
 the log path in the active Gio profile. **About** shows the version, build,
 license, and preview app identity.
 
@@ -170,9 +173,10 @@ pickers share one field frame; cards and floating layers share one surface
 with shadows. Motion runs only while a tween is moving, so an idle window
 requests no frames. `ui.SetReducedMotion` turns every tween into a jump.
 
-Fonts are system fonts only (Avenir Next, with Helvetica Neue and CJK
-fallbacks, and Iowan Old Style for display titles). Plus Jakarta Sans is not
-bundled. Icons are Lucide. After changing the icon list in
+Fonts are system fonts only (Avenir Next and Helvetica Neue, and Iowan Old
+Style for display titles). The macOS font stack explicitly falls back to
+Hiragino Sans GB for Han and Apple Color Emoji for emoji. Plus Jakarta Sans is
+not bundled. Icons are Lucide. After changing the icon list in
 `tools/lucidegen`, regenerate the tables from `experiments/gio`:
 
 ```sh
@@ -189,13 +193,16 @@ search and archive filter. **Members** opens by default. **Show archived**
 includes active and archived entries. Confirm **Archive** to archive an
 active entry, or choose **Restore** from an archived row.
 
-Members and groups can be added and edited with a name and an icon. The picker
-uses the same selectable icon keys and translated names as Wails. The service
+The Add action opens a side sheet and leaves the list's search, archive filter
+and scroll position in place. Closing or saving returns to Add. Edit replaces
+the selected row with name and icon controls, and Save or Cancel returns to
+that row. The picker uses the same selectable icon keys and translated names
+as Wails. The service
 rejects archiving a member who is a live account's only active owner or the
 household's last active member. Archiving a group preserves existing account
 references to that group.
 
-**Add institution** takes a name and type. The type sets the default icon, and
+**Add an institution** takes a name and type. The type sets the default icon, and
 **Icon** searches generic symbols and bank logos by name or alias. **Edit**
 can save the name and icon together. The list and object view display the
 saved icon, including historical wordmarks.

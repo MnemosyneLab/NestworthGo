@@ -72,6 +72,19 @@ func (p *dataHealthPage) repairProgress(gtx layout.Context, view ui.View) layout
 	if r.problem != i18n.NoMessage {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(r.problem), view.Colors.ErrorInk)))
 	}
+	if r.problem == i18n.HealthRepairStale && r.owner == dataHealthRoute {
+		ready := !r.inProgress()
+		if ready && p.retryRepair.Clicked(gtx) {
+			if r.lastScope.Scope == application.SyncScopeRepairAll {
+				p.previewRepair()
+			} else if p.previewQuoteRepair != nil {
+				p.previewQuoteRepair(r.lastScope, &p.retryRepair)
+			}
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.retryRepair, i18n.MarketRetrySync, nil, ready)))
+		return (ui.Column{Gap: 6}).Layout(gtx, rows...)
+	}
 	if r.startRead != nil && job.Outcome != application.SyncOutcomeRunning {
 		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.HealthRepairStarting), view.Colors.SecondaryInk)))
 	}

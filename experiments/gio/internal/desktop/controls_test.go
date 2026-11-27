@@ -135,7 +135,7 @@ func (h *previewHarness) inPage(label string, field bool) bool {
 	}
 	var matches func(node input.SemanticNode) bool
 	matches = func(node input.SemanticNode) bool {
-		if (field && node.Desc.Description == label) || (!field && node.Desc.Class == semantic.Button && hasLabel(node)) {
+		if (field && node.Desc.Description == label) || (!field && (node.Desc.Class == semantic.Button || node.Desc.Class == semantic.CheckBox) && hasLabel(node)) {
 			return true
 		}
 		return slices.ContainsFunc(node.Children, matches)

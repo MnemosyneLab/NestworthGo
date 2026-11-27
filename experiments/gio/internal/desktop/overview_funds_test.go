@@ -111,14 +111,23 @@ func TestOverviewAvailableFundsJourney(t *testing.T) {
 	settle()
 	assertAmount(today, "85.3071", domain.StatusPartial)
 	assertAmount(month, "125.3071", domain.StatusPartial)
-	assertPageLabel(t, &h.router, "85.3071 USD")
-	assertPageLabel(t, &h.router, "125.3071 USD")
+	assertPageLabel(t, &h.router, "US$85.31")
+	assertPageLabel(t, &h.router, "US$125.31")
+	h.shell.prefs.saved.DecimalSeparator = settings.DecimalComma
+	h.shell.prefs.saved.GroupingSeparator = settings.GroupingDot
+	h.frame()
+	assertPageLabel(t, &h.router, "US$85,31")
+	assertPageLabel(t, &h.router, "US$125,31")
+	h.shell.prefs.saved.DecimalSeparator = settings.DecimalDot
+	h.shell.prefs.saved.GroupingSeparator = settings.GroupingComma
+	h.frame()
 
 	h.click("Open available funds", false)
 	settle()
 	if h.shell.activeRoute() != fundsRoute || funds.state.filter != fundsAll {
 		t.Fatalf("default link did not open the unfiltered Available Funds page: %+v", funds.state)
 	}
+	assertPageLabel(t, &h.router, "US$85.31")
 	assertFundsParity(t, *funds.current, mustReadFundsAdapter(t, adapter))
 	h.click("Back", false)
 	settle()

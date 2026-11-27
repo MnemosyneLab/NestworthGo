@@ -18,7 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.View) []layout.FlexChild {
+func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.View) []layout.Widget {
 	m, row := p.maintenance, p.freshDetail()
 	if m == nil || row == nil || !accountMaintenanceSupported(row.record.Account) {
 		return nil
@@ -28,13 +28,13 @@ func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.Vie
 		gtx.Execute(key.FocusCmd{Tag: m.focus})
 		m.focus = nil
 	}
-	var result []layout.FlexChild
+	var result []layout.Widget
 	if canEditAccount(row.record) {
 		if m.edit.Clicked(gtx) {
 			m.startEdit(row.record)
 			gtx.Execute(op.InvalidateCmd{})
 		}
-		result = append(result, layout.Rigid(view.Button(&m.edit, l.Text(i18n.AccountMaintenanceEdit))))
+		result = append(result, view.ButtonOf(&m.edit, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountMaintenanceEdit)}))
 	}
 	action := i18n.AccountMaintenanceArchive
 	if a.ArchivedAt != nil {
@@ -44,7 +44,7 @@ func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.Vie
 		m.startArchive(a)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return append(result, layout.Rigid(view.Button(&m.archive, l.Text(action))))
+	return append(result, view.ButtonOf(&m.archive, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(action)}))
 }
 
 func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {

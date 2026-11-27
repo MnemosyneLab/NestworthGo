@@ -30,7 +30,7 @@ func (s *shell) recentButton(gtx layout.Context, view ui.View, anchorX int) layo
 		if s.trail.adjacent(1) == nil {
 			previous = &s.back
 		}
-		s.recentPicker.Menu(gtx, view, bounds, choices, "", previous, &s.headingFocus, 340, func(id string) {
+		s.recentPicker.Menu(gtx, view, bounds, choices, title, "", previous, &s.headingFocus, 340, func(id string) {
 			index, err := strconv.Atoi(id)
 			if err != nil || index < 0 || index >= len(s.trail.recent) {
 				return

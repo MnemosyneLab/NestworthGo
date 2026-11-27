@@ -41,6 +41,7 @@ func (p *directoryList) visit() directoryListVisit {
 
 func (p *directoryList) setArchiveScope(includeArchived bool) {
 	p.includeArchived = includeArchived
+	p.archiveFilter.Value = includeArchived
 	p.list.Position = layout.Position{}
 	p.rows, p.loaded, p.readErr = nil, false, nil
 	p.start(directoryChange{})

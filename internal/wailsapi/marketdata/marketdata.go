@@ -322,6 +322,8 @@ type SyncJobDTO struct {
 type SyncPlanPreviewDTO struct {
 	Items                 []SyncItemDTO    `json:"items,omitempty"`
 	AsOf                  string           `json:"asOf"`
+	ReviewID              string           `json:"reviewId,omitempty"`
+	ExpiresAt             string           `json:"expiresAt,omitempty"`
 	ConfigRevision        string           `json:"configRevision"`
 	Scope                 SyncRequestDTO   `json:"scope"`
 	EstimatedRequestCount int              `json:"estimatedRequestCount"`
@@ -481,6 +483,30 @@ func (s *Service) PreviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreview
 	return SyncPreviewDTO(preview), nil
 }
 
+// ReviewMarketDataSync prepares an expiring desktop confirmation for exactly
+// the provider work returned by this preview.
+func (s *Service) ReviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreviewDTO, error) {
+	if s.app == nil {
+		return SyncPlanPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	preview, err := s.app.ReviewMarketDataSync(context.Background(), fromSyncRequest(request))
+	if err != nil {
+		return SyncPlanPreviewDTO{}, apierror.Wrap(err)
+	}
+	return SyncPreviewDTO(preview), nil
+}
+
+func (s *Service) ConfirmMarketDataSync(request SyncRequestDTO, reviewID string) (SyncStartResultDTO, error) {
+	if s.app == nil {
+		return SyncStartResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	result, err := s.app.ConfirmMarketDataSync(context.Background(), fromSyncRequest(request), reviewID)
+	if err != nil {
+		return SyncStartResultDTO{}, apierror.Wrap(err)
+	}
+	return SyncStartResultDTO{Job: SyncSnapshotDTO(result.Job), Attached: result.Attached, Conflict: result.Conflict, Reason: result.Reason}, nil
+}
+
 // SyncPreviewDTO shares the repair plan representation across transports.
 func SyncPreviewDTO(preview application.SyncPlanPreview) SyncPlanPreviewDTO {
 	dto := SyncPlanPreviewDTO{
@@ -494,6 +520,9 @@ func SyncPreviewDTO(preview application.SyncPlanPreview) SyncPlanPreviewDTO {
 		LatestInstrumentCount: preview.LatestInstrumentCount,
 		LatestFXCount:         preview.LatestFXCount,
 		FetchRanges:           preview.FetchRanges,
+	}
+	if preview.ReviewID != "" {
+		dto.ReviewID, dto.ExpiresAt = preview.ReviewID, preview.ExpiresAt.UTC().Format(time.RFC3339)
 	}
 	for _, item := range preview.Items {
 		dto.Items = append(dto.Items, fromSyncItem(item))

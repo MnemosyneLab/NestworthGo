@@ -43,7 +43,7 @@ type dataHealthPage struct {
 	list                       widget.List
 	issueActions               map[string]*widget.Clickable
 	historyActions             map[string]*widget.Clickable
-	openSettings               func(*widget.Clickable)
+	openSettings               func(string, *widget.Clickable)
 	openAccount                func(domain.AccountID, string, *widget.Clickable)
 	openManual                 func(marketManualTarget, event.Tag)
 	openInstrumentSource       func(domain.InstrumentID, string, event.Tag)
@@ -63,7 +63,8 @@ type dataHealthPage struct {
 
 type healthFindingFocus struct {
 	from, to, account, instrument, currencyA, currencyB, label string
-	id                                                         string
+	id, action, kind, reason, provider                         string
+	executableSpecified                                        bool
 	snapshot                                                   snapshotFindingKey
 }
 

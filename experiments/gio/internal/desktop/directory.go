@@ -5,6 +5,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
 
@@ -47,6 +48,11 @@ func (p *directoryPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	}
 	gap := gtx.Dp(10)
 	return ui.Column{Gap: 10}.Layout(gtx,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			dims := view.Message(view.Language.Text(i18n.DirectoryDescription), view.Colors.SecondaryInk)(gtx)
+			view.Origin.Y += dims.Size.Y + gap
+			return dims
+		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			for i := range p.tabs {
 				button := &p.tabs[i]

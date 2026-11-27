@@ -70,10 +70,10 @@ type assetChangesPage struct {
 	filters                    analysisFilterControls
 	tabs                       [3]widget.Clickable
 	reload                     widget.Clickable
+	coverage                   widget.Clickable
 	metric, interval, category ui.Select
 	list                       widget.List
-	waterfall                  charts.WaterfallChart
-	waterfallSelected          charts.Selection
+	driverChart                charts.BarChart
 	trendChart                 charts.LineChart
 	trendTable                 chartDataTable
 	trendSelected              charts.Selection
@@ -85,6 +85,7 @@ type assetChangesPage struct {
 	categoryFocus              event.Tag
 	openHistory                func(history.Filters, domain.ActivityID, event.Tag)
 	openReturns                func(analysisSelection, bool, application.ContributionReturnType, event.Tag)
+	openHealth                 func(healthFindingFocus, event.Tag)
 }
 
 func (p *assetChangesPage) enter(state assetChangesVisit) {
@@ -198,7 +199,6 @@ func (p *assetChangesPage) update() {
 
 func (p *assetChangesPage) change() {
 	p.current = nil
-	p.waterfallSelected = charts.Selection{}
 	p.trendSelected = charts.Selection{}
 	p.list.Position = layout.Position{}
 	if p.refs.origin != nil {

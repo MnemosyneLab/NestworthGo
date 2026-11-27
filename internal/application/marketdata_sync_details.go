@@ -85,10 +85,10 @@ func emitRefreshProgress(ctx context.Context, item SyncItemProgress) {
 }
 
 // CoinGecko batches up to 100 distinct coin IDs for one quote currency.
-func (s *Service) latestRequestEstimate(targets []refreshTarget) int {
+func (s *Service) latestRequestEstimate(ctx context.Context, targets []refreshTarget) int {
 	count := 0
 	groups := map[string]map[string]bool{}
-	registry := s.MarketDataRegistry()
+	registry := s.syncMarketRegistry(ctx)
 	for _, target := range targets {
 		if target.skip {
 			continue

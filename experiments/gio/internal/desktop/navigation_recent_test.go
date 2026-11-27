@@ -88,7 +88,7 @@ func TestRecentRestoresDistinctDirectoryScopesWithoutExposingSearch(t *testing.T
 	searchDirectory(h, "Search groups", "Public Sample")
 	h.click("Settings", false)
 	h.click("Directory", false)
-	h.click("Hide archived", false)
+	h.click("Show archived", false)
 	finish()
 	h.click("Clear search", true)
 	h.click("Overview", false)

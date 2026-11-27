@@ -91,7 +91,7 @@ func TestDataHealthRepairPreviewCancelAndVerifiedRetry(t *testing.T) {
 		h.click("Repair all", false)
 		health.workers.Wait()
 		h.frame()
-		if repair.plan == nil || !reflect.DeepEqual(marketdata.SyncPreviewDTO(*repair.plan), want) {
+		if repair.plan == nil || !reflect.DeepEqual(marketSyncEvidence(*repair.plan), want) {
 			t.Fatalf("Gio preview = %+v, Wails = %+v", repair.plan, want)
 		}
 	}

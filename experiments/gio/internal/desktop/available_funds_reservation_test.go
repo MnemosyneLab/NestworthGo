@@ -13,6 +13,7 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/io/pointer"
+	"gioui.org/layout"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -162,6 +163,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		assertFundsParity(t, read, want)
 	}
 
+	accounts := semanticBounds(t, &h.router, "Accounts", false)
 	entry := "Manage reservations · Harbor Savings"
 	scrollReservationSource(t, h, entry)
 	click(entry)
@@ -172,24 +174,24 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	click("Add reservation")
 	r := funds.reservation
 	setBankField(h, "Purpose", &r.label, "Rent")
-	setBankField(h, "Reservation amount · USD", &r.amount, "0")
+	setBankField(h, "Amount · USD", &r.amount, "0")
 	click("Review reservation")
 	label("Enter a positive amount with up to four decimal places.")
 	if fault.saves.Load() != 0 {
 		t.Fatal("invalid draft reached the writer")
 	}
-	setBankField(h, "Reservation amount · USD", &r.amount, "40.125")
+	setBankField(h, "Amount · USD", &r.amount, "40.125")
 	click("Review reservation")
 	if err := app.WithWrite(ctx, func(context.Context) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	click("Confirm reservation")
+	click("Confirm")
 	label("The ledger changed. Preview this action again.")
 	if fault.saves.Load() != 0 {
 		t.Fatal("a stale review reached the writer")
 	}
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	label("The saved reservation state did not change. Review the action again.")
 	// An identical pre-existing reservation is insufficient to recover a reply.
 	if len(r.current.records) != 1 || r.current.records[0].Label != "Rent" || fault.saves.Load() != 1 {
@@ -197,7 +199,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	}
 
 	setBankField(h, "Purpose", &r.label, "Emergency fund")
-	setBankField(h, "Reservation amount · USD", &r.amount, "100.5")
+	setBankField(h, "Amount · USD", &r.amount, "100.5")
 	click("Review reservation")
 	label("Requested reservation · 100.5 USD")
 	clickTwiceWhileBlocked := func(text string, started <-chan struct{}, unblock func()) {
@@ -214,13 +216,13 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		unblock()
 		finish()
 		label("Could not verify the reservation. Retry checks the saved state.")
-		h.click("Accounts", false)
+		h.clickAt(accounts.Min.Add(accounts.Max).Div(2))
 		if h.shell.activeRoute() != fundsRoute || !funds.reservationUnresolved() {
 			t.Fatal("navigation discarded an unresolved reservation")
 		}
 		click("Retry")
 	}
-	clickTwiceWhileBlocked("Confirm reservation", fault.saving, unblockSave)
+	clickTwiceWhileBlocked("Confirm", fault.saving, unblockSave)
 	label("Reservation saved.")
 	label("Available after reservations · 0 USD")
 	if fault.saves.Load() != 2 || len(r.current.records) != 2 {
@@ -237,13 +239,14 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	checkState(app, ids.bank, before, "140.625", "125.4321", "0", "15.1929")
 	checkState(reference, ref.bank, refBefore, "140.625", "125.4321", "0", "15.1929")
 
-	click("Back to available funds")
+	click("Close")
 	label("Reservation shortfall · 15.1929 USD")
 	scrollReservationSource(t, h, entry)
 	click(entry)
 	click("Release · Emergency fund")
 	clickTwiceWhileBlocked("Confirm release", fault.releasing, unblockRelease)
-	label("Reservation released.")
+	label("Reservation released. Available funds will be recalculated.")
+	click("Released reservation (1)")
 	label("Released · Emergency fund")
 	label("Available after reservations · 85.3071 USD")
 	if fault.releases.Load() != 1 || findPageLabel(&h.router, "Release · Emergency fund") != nil {
@@ -263,7 +266,7 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	parity(reopened)
 	checkState(reopened, ids.bank, before, "40.125", "40.125", "85.3071", "0")
 	checkState(reference, ref.bank, refBefore, "40.125", "40.125", "85.3071", "0")
-	state, err := readFundsReservation(ctx, reopened, domain.AccountValueSourceRef(ids.bank))
+	state, err := readFundsReservation(ctx, reopened, domain.AccountValueSourceRef(ids.bank), fundsViewState{})
 	if err != nil || len(state.records) != 2 || !slices.ContainsFunc(state.records, func(row domain.LiquidityReservation) bool {
 		return row.Label == "Emergency fund" && row.Revision == 2 && !row.Active()
 	}) {
@@ -286,9 +289,9 @@ func TestAvailableFundsReservationOnZeroCashMatchesWails(t *testing.T) {
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	click("Add reservation")
 	setBankField(h, "Purpose", &funds.reservation.label, "Future expenses")
-	setBankField(h, "Reservation amount · USD", &funds.reservation.amount, "9")
+	setBankField(h, "Amount · USD", &funds.reservation.amount, "9")
 	click("Review reservation")
-	click("Confirm reservation")
+	click("Confirm")
 	assertPageLabel(t, &h.router, "Reservation saved.")
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	other, err := reference.ListAccounts(ctx, domain.AccountFilter{})
@@ -330,11 +333,133 @@ func TestAvailableFundsReservationOnZeroCashMatchesWails(t *testing.T) {
 	if funds.reservation.editing {
 		t.Fatal("a second release click opened the add form after the first release completed")
 	}
+	click("Released reservation (1)")
 	assertPageLabel(t, &h.router, "Released · Future expenses")
 	assertPageLabel(t, &h.router, "Available after reservations · 0 USD")
 	if slices.ContainsFunc(funds.current.report.Overview.UnresolvedReservations, func(row domain.UnresolvedReservation) bool {
 		return row.Reservation.Label == "Future expenses"
 	}) {
 		t.Fatal("release left the zero-balance reservation unresolved")
+	}
+}
+
+func TestAvailableFundsGlobalReservationEditKeepsSelectedHorizon(t *testing.T) {
+	ctx := t.Context()
+	app, storage, paths, ids := openFundsFixture(t, true)
+	reference, _, _, ref := openFundsFixture(t, true)
+	funds, h, finish := reservationHarness(t, app, app)
+	click := func(text string) { t.Helper(); h.click(text, false); finish() }
+
+	horizon := fundsPresetDay(funds.localDate, 12)
+	funds.enter(layout.Position{}, fundsViewState{customOn: horizon, horizonOn: horizon, includeEarly: true})
+	finish()
+	scrollReservationSource(t, h, "Manage reservations")
+	click("Manage reservations")
+	r := funds.reservation
+	if r.current.horizon != horizon || len(r.current.records) != 2 {
+		t.Fatalf("manager lost the selected date or an unavailable reservation: %+v", r.current)
+	}
+	click("Edit · Rent")
+	if r.label.Text() != "Rent" || r.amount.Text() != "40.125" {
+		t.Fatal("edit form did not load persisted values")
+	}
+	click("Cancel")
+	click("Edit · Rent")
+	setBankField(h, "Purpose", &r.label, "Fall rent")
+	setBankField(h, "Amount · USD", &r.amount, "50.1234")
+	click("Review reservation")
+	click("Confirm")
+	assertPageLabel(t, &h.router, "Reservation saved.")
+	if funds.state.horizonOn != horizon || r.current.horizon != horizon || !funds.state.includeEarly {
+		t.Fatal("saving reset the date or early withdrawal setting")
+	}
+	cash := r.current.available(domain.AccountValueSourceRef(ids.bank))
+	if cash == nil || cash.CanonicalAmount() != "75.3087" {
+		t.Fatalf("edited amount did not reflow into the selected projection: %v", cash)
+	}
+
+	adapter := liquidityapi.NewService(reference)
+	reservations, err := adapter.ListReservations(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, existing := range reservations {
+		if existing.Label != "Rent" {
+			continue
+		}
+		_, err := adapter.SaveReservation(ctx, liquidityapi.SaveReservationRequest{
+			ID: &existing.ID, ExpectedRevision: existing.Revision,
+			Source: liquidityapi.SourceRefDTO{Kind: string(domain.SourceAccountValue), AccountID: ref.bank.String()},
+			Label:  "Fall rent", Amount: "50.1234",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := adapter.Overview(ctx, liquidityapi.OverviewRequest{CustomHorizonOn: &horizon, IncludeEarlyWithdrawal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFundsParity(t, *funds.current, want)
+
+	click("Add reservation")
+	h.click("Reservation source", true)
+	h.frame()
+	h.click("Travel Wallet cash · EUR", false)
+	finish()
+	setBankField(h, "Purpose", &r.label, "Travel")
+	setBankField(h, "Amount · EUR", &r.amount, "4.9234")
+	click("Review reservation")
+	click("Confirm")
+	eur := domain.CurrencyCode("EUR")
+	travel := domain.AccountCashSourceRef(ids.foreign, eur)
+	cash = r.current.available(travel)
+	if cash == nil || cash.CanonicalAmount() != "20.3266" {
+		t.Fatalf("foreign source retained the wrong amount: %v", cash)
+	}
+	_, err = adapter.SaveReservation(ctx, liquidityapi.SaveReservationRequest{
+		Source: liquidityapi.SourceRefDTO{Kind: string(domain.SourceAccountCash), AccountID: ref.foreign.String(), Currency: productOptional(eur.String())},
+		Label:  "Travel", Amount: "4.9234",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	click("Release · Old reserve")
+	click("Confirm release")
+	for _, existing := range reservations {
+		if existing.Label == "Old reserve" {
+			if _, err := adapter.ReleaseReservation(ctx, liquidityapi.ReleaseReservationRequest{ID: existing.ID, ExpectedRevision: existing.Revision}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	want, err = adapter.Overview(ctx, liquidityapi.OverviewRequest{CustomHorizonOn: &horizon, IncludeEarlyWithdrawal: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFundsParity(t, *funds.current, want)
+	if err := storage.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, _ := reopenOnboardingProfile(t, paths)
+	saved, err := readFundsReservation(ctx, reopened, domain.LiquiditySourceRef{}, funds.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []struct {
+		source   domain.LiquiditySourceRef
+		label    string
+		amount   string
+		revision int
+	}{
+		{domain.AccountValueSourceRef(ids.bank), "Fall rent", "50.1234", 2},
+		{travel, "Travel", "4.9234", 1},
+	} {
+		if !slices.ContainsFunc(saved.records, func(row domain.LiquidityReservation) bool {
+			return row.Source.Key() == expected.source.Key() && row.Active() && row.Label == expected.label &&
+				row.Revision == expected.revision && row.Amount.CanonicalAmount() == expected.amount
+		}) {
+			t.Fatalf("saved reservation missing after reopen: %+v", expected)
+		}
 	}
 }

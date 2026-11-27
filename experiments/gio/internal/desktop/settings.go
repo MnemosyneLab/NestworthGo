@@ -26,6 +26,7 @@ type settingsPage struct {
 	fields                      [8]ui.Select
 	fxProvider, quoteTTL, log   ui.Select
 	credential                  settingsCredential
+	data                        settingsDataRebuild
 	copyLogPath                 widget.Clickable
 	logPathCopied               bool
 	swatches                    [5]widget.Clickable
@@ -45,11 +46,12 @@ type settingsSection int
 const (
 	settingsAppearance settingsSection = iota
 	settingsMarket
+	settingsData
 	settingsDiagnostics
 	settingsAbout
 )
 
-var settingsTabs = [...]i18n.MessageID{i18n.SettingsTab, i18n.SettingsMarketTab, i18n.SettingsDiagnosticsTab, i18n.SettingsAboutTab}
+var settingsTabs = [...]i18n.MessageID{i18n.SettingsTab, i18n.SettingsMarketTab, i18n.SettingsDataTab, i18n.SettingsDiagnosticsTab, i18n.SettingsAboutTab}
 
 func newSettingsPage(prefs *preferenceState) *settingsPage {
 	p := &settingsPage{
@@ -113,6 +115,7 @@ func (p *settingsPage) edit(field i18n.MessageID, value string) {
 }
 
 func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+	p.data.update()
 	if !p.prefs.ready {
 		if p.prefs.err == nil {
 			return view.Message(view.Language.Text(i18n.SettingsLoading), view.Colors.SecondaryInk)(gtx)
@@ -122,7 +125,7 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		}
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 			layout.Rigid(view.Message(view.Language.Text(i18n.SettingsLoadError), view.Colors.ErrorInk)),
-			layout.Rigid(view.Button(&p.retry, view.Language.Text(i18n.InstitutionsRetry))))
+			layout.Rigid(view.Button(&p.retry, view.Language.Text(i18n.SettingsLoadRetry))))
 	}
 	if p.returnFocus && !p.confirming {
 		p.returnFocus = false
@@ -133,6 +136,7 @@ func (p *settingsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 }
 
 func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
+	viewport := image.Rect(0, view.Origin.Y, gtx.Constraints.Max.X, view.Origin.Y+gtx.Constraints.Min.Y)
 	gtx.Constraints.Min.Y = 0
 	width := min(gtx.Constraints.Max.X, gtx.Dp(896))
 	intro := view.Message(view.Language.Text(i18n.SettingsIntro), view.Colors.SecondaryInk)(gtx)
@@ -147,7 +151,9 @@ func (p *settingsPage) content(gtx layout.Context, view ui.View, draft preferenc
 	dims := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 		switch p.active {
 		case settingsMarket:
-			return p.marketCard(gtx, view, draft)
+			return p.marketCard(gtx, view, draft, viewport)
+		case settingsData:
+			return p.data.card(gtx, view, p.prefs)
 		case settingsDiagnostics:
 			return p.diagnosticsCard(gtx, view, draft)
 		case settingsAbout:

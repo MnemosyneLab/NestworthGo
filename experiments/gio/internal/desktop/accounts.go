@@ -27,8 +27,11 @@ type accountsReader interface {
 	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
 	ListMembers(context.Context, bool) ([]domain.Member, error)
 	ListGroups(context.Context, bool) ([]domain.Group, error)
+	AccountHoldingGroups(context.Context, domain.AccountID) ([]domain.InstrumentHoldingGroupView, error)
 	HoldingsByAccounts(context.Context, []domain.AccountID) (map[domain.AccountID][]domain.Holding, error)
 	ListProducts(context.Context, *domain.AccountID, bool) ([]application.ProductDetail, error)
+	ReconciliationLastSuccess(context.Context, string) (*domain.ReconciliationSession, error)
+	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
 }
 
 type accountRow struct {
@@ -42,6 +45,12 @@ type accountsResult struct {
 	members       map[domain.MemberID]domain.Member
 	groups        map[domain.GroupID]domain.Group
 	holdings      map[domain.HoldingID]domain.Holding
+	holdingGroups []domain.InstrumentHoldingGroupView
+	holdingsErr   error
+	lastCheck     *domain.ReconciliationSession
+	checkErr      error
+	cashValues    []domain.AccountCashValue
+	cashValuesErr error
 	managed       map[domain.InstrumentID]bool
 	products      []application.ProductDetail
 	unavailable   bool
@@ -134,7 +143,9 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 			result.groups[group.ID] = group
 		}
 	}
+	result.lastCheck, result.checkErr = service.ReconciliationLastSuccess(ctx, target.account.String())
 	if records[0].Account.TrackingMode == domain.TrackingHoldings {
+		result.cashValues, result.cashValuesErr = service.ListAccountCashValues(ctx, target.account)
 		origin, err := service.HistoryOrigin(ctx)
 		if err != nil {
 			result.err = err
@@ -163,23 +174,32 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		for _, product := range products {
 			result.managed[product.Contract.InstrumentID] = true
 		}
+		for _, holding := range holdings[target.account] {
+			if records[0].Account.AccountType != domain.TypeCashOnHand && holding.ArchivedAt == nil && !result.managed[holding.InstrumentID] {
+				result.holdingGroups, result.holdingsErr = service.AccountHoldingGroups(ctx, target.account)
+				break
+			}
+		}
 	}
 	return
 }
 
 type accountListRow struct {
-	heading string
-	icon    ui.Glyph
-	account *accountRow
+	heading  string
+	icon     ui.Glyph
+	subtotal *domain.MoneyView
+	account  *accountRow
 }
 
 func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	type institutionGroup struct {
-		id    domain.InstitutionID
-		label string
-		icon  ui.Glyph
-		rank  decimal.Decimal
-		rows  []*accountRow
+		id         domain.InstitutionID
+		label      string
+		icon       ui.Glyph
+		rank       decimal.Decimal
+		rows       []*accountRow
+		currency   domain.CurrencyCode
+		incomplete bool
 	}
 	groups := make(map[domain.InstitutionID]*institutionGroup)
 	var ordered []*institutionGroup
@@ -208,7 +228,15 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 			ordered = append(ordered, group)
 		}
 		group.rows = append(group.rows, row)
-		group.rank = group.rank.Add(accountRank(*row))
+		amount, valid := accountSignedBase(*row)
+		group.rank = group.rank.Add(amount)
+		if !valid || !row.value.Complete {
+			group.incomplete = true
+		} else if group.currency == "" {
+			group.currency = row.value.BaseValue.Currency
+		} else if group.currency != row.value.BaseValue.Currency {
+			group.incomplete = true
+		}
 	}
 	collation := collate.New(language.Make(string(lang)))
 	slices.SortStableFunc(ordered, func(a, b *institutionGroup) int {
@@ -228,7 +256,11 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	})
 	var rows []accountListRow
 	for _, group := range ordered {
-		rows = append(rows, accountListRow{heading: group.label, icon: group.icon})
+		heading := accountListRow{heading: group.label, icon: group.icon}
+		if len(group.rows) > 1 && !group.incomplete && group.currency != "" {
+			heading.subtotal = &domain.MoneyView{Amount: group.rank.String(), Currency: group.currency}
+		}
+		rows = append(rows, heading)
 		slices.SortStableFunc(group.rows, func(a, b *accountRow) int {
 			if order := accountRank(*b).Cmp(accountRank(*a)); order != 0 {
 				return order
@@ -242,20 +274,25 @@ func (r *accountsResult) listRows(lang i18n.Language) []accountListRow {
 	return rows
 }
 
-// As in the Wails browser, sorting uses signed household-base values.
-// The sort key is never published as an account amount or a group total.
 func accountRank(row accountRow) decimal.Decimal {
+	amount, _ := accountSignedBase(row)
+	return amount
+}
+
+// The same signed household-base value orders account rows and contributes to
+// a subtotal only if the whole institution has a complete valuation.
+func accountSignedBase(row accountRow) (decimal.Decimal, bool) {
 	if row.value == nil || row.value.BaseValue == nil {
-		return decimal.Zero
+		return decimal.Zero, false
 	}
 	amount, err := decimal.NewFromString(row.value.BaseValue.Amount)
 	if err != nil {
-		return decimal.Zero
+		return decimal.Zero, false
 	}
 	if row.record.Account.IsLiability() {
-		return amount.Abs().Neg()
+		amount = amount.Abs().Neg()
 	}
-	return amount
+	return amount, true
 }
 
 type accountsPage struct {
@@ -281,7 +318,11 @@ type accountsPage struct {
 	instruments                        map[domain.InstrumentID]*widget.Clickable
 	reload, archiveFilter, clear, back widget.Clickable
 	open                               func(navigationTarget, string, event.Tag)
-	openInstrument                     func(domain.InstrumentID, string, event.Tag)
+	openInstrument                     func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingHistory                 func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingAnalysis                func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
+	positions                          accountPositions
+	detail                             accountDetailControls
 	openProduct                        func(domain.ProductContractID, string, event.Tag)
 	productButtons                     map[domain.ProductContractID]*widget.Clickable
 	productLedger                      fundsProductLedger
@@ -292,7 +333,7 @@ type accountsPage struct {
 	creation                           *balanceAccountCreation
 	createBank, createAccount          widget.Clickable
 	createShell                        widget.Clickable
-	focusCreate                        bool
+	focusCreate                        *widget.Clickable
 	createdID                          domain.AccountID
 	createdMessage                     i18n.MessageID
 	maintenance                        *accountMaintenance
@@ -316,6 +357,9 @@ func (p *accountsPage) enter(target navigationTarget, archived bool, position la
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
+	p.positions.visit = accountPositionsVisit{}
+	p.detail.restore(accountCompositionVisit{})
+	p.detail.investmentActionsRow, p.detail.revealedShortcut = -1, nil
 	p.invalid = !validAccountTarget(target)
 	p.read()
 }

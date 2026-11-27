@@ -43,11 +43,16 @@ func startNewAccount(h *previewHarness, finish func(), kind string) {
 	h.t.Helper()
 	h.click("Add account", false)
 	finish()
-	if findPageLabel(&h.router, kind) == nil {
+	if slices.ContainsFunc(moreAccountTypes, func(candidate domain.AccountType) bool {
+		return h.shell.preferences.language.Text(accountTypes[candidate]) == kind
+	}) {
 		h.click("More account types", false)
 		finish()
 	}
 	h.click(kind, false)
+	h.click("Continue", false)
+	finish()
+	assertPageLabel(h.t, &h.router, "Where is it held?")
 	h.click("Continue", false)
 	finish()
 	if findPageLabel(&h.router, "How should this account be tracked?") != nil {
@@ -274,8 +279,8 @@ func TestBankAccountCreateMatchesWailsAndRefreshesWithoutReplayingWrite(t *testi
 	h.click("Retry", false)
 	finish()
 	label("Fixture bank savings")
-	label("USD · US$123.45")
-	label("AUD · A$185.18")
+	label("US$123.45")
+	label("A$185.18")
 	label("Group · Default group")
 	if fault.writes.Load() != 1 {
 		t.Fatal("read retry wrote again")
@@ -359,6 +364,9 @@ func TestBankAccountRevalidatesArchivedReferencesAtConfirmation(t *testing.T) {
 	}
 	h.click("Cancel", false)
 	finish()
+	if p.target.institution != ids.pacific || p.current == nil || p.current.institutions[ids.pacific].ArchivedAt == nil {
+		t.Fatal("cancel did not return to the same institution with refreshed archive evidence")
+	}
 	if findPageLabel(&h.router, "Add bank account") != nil {
 		t.Fatal("archived institution still offered creation")
 	}

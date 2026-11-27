@@ -26,6 +26,7 @@ type historyPage struct {
 	filter                                historyFilterControls
 	cashMovements                         *historyCashMovements
 	investment                            *accountInvestment
+	record                                historyRecordSheet
 	startPoint                            *historyStart
 	reads                                 *historyReads
 	bound, revision                       uint64
@@ -78,42 +79,12 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 			return p.layoutDetail(gtx, view)
 		}
 	}
-	if f := p.investment; f != nil {
-		run := p.investmentRuntime()
-		f.poll(run)
-		if f.draft == nil && p.positionActionsAvailable() && f.custodyOpen.Clicked(gtx) {
-			f.startCustody(run, positionScope{})
-			view.RestorePageScroll(0)
-			gtx.Execute(op.InvalidateCmd{})
+	if start := p.startPoint; start != nil {
+		if p.noHistory() && start.start.Clicked(gtx) {
+			p.beginStartingPoint(start)
 		}
-		if f.draft == nil && p.positionActionsAvailable() && f.adjustmentOpen.Clicked(gtx) {
-			f.startAdjustment(run, positionScope{})
-			view.RestorePageScroll(0)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		if f.draft != nil {
-			return f.layoutForm(gtx, view, run)
-		}
-	}
-	if c := p.cashMovements; c != nil {
-		if s := p.startPoint; s != nil && c.draft == nil {
-			if p.noHistory() && s.start.Clicked(gtx) {
-				p.beginStartingPoint(s)
-			}
-			if s.open {
-				return p.layoutStartingPoint(gtx, view, s)
-			}
-		}
-		if c.draft == nil {
-			for i := range c.actions {
-				if c.actions[i].Clicked(gtx) {
-					c.start(history.CashMovement(i))
-					break
-				}
-			}
-		}
-		if c.draft != nil {
-			return c.layoutForm(gtx, view)
+		if start.open {
+			return p.layoutStartingPoint(gtx, view, start)
 		}
 	}
 	if p.reloadButton.Clicked(gtx) {
@@ -130,40 +101,14 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 		gtx.Execute(key.FocusCmd{Tag: &p.list})
 	}
 
-	return p.layoutActivity(gtx, view, view)
+	return p.layoutActivity(gtx, view)
 }
 
-// layoutActivity stacks the actions, filters, status and the activity list. The
+// layoutActivity stacks the filters, status and activity list. The
 // list takes the height left in the window, never less than its minimum.
-func (p *historyPage) layoutActivity(gtx layout.Context, view, filterView ui.View) layout.Dimensions {
+func (p *historyPage) layoutActivity(gtx layout.Context, view ui.View) layout.Dimensions {
 	return ui.Column{Gap: 12, MinFill: historyListMinHeight}.Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.cashMovements == nil {
-				return layout.Dimensions{}
-			}
-			cashActions := len(p.cashMovements.actions)
-			count := cashActions
-			if p.positionActionsAvailable() {
-				count += 2
-			}
-			dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, count, func(gtx layout.Context, i int) layout.Dimensions {
-				if i == cashActions {
-					f := p.investment
-					return f.accountPositionAction(gtx, view, &f.custodyOpen, view.Language.Text(i18n.CustodyOpen))
-				}
-				if i == cashActions+1 {
-					f := p.investment
-					return f.accountPositionAction(gtx, view, &f.adjustmentOpen, view.Language.Text(i18n.QuantityAdjustOpen))
-				}
-				if i == 0 {
-					return view.PrimaryButton(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
-				}
-				return view.Button(&p.cashMovements.actions[i], view.Language.Text(cashMovementLabels[i].action))(gtx)
-			})
-			filterView.Origin.Y += dims.Size.Y + gtx.Dp(12)
-			return dims
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, filterView) }),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutFilters(gtx, view) }),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -263,22 +208,62 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 }
 
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	if p.reads == nil {
-		return historyEntry(gtx, view, row)
+	r := p.reads
+	if r == nil {
+		summary := historyRowSummary(view, row.Activity, historyRowNames{})
+		return historyEntry(gtx, view, summary, row.Note)
 	}
 	button := p.detailButton(row.ID)
 	if button.Clicked(gtx) {
-		p.reads.open(row.ID, button)
+		r.open(row.ID, button)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), view.Language.Text(historyKindLabel(row.Kind, row.Reason)), historyDay(view, row.EffectiveLocalDate))
-	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, row) }),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			view.Focus.Watch(gtx, button)
-			return layout.Inset{Right: ui.Space8}.Layout(gtx, view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name}))
-		}),
-	)
+
+	var toggle *widget.Clickable
+	if r.hasPotentialRowActions(row.Activity) {
+		toggle = p.historyActionButton(row.ID)
+		if toggle.Clicked(gtx) {
+			if r.rowActions != nil && r.rowActions.id == row.ID {
+				r.closeRowActions()
+			} else {
+				r.openRowActions(row.ID)
+			}
+			gtx.Execute(op.InvalidateCmd{})
+		}
+	}
+
+	menu := r.rowActions
+	expanded := toggle != nil && menu != nil && menu.id == row.ID
+	names := r.rowNames
+	if names.holdingAccounts == nil && expanded && menu.record != nil {
+		names.holdingAccounts = menu.record.HoldingAccounts
+	}
+	summary := historyRowSummary(view, row.Activity, names)
+	header := func(gtx layout.Context) layout.Dimensions {
+		kind := view.Language.Text(historyKindLabel(row.Kind, row.Reason))
+		day := historyDay(view, row.EffectiveLocalDate)
+		name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), kind, day)
+		controls := []layout.FlexChild{
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, summary, row.Note) }),
+			layout.Rigid(view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name})),
+		}
+		if toggle != nil {
+			controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return p.layoutRowActionToggle(gtx, view, toggle, kind+" · "+day, expanded)
+			}))
+		}
+		return layout.Inset{Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, controls...)
+		})
+	}
+	if !expanded {
+		return header(gtx)
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, layout.Rigid(header), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Left: ui.Space16, Right: ui.Space8, Bottom: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return p.layoutRowActionChoices(gtx, view, menu, toggle)
+		})
+	}))
 }
 
 // historyDayHeading is the muted band that opens a day of activities.
@@ -302,18 +287,17 @@ func historyDay(view ui.View, day string) string {
 	return day
 }
 
-func historyEntry(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
-	kind := historyKindLabel(row.Kind, row.Reason)
+func historyEntry(gtx layout.Context, view ui.View, summary string, note *string) layout.Dimensions {
 	return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Line(gtx, ui.TextLabel, view.Language.Text(kind), view.Colors.Ink)
+				return view.Body(ui.TextLabel, summary, view.Colors.Ink)(gtx)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if row.Note == nil || *row.Note == "" {
+				if note == nil || *note == "" {
 					return layout.Dimensions{}
 				}
-				return view.Body(ui.TextCaption, *row.Note, view.Colors.SecondaryInk)(gtx)
+				return view.Body(ui.TextCaption, *note, view.Colors.SecondaryInk)(gtx)
 			}),
 		)
 	})

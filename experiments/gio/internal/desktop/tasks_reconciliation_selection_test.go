@@ -155,15 +155,47 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 	if !s.includes(ids.loan) {
 		t.Fatal("Space did not restore the focused account")
 	}
+	choose("Account type", "Property")
+	selected := s.chosen(c.directory.accounts)
+	beforeCancelAccounts, err := app.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCancelLedger, err := app.ListActivities(ctx, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
 	h.activate(t, "Review")
 	d := c.draft
-	if d.review == nil || len(d.review.session.Accounts) != 3 {
-		t.Fatal("review did not freeze the mixed scope")
+	if d.review == nil || len(d.review.session.Accounts) != 3 || !h.shell.startReconciliationReviewOpen() {
+		t.Fatal("the start sheet did not open with the frozen mixed scope")
 	}
-	h.activate(t, "Back to details")
-	h.focused(&s.ownerPick.Trigger)
-	if !s.includes(ids.loan) || s.includes(ids.unrelated) || d.review != nil {
-		t.Fatal("review Back lost the account selection")
+	assertPageLabel(t, &h.router, "Preview")
+	assertPageLabel(t, &h.router, "Confirm only what you have reviewed. Saving a correction does not confirm a check.")
+	assertPageLabel(t, &h.router, "Start reconciliation")
+	h.focused(&d.startSheet.close)
+	h.router.Source().Execute(key.FocusCmd{Tag: &d.startSheet.cancel})
+	h.press(key.NameReturn)
+	h.settle()
+	h.focused(&d.preview)
+	if d.review != nil || s.kind != "property" || !slices.Equal(s.chosen(c.directory.accounts), selected) {
+		t.Fatal("Cancel lost the selected accounts or their filter")
+	}
+	h.activate(t, "Review")
+	h.press(key.NameEscape)
+	h.settle()
+	h.focused(&d.preview)
+	if d.review != nil || h.shell.startReconciliationReviewOpen() || !slices.Equal(s.chosen(c.directory.accounts), selected) || len(fault.attempts) != 0 {
+		t.Fatal("Escape abandoned the selection or submitted a reconciliation")
+	}
+	sessionCount(1)
+	afterCancelAccounts, err := app.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil || !reflect.DeepEqual(afterCancelAccounts, beforeCancelAccounts) {
+		t.Fatal("canceling preview changed accounts")
+	}
+	afterCancelLedger, err := app.ListActivities(ctx, 100)
+	if err != nil || !reflect.DeepEqual(afterCancelLedger, beforeCancelLedger) {
+		t.Fatal("canceling preview changed the journal")
 	}
 	h.activate(t, "Review")
 	stale := d.review.planID
@@ -185,9 +217,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h.focused(&d.confirm)
-	h.press(key.NameReturn)
-	h.settle()
+	h.activate(t, "Start reconciliation")
 	if d.review != nil || d.uncertain || d.problem != i18n.HoldingReconChanged || len(s.chosen(c.directory.accounts)) != 3 {
 		t.Fatal("stale start did not retain a reviewable selection")
 	}
@@ -225,8 +255,7 @@ func TestCreateMixedReconciliationMatchesWails(t *testing.T) {
 
 	now = now.Add(17 * time.Minute)
 	fault.loseNext = true
-	h.press(key.NameReturn)
-	h.settle()
+	h.activate(t, "Start reconciliation")
 	if !d.uncertain || d.review.planID != planID {
 		t.Fatal("lost acknowledgement released or replaced the frozen plan")
 	}

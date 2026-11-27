@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"slices"
 	"strings"
@@ -13,8 +14,10 @@ import (
 	"gioui.org/op"
 	"gioui.org/widget"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -72,24 +75,28 @@ type directoryList struct {
 	readErr               error
 	awaitingRead          directoryChange
 	notice                i18n.MessageID
+	noticeName            string
 	writeProblem          i18n.MessageID
 
-	includeArchived bool
-	add, refresh    widget.Clickable
-	archiveFilter   widget.Clickable
-	search          ui.SearchField
-	query           string
-	list            widget.List
-	buttons         map[string]*directoryRowButtons
-	focusRow        directoryFocus
-	focusAdd        bool
-	archiveTarget   *directoryRow
-	refreshExternal bool
-	confirmation    ui.Confirmation
-	openObject      func(directoryRef, string, event.Tag)
-	restoreVisit    *directoryListVisit
+	includeArchived   bool
+	add, refresh      widget.Clickable
+	archiveFilter     widget.Bool
+	search            ui.SearchField
+	query             string
+	list              widget.List
+	buttons           map[string]*directoryRowButtons
+	focusRow          directoryFocus
+	focusAdd          bool
+	focusArchiveScope bool
+	archiveTarget     *directoryRow
+	refreshExternal   bool
+	confirmation      ui.Confirmation
+	openObject        func(directoryRef, string, event.Tag)
+	restoreVisit      *directoryListVisit
 
 	editMode           directoryOperation
+	createSheet        *directoryCreateSheet
+	createDraft        directoryCreateDraft
 	editID             string
 	draft              ui.TextField
 	kind               domain.InstitutionType
@@ -116,7 +123,10 @@ func (p *directoryList) start(change directoryChange) {
 	p.started, p.busy = true, true
 	p.readGeneration++
 	p.operation = change.operation
-	p.notice, p.writeProblem, p.saveErr = i18n.NoMessage, i18n.NoMessage, nil
+	p.saveErr = nil
+	if change.operation != directoryCreate && change.operation != directoryEdit {
+		p.notice, p.writeProblem = i18n.NoMessage, i18n.NoMessage
+	}
 	includeArchived := p.includeArchived
 	p.workers.Go(func() {
 		result := directoryResult{change: change}
@@ -155,8 +165,15 @@ func (p *directoryList) receive() {
 			}
 			return
 		}
+		switch result.change.operation {
+		case directoryCreate:
+			p.createDraft = directoryCreateDraft{}
+			p.endEditor()
+		case directoryEdit:
+			p.endEditor()
+		}
 		if result.change.operation != directoryRead {
-			p.editMode = directoryRead
+			p.notice, p.writeProblem = i18n.NoMessage, i18n.NoMessage
 			p.awaitingRead = result.change
 		}
 		p.readErr = result.readErr
@@ -171,74 +188,76 @@ func (p *directoryList) receive() {
 func (p *directoryList) applyWriteNotice() {
 	switch p.awaitingRead.operation {
 	case directoryCreate:
-		p.notice = p.copy.created
+		p.notice, p.noticeName = i18n.DirectoryCreated, strings.TrimSpace(p.awaitingRead.name)
 	case directoryEdit:
-		p.notice = p.copy.saved
+		p.notice = i18n.DirectorySaved
 	case directoryArchive:
-		p.notice = p.copy.archived
+		p.notice = i18n.DirectoryArchived
 	case directoryRestore:
-		p.notice = p.copy.restored
+		p.notice = i18n.DirectoryRestoredNotice
 	default:
 		return
 	}
-	p.focusRow = p.awaitingRead.focus()
+	if p.awaitingRead.operation != directoryCreate {
+		p.focusRow = p.awaitingRead.focus()
+	}
 	p.awaitingRead = directoryChange{}
 }
 
-func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
+// Poll before the shell lays out its background so the opening frame already
+// treats the new editor as modal and the successful frame restores Add focus.
+func (p *directoryList) updateCreateTrigger(gtx layout.Context) {
 	p.receive()
+	if p.canAdd(gtx) && p.add.Clicked(gtx) {
+		p.beginEditor(directoryCreate, directoryRow{})
+		gtx.Execute(op.InvalidateCmd{})
+	}
+}
+
+func (p *directoryList) canAdd(gtx layout.Context) bool {
+	return gtx.Enabled() && !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && p.awaitingRead.operation == directoryRead
+}
+
+func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
 	p.applyVisit()
-	controlsEnabled := !p.busy && p.editMode == directoryRead && p.archiveTarget == nil && gtx.Enabled()
+	controlsEnabled := !p.busy && p.archiveTarget == nil && gtx.Enabled()
+	if controlsEnabled {
+		p.archiveFilter.Update(gtx)
+	}
 	switch {
 	case !p.started, controlsEnabled && (p.refreshExternal || p.refresh.Clicked(gtx)):
 		p.refreshExternal = false
 		p.start(directoryChange{})
-	case controlsEnabled && p.archiveFilter.Clicked(gtx):
-		p.setArchiveScope(!p.includeArchived)
-	case controlsEnabled && p.awaitingRead.operation == directoryRead && p.add.Clicked(gtx):
-		p.beginEditor(directoryCreate, directoryRow{})
+	case controlsEnabled && p.archiveFilter.Value != p.includeArchived:
+		p.setArchiveScope(p.archiveFilter.Value)
+		p.focusArchiveScope = true
 	}
-	if p.focusAdd {
+	if p.focusAdd && gtx.Enabled() {
 		p.focusAdd = false
 		gtx.Execute(key.FocusCmd{Tag: &p.add})
 	}
 
-	editorView := view
-	gap := gtx.Dp(12)
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			dims := p.toolbar(gtx, view, householdName)
-			editorView.Origin.Y += dims.Size.Y + gap
+			view.Origin.Y += dims.Size.Y + gtx.Dp(12)
 			return dims
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.editMode == directoryRead {
-				return layout.Dimensions{}
-			}
-			return p.editor(gtx, editorView)
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions { return p.listContent(gtx, view) }),
 	)
 }
 
-// toolbar is the one row above the list: the search field at the start, and
-// the archive filter, refresh and add actions at the end. While a row is being
-// edited the search and archive filter step aside.
+// The toolbar keeps its footprint while a side sheet is open or a row is edited.
 func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName string) layout.Dimensions {
-	reading := p.editMode == directoryRead
-	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+	l := view.Language
+	rows := make([]layout.FlexChild, 0, 4)
+	if householdName != "" {
+		rows = append(rows, layout.Rigid(view.Message(householdName, view.Colors.SecondaryInk)))
+	}
+	rows = append(rows,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if strings.TrimSpace(householdName) == "" {
-				return layout.Dimensions{}
-			}
-			return view.Message(householdName, view.Colors.SecondaryInk)(gtx)
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					if !reading {
-						return layout.Dimensions{}
-					}
 					return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return p.search.Layout(ui.LimitWidth(gtx, 470), view, p.copy.search, p.copy.searchHint, func(query string) {
 							p.query = query
@@ -247,43 +266,54 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName 
 					})
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !reading {
-						return layout.Dimensions{}
-					}
-					label := i18n.InstitutionsShowArchived
-					if p.includeArchived {
-						label = i18n.InstitutionsHideArchived
-					}
 					if p.busy {
 						gtx = gtx.Disabled()
 					}
-					return view.Button(&p.archiveFilter, view.Language.Text(label))(gtx)
+					if p.focusArchiveScope && gtx.Enabled() {
+						p.focusArchiveScope = false
+						gtx.Execute(key.FocusCmd{Tag: &p.archiveFilter})
+					}
+					label := l.Text(i18n.InstitutionsShowArchived)
+					return accessibility.Checkbox(gtx, &p.archiveFilter, label, view.Checkbox(&p.archiveFilter, label))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.busy || !reading {
+					if p.busy {
 						gtx = gtx.Disabled()
 					}
 					label := i18n.InstitutionsRefresh
 					if p.readErr != nil {
 						label = i18n.InstitutionsRetry
 					}
-					return view.Button(&p.refresh, view.Language.Text(label))(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.busy || !reading || p.awaitingRead.operation != directoryRead {
-						gtx = gtx.Disabled()
-					}
-					return view.PrimaryButton(&p.add, view.Language.Text(p.copy.add))(gtx)
+					return view.Button(&p.refresh, l.Text(label))(gtx)
 				}),
 			)
 		}),
 	)
+	if p.includeArchived {
+		rows = append(rows, layout.Rigid(view.Message(l.Text(i18n.DirectoryRestoreHint), view.Colors.SecondaryInk)))
+	}
+	rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if !p.canAdd(gtx) {
+			gtx = gtx.Disabled()
+		}
+		gtx.Constraints.Min.X = 0
+		title := l.Text(p.copy.add)
+		return view.ButtonOf(&p.add, ui.ButtonSpec{Variant: ui.ButtonPrimary, Title: title, Name: title, Icon: lucide.Plus})(gtx)
+	}))
+	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, rows...)
 }
 
 func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dimensions {
 	visible := filterDirectoryRows(p.rows, p.query)
+	if p.editMode == directoryEdit && !p.busy && p.loaded && !slices.ContainsFunc(visible, func(row directoryRow) bool { return row.ID == p.editID }) {
+		p.endEditor()
+	}
 	restore := p.focusRow
-	p.focusRow = directoryFocus{}
+	if gtx.Enabled() {
+		p.focusRow = directoryFocus{}
+	} else {
+		restore = directoryFocus{}
+	}
 	if restore.id != "" {
 		index := slices.IndexFunc(visible, func(row directoryRow) bool { return row.ID == restore.id })
 		if index >= 0 {
@@ -303,6 +333,7 @@ func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dim
 	return ui.Column{Gap: 8}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			message, isError := p.listStatus()
+			view.Origin.Y += gtx.Dp(8)
 			if message == i18n.NoMessage {
 				return layout.Dimensions{}
 			}
@@ -310,27 +341,64 @@ func (p *directoryList) listContent(gtx layout.Context, view ui.View) layout.Dim
 			if isError {
 				ink = view.Colors.ErrorInk
 			}
-			return view.Message(view.Language.Text(message), ink)(gtx)
+			content := view.Language.Text(message)
+			if message == i18n.DirectoryCreated {
+				content = fmt.Sprintf(content, p.noticeName)
+			}
+			dims := view.Message(content, ink)(gtx)
+			view.Origin.Y += dims.Size.Y
+			return dims
 		}),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			if !p.loaded {
 				return layout.Dimensions{}
 			}
 			if len(visible) == 0 {
-				message := p.copy.empty
-				switch {
-				case strings.TrimSpace(p.query) != "" && len(p.rows) > 0:
-					message = p.copy.noMatches
-				case p.includeArchived:
-					message = p.copy.emptyAll
+				if strings.TrimSpace(p.query) != "" && len(p.rows) > 0 {
+					return view.Message(view.Language.Text(p.copy.noMatches), view.Colors.SecondaryInk)(gtx)
 				}
-				return view.Message(view.Language.Text(message), view.Colors.SecondaryInk)(gtx)
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+					layout.Rigid(view.Body(ui.TextHeading, view.Language.Text(i18n.DirectoryEmpty), view.Colors.Ink)),
+					layout.Rigid(view.Message(view.Language.Text(p.copy.empty), view.Colors.SecondaryInk)),
+				)
 			}
-			return pageListGap(gtx, view, &p.list, view.Language.Text(p.copy.title), len(visible), ui.Space8, func(gtx layout.Context, i int) layout.Dimensions {
-				return p.row(gtx, view, visible[i], restore)
-			})
+			return p.layoutRows(gtx, view, visible, restore)
 		}),
 	)
+}
+
+func (p *directoryList) layoutRows(gtx layout.Context, view ui.View, visible []directoryRow, restore directoryFocus) layout.Dimensions {
+	var heights map[int]int
+	editIndex := -1
+	if p.editMode == directoryEdit {
+		heights = make(map[int]int)
+	}
+	dims := pageListGap(gtx, view, &p.list, view.Language.Text(p.copy.title), len(visible), ui.Space8, func(gtx layout.Context, i int) layout.Dimensions {
+		dims := p.row(gtx, view, visible[i], restore)
+		if heights != nil {
+			heights[i] = dims.Size.Y + gtx.Dp(ui.Space8)
+			if visible[i].ID == p.editID {
+				editIndex = i
+			}
+		}
+		return dims
+	})
+	if view.Overlay.Trigger == &p.iconPicker.Trigger {
+		// The virtual list positions its recorded rows after laying them out.
+		// Translate the picker by the measured heights of preceding visible rows.
+		pos := p.list.Position
+		if editIndex < pos.First || editIndex >= pos.First+pos.Count {
+			view.Overlay.Close()
+		} else {
+			y := -pos.Offset
+			for i := pos.First; i < editIndex; i++ {
+				y += heights[i]
+			}
+			bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(dims.Size)}
+			view.Overlay.OffsetAnchor(&p.iconPicker.Trigger, image.Pt(0, y), bounds)
+		}
+	}
+	return dims
 }
 
 func (p *directoryList) listStatus() (i18n.MessageID, bool) {
@@ -375,8 +443,16 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 		p.buttons[item.ID] = buttons
 	}
 	archived := item.archived
-	if p.busy || p.editMode != directoryRead || p.archiveTarget != nil || p.readErr != nil {
+	if p.busy || p.archiveTarget != nil || p.readErr != nil {
 		gtx = gtx.Disabled()
+	}
+	editing := p.editMode == directoryEdit && p.editID == item.ID
+	if editing && gtx.Enabled() && view.Overlay.Trigger == nil && (p.cancel.Clicked(gtx) || p.editEscape(gtx)) {
+		p.endEditor()
+		restore = p.focusRow
+		p.focusRow = directoryFocus{}
+		editing = false
+		gtx.Execute(op.InvalidateCmd{})
 	}
 	if gtx.Enabled() {
 		if restore.id == item.ID {
@@ -387,11 +463,12 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 			gtx.Execute(key.FocusCmd{Tag: target})
 		}
 		switch {
-		case p.openObject != nil && buttons.view.Clicked(gtx):
+		case !editing && p.openObject != nil && buttons.view.Clicked(gtx):
 			p.openObject(directoryRef{kind: p.copy.title, id: item.ID}, item.Name, &buttons.view)
 			gtx.Execute(op.InvalidateCmd{})
-		case buttons.edit.Clicked(gtx):
+		case !editing && buttons.edit.Clicked(gtx):
 			p.beginEditor(directoryEdit, item)
+			editing = true
 			gtx.Execute(op.InvalidateCmd{})
 		case buttons.archive.Clicked(gtx):
 			if archived {
@@ -404,9 +481,16 @@ func (p *directoryList) row(gtx layout.Context, view ui.View, item directoryRow,
 		}
 	}
 	gtx.Constraints.Min = image.Pt(gtx.Constraints.Max.X, gtx.Dp(64))
-	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return p.rowContent(gtx, view, item, buttons)
+	return accessibility.Row(gtx, buttons, func(gtx layout.Context) layout.Dimensions {
+		return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: 12, Bottom: 12, Left: 16, Right: 16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Min.Y = 0
+				if editing {
+					view.Origin = view.Origin.Add(image.Pt(gtx.Dp(16), gtx.Dp(12)))
+					return p.inlineEditor(gtx, view, item, buttons)
+				}
+				return p.rowContent(gtx, view, item, buttons)
+			})
 		})
 	})
 }

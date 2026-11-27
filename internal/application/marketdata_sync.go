@@ -142,6 +142,8 @@ func (s SyncJobSnapshot) Clone() SyncJobSnapshot {
 type SyncPlanPreview struct {
 	Items                 []SyncItemProgress
 	AsOf                  time.Time
+	ReviewID              string    `json:"-"`
+	ExpiresAt             time.Time `json:"-"`
 	ConfigRevision        string
 	Scope                 SyncRequest
 	EstimatedRequestCount int
@@ -233,6 +235,10 @@ func (s *Service) workspaceIdentity() string {
 
 // PreviewMarketDataSync estimates work for a requested scope without HTTP.
 func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest) (SyncPlanPreview, error) {
+	return s.previewMarketDataSync(ctx, request, nil)
+}
+
+func (s *Service) previewMarketDataSync(ctx context.Context, request SyncRequest, work *marketSyncWork) (SyncPlanPreview, error) {
 	request = request.Normalized()
 	if err := validateSyncRequest(request); err != nil {
 		return SyncPlanPreview{}, err
@@ -251,6 +257,24 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		Scope:          request,
 	}
 	instruments := filterInstrumentNeeds(plan.Instruments, request)
+	if work != nil {
+		work.plan = plan
+		work.household = household.ID
+		work.instruments = s.instrumentHistoryTasksFromNeeds(instruments)
+		records := make(map[domain.InstrumentID]*domain.Instrument)
+		for i := range work.instruments {
+			task := &work.instruments[i]
+			id := task.need.InstrumentID
+			if records[id] == nil {
+				record, lookupErr := s.repository.Instrument(ctx, household.ID, id)
+				if lookupErr != nil {
+					return SyncPlanPreview{}, lookupErr
+				}
+				records[id] = &record
+			}
+			task.instrument = records[id]
+		}
+	}
 	maxDays := s.historyMaxDays()
 	for _, need := range instruments {
 		if len(need.UnavailableRanges) > 0 {
@@ -277,6 +301,9 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 	}
 	if request.Scope != SyncScopeInstrument {
 		fxRanges, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
+		if work != nil {
+			work.fx = fxRanges
+		}
 		preview.Unresolved = append(preview.Unresolved, fxBlockers...)
 		preview.FXTargets = len(fxRanges)
 		preview.FetchRanges += len(fxRanges)
@@ -289,6 +316,9 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 	if err != nil {
 		return SyncPlanPreview{}, err
 	}
+	if work != nil {
+		work.latest = targets
+	}
 	for _, target := range targets {
 		preview.Items = append(preview.Items, refreshDetail(target))
 		if target.skip {
@@ -300,7 +330,7 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 			preview.LatestFXCount++
 		}
 	}
-	preview.EstimatedRequestCount += s.latestRequestEstimate(targets)
+	preview.EstimatedRequestCount += s.latestRequestEstimate(ctx, targets)
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return SyncPlanPreview{}, err
@@ -311,6 +341,9 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		return SyncPlanPreview{}, err
 	}
 	if origin != nil {
+		if work != nil {
+			work.zone = origin.Timezone
+		}
 		issues, err := s.incompleteSnapshotHealth(ctx, origin, plan, nil)
 		if err != nil {
 			return SyncPlanPreview{}, err
@@ -595,18 +628,16 @@ type fxHistoryTask struct {
 }
 
 type instrumentHistoryTask struct {
-	need     InstrumentRepairNeed
-	rng      DateRange
-	identity InstrumentMarketIdentity
+	instrument *domain.Instrument
+	need       InstrumentRepairNeed
+	rng        DateRange
+	identity   InstrumentMarketIdentity
 }
 
 // StartMarketDataSync starts a job or attaches to an equivalent in-flight job.
 // A different scope is not scheduled and is not silently merged.
 func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) (SyncStartResult, error) {
 	request = request.Normalized()
-	if err := validateSyncRequest(request); err != nil {
-		return SyncStartResult{}, err
-	}
 	preview, err := s.PreviewMarketDataSync(ctx, request)
 	if err != nil {
 		return SyncStartResult{}, err
@@ -615,34 +646,54 @@ func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) 
 	if err != nil {
 		return SyncStartResult{}, err
 	}
+	result, launch, err := s.admitMarketDataSync(preview, household.ID, nil)
+	if launch != nil {
+		launch()
+	}
+	return result, err
+}
+
+func (s *Service) admitMarketDataSync(preview SyncPlanPreview, household domain.HouseholdID, work *marketSyncWork) (SyncStartResult, func(), error) {
+	request := preview.Scope
 	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	if work != nil {
+		if _, valid := s.syncReviews[preview.ReviewID]; !valid {
+			return SyncStartResult{}, nil, staleMarketSyncReview()
+		}
+	}
 	if s.latestRun != nil {
-		s.syncMu.Unlock()
-		return SyncStartResult{Conflict: true, Reason: "latest_refresh_in_progress"}, nil
+		return SyncStartResult{Conflict: true, Reason: "latest_refresh_in_progress"}, nil, nil
 	}
 	if current, ok := s.syncJobs[s.currentSyncID]; ok && current != nil && current.snapshot.Outcome == SyncOutcomeRunning {
-		if current.snapshot.Scope.Equivalent(request) {
-			snap := current.snapshot.Clone()
-			s.syncMu.Unlock()
-			return SyncStartResult{Job: snap, Attached: true}, nil
-		}
 		snap := current.snapshot.Clone()
-		s.syncMu.Unlock()
-		return SyncStartResult{Job: snap, Conflict: true, Reason: "different_scope_not_scheduled"}, nil
+		if current.snapshot.Scope.Equivalent(request) {
+			if work != nil {
+				return SyncStartResult{Job: snap, Conflict: true, Reason: "another_plan_running"}, nil, nil
+			}
+			return SyncStartResult{Job: snap, Attached: true}, nil, nil
+		}
+		return SyncStartResult{Job: snap, Conflict: true, Reason: "different_scope_not_scheduled"}, nil, nil
 	}
 	jobCtx, cancel := context.WithCancel(context.Background())
 	jobID := uuid.NewString()
 	workspace := s.workspaceIdentity()
+	epoch := s.refreshEpoch.Load()
+	planRevision := preview.ConfigRevision
+	if work != nil {
+		planRevision = preview.ReviewID
+		workspace, epoch = work.workspace, work.epoch
+	}
 	job := &syncJobState{
 		startedAt: s.clock(),
 		cancel:    cancel,
-		epoch:     s.refreshEpoch.Load(),
+		epoch:     epoch,
 		workspace: workspace,
 		snapshot: SyncJobSnapshot{
 			JobID:               jobID,
 			WorkspaceID:         workspace,
-			HouseholdID:         household.ID,
-			PlanRevision:        preview.ConfigRevision,
+			HouseholdID:         household,
+			PlanRevision:        planRevision,
 			Sequence:            1,
 			Phase:               SyncPhaseScan,
 			Outcome:             SyncOutcomeRunning,
@@ -656,16 +707,17 @@ func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) 
 	}
 	s.syncJobs[jobID] = job
 	s.currentSyncID = jobID
+	delete(s.syncReviews, preview.ReviewID)
 	listener := s.syncListener
 	started := job.snapshot.Clone()
 	s.syncWG.Add(1)
-	s.syncMu.Unlock()
-	slog.Info("market data sync started", "targets", started.TargetCount, "estimated_requests", started.EstimatedRequests)
-	if listener != nil {
-		listener(SyncEventStarted, started)
-	}
-	go s.runMarketDataSync(jobCtx, job, request)
-	return SyncStartResult{Job: started}, nil
+	return SyncStartResult{Job: started}, func() {
+		slog.Info("market data sync started", "targets", started.TargetCount, "estimated_requests", started.EstimatedRequests)
+		if listener != nil {
+			listener(SyncEventStarted, started)
+		}
+		go s.runMarketDataSync(jobCtx, job, request, work)
+	}, nil
 }
 
 func (s *Service) GetCurrentSyncJob() (SyncJobSnapshot, bool) {

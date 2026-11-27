@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -45,9 +46,20 @@ func accountTrackingLabel(mode domain.TrackingMode, kind domain.AccountType) i18
 	return i18n.AccountTrackingHoldings
 }
 
-func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.View) {
+func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.View) layout.Dimensions {
 	f, l := p.creation, view.Language
 	r, d := f.review, f.draft
+	busy := f.submission != nil
+	if !busy && r.back.Clicked(gtx) {
+		f.review, d.focusName = nil, true
+		f.sheet.resetPosition()
+		gtx.Execute(op.InvalidateCmd{})
+		return layout.Dimensions{}
+	}
+	if !busy && r.confirm.Clicked(gtx) {
+		p.submitNewAccount()
+		busy = true
+	}
 	owners := make([]string, 0, min(3, len(r.shares)))
 	for _, share := range r.shares[:min(3, len(r.shares))] {
 		if i := slices.IndexFunc(d.members, func(member domain.Member) bool { return member.ID == share.MemberID }); i >= 0 {
@@ -78,7 +90,7 @@ func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.V
 		}
 	}
 	lines = append(lines, institution)
-	if d.shell() {
+	if f.chooser != nil || d.shell() {
 		lines = append(lines, l.Text(accountTrackingLabel(d.mode, d.kind)))
 	}
 	if i := slices.IndexFunc(d.groups, func(group domain.Group) bool { return group.ID.String() == r.input.GroupID }); i >= 0 {
@@ -104,15 +116,29 @@ func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.V
 		fmt.Sprintf(l.Text(i18n.AccountOwners), strings.Join(owners, " / ")),
 		l.Text(include),
 	), "\n")
-	problem := ""
-	if f.submission != nil {
-		problem = l.Text(saving)
+	rows := []ui.ColumnChild{
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return accountStepper(gtx, view, 3) }),
+		ui.Rigid(view.Body(ui.TextHeading, l.Text(title), view.Colors.Ink)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return view.CardPadded(gtx, view.Message(body, view.Colors.Ink))
+		}),
 	}
-	f.confirmation.Layout(gtx, view, ui.ConfirmationOptions{
-		Title: l.Text(title), Body: body, Busy: f.submission != nil, Problem: problem,
-		Cancel: l.Text(i18n.AccountCreateBackToDetails), Confirm: l.Text(confirm),
-	}, func() {
-		f.review = nil
-		gtx.Execute(op.InvalidateCmd{})
-	}, p.submitNewAccount)
+	if f.chooser != nil {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AccountCreateTrackingLocked), view.Colors.SecondaryInk)))
+	}
+	if busy {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(saving), view.Colors.SecondaryInk)))
+	}
+	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		if busy {
+			gtx = gtx.Disabled()
+		} else if r.focus && gtx.Enabled() {
+			gtx.Execute(key.FocusCmd{Tag: &r.back})
+			r.focus = false
+		}
+		return layout.Flex{Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+			layout.Rigid(view.Button(&r.back, l.Text(i18n.AccountCreateBackToDetails))),
+			layout.Rigid(view.PrimaryButton(&r.confirm, l.Text(confirm))))
+	}))
+	return (ui.Column{Gap: ui.Space12}).Layout(gtx, rows...)
 }

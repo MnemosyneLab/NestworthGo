@@ -18,6 +18,8 @@ import (
 
 const frameKey = "nestworth.accessibility"
 const bindingPrefix = "\x00"
+const hiddenDescription = "\x01"
+const summaryDescription = "\x02"
 
 // Roles are shared with bridge_darwin.m.
 type role uint8
@@ -30,6 +32,9 @@ const (
 	textField
 	textArea
 	list
+	sheet
+	checkbox
+	radioButton
 )
 
 type action uint8
@@ -64,8 +69,10 @@ type binding struct {
 	role              role
 	name, value, help string
 	button            *widget.Clickable
+	box               *widget.Bool
 	editor            *widget.Editor
-	enabled, focused  bool
+	enabled, selected bool
+	option            OptionFocus
 }
 
 type controlKey struct {
@@ -92,9 +99,18 @@ func (f *frame) start(gtx layout.Context, req request) layout.Context {
 		case press:
 			if target.button != nil {
 				target.button.Click()
+			} else if target.box != nil {
+				target.box.Value = !target.box.Value
 			}
 		case focus:
-			gtx.Execute(key.FocusCmd{Tag: target.tag})
+			tag := target.tag
+			if target.option.Owner != nil {
+				if target.option.Move != nil {
+					target.option.Move()
+				}
+				tag = target.option.Owner
+			}
+			gtx.Execute(key.FocusCmd{Tag: tag})
 		case setValue, setSelection:
 			if target.editor != nil && (req.action == setSelection || !target.editor.ReadOnly) {
 				f.pending = req
@@ -143,9 +159,8 @@ func track(gtx layout.Context, b binding, widget layout.Widget) layout.Dimension
 	if f == nil {
 		return widget(gtx)
 	}
-	if b.button != nil || b.editor != nil || b.role == list {
+	if b.button != nil || b.box != nil || b.editor != nil || b.role == list {
 		b.enabled = gtx.Enabled()
-		b.focused = gtx.Focused(b.tag)
 	}
 	recording := op.Record(gtx.Ops)
 	dims := widget(gtx)
@@ -164,6 +179,39 @@ func Button(gtx layout.Context, click *widget.Clickable, name, value string, pic
 		role = popupButton
 	}
 	return track(gtx, binding{tag: click, role: role, name: name, value: value, button: click}, widget)
+}
+
+// SelectableButton exposes the committed selection of a navigation control.
+func SelectableButton(gtx layout.Context, click *widget.Clickable, name string, selected bool, widget layout.Widget) layout.Dimensions {
+	return ButtonWithSelection(gtx, click, name, "", selected, widget)
+}
+
+// Checkbox binds a toggle whose caller consumes its Value before drawing.
+// AXPress changes the value at frame start, like an external control event.
+func Checkbox(gtx layout.Context, box *widget.Bool, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: box, role: checkbox, name: name, box: box}, widget)
+}
+
+func ButtonWithSelection(gtx layout.Context, click *widget.Clickable, name, value string, selected bool, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: button, name: name, value: value, button: click, selected: selected}, widget)
+}
+
+// RadioButton exposes one option in a mutually exclusive group. Its caller
+// owns the selection and keyboard navigation.
+func RadioButton(gtx layout.Context, click *widget.Clickable, name, help string, selected bool, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: radioButton, name: name, help: help, button: click, selected: selected}, widget)
+}
+
+// OptionFocus describes a picker option whose container owns keyboard events.
+// Move moves the container's cursor to this option without choosing its value.
+type OptionFocus struct {
+	Owner  any
+	Active bool
+	Move   func()
+}
+
+func Option(gtx layout.Context, click *widget.Clickable, name string, selected bool, option OptionFocus, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: click, role: button, name: name, button: click, selected: selected, option: option}, widget)
 }
 
 func Editor(gtx layout.Context, editor *widget.Editor, name, help string, widget layout.Widget) layout.Dimensions {
@@ -203,6 +251,46 @@ func Row(gtx layout.Context, tag any, widget layout.Widget) layout.Dimensions {
 	return track(gtx, binding{tag: tag, role: group, enabled: true}, widget)
 }
 
+// Section groups related content under one accessible name.
+func Section(gtx layout.Context, tag any, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: tag, role: group, name: name, enabled: true}, widget)
+}
+
+// Modal exposes a named sheet and its children in the native accessibility tree.
+func Modal(gtx layout.Context, tag any, name string, widget layout.Widget) layout.Dimensions {
+	return track(gtx, binding{tag: tag, role: sheet, name: name, enabled: true}, widget)
+}
+
+// Summary labels the text in a row as a single sentence. The native bridge
+// retains tracked controls and groups alongside that label.
+func Summary(gtx layout.Context, label string, widget layout.Widget) layout.Dimensions {
+	recording := op.Record(gtx.Ops)
+	dims := widget(gtx)
+	content := recording.Stop()
+	defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
+	semantic.LabelOp(label).Add(gtx.Ops)
+	if forContext(gtx) != nil {
+		semantic.DescriptionOp(summaryDescription).Add(gtx.Ops)
+	}
+	content.Add(gtx.Ops)
+	return dims
+}
+
+// Hidden keeps a laid-out subtree out of the native accessibility tree.
+// The caller owns the input policy for the underlying widgets.
+func Hidden(gtx layout.Context, widget layout.Widget) layout.Dimensions {
+	if forContext(gtx) == nil {
+		return widget(gtx)
+	}
+	recording := op.Record(gtx.Ops)
+	dims := widget(gtx)
+	content := recording.Stop()
+	defer clip.Rect{Max: dims.Size}.Push(gtx.Ops).Pop()
+	semantic.DescriptionOp(hiddenDescription).Add(gtx.Ops)
+	content.Add(gtx.Ops)
+	return dims
+}
+
 func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	f.router.Frame(gtx.Ops)
 	f.semantic = f.router.AppendSemantics(f.semantic[:0])
@@ -211,6 +299,7 @@ func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	}
 	clear(f.targets)
 	elements := f.collect(nil, f.semantic[0].Children, 0, image.Rectangle{Max: gtx.Constraints.Max}, false)
+	f.applyFocus(gtx, elements)
 	for tag, id := range f.ids {
 		if _, exists := f.targets[id]; !exists {
 			delete(f.ids, tag)
@@ -224,9 +313,37 @@ func (f *frame) snapshot(gtx layout.Context) ([]element, bool) {
 	return elements, true
 }
 
+// Publish focus after Gio applies the frame. Popup open and close request
+// focus while rendering, after some of the affected controls were drawn.
+func (f *frame) applyFocus(gtx layout.Context, elements []element) {
+	focused, activeOption := -1, -1
+	for i, element := range elements {
+		if !element.Focusable {
+			continue
+		}
+		b := f.targets[element.ID]
+		if b.option.Owner != nil {
+			if b.option.Active && gtx.Focused(b.option.Owner) {
+				activeOption = i
+			}
+		} else if gtx.Focused(b.tag) {
+			focused = i
+		}
+	}
+	if activeOption >= 0 {
+		focused = activeOption
+	}
+	if focused >= 0 {
+		elements[focused].Focused = true
+	}
+}
+
 func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64, viewport image.Rectangle, hideLabels bool) []element {
 	for _, node := range nodes {
 		desc := node.Desc
+		if desc.Description == hiddenDescription {
+			continue
+		}
 		bounds := desc.Bounds.Intersect(viewport)
 		id, tracked := bindingID(desc.Description)
 		if tracked {
@@ -236,11 +353,16 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			}
 			f.targets[id] = b
 			e := makeElement(id, parent, b.role, b.name, bounds)
-			e.Enabled, e.Focused, e.Value, e.Help = b.enabled, b.focused, b.value, b.help
-			e.Pressable = b.button != nil && b.enabled
-			e.Focusable = (b.button != nil || b.editor != nil || b.role == list) && b.enabled
+			e.Enabled, e.Value, e.Help = b.enabled, b.value, b.help
+			e.Pressable = (b.button != nil || b.box != nil) && b.enabled
+			e.Focusable = (e.Pressable || b.editor != nil || b.role == list) && b.enabled
+			if b.box != nil {
+				e.Selected = b.box.Value
+			}
 			if b.button != nil {
-				e.Selected = desc.Selected || hasSelection(node.Children)
+				// The bridge's semantic router has no live pointer filters, so
+				// it may prune the Clickable area that carried SelectedOp.
+				e.Selected = b.selected || desc.Selected || hasSelection(node.Children)
 			}
 			if b.editor != nil {
 				e.Editable = b.enabled && !b.editor.ReadOnly
@@ -251,7 +373,7 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 				e.SelectionStart, e.SelectionLength = utf16Range(e.Value, b.editor.Selection)
 			}
 			out = append(out, e)
-			if b.role == group || b.role == list {
+			if b.role == group || b.role == list || b.role == sheet {
 				out = f.collect(out, node.Children, e.ID, bounds, false)
 			} else {
 				out = f.collect(out, node.Children, parent, bounds, true)
@@ -259,13 +381,15 @@ func (f *frame) collect(out []element, nodes []input.SemanticNode, parent uint64
 			continue
 		}
 
+		hideChildLabels := hideLabels
 		if !hideLabels && !bounds.Empty() && desc.Label != "" {
 			id := uint64(node.ID) << 1
 			e := makeElement(id, parent, staticText, desc.Label, bounds)
 			e.Value = desc.Label
 			out = append(out, e)
+			hideChildLabels = desc.Description == summaryDescription
 		}
-		out = f.collect(out, node.Children, parent, viewport, hideLabels)
+		out = f.collect(out, node.Children, parent, viewport, hideChildLabels)
 	}
 	return out
 }

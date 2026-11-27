@@ -155,7 +155,7 @@ func TestHistoryStartingPointCapturesExistingBalances(t *testing.T) {
 	label("Starting Point saved.")
 	label("Could not verify the Starting Point. Retry checks the saved state.")
 	click("Retry")
-	label("No changes have been recorded yet.")
+	label("No activity yet")
 	if fault.writes.Load() != 2 || findPageLabel(&h.router, "Start recording history") != nil {
 		t.Fatal("a saved Starting Point allowed another write")
 	}
@@ -332,7 +332,7 @@ func TestHistoryStartingPointCapturesMultipleNativeCostPositions(t *testing.T) {
 	click("Confirm Starting Point")
 	label("Could not verify the Starting Point. Retry checks the saved state.")
 	click("Retry")
-	label("No changes have been recorded yet.")
+	label("No activity yet")
 	if fault.writes.Load() != 2 {
 		t.Fatal("read retry wrote another Origin")
 	}

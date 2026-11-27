@@ -35,8 +35,14 @@ var taskTabLabels = [...]i18n.MessageID{i18n.TasksUpcomingTab, i18n.TasksInvestm
 
 type tasksVisit struct {
 	tab                          tasksTab
+	showEligible                 bool
+	upcomingFilter               taskUpcomingFilter
+	upcomingLimit                int
 	position                     layout.Position
 	reviewCursors                []string
+	reviewGeneration             uint64
+	reconciliationAccount        domain.AccountID
+	reconciliationList           reconciliationListVisit
 	holdingSession               string
 	holdingReceipt               domain.ActivityID
 	holdingAudit                 []domain.ActivityID
@@ -46,10 +52,11 @@ type tasksVisit struct {
 }
 
 type tasksRead struct {
-	upcoming   *domain.UpcomingActions
-	review     *domain.ReviewAlertPage
-	statements []taskStatement
-	holdings   holdingReconDirectory
+	upcoming    *domain.UpcomingActions
+	review      *domain.ReviewAlertPage
+	reviewKnown map[domain.ReviewEpisodeID]taskReviewKnown
+	statements  []taskStatement
+	holdings    holdingReconDirectory
 }
 
 type taskLinks struct {
@@ -69,12 +76,23 @@ type tasksPage struct {
 	reload         widget.Clickable
 	links          map[string]*taskLinks
 	openProduct    func(domain.ProductContractID, string, event.Tag)
+	upcomingLinks  upcomingActionLinks
+	showEligible   bool
+	eligible       widget.Clickable
+	upcomingHealth widget.Clickable
+	upcomingFilter taskUpcomingFilter
+	upcomingLimit  int
+	upcomingTabs   [len(taskUpcomingFilters)]widget.Clickable
+	upcomingMore   widget.Clickable
 	verify         func(domain.ProductContractID, string, event.Tag)
 	checks         taskChecksReader
 	tab            tasksTab
 	tabs           [len(taskTabLabels)]widget.Clickable
+	taskBadges     taskCategoryBadges
 	review         *domain.ReviewAlertPage
+	reviewKnown    map[domain.ReviewEpisodeID]taskReviewKnown
 	reviewCursors  []string
+	reviewAck      taskReviewAcknowledgement
 	statements     []taskStatement
 	instruments    map[domain.InstrumentID]*widget.Clickable
 	statementLinks map[string]*widget.Clickable
@@ -83,6 +101,9 @@ type tasksPage struct {
 	openStatement  openTaskStatement
 	openActivity   func(domain.ActivityID, event.Tag)
 	holdingRecon   *holdingReconciliation
+
+	reconciliationAccount domain.AccountID
+	reconciliationList    reconciliationSessionList
 }
 
 func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate func()) *tasksPage {
@@ -92,14 +113,31 @@ func newTasksPage(ctx context.Context, service upcomingActionsReader, invalidate
 }
 
 func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
-	p.tab, p.list.Position = visit.tab, visit.position
-	p.reviewCursors = slices.Clone(visit.reviewCursors)
+	p.tab, p.list.Position, p.showEligible = visit.tab, visit.position, visit.showEligible
+	p.reconciliationAccount = visit.reconciliationAccount
+	p.reconciliationList.reconciliationListVisit = visit.reconciliationList
+	p.reconciliationList.returned = ""
+	p.reconciliationList.scrollHistory, p.reconciliationList.focusTab = false, false
+	p.upcomingFilter, p.upcomingLimit = visit.upcomingFilter, visit.upcomingLimit
+	p.reviewCursors = nil
+	if visit.reviewGeneration == p.reviewAck.generation {
+		p.reviewCursors = slices.Clone(visit.reviewCursors)
+	} else if len(visit.reviewCursors) > 0 {
+		p.list.Position = layout.Position{}
+	}
 	p.read()
 	if c := p.holdingRecon; c != nil && visit.holdingSession != "" {
 		if c.sessionButtons == nil {
 			c.sessionButtons = make(map[string]*widget.Clickable)
 		}
-		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(c.sessionButtons, visit.holdingSession))
+		buttons := c.sessionButtons
+		if visit.reconciliationList.entry.working {
+			if p.reconciliationList.working == nil {
+				p.reconciliationList.working = make(map[string]*widget.Clickable)
+			}
+			buttons = p.reconciliationList.working
+		}
+		p.openHoldingReconciliation(visit.holdingSession, portfolioButton(buttons, visit.holdingSession))
 		// The loading placeholder cannot keep the session's previous offset.
 		// Restore it when the receipt and its preceding evidence are drawn.
 		c.editScroll, c.restoreEditScroll = scroll, scroll != 0
@@ -124,7 +162,13 @@ func (p *tasksPage) enter(visit tasksVisit, scroll int) event.Tag {
 }
 
 func (p *tasksPage) visit(focus event.Tag) tasksVisit {
-	visit := tasksVisit{tab: p.tab, position: p.list.Position, reviewCursors: slices.Clone(p.reviewCursors)}
+	visit := tasksVisit{
+		tab: p.tab, position: p.list.Position, showEligible: p.showEligible, reviewCursors: slices.Clone(p.reviewCursors),
+		reconciliationAccount: p.reconciliationAccount,
+		reconciliationList:    p.reconciliationList.reconciliationListVisit,
+		reviewGeneration:      p.reviewAck.generation,
+		upcomingFilter:        p.upcomingFilter, upcomingLimit: p.upcomingLimit,
+	}
 	if c := p.holdingRecon; c != nil && c.id != "" {
 		visit.holdingSession = c.id
 		visit.linkedJournal, visit.recentJournal = c.linkedJournal.reconciliationJournalVisit, c.recentJournal.reconciliationJournalVisit
@@ -176,7 +220,10 @@ func (p *tasksPage) read() {
 		switch tab {
 		case tasksInvestment:
 			page, err := p.checks.ListReviewAlertGroupsV2(ctx, domain.ReviewAlertFilter{Status: "pending"}, cursor, 50)
-			return tasksRead{review: &page}, err
+			if err != nil {
+				return tasksRead{}, err
+			}
+			return tasksRead{review: &page, reviewKnown: readTaskReviewKnown(ctx, p.checks, page)}, nil
 		case tasksReconciliation:
 			sessions, holdings, err := readTaskReconciliation(ctx, p.checks, includeHoldings)
 			return tasksRead{statements: sessions, holdings: holdings}, err
@@ -187,26 +234,16 @@ func (p *tasksPage) read() {
 	})
 }
 
-func termDepositTasks(items []domain.UpcomingAction) []domain.UpcomingAction {
-	var rows []domain.UpcomingAction
-	for _, row := range items {
-		if row.Kind == "product_schedule" && row.ProductKind != nil && *row.ProductKind == domain.ProductTermDeposit &&
-			(row.Group == "attention" || row.Group == "scheduled") {
-			rows = append(rows, row)
-		}
-	}
-	return rows
-}
-
 func (p *tasksPage) update() {
+	p.updateTaskBadges()
 	select {
 	case result := <-p.request:
 		p.leave()
-		p.err, p.current, p.review, p.statements = result.err, nil, nil, nil
+		p.err, p.current, p.review, p.reviewKnown, p.statements = result.err, nil, nil, nil, nil
 		if p.err != nil {
 			return
 		}
-		p.review, p.statements = result.value.review, result.value.statements
+		p.review, p.reviewKnown, p.statements = result.value.review, result.value.reviewKnown, result.value.statements
 		if p.tab == tasksReconciliation && p.holdingRecon != nil {
 			p.holdingRecon.directory = result.value.holdings
 		}
@@ -214,8 +251,8 @@ func (p *tasksPage) update() {
 		if actions == nil {
 			return
 		}
-		actions.Items = termDepositTasks(actions.Items)
 		p.current = actions
+		p.upcomingLinks.retained(actions.Items)
 		present := make(map[string]bool, len(actions.Items))
 		for _, row := range actions.Items {
 			present[row.ID] = true
@@ -232,18 +269,31 @@ func (p *tasksPage) update() {
 func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
 	if p.holdingRecon.active() {
-		p.pollHoldingReconciliation()
+		if p.startReconciliationDraft() == nil {
+			p.pollHoldingReconciliation()
+		}
 		return p.layoutHoldingReconciliation(gtx, view)
 	}
 	if p.checks != nil {
 		for i := range p.tabs {
 			if p.tabs[i].Clicked(gtx) && p.tab != tasksTab(i) {
-				p.enter(tasksVisit{tab: tasksTab(i)}, 0)
+				if p.tab == tasksReconciliation {
+					p.reconciliationList.position = p.list.Position
+				}
+				visit := tasksVisit{tab: tasksTab(i), showEligible: p.showEligible,
+					upcomingFilter: p.upcomingFilter, upcomingLimit: p.upcomingLimit,
+					reconciliationAccount: p.reconciliationAccount,
+					reconciliationList:    p.reconciliationList.reconciliationListVisit}
+				if visit.tab == tasksReconciliation {
+					visit.position = visit.reconciliationList.position
+				}
+				p.enter(visit, 0)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 		}
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
+		p.invalidateTaskBadges()
 		if p.tab == tasksInvestment && len(p.reviewCursors) > 0 {
 			p.enter(tasksVisit{tab: p.tab}, 0)
 		} else {
@@ -256,19 +306,24 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	if p.err != nil {
 		reload = i18n.HistoryRetry
 	}
-	return ui.Column{Gap: 10}.Layout(gtx,
+	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if p.checks == nil {
-						return tradeTitle(view, i18n.TasksTermDeposits)(gtx)
+						return tradeTitle(view, i18n.TasksUpcomingActions)(gtx)
 					}
 					return view.TabTrack(gtx, len(p.tabs), func(gtx layout.Context, i int) layout.Dimensions {
-						return view.TabSegment(&p.tabs[i], l.Text(taskTabLabels[i]), p.tab == tasksTab(i))(gtx)
+						return p.taskTabButton(gtx, view, tasksTab(i))
 					})
 				}),
 				layout.Rigid(taskPagerButton(view, &p.reload, reload, p.request == nil)))
 		}),
+	}
+	if p.tab == tasksInvestment && p.reviewAck.status != i18n.NoMessage {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewAcknowledgement(gtx, view) }))
+	}
+	rows = append(rows,
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			loading, failed := i18n.TasksLoading, i18n.TasksReadFailed
 			if p.tab != tasksUpcoming {
@@ -287,7 +342,11 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 					rows = p.reviewRows(view)
 				}
 			case tasksReconciliation:
-				rows = append(p.holdingReconciliationRows(view), p.statementRows(view)...)
+				if p.holdingRecon == nil {
+					rows = p.statementRows(view)
+				} else {
+					rows = p.holdingReconciliationRows(view)
+				}
 			default:
 				if p.current != nil {
 					rows = p.rows(view)
@@ -299,6 +358,7 @@ func (p *tasksPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 			})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutReviewPager(gtx, view) }))
+	return ui.Column{Gap: 10}.Layout(gtx, rows...)
 }
 
 func (p *tasksPage) rows(view ui.View) []layout.Widget {
@@ -307,28 +367,34 @@ func (p *tasksPage) rows(view ui.View) []layout.Widget {
 	window := fmt.Sprintf(l.Text(i18n.TasksWindow), historyDay(view, data.WindowStartOn), historyDay(view, data.WindowEndOn), data.Timezone)
 	var rows []layout.Widget
 	if p.checks != nil {
-		rows = append(rows, tradeTitle(view, i18n.TasksTermDeposits))
+		rows = append(rows, tradeTitle(view, i18n.TasksUpcomingActions))
 	}
 	rows = append(rows, view.Body(ui.TextCaption, window, view.Colors.SecondaryInk))
 	if zone, err := time.LoadLocation(data.Timezone); err == nil && !data.AsOf.IsZero() {
 		readAt := format.LocalDateTime(data.AsOf.In(zone), settings.Settings{DateFormat: view.DateFormat, TimeFormat: view.TimeFormat}, settings.Language(l))
 		rows = append(rows, view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.TasksReadAt), readAt), view.Colors.SecondaryInk))
 	}
-	if len(data.Items) == 0 {
-		return append(rows, emptyState(view, l.Text(i18n.TasksEmpty)))
-	}
-	lastGroup := ""
-	for _, row := range data.Items {
-		if row.Group != lastGroup {
-			heading := i18n.TasksScheduled
-			if row.Group == "attention" {
-				heading = i18n.TasksAttention
+	rows = append(rows, p.upcomingFilterTabs(view))
+	rows = p.upcomingRows(view, rows, data.Items)
+	if data.Counts.Eligible > 0 {
+		label := fmt.Sprintf(l.Text(i18n.TasksEligible), data.Counts.Eligible)
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			if p.eligible.Clicked(gtx) {
+				p.showEligible = !p.showEligible
+				gtx.Execute(op.InvalidateCmd{})
 			}
-			rows = append(rows, tradeTitle(view, heading))
-			lastGroup = row.Group
+			view.Focus.Watch(gtx, &p.eligible)
+			return analysisDisclosure(view, &p.eligible, label, p.showEligible)(gtx)
+		})
+		if p.showEligible {
+			for _, row := range data.Items {
+				if row.Group == "eligible" {
+					rows = append(rows, p.card(view, row))
+				}
+			}
 		}
-		rows = append(rows, p.card(view, row))
 	}
+	rows = append(rows, p.upcomingDataMaintenance(view, data.Counts))
 	return rows
 }
 
@@ -346,14 +412,25 @@ func (p *tasksPage) card(view ui.View, row domain.UpcomingAction) layout.Widget 
 	if row.AccountName != nil && *row.AccountName != "" {
 		fields = append(fields, view.Message(*row.AccountName, view.Colors.SecondaryInk))
 	}
-	fields = append(fields, productMaturity(view, row.MaturityOn))
+	if row.MaturityOn != nil {
+		fields = append(fields, productMaturity(view, row.MaturityOn))
+	}
+	if row.EligibilityOn != nil && row.MaturityOn == nil {
+		eligibility := fmt.Sprintf(l.Text(i18n.TasksEligibilityOn), historyDay(view, *row.EligibilityOn))
+		fields = append(fields, view.Message(eligibility, view.Colors.SecondaryInk))
+	}
 	receipt := l.Text(i18n.OverviewNoValue)
 	if row.EstimatedReceiptOn != nil {
 		receipt = historyDay(view, *row.EstimatedReceiptOn)
 	}
-	fields = append(fields, view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptDate), receipt), view.Colors.SecondaryInk))
-	amountLabel := i18n.ProductForecastNet
-	if row.Amount != nil && row.AmountStatus == "partial" {
+	if row.Kind == "product_schedule" || row.EstimatedReceiptOn != nil {
+		fields = append(fields, view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptDate), receipt), view.Colors.SecondaryInk))
+	}
+	if row.RequestedReserve != nil {
+		fields = append(fields, fundsAmount(view, i18n.FundsRequested, row.RequestedReserve))
+	}
+	amountLabel := upcomingAmountLabel(row.AmountRole)
+	if row.AmountRole == "estimated_net_proceeds" && row.Amount != nil && row.AmountStatus == "partial" {
 		amountLabel = i18n.TasksPartialEstimate
 	}
 	fields = append(fields, fundsAmount(view, amountLabel, row.Amount))
@@ -375,7 +452,7 @@ func (p *tasksPage) card(view ui.View, row domain.UpcomingAction) layout.Widget 
 			p.links[row.ID] = buttons
 		}
 		fields = append(fields, productLink(view, id, row.DisplayName, &buttons.product, p.openProduct))
-		if row.Phase == "receipt_due" && p.verify != nil {
+		if taskReceiptDue(row) && p.verify != nil {
 			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
 				if buttons.receipt.Clicked(gtx) {
 					p.verify(id, row.DisplayName, &buttons.receipt)
@@ -386,7 +463,7 @@ func (p *tasksPage) card(view ui.View, row domain.UpcomingAction) layout.Widget 
 			})
 		}
 	}
-	return fundsCard(view, row.DisplayName, fields...)
+	return fundsCard(view, row.DisplayName, append(fields, p.upcomingLinks.layoutLinks(view, row)...)...)
 }
 
 func taskProductID(row domain.UpcomingAction) domain.ProductContractID {
@@ -402,6 +479,12 @@ func taskProductID(row domain.UpcomingAction) domain.ProductContractID {
 }
 
 func taskPhase(row domain.UpcomingAction) i18n.MessageID {
+	switch row.Kind {
+	case "reservation_shortfall":
+		return i18n.OverviewUpcomingShortfall
+	case "reservation_unresolved":
+		return i18n.OverviewUpcomingUnresolved
+	}
 	switch row.Phase {
 	case "receipt_due":
 		if row.DaysFromToday != nil && *row.DaysFromToday < 0 {
@@ -411,9 +494,17 @@ func taskPhase(row domain.UpcomingAction) i18n.MessageID {
 	case "blocked":
 		return i18n.TasksBlocked
 	case "today":
+		if row.AnchorKind == "eligibility" {
+			return i18n.TasksAccessToday
+		}
 		return i18n.TasksMaturesToday
 	case "upcoming":
+		if row.AnchorKind == "eligibility" {
+			return i18n.TasksAccessUpcoming
+		}
 		return i18n.TasksUpcoming
+	case "eligible":
+		return i18n.TasksAccessEligible
 	case "awaiting_receipt", "scheduled_receipt":
 		return i18n.TasksAwaiting
 	default:
@@ -433,6 +524,10 @@ func taskReason(reason string) i18n.MessageID {
 		return i18n.FundsMissingFee
 	case "missing_fx":
 		return i18n.FundsMissingBaseFX
+	case "currency_mismatch":
+		return i18n.FundsReservationCurrency
+	case "source_missing", "source_archived", "source_zero_quantity", "source_liability":
+		return i18n.FundsUnresolvedReason
 	default:
 		return i18n.FundsUnknownRoute
 	}

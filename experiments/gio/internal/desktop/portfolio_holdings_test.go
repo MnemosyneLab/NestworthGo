@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"fmt"
 	"image"
 	"slices"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -148,11 +150,24 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("wrong instrument or account-level gain: Gio %+v, Wails %+v", row, ref)
 	}
 
-	compactSize := h.size
-	h.size = image.Pt(1120, 1080)
+	narrowSize := h.size
+	h.size = image.Pt(1280, 800)
+	settle()
+	stockHeader := portfolio.holdings.sortButtons[domain.HoldingGroupStock]
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()
-	filtered := portfolio.visibleHoldingGroups()
+	summary := assertPageLabel(t, &h.router, "Current investment value · Known subtotal")
+	coverage := fmt.Sprintf("Totals exclude missing values · %d missing inputs", len(wailsSummary.MissingInputs))
+	assertPageLabel(t, &h.router, coverage)
+	tab := semanticBounds(t, &h.router, "My holdings", false)
+	if summary.Min.Y >= tab.Min.Y {
+		t.Fatalf("portfolio summary should stay above the views and search: %v / %v", summary, tab)
+	}
+	fundHeader := portfolio.holdings.sortButtons[domain.HoldingGroupFund]
+	if stockHeader == nil || fundHeader == nil || stockHeader == fundHeader {
+		t.Fatal("expanded asset groups should each have keyboard-reachable sort headers")
+	}
+	filtered := portfolio.visibleHoldingGroups(i18n.English)
 	if len(filtered) != 1 || len(filtered[0].Instruments) != 1 || filtered[0].Instruments[0].Symbol != "QA-FULL" {
 		t.Fatalf("search did not isolate the intended holding: %+v", filtered)
 	}
@@ -163,8 +178,31 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatalf("expected visible EUR 60.36 and full-group EUR 68.36: %+v", filtered)
 	}
 	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
-	assertPageLabel(t, &h.router, "Cost basis · €68.36")
-	h.size = compactSize
+	subtotal := assertPageLabel(t, &h.router, "Cost basis · €68.36")
+	name := ids.instruments["QA-FULL"].DisplayLabel()
+	identity := assertPageLabel(t, &h.router, name)
+	cost := assertPageLabel(t, &h.router, "Cost basis · €60.36")
+	menu := assertPageLabel(t, &h.router, "Actions for "+name)
+	if cost.Min.X < identity.Max.X || menu.Min.X < cost.Max.X ||
+		cost.Min.Y >= identity.Max.Y || menu.Min.Y >= identity.Max.Y ||
+		cost.Max.Y <= identity.Min.Y || menu.Max.Y <= identity.Min.Y {
+		t.Fatalf("desktop holding cells should share a single row: instrument %v, cost %v, actions %v", identity, cost, menu)
+	}
+	costHeader := semanticBounds(t, &h.router, "Cost basis", false)
+	if subtotal.Max.X != cost.Max.X || costHeader.Max.X-8 != cost.Max.X {
+		t.Fatalf("native subtotal, sort caption, and row must share the cost column: %v / %v / %v", subtotal, costHeader, cost)
+	}
+	click("Cost basis")
+	if portfolio.holdings.visit.sort != (holdingSort{key: holdingSortCost}) {
+		t.Fatal("the first column activation did not select ascending cost")
+	}
+	h.router.Source().Execute(key.FocusCmd{Tag: &fundHeader[holdingSortCost]})
+	h.press(key.NameReturn)
+	settle()
+	if !portfolio.holdings.visit.sort.descending {
+		t.Fatal("a second column activation did not reverse its direction")
+	}
+	h.size = narrowSize
 
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-loss")
 	settle()
@@ -195,7 +233,8 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	click("Back")
 	control := portfolio.holdingActions(portfolioHoldingKey{instrument: loss.ID, holding: lossHolding})
 	h.focused(&control.account)
-	if portfolio.search.Field.Text() != "qa-loss" || !portfolio.holdings.visit.expanded[loss.ID] {
+	if portfolio.search.Field.Text() != "qa-loss" || !portfolio.holdings.visit.expanded[loss.ID] ||
+		portfolio.holdings.visit.sort != (holdingSort{key: holdingSortCost, descending: true}) {
 		t.Fatal("Back discarded contextual Portfolio state")
 	}
 	click("Account details")
@@ -249,7 +288,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-zero")
 	settle()
-	if len(portfolio.visibleHoldingGroups()) != 0 {
+	if len(portfolio.visibleHoldingGroups(i18n.English)) != 0 {
 		t.Fatal("closed holding appeared before enabling zero holdings")
 	}
 	box := &portfolio.holdings.showZero
@@ -321,4 +360,40 @@ func TestPortfolioMyHoldingsUnknownCostKeepsValue(t *testing.T) {
 	if findPageLabel(&h.router, "Native market value · USD US$40.00") != nil {
 		t.Fatal("holdings duplicated the USD prefix")
 	}
+}
+
+func TestPortfolioHoldingSortKeepsCurrenciesAndUnknownValuesInPlace(t *testing.T) {
+	row := func(name string, currency domain.CurrencyCode, value, gain string) *domain.InstrumentHoldingsView {
+		instrument := &domain.InstrumentHoldingsView{Name: name, QuoteCurrency: currency}
+		if value != "" {
+			instrument.Amounts.CurrentValue = &domain.MoneyView{Amount: value, Currency: currency}
+		}
+		if gain != "" {
+			instrument.Amounts.UnrealizedGain = &domain.SignedMoneyView{Amount: gain, Currency: currency}
+		}
+		return instrument
+	}
+	eur := row("EUR position", "EUR", "8", "-8")
+	small := row("Smaller", "USD", "10.0001", "-0.0002")
+	large := row("Larger", "USD", "10.0002", "-0.0001")
+	missing := row("First by name", "USD", "", "")
+	rows := []portfolioHoldingRow{{instrument: missing}, {instrument: large}, {instrument: small}, {instrument: eur}}
+	check := func(want ...*domain.InstrumentHoldingsView) {
+		t.Helper()
+		for i, r := range rows {
+			if r.instrument != want[i] {
+				t.Fatalf("row %d = %s, want %s", i, r.instrument.Name, want[i].Name)
+			}
+		}
+	}
+	sortPortfolioHoldingRows(rows, holdingSort{key: holdingSortValue}, i18n.English)
+	check(eur, small, large, missing)
+	sortPortfolioHoldingRows(rows, holdingSort{key: holdingSortGain, descending: true}, i18n.English)
+	check(eur, large, small, missing)
+
+	// Account details sort by each holding amount, using the same currency order.
+	rows[1].member = &domain.InstrumentHoldingMember{Amounts: domain.HoldingAmounts{CurrentValue: &domain.MoneyView{Amount: "0.0001"}}}
+	rows[2].member = &domain.InstrumentHoldingMember{Amounts: domain.HoldingAmounts{CurrentValue: &domain.MoneyView{Amount: "0.0002"}}}
+	sortPortfolioHoldingRows(rows, holdingSort{key: holdingSortValue}, i18n.English)
+	check(eur, large, small, missing)
 }

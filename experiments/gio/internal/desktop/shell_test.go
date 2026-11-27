@@ -32,7 +32,7 @@ func TestManagementGroupFollowsSidebarFooter(t *testing.T) {
 	// A taller window leaves more space between Insights and Manage. Every
 	// management destination, including the preview, moves with the footer.
 	lastInsight := semanticBounds(t, &h.router, "Asset changes", false)
-	management := []string{"Directory", "Market data", "Settings", "Component Preview"}
+	management := []string{"Directory", "Data maintenance", "Settings", "Component Preview"}
 	positions := make([]image.Rectangle, len(management))
 	prev := lastInsight
 	for i, name := range management {
@@ -197,7 +197,8 @@ func semanticBounds(t *testing.T, router *input.Router, text string, field bool)
 	var find func([]input.SemanticNode) image.Rectangle
 	find = func(nodes []input.SemanticNode) image.Rectangle {
 		for _, node := range nodes {
-			if (field && node.Desc.Description == text) || (!field && node.Desc.Class == semantic.Button && hasLabel(node)) {
+			action := node.Desc.Class == semantic.Button || node.Desc.Class == semantic.CheckBox || node.Desc.Class == semantic.RadioButton
+			if (field && node.Desc.Description == text) || (!field && action && hasLabel(node)) {
 				return node.Desc.Bounds
 			}
 			if child := find(node.Children); !child.Empty() {

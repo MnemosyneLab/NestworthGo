@@ -23,10 +23,13 @@ type historyService interface {
 }
 
 type historyTimelineVisit struct {
-	model    history.Visit
-	scroll   layout.Position
-	revision uint64
-	focused  domain.ActivityID
+	model        history.Visit
+	scroll       layout.Position
+	revision     uint64
+	focused      domain.ActivityID
+	focusActions bool
+	dateAt       analysisDateWindow
+	dateMode     int
 }
 
 type historyDetailState struct {
@@ -37,23 +40,26 @@ type historyDetailState struct {
 }
 
 type historyDetailVisit struct {
-	id               domain.ActivityID
-	pending          <-chan historyResult[history.Detail]
-	cancel           context.CancelFunc
-	record           *history.Detail
-	err              error
-	dirty            bool
-	back             widget.Clickable
-	retry            widget.Clickable
-	scroll           widget.List
-	amendment        *historyAmendmentDraft
-	amendmentFocus   *widget.Clickable
-	correct, reverse widget.Clickable
-	repeat           widget.Clickable
-	repeatDraft      *historyRepeatDraft
-	linked           [4]widget.Clickable
-	accounts         map[domain.AccountID]*widget.Clickable
-	instruments      map[domain.InstrumentID]*widget.Clickable
+	id                domain.ActivityID
+	pending           <-chan historyResult[history.Detail]
+	cancel            context.CancelFunc
+	record            *history.Detail
+	err               error
+	dirty             bool
+	back              widget.Clickable
+	retry             widget.Clickable
+	scroll            widget.List
+	amendment         *historyAmendmentDraft
+	amendmentFocus    *widget.Clickable
+	correct, reverse  widget.Clickable
+	repeat            widget.Clickable
+	repeatDraft       *historyRepeatDraft
+	requested         historyRowAction
+	fromRowAction     bool
+	actionUnavailable bool
+	linked            [4]widget.Clickable
+	accounts          map[domain.AccountID]*widget.Clickable
+	instruments       map[domain.InstrumentID]*widget.Clickable
 }
 
 func (v *historyDetailVisit) accountButton(id domain.AccountID) *widget.Clickable {
@@ -86,6 +92,11 @@ func (v *historyDetailVisit) state(focus event.Tag) historyDetailState {
 	return state
 }
 
+type historyTimelineReferences struct {
+	history.References
+	holdingAccounts map[domain.HoldingID]domain.AccountID
+}
+
 type historyReads struct {
 	ctx        context.Context
 	service    historyService
@@ -95,14 +106,18 @@ type historyReads struct {
 	workers    sync.WaitGroup
 
 	references      *history.References
-	refsRead        <-chan historyResult[history.References]
+	rowNames        historyRowNames
+	refsRead        <-chan historyResult[historyTimelineReferences]
 	refsCancel      context.CancelFunc
 	refsErr         error
 	detail          *historyDetailVisit
 	buttons         map[domain.ActivityID]*widget.Clickable
+	actionButtons   map[domain.ActivityID]*widget.Clickable
+	rowActions      *historyRowActions
 	posted          domain.Activity
 	postedNotice    i18n.MessageID
 	open            func(id domain.ActivityID, focus event.Tag)
+	openAction      func(id domain.ActivityID, action historyRowAction, focus event.Tag)
 	openAccount     func(id domain.AccountID, name string, focus event.Tag)
 	openInstrument  func(id domain.InstrumentID, name string, focus event.Tag)
 	openProduct     func(id domain.ProductContractID, name string, focus event.Tag)
@@ -127,7 +142,7 @@ func newLedgerHistory(ctx context.Context, service historyService, clock func() 
 	page.startPoint = newHistoryStart(service)
 	page.reads = &historyReads{
 		ctx: ctx, service: service, clock: clock, invalidate: invalidate,
-		buttons: make(map[domain.ActivityID]*widget.Clickable),
+		buttons: make(map[domain.ActivityID]*widget.Clickable), actionButtons: make(map[domain.ActivityID]*widget.Clickable),
 	}
 	return page
 }
@@ -154,12 +169,26 @@ func (r *historyReads) loadReferences() {
 	r.refsErr = nil
 	ctx, cancel := context.WithCancel(r.ctx)
 	r.refsCancel = cancel
-	r.refsRead = runHistoryRead(&r.workers, r.invalidate, func() (history.References, error) {
-		var refs history.References
+	r.refsRead = runHistoryRead(&r.workers, r.invalidate, func() (historyTimelineReferences, error) {
+		var refs historyTimelineReferences
 		err := r.service.WithRead(ctx, func(ctx context.Context) error {
-			var err error
-			refs, err = history.LoadReferences(ctx, r.service)
-			return err
+			references, err := history.LoadReferences(ctx, r.service)
+			if err != nil {
+				return err
+			}
+			refs.References = references
+			// Holding names enrich the timeline. If the optional read fails,
+			// keep the exact quantities and let the normal Reload retry it.
+			holdings, err := history.LoadHoldingReferences(ctx, r.service, references.Accounts)
+			if err == nil {
+				refs.holdingAccounts = make(map[domain.HoldingID]domain.AccountID)
+				for account, rows := range holdings {
+					for _, holding := range rows {
+						refs.holdingAccounts[holding.ID] = account
+					}
+				}
+			}
+			return nil
 		})
 		return refs, err
 	})
@@ -209,8 +238,11 @@ func (r *historyReads) loadDetail() {
 	visit.retire()
 	ctx, cancel := context.WithCancel(r.ctx)
 	visit.cancel, visit.err, visit.dirty = cancel, nil, false
-	id := visit.id
-	visit.pending = runHistoryRead(&r.workers, r.invalidate, func() (history.Detail, error) {
+	visit.pending = r.readDetail(ctx, visit.id)
+}
+
+func (r *historyReads) readDetail(ctx context.Context, id domain.ActivityID) <-chan historyResult[history.Detail] {
+	return runHistoryRead(&r.workers, r.invalidate, func() (history.Detail, error) {
 		var detail history.Detail
 		err := r.service.WithRead(ctx, func(ctx context.Context) error {
 			var err error
@@ -227,10 +259,13 @@ func (r *historyReads) update() {
 		r.retireReferences()
 		r.refsErr = result.err
 		if result.err == nil {
-			r.references = &result.value
+			r.references = &result.value.References
+			r.rowNames = newHistoryRowNames(result.value.References)
+			r.rowNames.holdingAccounts = result.value.holdingAccounts
 		}
 	default:
 	}
+	r.updateRowActions()
 	if visit := r.detail; visit != nil {
 		if visit.dirty {
 			r.loadDetail()
@@ -241,6 +276,7 @@ func (r *historyReads) update() {
 			visit.err = result.err
 			if result.err == nil {
 				visit.record = &result.value
+				r.startRequestedRowAction(visit)
 			}
 		default:
 		}
@@ -248,8 +284,17 @@ func (r *historyReads) update() {
 }
 
 func (p *historyPage) timelineVisit(focus event.Tag) historyTimelineVisit {
-	visit := historyTimelineVisit{model: p.model.Visit(), scroll: p.list.Position, revision: p.revision}
+	visit := historyTimelineVisit{
+		model: p.model.Visit(), scroll: p.list.Position, revision: p.revision,
+		dateAt: p.filter.dates.at, dateMode: p.filter.dates.chosen,
+	}
 	if p.reads != nil {
+		for id, button := range p.reads.actionButtons {
+			if focus == button {
+				visit.focused, visit.focusActions = id, true
+				return visit
+			}
+		}
 		for id, button := range p.reads.buttons {
 			if focus == button {
 				visit.focused = id
@@ -265,7 +310,9 @@ func (p *historyPage) enterTimeline(id uint64, visited bool, visit historyTimeli
 		return
 	}
 	p.bound = id
+	p.filter.dates.at = analysisDateWindow{}
 	if visited {
+		p.filter.dates.at, p.filter.dates.chosen = visit.dateAt, visit.dateMode
 		p.model.Restore(visit.model)
 		p.list.Position = restoredPosition(visit.scroll, len(p.model.Rows()))
 		if visit.revision != p.revision {
@@ -294,24 +341,21 @@ func (p *historyPage) pollPosted() {
 		p.pollAmendment()
 		p.pollRepeat()
 	}
-	if p.cashMovements == nil {
-		return
+	if p.investment != nil {
+		p.investment.poll(p.investmentRuntime())
 	}
-	var focus event.Tag = &p.list
-	if d := p.cashMovements.draft; d != nil {
-		focus = &p.cashMovements.actions[d.movement]
+	if p.cashMovements != nil {
+		if activity := p.cashMovements.update(); activity != nil {
+			p.recordPosted(*activity, i18n.NoMessage, &p.record.trigger)
+		}
 	}
-	activity := p.cashMovements.update()
-	if activity == nil {
-		return
-	}
-	p.showPosted(*activity, i18n.NoMessage, focus)
 }
 
 func (p *historyPage) invalidateLedgerReads() {
 	p.revision++
 	p.model.Refresh()
 	if r := p.reads; r != nil {
+		r.closeRowActions()
 		if r.refsRead != nil || r.references != nil || r.refsErr != nil {
 			r.retireReferences()
 			r.loadReferences()
@@ -346,6 +390,14 @@ func (p *historyPage) detailButton(id domain.ActivityID) *widget.Clickable {
 
 func (p *historyPage) pruneDetailButtons() {
 	rows := p.model.Rows()
+	for id := range p.reads.actionButtons {
+		if !slices.ContainsFunc(rows, func(row history.Row) bool { return row.ID == id }) {
+			delete(p.reads.actionButtons, id)
+		}
+	}
+	if menu := p.reads.rowActions; menu != nil && p.reads.actionButtons[menu.id] == nil {
+		p.reads.closeRowActions()
+	}
 	for id := range p.reads.buttons {
 		if !slices.ContainsFunc(rows, func(row history.Row) bool { return row.ID == id }) {
 			delete(p.reads.buttons, id)

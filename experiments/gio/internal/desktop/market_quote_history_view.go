@@ -74,7 +74,7 @@ func (p *marketDataPage) layoutQuoteHistory(gtx layout.Context, view ui.View, ma
 	if d.err != nil {
 		action = i18n.HistoryRetry
 		if d.sheet.action.Clicked(gtx) {
-			p.readQuoteHistory()
+			p.readQuoteHistory(d)
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
@@ -102,26 +102,18 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 		}
 		return view.Message(l.Text(status), view.Colors.SecondaryInk)
 	}
-	data := d.result
-	observations := data.series.Observations
-	ready := d.request == nil && d.err == nil
+	chart := quoteHistoryChart(view, d)
 	count := 1
-	if ready && len(observations) != 0 {
+	if chart != nil {
 		count = 2
 	}
 	return func(gtx layout.Context) layout.Dimensions {
 		return analysisResultList(gtx, view, &d.sheet.list, l.Text(i18n.QuoteHistoryTitleList), count, func(gtx layout.Context, index int) layout.Dimensions {
 			switch index {
 			case 0:
-				return p.quoteHistoryControls(gtx, view, d, mayOpenHealth)
+				return p.quoteHistoryControls(gtx, view, d, mayOpenHealth, true)
 			case 1:
-				spec := quoteHistoryLine(view, data, d.visit.direction())
-				if len(spec.Series) == 0 {
-					return view.Message(l.Text(i18n.QuoteHistoryOffCurrency), view.Colors.SecondaryInk)(gtx)
-				}
-				return analysisLineCardTable(view, &d.chart, spec, &d.selected, &d.table, len(observations), func(charts.LineSpec) charts.Table {
-					return quoteHistoryTable(view, data, d.visit.direction())
-				})(gtx)
+				return chart(gtx)
 			default:
 				return layout.Dimensions{}
 			}
@@ -129,11 +121,34 @@ func (p *marketDataPage) quoteHistoryContent(view ui.View, d *marketQuoteHistory
 	}
 }
 
-func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, d *marketQuoteHistory, mayOpenHealth bool) layout.Dimensions {
+func quoteHistoryChart(view ui.View, d *marketQuoteHistory) layout.Widget {
+	data := d.result
+	if data == nil || d.request != nil || d.err != nil || len(data.series.Observations) == 0 {
+		return nil
+	}
+	pair := d.visit.direction()
+	return func(gtx layout.Context) layout.Dimensions {
+		if d.request != nil {
+			return layout.Dimensions{}
+		}
+		spec := quoteHistoryLine(view, data, pair)
+		table := func() charts.Table { return quoteHistoryTable(view, data, pair) }
+		if len(spec.Series) == 0 {
+			return overviewBreakdownCard(gtx, view, []ui.ColumnChild{
+				ui.Rigid(d.table.layout(view, len(data.series.Observations), table)),
+			})
+		}
+		return analysisLineCardTable(view, &d.chart, spec, &d.selected, &d.table, len(data.series.Observations), func(charts.LineSpec) charts.Table {
+			return table()
+		})(gtx)
+	}
+}
+
+func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, d *marketQuoteHistory, mayOpenHealth, showCurrent bool) layout.Dimensions {
 	data, l := d.result, view.Language
 	change := func() {
 		d.selected = charts.Selection{}
-		p.readQuoteHistory()
+		p.readQuoteHistory(d)
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	for i := range d.filters {
@@ -149,7 +164,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 		change()
 	}
 	if d.showAll.Clicked(gtx) && data.series.OutsideRange && d.request == nil && d.err == nil {
-		d.visit.window = analysisDateWindow{marketQuoteEarliest, data.latest}
+		d.selectWindow(analysisDateWindow{marketQuoteEarliest, data.latest})
 		change()
 	}
 	message := func(text string) ui.ColumnChild {
@@ -165,7 +180,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return d.dates.layout(gtx, view, d.visit.window, marketQuoteEarliest, data.latest, func(window analysisDateWindow) {
-			d.visit.window = window
+			d.selectWindow(window)
 			change()
 		})
 	}), message(rangeLabel),
@@ -191,14 +206,7 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 			rows = append(rows, message(l.Text(i18n.QuoteHistoryMetalReference)))
 		}
 		if instrument.ProviderKey != nil && *instrument.ProviderKey == application.CoinGeckoProviderKey {
-			if d.attribution.Clicked(gtx) {
-				gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(l.Text(i18n.QuoteHistoryCoinGeckoURL)))})
-				d.attributionCopied = true
-			}
-			rows = append(rows, ui.Rigid(returnMonthButton(view, &d.attribution, i18n.QuoteHistoryCoinGecko, nil, true)))
-			if d.attributionCopied {
-				rows = append(rows, message(l.Text(i18n.QuoteHistoryCoinGeckoCopied)))
-			}
+			rows = append(rows, ui.Rigid(quoteHistoryAttribution(view, &d.attribution, &d.attributionCopied)))
 		}
 	}
 	if pair.first != "" {
@@ -207,14 +215,16 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 			message(fmt.Sprintf(l.Text(i18n.QuoteHistoryDirection), pair.first, pair.second)),
 			ui.Rigid(returnMonthButton(view, &d.swap, i18n.QuoteHistorySwap, nil, true)))
 	}
-	rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.QuoteHistoryCurrent), view.Colors.Ink)))
-	if data.current != nil {
-		rows = append(rows, message(quoteHistoryAmount(view, *data.current, data.storedPair, data.instrument)))
-		for _, line := range quoteHistoryEvidence(view, *data.current) {
-			rows = append(rows, message(line))
+	if showCurrent {
+		rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(i18n.QuoteHistoryCurrent), view.Colors.Ink)))
+		if data.current != nil {
+			rows = append(rows, message(quoteHistoryAmount(view, *data.current, data.storedPair, data.instrument)))
+			for _, line := range quoteHistoryEvidence(view, *data.current) {
+				rows = append(rows, message(line))
+			}
+		} else {
+			rows = append(rows, message(l.Text(i18n.MarketNoQuote)))
 		}
-	} else {
-		rows = append(rows, message(l.Text(i18n.MarketNoQuote)))
 	}
 	var status i18n.MessageID
 	switch {
@@ -243,10 +253,29 @@ func (p *marketDataPage) quoteHistoryControls(gtx layout.Context, view ui.View, 
 	return (ui.Column{Gap: 7}).Layout(gtx, rows...)
 }
 
+func quoteHistoryAttribution(view ui.View, button *widget.Clickable, copied *bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		l := view.Language
+		if button.Clicked(gtx) {
+			gtx.Execute(clipboard.WriteCmd{Type: "application/text", Data: io.NopCloser(strings.NewReader(l.Text(i18n.QuoteHistoryCoinGeckoURL)))})
+			*copied = true
+		}
+		rows := []ui.ColumnChild{ui.Rigid(returnMonthButton(view, button, i18n.QuoteHistoryCoinGecko, nil, true))}
+		if *copied {
+			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.QuoteHistoryCoinGeckoCopied), view.Colors.SecondaryInk)))
+		}
+		return (ui.Column{Gap: 7}).Layout(gtx, rows...)
+	}
+}
+
 // quoteHistoryTable lists every saved observation in the range, as the Wails
 // quote chart's data table does: when it was observed, the exact value and its
 // evidence.
 func quoteHistoryTable(view ui.View, data *marketQuoteHistoryRead, pair marketFXPair) charts.Table {
+	return quoteObservationsTable(view, data.series.Observations, pair, data.instrument)
+}
+
+func quoteObservationsTable(view ui.View, observations []domain.QuoteSeriesPoint, pair marketFXPair, instrument *domain.Instrument) charts.Table {
 	l := view.Language
 	value := i18n.ChartPrice
 	if pair.first != "" {
@@ -254,12 +283,12 @@ func quoteHistoryTable(view ui.View, data *marketQuoteHistoryRead, pair marketFX
 	}
 	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartObservedAt)}, {Title: l.Text(value), Numeric: true},
 		{Title: l.Text(i18n.ChartDetails), Wrap: true}}, Selected: charts.NoRow}
-	for _, point := range data.series.Observations {
+	for _, point := range observations {
 		observed := wealthDay(view, point.EffectiveDate)
 		if point.TimestampBasis != "date_label" && !point.QuotedAt.IsZero() {
 			observed = strings.TrimPrefix(portfolioQuoteStamp(view, "", "", point.QuotedAt), " · ")
 		}
-		table.Rows = append(table.Rows, []string{observed, quoteHistoryAmount(view, point, pair, data.instrument),
+		table.Rows = append(table.Rows, []string{observed, quoteHistoryAmount(view, point, pair, instrument),
 			strings.Join(quoteHistoryEvidence(view, point), " · ")})
 	}
 	return table

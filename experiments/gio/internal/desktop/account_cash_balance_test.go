@@ -61,6 +61,7 @@ func TestAccountCashOpeningBalanceMatchesWails(t *testing.T) {
 	click := func(label string) { h.click(label, false); finish() }
 	label := func(text string) { assertPageLabel(t, &h.router, text) }
 
+	scrollToAccountDetailLabel(h, "Set cash balance")
 	click("Set cash balance")
 	label("Save this currency’s opening balance without creating a ledger activity.")
 	if findPageLabel(&h.router, "Reason (optional)") != nil {
@@ -127,6 +128,7 @@ func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
 		}
 	}
 	assertNetWorth(service, "124.6")
+	scrollToAccountDetailLabel(h, "Set cash balance")
 	click("Set cash balance")
 	d := p.cashBalance.draft
 	setBankField(h, "Target balance · USD", &d.amount, "-1")
@@ -200,6 +202,7 @@ func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
 	}
 	click("Back")
 	advanceCashTargetClock(service, ref, 2*time.Minute)
+	scrollToAccountDetailLabel(h, "Set cash balance")
 	click("Set cash balance")
 	d = p.cashBalance.draft
 	setBankField(h, "Target balance · USD", &d.amount, "80")

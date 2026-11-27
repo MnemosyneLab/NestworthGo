@@ -30,6 +30,7 @@ type productHistory struct {
 	latest   domain.ProductOperationID
 	zone     *time.Location
 	interest domain.ActivityID
+	undo     application.ProductUndoAvailability
 	loaded   bool
 	cursor   string
 	problem  i18n.MessageID
@@ -125,6 +126,7 @@ func (p *productDetailPage) pollProductHistory() {
 			}
 			h.rows = append(h.rows, page.Operations...)
 		}
+		h.undo = page.Undo
 		h.next = page.Next
 		if h.next == nil && h.focus == &h.more {
 			h.focus = &h.refresh
@@ -153,6 +155,11 @@ func (p *productDetailPage) productHistoryRows(view ui.View) []layout.Widget {
 		refresh = i18n.HistoryRetry
 	}
 	fields := []layout.Widget{view.Message(status, color), p.productHistoryButton(view, &h.refresh, refresh, "")}
+	if h.pending == nil && h.problem == i18n.NoMessage && h.undo.Reason != nil {
+		if reason := productUndoReason(*h.undo.Reason); reason != i18n.NoMessage {
+			fields = append(fields, view.Message(l.Text(reason), view.Colors.SecondaryInk))
+		}
+	}
 	if h.next != nil && h.problem != i18n.ProductHistoryChanged {
 		label := i18n.ProductHistoryOlder
 		if h.problem == i18n.ProductHistoryFailed && h.cursor != "" {

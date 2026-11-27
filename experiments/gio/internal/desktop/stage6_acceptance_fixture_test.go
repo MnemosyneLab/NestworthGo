@@ -223,7 +223,8 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 	calendarStart := time.Date(today.Year(), today.Month(), 1, 8, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
 	calendarSeed, _, _ := seedStage6ReturnCalendar(t, calendarStart)
 	contributionSeed, _, _, dividend := seedStage6Contribution(t, calendarStart)
-	marketSeed, _ := seedStage6Market(t, start)
+	marketSeed, _ := seedStage6Market(t, start, true)
+	historyMarketSeed, _ := seedStage6Market(t, start, false)
 	marketPath := writeStage6Fixture(t, filepath.Join(t.TempDir(), "market-readback"), marketSeed)
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	fx := &stage6LatestFXProvider{refreshTestProvider: refreshTestProvider{now: now}}
@@ -239,16 +240,24 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		t.Fatalf("seed market partial readback = %+v: %v", result, err)
 	}
 	marketReadback := stage6SeedBytes(t, db)
+	providerSettings, _ := seedStage6ProviderSettings(t, start)
 	lockedProductSeed := seedStage6LockedSettlement(t)
 	termDepositSeed := seedStage6TermDeposit(t)
 	linkedCashTransferSeed := seedStage6LinkedCashTransfer(t)
+	cardStatementSeed, card := seedStage6CardStatement(t, start)
+	fundsDB, _, fundsService := openStage6Database(t, filepath.Join(t.TempDir(), "funds.db"), func() time.Time { return start })
+	if _, err := seedAvailableFunds(t.Context(), fundsService, start, true); err != nil {
+		t.Fatal(err)
+	}
 	for _, profile := range []struct {
 		name string
 		seed []byte
 	}{
 		{"snapshots", snapshotSeed},
 		{"market", marketSeed},
+		{"market-history", historyMarketSeed},
 		{"market-readback", marketReadback},
+		{"provider-settings", providerSettings},
 		{"return-calendar", calendarSeed},
 		{"contribution", contributionSeed},
 		{"locked-settlement", lockedProductSeed},
@@ -256,6 +265,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"locked-renewal", lockedProductSeed},
 		{"add-product", lockedProductSeed},
 		{"funds-product", lockedProductSeed},
+		{"funds-reservations", stage6SeedBytes(t, fundsDB)},
 		{"account-product", lockedProductSeed},
 		{"standalone-locked-lifecycle", seedStage6StandaloneLockedLifecycle(t, nil)},
 		{"standalone-interest-terms", seedStage6StandaloneLockedLifecycle(t, productOptional("9.8765"))},
@@ -263,6 +273,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 		{"linked-debt-value", seedStage6LinkedDebtValue(t)},
 		{"multi-account-reconciliation", seedStage6ReconciliationSelection(t)},
 		{"check-account", lockedProductSeed},
+		{"card-statement", cardStatementSeed},
 		{"deposit-corrections", termDepositSeed},
 		{"early-deposit-receipt", seedStage6EarlyTermDeposit(t)},
 		{"product-operation-history", seedStage6ProductHistory(t)},
@@ -275,7 +286,7 @@ func TestExportStage6DesktopFixtures(t *testing.T) {
 			writeStage6Fixture(t, filepath.Join(dir, label), profile.seed)
 		}
 	}
-	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s contribution_activity=%s", root,
+	t.Logf("fixtures=%s snapshot_repair_date=%s adjacent_stale_date=%s return_calendar_day=%s contribution_activity=%s card_session=%s card_receipt=%s", root,
 		snapshotStart.AddDate(0, 0, 1).Format(time.DateOnly), snapshotStart.AddDate(0, 0, 2).Format(time.DateOnly),
-		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly), dividend.ID)
+		calendarStart.AddDate(0, 0, 1).Format(time.DateOnly), dividend.ID, card.session, card.receipt)
 }

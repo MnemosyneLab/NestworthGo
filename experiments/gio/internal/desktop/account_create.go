@@ -35,9 +35,11 @@ type accountCreateResult struct {
 }
 
 type balanceAccountReview struct {
-	input  application.AccountInput
-	money  domain.Money
-	shares []domain.OwnershipShare
+	input         application.AccountInput
+	money         domain.Money
+	shares        []domain.OwnershipShare
+	back, confirm widget.Clickable
+	focus         bool
 }
 
 type balanceAccountDraft struct {
@@ -120,12 +122,12 @@ func (d *balanceAccountDraft) selectType(kind domain.AccountType) {
 // Account creation is transient. Navigation retains the scoped browser and
 // created object, never the form or a submit intent.
 type balanceAccountCreation struct {
-	service      accountCreator
-	chooser      *accountTypeChooser
-	draft        *balanceAccountDraft
-	review       *balanceAccountReview
-	submission   <-chan accountCreateResult
-	confirmation *ui.Confirmation
+	service    accountCreator
+	chooser    *accountTypeChooser
+	sheet      *accountCreateSheet
+	draft      *balanceAccountDraft
+	review     *balanceAccountReview
+	submission <-chan accountCreateResult
 }
 
 func (p *accountsPage) canCreateBankAccount() bool {
@@ -157,6 +159,18 @@ func (p *accountsPage) startBalanceAccount(kind domain.AccountType, role domain.
 func (p *accountsPage) startAccount(kind domain.AccountType, role domain.BalanceSheetRole, mode domain.TrackingMode, institution domain.Institution) {
 	if p.creation.draft != nil {
 		return
+	}
+	if p.creation.sheet == nil {
+		source := &p.createAccount
+		if institution.ID != "" {
+			source = &p.createBank
+			if mode != domain.TrackingBalance {
+				source = &p.createShell
+			}
+		}
+		p.creation.sheet = newAccountCreateSheet(accountDetails, source)
+	} else {
+		p.creation.sheet.move(accountDetails)
 	}
 	p.creation.draft = &balanceAccountDraft{
 		kind: kind, role: role, mode: mode, scoped: institution.ID != "", institution: institution,
@@ -250,14 +264,14 @@ func (f *balanceAccountCreation) discard() {
 	if f == nil {
 		return
 	}
-	f.chooser = nil
+	f.chooser, f.sheet = nil, nil
 	if f.draft == nil {
 		return
 	}
 	if f.draft.cancelRefs != nil {
 		f.draft.cancelRefs()
 	}
-	f.draft, f.review, f.confirmation = nil, nil, nil
+	f.draft, f.review = nil, nil
 }
 
 func (p *accountsPage) pollAccountCreation() domain.AccountRecord {
@@ -281,6 +295,12 @@ func (p *accountsPage) pollAccountCreation() domain.AccountRecord {
 			return result.record
 		}
 		d.problem = accountCreationProblem(result.err)
+		f.sheet.resetPosition()
+		if d.scoped && d.problem == i18n.AccountCreateInstitutionUnavailable {
+			// The scoped launcher and the draft read institutions independently.
+			// Refresh the underlying account view after this known stale reference.
+			p.refresh()
+		}
 		if d.shell() && d.problem == i18n.AccountCreateWriteFailed {
 			d.problem = i18n.AccountCreateAssetWriteFailed
 		}
@@ -401,6 +421,7 @@ func (f *balanceAccountCreation) prepareReview() {
 	defaults := domain.SuggestedInclusion(d.kind, d.mode)
 	f.review = &balanceAccountReview{
 		money: money, shares: owners.Shares(),
+		focus: true,
 		input: application.AccountInput{
 			Name: name, AccountType: d.kind.String(), BalanceSheetRole: d.role.String(), TrackingMode: string(d.mode),
 			InstitutionID: d.institution.ID.String(), InstitutionIDSet: d.institution.ID != "",
@@ -413,8 +434,7 @@ func (f *balanceAccountCreation) prepareReview() {
 		},
 	}
 	d.problem = i18n.NoMessage
-	f.confirmation = new(ui.Confirmation)
-	f.confirmation.Open()
+	f.sheet.resetPosition()
 }
 
 func (p *accountsPage) submitNewAccount() {

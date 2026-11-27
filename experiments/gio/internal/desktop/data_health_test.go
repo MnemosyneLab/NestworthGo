@@ -63,10 +63,10 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	h := newShellHarnessWithPages(t, ledgerPages{marketData: market, dataHealth: health})
 	h.shell.prefs.saved.Language = settings.LanguageEnglish
 	h.frame()
-	h.click("Market data", false)
+	h.click("Data maintenance", false)
 	market.workers.Wait()
 	h.frame()
-	h.click("View data health", false)
+	h.click("Issues & repair", false)
 	h.frame()
 	health.workers.Wait()
 	h.frame()
@@ -105,7 +105,7 @@ func TestDataHealthRecheckMatchesWails(t *testing.T) {
 	if h.shell.activeRoute() != marketDataRoute {
 		t.Fatal("Back did not return to Market data")
 	}
-	h.focused(&market.health)
+	h.focused(&h.shell.maintenanceTabs[0])
 	if provider.requests != 0 {
 		t.Fatalf("local checks contacted a provider %d times", provider.requests)
 	}

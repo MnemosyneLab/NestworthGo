@@ -312,12 +312,12 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	other := ids.instruments["QA-FX"]
 	h.frame()
 	click("Investment assets")
-	label("Portfolio value · Known subtotal")
+	label("Current investment value · Known subtotal")
 	visit := h.shell.trail.current().id
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-full")
 	settle()
 	click(full.DisplayLabel())
-	label("Current price · EUR 30.1234 · manual · 2026-11-21 16:00")
+	label("Latest quote · €30.1234 · as of 2026-11-21 16:00 · Source: Manual")
 	label("Market FX · 1 EUR = 1.2 USD · manual · 2026-11-21 16:00")
 	label("Cost basis · €60.36")
 	label("Native market value · €90.37")
@@ -325,19 +325,17 @@ func TestPortfolioShellRoundTripsExactIDsAndReadStates(t *testing.T) {
 	if accounts.target.account != ids.account {
 		t.Fatal("wrong account link destination")
 	}
-	h.size.Y = 1020
-	h.frame()
-	click("Open instrument · " + full.DisplayLabel())
-	if portfolio.id != full.ID {
-		t.Fatal("the account Holding did not open the exact instrument")
+	holdingLink := "Open instrument · " + full.DisplayLabel()
+	scrollToAccountDetailLabel(h, holdingLink)
+	click(holdingLink)
+	if portfolio.id != full.ID || portfolio.accountScope != ids.account {
+		t.Fatal("the account holding did not open the exact instrument and account")
 	}
 	click("Back")
 	h.focused(portfolioButton(accounts.instruments, full.ID))
-	h.size.Y = 820
-	h.frame()
 	click("Back")
 	h.focused(portfolioButton(portfolio.accounts, ids.account))
-	click("View instrument history")
+	click("Related transactions")
 	filters := historyui.Filters{Instrument: full.ID}
 	if !ledger.model.Filters().Equal(filters) || len(ledger.model.Rows()) != 2 {
 		t.Fatalf("History opened the wrong filtered scope: %+v / %d", ledger.model.Filters(), len(ledger.model.Rows()))

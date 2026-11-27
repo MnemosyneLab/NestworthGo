@@ -24,17 +24,11 @@ func returnTrendLine(view ui.View, trend application.ReturnTrendResult, from, to
 	series := charts.LineSeries{ID: charts.ID(trend.Display), Name: l.Text(label), Color: view.Colors.Accent}
 	start, _ := ui.ParseCivilDay(from)
 	end, _ := ui.ParseCivilDay(to)
-	currency := domain.CurrencyCode("")
-	if trend.Amount != nil {
-		currency = trend.Amount.Currency()
-	}
+	currency := returnTrendCurrency(trend)
 	for _, point := range trend.Points {
 		day, valid := ui.ParseCivilDay(point.Date)
 		if !valid {
 			continue
-		}
-		if currency == "" && point.Value != nil {
-			currency = point.Value.Currency()
 		}
 		series.Points = append(series.Points, returnTrendObservation(view, trend.Display, point, day))
 	}
@@ -57,12 +51,34 @@ func returnTrendLine(view ui.View, trend application.ReturnTrendResult, from, to
 		FormatValue: func(tick float64) string {
 			number := decimal.NewFromFloat(tick)
 			if trend.Display == application.ReturnTrendLinkedRate {
-				return returnRate(view, &number)
+				places := int32(2)
+				switch magnitude := number.Abs(); {
+				case magnitude.LessThan(decimal.New(1, -3)):
+					places = 4
+				case magnitude.LessThan(decimal.New(1, -2)):
+					places = 3
+				}
+				return returnRatePlaces(view, &number, places)
 			}
 			return chartAxisNumber(view, tick)
 		},
 		Messages: charts.Messages{Empty: l.Text(i18n.ReturnInsufficient), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}
+}
+
+func returnTrendCurrency(trend application.ReturnTrendResult) domain.CurrencyCode {
+	if trend.Amount != nil {
+		return trend.Amount.Currency()
+	}
+	for _, point := range trend.Points {
+		if point.Value != nil {
+			return point.Value.Currency()
+		}
+		if point.Amount != nil {
+			return point.Amount.Currency()
+		}
+	}
+	return ""
 }
 
 func returnTrendObservation(view ui.View, display application.ReturnTrendDisplay, point application.ReturnTrendPoint, day time.Time) charts.LinePoint {
@@ -80,7 +96,7 @@ func returnTrendObservation(view ui.View, display application.ReturnTrendDisplay
 	case display != application.ReturnTrendLinkedRate && point.Value != nil && point.Amount != nil:
 		// The cumulative service value carries across missing observations. A
 		// missing daily amount still interrupts the plotted line and table.
-		observation.Value, observation.Text = charts.Num(point.Value.Amount().InexactFloat64()), returnMoney(view, point.Value)
+		observation.Value, observation.Text = charts.Num(point.Value.Amount().InexactFloat64()), returnSignedMoney(view, point.Value)
 	default:
 		observation.Detail = append(observation.Detail, l.Text(i18n.ReturnTrendGap))
 	}

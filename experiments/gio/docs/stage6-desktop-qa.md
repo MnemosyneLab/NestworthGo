@@ -1,5 +1,129 @@
 # Stage 6 paired desktop acceptance
 
+## macOS acceptance on November 26, 2026
+
+Stock arm64 macOS Gio and Wails bundles used separate writable copies of each
+synthetic fixture. Snapshot repair ran at `e250e551580409d62c1b4c3aad9fee87b044b10b`.
+The Gio Wealth History and scoped Contribution runs, both portfolio Contribution
+runs, and both provider settings runs used
+`9c80ee9b3d4ee21ff8f2a49ce3cd664a98fded74`. The Wails Wealth History and
+scoped Contribution references used `e250e55`; their application code is
+identical at both revisions.
+
+| Workflow | Packaged macOS result |
+| --- | --- |
+| Wealth History → Ledger | Both apps captured October 31 → November 25 and October 1 → captured current. The October 31 and November 25 Harbor Brokerage detail showed USD 225.43 at each endpoint. Ledger opened for Harbor Brokerage and those dates. Back restored the account evidence in both apps and focused the Ledger action in Gio. |
+| Scoped Contribution → Ledger | October Dividend and interest for EURO, Harbor Brokerage, native EUR and excluded cash showed EUR 12.35. The detail omitted rate fields. Ledger showed the exact EUR 12.3456 receipt on October 2. Back retained the filters in both apps and focused the EURO row in Gio. |
+| Currency Contribution → Ledger | October Total return grouped by currency showed EUR 94.47 and +27.76% for EUR. Both details disclosed that Ledger opens for the whole selected period. Ledger showed both brokerages' dividend records. Back restored the breakdown in both apps and focused the EUR row in Gio. |
+| Dated snapshot repair | Escape left the snapshot, component, history state and financial revision readbacks byte-for-byte identical to the pre-preview readback. Confirmation appended only October 13 revision 2, complete at USD 125.25. All 45 prior revisions remained identical. Both apps reopened with only the adjacent October 14 finding. |
+| Provider prerequisite | Both apps opened Settings → Market data from the CoinGecko finding. Gio focused the API key field, restored focus to Open provider settings when returning, and reopened the field with Return. The key stayed unset in both settings files. |
+
+All three fixture pairs matched their source across 23 authoritative ledger,
+quote and history-origin tables after the run. Automated independent-copy
+tests exercise CoinGecko key save and removal with a synthetic token and zero
+provider HTTP requests. Integrated provider authentication, VoiceOver, IME
+and Wayland remain open.
+
+## macOS card statements, market performance and refresh
+
+The second arm64 macOS run used independent copies of four synthetic ledgers.
+The stock Gio card build was `4b314536b6f8fc9e75a92a7f731b0a700210983c`.
+The stock Gio instrument performance build was
+`22ac62fa5deb3eed04c41058de67b32224e98ad8`. The stock Wails reference and both
+Asset Changes bundles were built at `9c80ee9b3d4ee21ff8f2a49ce3cd664a98fded74`.
+Both mixed-refresh bundles used `d8cad269f28f62160b6ab2df357b7ee349514531`
+with in-process provider substitutes. The Wails application and shared quote
+and analysis services were unchanged between these revisions.
+
+| Workflow | Packaged macOS result |
+| --- | --- |
+| Credit-card statement → journal | Both account entries opened the same one-card session. Cancelling the draft or preview preserved the balance, activity, linked evidence and receipts. A USD 2.3456 synthetic purchase moved the signed balance from −USD 42.3456 to −USD 44.6912 with one additional linked activity. The other account stayed at USD 100. Reopen recovered both journal entries. Gio opened the exact new receipt, then Back restored the receipt row and the original card statement action. |
+| Instrument market performance | Both stock apps showed PERF up 20.00% over October 26–November 25 and up 50.00% over all saved history. The EUR close table retained the exact 80 and 120 endpoints. The EUR 999 intraday observation stayed outside the performance series. Both showed unavailable 30-day performance for SPARSE alongside its saved observations. Gio Forward restored the selected All range and open table. From the Performance Brokerage holding, Back restored the initiating link and Forward reopened that scoped instrument. Performance and Asset Changes preserved the checked authoritative ledger and quote tables. |
+| Current instrument and FX refresh | Cancel stored zero quotes. The next attempt saved USD 17.12345678 from Yahoo Finance and JPY/USD 140.4321 from Frankfurter, and reported SGD/USD failed. Retry added only SGD/USD 1.3456. The two earlier observations kept their original timestamps. Both apps showed the exact price and provider in Quote history and displayed both FX values after reopen. Each local substitute used its app's clock for the quote timestamp. |
+| Return Calendar → Asset Changes → Contribution | Both returned the same October 2 portfolio price change and contribution of USD 93.75. The selected day survived both handoffs. Back restored the original October calendar and Gio restored focus to the price driver and the day button. |
+
+A separate Gio regression fixes the clock at December 1, 2026 16:30 UTC
+(December 2 in Singapore). With a November 20 History Origin, the shortcuts
+select November 30, December 1 and November 20. A December 1 Origin clamps
+the initial capture to December 1 and disables the month-end shortcut.
+
+## macOS account-filtered Return and Ledger chain
+
+Both stock arm64 macOS windows were built at
+`8d9884410caab2b95928afe9cb66e200e6d38f3a`. Independent copies of the
+`contribution` seed used Instrument scope, EURO, Harbor Brokerage, EUR,
+native valuation and excluded cash. On October 2, the Return Calendar
+showed EUR 37.35 with EUR 25.00 of price change and EUR 12.35 of dividends.
+Asset Changes retained the day and all filters, and showed EUR 100.00 →
+EUR 125.00. The price driver opened one-day Total return Contribution,
+which retained the EUR 37.3456 exact shared result.
+
+Both Ledger timelines retained October 2, Harbor and EURO, and displayed
+only the EUR 12.3456 dividend. The receipt showed 21:00 Asia/Singapore and
+the same note. Fourteen checked authoritative SQLite tables matched the
+source. Back preserved each page and its scope in both apps. Gio restored
+focus in turn to the receipt row, EURO contribution row, Price change driver,
+and Calendar day. Wails restored the main content container on leaving a
+closed analysis sheet.
+
+The separate 665 × 480 Gio frame regression deliberately delays the Asset
+Changes reload. The base lost its saved 647 px scroll position while loading.
+At `7ee8f37` the viewport and visible driver focus recover when the data
+arrives, and Return reopens the same driver. This timing regression uses
+the paired shared Go results. Its artificial delay runs only in the frame
+test.
+
+## macOS standalone bank expense amendments
+
+The stock Gio bundle at `dfadb661648e31305123b2265105f769f1d6d670` and
+the Wails reference at `8d98844` used byte-identical copies of one
+synthetic bank ledger. Wails opened Fix and Undo from the activity menu.
+Gio opened Correct amount and Reverse activity from the exact receipt.
+Cancelling a reviewed correction preserved the activity, effects,
+correction groups, bank values and reconciliation links.
+
+Replacing USD 12.3456 with USD 10.2345 retained the expense reason, note and
+original effective instant. Reversing a separate USD 4.5678 expense appended
+its exact inverse. SQLite readback after normal quit found three additional
+activities, retained both original records and the unrelated linked
+expense, and agreed on a final bank balance of USD 88.531. The independent
+Go regression also verifies the intermediate USD 83.9632 balance.
+
+## macOS published Investment Review acknowledgement
+
+Both windows opened the same published **Review Stock** episode at revision
+1 with one pending alert. In Gio `885c0ef26aaf8c599118d86422e25f0b4ebb7169`,
+**Acknowledge** refreshed the pending list and returned to the Overview
+button with a zero count. Wails `8d98844` **Got it** showed the updated
+handling state and a zero pending count. The two SQLite copies stored one
+acknowledgement event each on the same episode at revision 2. The checked
+ledger and quote facts matched the source. The paired Go test also covers
+a stale episode revision and a lost response followed by a same-token retry.
+
+## macOS historical repair expiry and retry
+
+Gio and Wails at `583d2e992cb66ee629a21b4f5e0f82c098185dc5` ran
+on independent `market-history` copies. A development-only overlay
+installed an in-process Frankfurter substitute and advanced the shared
+service clock 16 minutes through `Service.SetClock`. Both windows refused the expired approval with
+zero provider calls and identical FX and coverage readbacks. Gio offered
+Retry sync and Wails refreshed the open preview. The fresh previews kept
+both original pairs and the November 15–25 range, and required confirmation.
+
+The first approved run stored JPY/USD and surfaced the SGD/USD failure.
+The next preview retained that same historical range for SGD/USD. Retry
+made no additional JPY requests and retained its exact rows and timestamps.
+Both bundles reopened with JPY/USD 139.123456 and SGD/USD 1.3456. SQLite
+agreed on 22 daily FX coverage observations and two latest FX quotes.
+
+The paired regression also covers rejection after a changed ledger input,
+scoped activation, cancellation, and partial-result persistence. Application
+regressions cover simultaneous confirmation, a same-scope legacy job,
+background planner drift, and blocking an old-symbol quote after the
+instrument is rebound during a request. Native verification used standard
+FX targets and deterministic substitutes. Expanded non-USD metal dependency
+estimates and live provider behavior remain separate follow-up cases.
+
 ## Reproduce the automated pair
 
 From the repository root, run:
@@ -7,6 +131,17 @@ From the repository root, run:
 ```sh
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run 'Test(Stage6PairedMixedLatestRefresh|Stage6PairedReturnCalendarFilteredKeyboardHandoff|Stage6PairedContributionFindsExactLedgerRecord|DataHealthSnapshotRebuildRequiresConfirmationAndAppendsOnlySelectedRevision|DataHealthSnapshotStopAndRetryKeepCompletedBatches)$')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(WealthCapture|Stage6PairedContributionShowsFullLedgerScope|DataHealthCredentialHandoffRechecksSameProviderOnBothDesktops)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(CreditCardStatementHandoffReusesLedgerAndJournal|PortfolioInstrumentPerformanceMatchesWails|InstrumentPerformanceChartRespectsPriceBasisAndDenomination)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run '^TestStage6PairedAccountFilteredAnalysisRoundTrip$')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run 'Test(HistoryStandaloneBankExpenseCorrectionAndUndoMatchWails|TaskReviewAcknowledgement)')
+(cd experiments/gio && go test ./internal/desktop -count=1 -v \
+  -run '^TestStage6PairedHistoricalRepairStaleAndRetry$')
+go test ./internal/application -count=1 -run '^TestReviewedMarketDataSync'
 (cd experiments/gio && go test ./internal/desktop -count=1 -v \
   -run '^TestLinkedLockedProduct(Settlement|Terms|Renewal)MatchesWails$')
 go test ./internal/wailsapi/marketdata ./internal/wailsapi/history ./internal/wailsapi/quote -count=1
@@ -71,9 +206,8 @@ sh experiments/gio/preview-macos.sh --build-only
 
 The exporter prints the selected and adjacent dates. It puts the selected
 dirty date outside Overview's startup trend, which can materialize recent
-derived snapshots. The expected households are `Synthetic Stage 6 snapshots`,
-`Synthetic Stage 6 market`, `Synthetic Stage 6 return calendar` and
-`Synthetic first buy`.
+derived snapshots. The named profiles below specify the expected synthetic
+household.
 Each scenario has a `source`
 directory and separate writable `gio` and `wails` directories. Keep the
 source closed in the apps so it remains a baseline.
@@ -102,9 +236,12 @@ run_copy() (
   scenario=$1 app=$2
   case "$scenario" in
     snapshots) household='Synthetic Stage 6 snapshots' ;;
-    market-readback) household='Synthetic Stage 6 market' ;;
+    market-readback|market-history) household='Synthetic Stage 6 market' ;;
+    provider-settings) household='Synthetic provider readiness' ;;
     return-calendar|contribution) household='Synthetic Stage 6 return calendar' ;;
     early-deposit-receipt) household='Synthetic term deposits' ;;
+    funds-reservations) household='Synthetic funds' ;;
+    card-statement) household='Synthetic Stage 6 card statement' ;;
     locked-settlement|locked-terms|locked-renewal|add-product|funds-product|account-product|standalone-locked-lifecycle|standalone-interest-terms|linked-cash-transfer|linked-debt-value|multi-account-reconciliation|check-account|deposit-corrections|product-operation-history) household='Synthetic first buy' ;;
     *) exit 1 ;;
   esac
@@ -117,11 +254,33 @@ run_copy() (
   export NESTWORTH_DATABASE_PATH="$copy/nestworth.db"
   export NESTWORTH_SETTINGS_PATH="$copy/settings.json"
   test -f "$NESTWORTH_SETTINGS_PATH"
-  test "$(/usr/bin/sqlite3 -readonly "$NESTWORTH_DATABASE_PATH" 'select name from households')" = "$household"
+  # The exporter checkpoints and closes the fixture. A first launch may
+  # have a WAL-mode header before SQLite has created either sidecar.
+  marker_db=$NESTWORTH_DATABASE_PATH
+  if test ! -e "$NESTWORTH_DATABASE_PATH-wal"; then
+    marker_db="file:$NESTWORTH_DATABASE_PATH?immutable=1"
+  fi
+  test "$(/usr/bin/sqlite3 -readonly "$marker_db" 'select name from households')" = "$household"
   exec "$executable"
 )
 ```
 
+- Run `run_copy funds-reservations gio` and `run_copy funds-reservations wails`.
+  Open Available Funds, select a custom future date, and open Manage
+  reservations from the asset list. Cancel an edit to Rent, then reopen it
+  and save 50.1234 USD. Confirm Harbor Savings shows 75.3087 USD available
+  after reservations on the same selected date. Add a 4.9234 EUR reservation
+  on Travel Wallet cash and confirm 20.3266 EUR remains. Release Old reserve
+  from the global manager and check that the unresolved item disappears.
+  Compare the values after quitting and reopening each app. Keep the original
+  screenshots of the manager, edit form, and source balances for each app.
+- Run `run_copy funds-product gio` and `run_copy funds-product wails`.
+  Open Synthetic locked product from Available Funds. Record a receipt of
+  132.1234 USD with a fee of 1.2222 USD and keep the product detail open.
+  Open Grouped undo, compare the cash preview, cancel and verify the receipt
+  is still listed. Reopen and confirm the undo. The original operation is
+  marked reversed, the contract reopens and the USD cash balance returns to
+  156. Check these values after reopening each ledger and keep the screenshots.
 - Run `run_copy snapshots gio` and `run_copy snapshots wails` one at a time.
   Open Data Health from Overview. Inspect the outdated snapshot and open
   the one-day rebuild sheet. Check its date against the exporter output.
@@ -316,6 +475,17 @@ diff -u "$qa/snapshots-source.tsv" "$qa/snapshots-wails.tsv"
   first 25 rows and verify all 29 rows, including the original recorded
   product. Refresh returns to the first page. No ledger write is needed.
 
+- Run `run_copy card-statement gio` and `run_copy card-statement wails`.
+  Open Synthetic Statement Card from Accounts. In Gio, open Statement
+  reconciliation, select the in-progress record and choose Review checkpoints
+  and journal. In Wails, choose Open account reconciliation and Continue
+  session. Inspect the balance checkpoint and the linked journal. The existing
+  receipt has note Synthetic statement purchase and owes USD 42.3456 after
+  posting. Preview a USD 2.3456 card purchase on the balance checkpoint, cancel,
+  and verify the previous balance and receipt remain. Reopen and confirm that
+  purchase with a distinct note. Both copies should owe USD 44.6912. The
+  journal should open the new exact receipt. Verify Back restores the
+  initiating record and focus in Gio.
 - Run `run_copy linked-debt-value gio` and
   `run_copy linked-debt-value wails`. In Tasks, Reconciliation, open the
   existing session for Harbor Brokerage, Synthetic Fixed Loan and Synthetic

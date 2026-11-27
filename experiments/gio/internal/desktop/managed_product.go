@@ -136,6 +136,7 @@ type productDetailPage struct {
 	receiptChanged       bool
 	startConfirmation    widget.Clickable
 	startInterestReceipt widget.Clickable
+	startGroupedUndo     widget.Clickable
 	startTermsEdit       widget.Clickable
 	startValuation       widget.Clickable
 	clock                func() time.Time
@@ -225,9 +226,6 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	}
 	if p.valuation != nil {
 		return p.layoutValuation(gtx, view)
-	}
-	if p.terms != nil {
-		return p.layoutTerms(gtx, view)
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
@@ -389,6 +387,9 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 	if p.termsLedger != nil {
 		actions = append([]layout.Widget{p.lifecycleAction(view, &p.startTermsEdit, i18n.ProductEditTerms, false, p.startTerms)}, actions...)
 	}
+	if p.canStartGroupedUndo() {
+		actions = append(actions, p.lifecycleAction(view, &p.startGroupedUndo, i18n.ProductGroupedUndo, false, p.startUndo))
+	}
 	rows = append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
 	return append(rows, p.productHistoryRows(view)...)
 }
@@ -399,6 +400,8 @@ func (p *productDetailPage) actionAvailable(button *widget.Clickable) bool {
 		return p.current.canRecordReceipt()
 	case &p.startInterestReceipt:
 		return p.current.canRecordInterest()
+	case &p.startGroupedUndo:
+		return p.canStartGroupedUndo()
 	case &p.startValuation:
 		return canUpdateProductValuation(*p.current.detail)
 	default:

@@ -44,9 +44,14 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 		return p.layoutInlineInstitution(gtx, view)
 	}
 	if d.cancel.Clicked(gtx) {
-		f.discard()
-		p.focusCreate = !d.scoped
-		p.read()
+		p.cancelAccountCreate(gtx)
+		return layout.Dimensions{}
+	}
+	if c := f.chooser; c != nil && c.back.Clicked(gtx) {
+		f.advanceFromInstitution()
+		if len(c.modes) == 1 {
+			f.sheet.move(accountInstitution)
+		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
@@ -64,20 +69,33 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 	} else if !d.scoped {
 		title, contextLabel = i18n.AccountCreateAssetTitle, l.Text(i18n.AccountCreateAssetHelp)
 	}
+	kindLabel := ""
+	if f.chooser != nil {
+		institution := l.Text(i18n.AccountNoInstitution)
+		if d.institution.ID != "" {
+			institution = d.institution.Name
+		}
+		kindLabel = institution + " · " + l.Text(accountTypes[d.kind]) + " · " + l.Text(accountTrackingLabel(d.mode, d.kind))
+		if !d.liability() {
+			contextLabel = ""
+		}
+	}
 	review := false
 	gtx, view = view.Measure(gtx, 720)
 	origin := view.Origin
 	dims := ui.Column{Gap: ui.Space16}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			dims := layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return accountStepper(gtx, view, 1) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions { return accountStepper(gtx, view, 2) }),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-							return view.Line(gtx, ui.TextHeading, l.Text(title), view.Colors.Ink)
-						}),
-						layout.Rigid(view.Body(ui.TextCaption, contextLabel, view.Colors.SecondaryInk)),
-					)
+					rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(title), view.Colors.Ink))}
+					if kindLabel != "" {
+						rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, kindLabel, view.Colors.SecondaryInk)))
+					}
+					if contextLabel != "" {
+						rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, contextLabel, view.Colors.SecondaryInk)))
+					}
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
 				}),
 			)
 			origin.Y += dims.Size.Y + gap
@@ -111,6 +129,9 @@ func (p *accountsPage) layoutAccountCreation(gtx layout.Context, view ui.View) l
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			leading := []layout.FlexChild{layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel)))}
+			if f.chooser != nil {
+				leading = append(leading, layout.Rigid(view.Button(&f.chooser.back, l.Text(i18n.AccountCreateBack))))
+			}
 			var trailing []layout.FlexChild
 			if d.loadFailed {
 				if d.retry.Clicked(gtx) {

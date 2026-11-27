@@ -18,6 +18,12 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 )
 
+// Review identity is one-use interaction state, separate from plan evidence.
+func marketSyncEvidence(plan application.SyncPlanPreview) marketdata.SyncPlanPreviewDTO {
+	plan.ReviewID = ""
+	return marketdata.SyncPreviewDTO(plan)
+}
+
 type refreshTestProvider struct {
 	unavailableOverviewProvider
 	latestCalls, historyCalls atomic.Int32
@@ -164,7 +170,7 @@ func TestMarketDataLatestCancelRetryAndPartialReadback(t *testing.T) {
 	provider := &refreshTestProvider{cancelFirstLatest: true}
 	h, p, service, _ := newMarketOperationsHarness(t, provider, false)
 	ctx := t.Context()
-	h.click("Update latest data", false)
+	h.click("Update latest prices", false)
 	waitMarketOperations(t, h, func() bool { return provider.latestCalls.Load() == 1 })
 	h.click("Latest refresh details", false)
 	h.frame()
@@ -245,7 +251,7 @@ func TestMarketDataFocusedSyncPreviewCancelAndVerifiedRetry(t *testing.T) {
 	request := p.operation.request
 	want, err := wails.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: string(application.SyncScopeFX), CurrencyA: "JPY", CurrencyB: "USD"})
 	if err != nil || want.FetchRanges == 0 || request.Scope != application.SyncScopeFX ||
-		!reflect.DeepEqual(marketdata.SyncPreviewDTO(*p.sync.plan), want) {
+		!reflect.DeepEqual(marketSyncEvidence(*p.sync.plan), want) {
 		t.Fatalf("scoped request = %+v, Gio plan = %+v, Wails = %+v, %v", request, p.sync.plan, want, err)
 	}
 	h.press(key.NameEscape)
@@ -323,7 +329,7 @@ func TestMarketDataInstrumentRefreshAndForcedPlan(t *testing.T) {
 	h.click("Preview historical repair", false)
 	waitMarketOperations(t, h, func() bool { return p.sync.plan != nil })
 	want, err := wails.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: string(application.SyncScopeInstrument), InstrumentID: instrument.ID.String()})
-	if err != nil || !reflect.DeepEqual(marketdata.SyncPreviewDTO(*p.sync.plan), want) {
+	if err != nil || !reflect.DeepEqual(marketSyncEvidence(*p.sync.plan), want) {
 		t.Fatalf("Gio plan = %+v, Wails = %+v, %v", p.sync.plan, want, err)
 	}
 	if p.operation.request.InstrumentID != instrument.ID.String() {

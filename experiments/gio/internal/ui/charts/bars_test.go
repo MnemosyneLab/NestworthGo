@@ -65,6 +65,22 @@ func TestBarPlanSymmetricCentersZero(t *testing.T) {
 	}
 }
 
+func TestBarPlanKeepsSubpixelBarsOnTheirSignedSide(t *testing.T) {
+	spec := BarSpec{Symmetric: true, Bars: []Bar{
+		{ID: "price", Value: Num(177.25)},
+		{ID: "interest", Value: Num(0.01)},
+		{ID: "fee", Value: Num(-0.25)},
+	}}
+	p := spec.plan(barGeometryFor(600, len(spec.Bars), true))
+	interest, fee := p.rows[1].bar, p.rows[2].bar
+	if interest.Min.X != p.zeroX || interest.Dx() != minBarTickPx {
+		t.Fatalf("small positive bar %v should remain visible to the right of zero %d", interest, p.zeroX)
+	}
+	if fee.Max.X != p.zeroX || fee.Dx() != minBarTickPx {
+		t.Fatalf("small negative bar %v should remain visible to the left of zero %d", fee, p.zeroX)
+	}
+}
+
 func TestBarPlanNarrowRowsStackLabelAndBar(t *testing.T) {
 	spec := BarSpec{Bars: []Bar{{ID: "a", Value: Num(5)}, {ID: "b", Value: Num(-5)}}}
 	g := barGeometryFor(320, 2, false)

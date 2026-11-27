@@ -168,7 +168,7 @@ func (s *shell) quickLanguage(gtx layout.Context, view ui.View, bounds image.Rec
 	value := string(l)
 	picker := &s.languagePicker
 	last := s.groups[len(s.groups)-1].items
-	picker.Menu(gtx, view, bounds, choices, value, &last[len(last)-1].button, &s.themeButton, 0, func(id string) {
+	picker.Menu(gtx, view, bounds, choices, l.Text(i18n.SettingsLanguage), value, &last[len(last)-1].button, &s.themeButton, 0, func(id string) {
 		if id == value {
 			return
 		}

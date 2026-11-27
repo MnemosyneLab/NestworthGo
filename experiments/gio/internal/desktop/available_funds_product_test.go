@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -115,8 +116,10 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				click("Available funds")
 			}
 			entryButton := &funds.addProduct
+			reviewLabel := "Preview"
 			if entry.account {
 				entryButton = &accounts.addProduct
+				reviewLabel = "Review"
 			}
 			seekAddProduct := func() {
 				t.Helper()
@@ -129,13 +132,25 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			}
 			const principal, start, maturity, fee = "50.1234", "2026-11-23", "2026-12-23", "0.0123"
 			const title = "Synthetic available funds product"
+			var maturityOn *string
+			if !existing || entry.account {
+				maturityOn = productOptional(maturity)
+			}
+			noWrite := func() {
+				t.Helper()
+				products, err := app.ListProducts(ctx, nil, true)
+				activities, activitiesErr := app.ListActivities(ctx, 100)
+				if err != nil || activitiesErr != nil || len(products) != 0 || !reflect.DeepEqual(activities, before) {
+					t.Fatalf("unconfirmed setup changed the ledger: %v, %v", err, activitiesErr)
+				}
+			}
 			fill := func() *fundsProductSetup {
 				t.Helper()
 				seekAddProduct()
 				click("Add product")
 				d := setup()
 				if existing && !entry.account {
-					label("Choose account")
+					label("Choose an account")
 					if len(d.choices) != 2 || findPageLabel(&h.router, "Physical wallet") != nil || findPageLabel(&h.router, "Archived Brokerage") != nil {
 						t.Fatalf("incorrect account choices: %+v", d.choices)
 					}
@@ -145,8 +160,32 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				if d.account.ID != ids.account || d.currency != "USD" || d.form == nil {
 					t.Fatal("wrong setup account or currency")
 				}
-				h.focused(&d.form.principal.Editor)
-				label("Account cash available · 156 USD")
+				if entry.account {
+					h.focused(&d.form.principal.Editor)
+					label("Account cash available · 156 USD")
+				} else {
+					h.focused(&d.form.currency.Trigger)
+					label("Available cash in USD: US$156.00")
+					expectRequired := func(message string, field event.Tag) {
+						t.Helper()
+						click(reviewLabel)
+						h.focused(field)
+						label(message)
+						if d.preview != nil || d.plan != nil {
+							t.Fatalf("incomplete form reached product preview: %s", message)
+						}
+						noWrite()
+					}
+					d.form.terms.terms.StartOn = ""
+					d.form.terms.terms.MaturityOn = nil
+					expectRequired("Principal: complete this field.", &d.form.principal.Editor)
+					d.form.principal.Editor.SetText(principal)
+					if !existing {
+						expectRequired("Start date: complete this field.", &d.form.terms.start.Trigger)
+						d.form.terms.terms.StartOn = start
+						expectRequired("Maturity date: complete this field.", &d.form.terms.maturity.Trigger)
+					}
+				}
 				d.form.principal.Editor.SetText(principal)
 				if existing {
 					d.currency, d.form.mode = "EUR", domain.ProductOpRecordExisting
@@ -161,27 +200,19 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				}
 				d.form.terms.name.Editor.SetText(title)
 				d.form.terms.terms.StartOn = start
-				d.form.terms.terms.MaturityOn = productOptional(maturity)
+				d.form.terms.terms.MaturityOn = maturityOn
 				d.form.terms.fee.Editor.SetText("0.0021")
 				settle()
 				if existing {
-					click("Review")
+					click(reviewLabel)
 					label("Confirm that account cash excludes this product before recording it.")
 					d.form.excludesCash.Value = true
 					settle()
 				}
 				return d
 			}
-			noWrite := func() {
-				t.Helper()
-				products, err := app.ListProducts(ctx, nil, true)
-				activities, activitiesErr := app.ListActivities(ctx, 100)
-				if err != nil || activitiesErr != nil || len(products) != 0 || !reflect.DeepEqual(activities, before) {
-					t.Fatalf("unconfirmed setup changed the ledger: %v, %v", err, activitiesErr)
-				}
-			}
 			d := fill()
-			click("Review")
+			click(reviewLabel)
 			if entry.account {
 				click("Back to Accounts")
 				if accounts.target.account != ids.account || setup() != d {
@@ -194,13 +225,13 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			if d.form.principal.Text() != principal {
 				t.Fatal("back discarded product input")
 			}
-			click("Review")
+			click(reviewLabel)
 			click("Cancel")
 			h.focused(entryButton)
 			noWrite()
 
 			d = fill()
-			click("Review")
+			click(reviewLabel)
 			stale := d.plan.mutation.String()
 			now = now.Add(24 * time.Hour)
 			h.press(key.NameReturn)
@@ -210,10 +241,10 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				t.Fatal("stale product review lost the draft")
 			}
 			h.focused(&d.form.principal.Editor)
-			click("Review")
+			click(reviewLabel)
 			plan := d.plan.mutation.String()
 			wantCash, wantValue := "105.8643", principal
-			terms := application.ProductTermsInput{Kind: "term_deposit", Name: title, StartOn: start, MaturityOn: productOptional(maturity),
+			terms := application.ProductTermsInput{Kind: "term_deposit", Name: title, StartOn: start, MaturityOn: maturityOn,
 				InterestMode: "simple_act_360", AnnualRatePercent: productOptional("3.1259")}
 			zero := 0
 			policy := application.ProductPolicyInput{AccessKind: "on_date", UnlockOn: terms.MaturityOn, SettlementDays: &zero, DayBasis: productOptional("calendar"),
@@ -273,7 +304,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				}
 				p := products[0]
 				if p.Contract.Name != title || p.Contract.AccountID != copy.account || p.Contract.OpenedOperationID.String() != copy.plan ||
-					p.Contract.Principal.CanonicalAmount() != principal || p.Contract.MaturityOn == nil || *p.Contract.MaturityOn != maturity ||
+					p.Contract.Principal.CanonicalAmount() != principal || !reflect.DeepEqual(p.Contract.MaturityOn, maturityOn) ||
 					p.CurrentValue == nil || p.CurrentValue.CanonicalAmount() != wantValue || p.Policy.NormalExitFee == nil || p.Policy.NormalExitFee.CanonicalAmount() != "0.0021" {
 					t.Fatalf("unexpected reopened product terms: %+v", p)
 				}

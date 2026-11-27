@@ -58,6 +58,7 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	finish()
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Adjust position")
 	click("Adjust position")
 	d := f.draft
 	h.focused(&d.adjustment.holdingPick.Trigger)
@@ -76,6 +77,7 @@ func TestAccountAndHoldingAdjustmentPreserveScopeAndFocus(t *testing.T) {
 	}
 
 	rowLabel := "Adjust · " + item.Instrument.DisplayLabel()
+	scrollToAccountDetailLabel(h, rowLabel)
 	click(rowLabel)
 	d = f.draft
 	h.focused(&d.quantity.Editor)

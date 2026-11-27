@@ -26,7 +26,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
   Service: {
     ScanMarketDataHealth: () => scanHealth(),
     GetCurrentSyncJob: () => getCurrentSyncJob(),
-    PreviewMarketDataSync: (request: unknown) => previewSync(request),
+    ReviewMarketDataSync: (request: unknown) => previewSync(request),
+    ConfirmMarketDataSync: (request: unknown, reviewId: string) => startSync(request, reviewId),
     StartMarketDataSync: (request: unknown) => startSync(request),
     CancelSyncJob: vi.fn(),
     StartRefreshAll: (...args: unknown[]) => refreshAll(...args),
@@ -62,6 +63,7 @@ describe("DataHealthPage", () => {
     listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Family brokerage" } }, { account: { id: "archived", name: "Previous bank", archivedAt: "2026-09-21T00:00:00Z" } }]);
     getCurrentSyncJob.mockResolvedValue({ jobId: "" });
     previewSync.mockResolvedValue({
+      reviewId: "review-1",
       estimatedRequestCount: 4,
       instrumentTargets: 1,
       fxTargets: 1,
@@ -280,7 +282,7 @@ describe("DataHealthPage", () => {
     expect(await screen.findByTestId("repair-preview")).toBeInTheDocument();
     expect(startSync).not.toHaveBeenCalled();
     await userEvent.click(screen.getByTestId("confirm-repair"));
-    await waitFor(() => expect(startSync).toHaveBeenCalledWith({ scope: "repair_all" }));
+    await waitFor(() => expect(startSync).toHaveBeenCalledWith({ scope: "repair_all" }, "review-1"));
   });
 
   it("renders repairable Yahoo gaps without Cannot automatically repair", async () => {

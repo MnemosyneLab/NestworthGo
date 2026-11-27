@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"gioui.org/io/event"
 	"gioui.org/layout"
 	"gioui.org/widget"
 
@@ -59,13 +60,21 @@ type statementScreen struct {
 	list                                                                       widget.List
 }
 
+type statementVisit struct {
+	open     bool
+	selected string
+	position layout.Position
+}
+
 type accountStatement struct {
 	service statementSessions
 	origin  interface {
 		HistoryOrigin(context.Context) (*domain.HistoryOrigin, error)
 	}
-	open   widget.Clickable
-	screen *statementScreen
+	open, reconciliation widget.Clickable
+	screen               *statementScreen
+	restore              statementVisit
+	openReconciliation   func(session, name string, focus event.Tag)
 }
 
 func statementCard(a domain.Account) bool {
@@ -84,9 +93,13 @@ func statementAccount(session domain.ReconciliationSession, id string) *domain.R
 func (p *accountsPage) startStatements(account domain.Account, session string) {
 	p.statement.screen = &statementScreen{account: account, list: widget.List{List: layout.List{Axis: layout.Vertical}}}
 	p.selectStatement(session)
-	if session != "" {
-		p.statement.screen.list.Position = p.position
+}
+
+func (f *accountStatement) visit() statementVisit {
+	if f.screen == nil {
+		return statementVisit{}
 	}
+	return statementVisit{open: true, selected: f.screen.selected, position: f.screen.list.Position}
 }
 
 func (p *accountsPage) selectStatement(id string) {

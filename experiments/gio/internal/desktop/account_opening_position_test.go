@@ -155,6 +155,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	label("US$200.00")
 	click("Accounts")
 	click("Harbor Brokerage")
+	scrollToAccountDetailLabel(h, "Record existing position")
 	click("Record existing position")
 	d := accounts.opening.draft
 	if len(d.sources) != 2 || d.instrument != "" {
@@ -290,7 +291,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 	click("Confirm Starting Point")
 	label("Could not verify the Starting Point. Retry checks the saved state.")
 	click("Retry")
-	label("No changes have been recorded yet.")
+	label("No activity yet")
 	if start.writes.Load() != 2 {
 		t.Fatal("Starting Point verification issued another write")
 	}
@@ -314,6 +315,7 @@ func testOpeningPositionAndCostMatchWails(t *testing.T, quoted bool) {
 		t.Fatal("the opening observation remained available after History started")
 	}
 	writes := opening.writes.Load()
+	scrollToAccountDetailLabel(h, "Record existing position")
 	click("Record existing position")
 	if accounts.opening.draft != nil || accounts.investment.draft == nil || accounts.investment.draft.kind != domain.ActivityPositionTransfer {
 		t.Fatal("the action did not switch to dated import after History started")

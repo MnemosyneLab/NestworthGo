@@ -17,52 +17,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *tasksPage) holdingReconciliationRows(view ui.View) []layout.Widget {
-	c, l := p.holdingRecon, view.Language
-	if c == nil || len(c.directory.accounts) == 0 && len(c.directory.sessions) == 0 {
-		return nil
-	}
-	if c.sessionButtons == nil {
-		c.sessionButtons = make(map[string]*widget.Clickable)
-	}
-	rows := []layout.Widget{tradeTitle(view, i18n.ReconciliationSessions)}
-	sessionCard := func(session domain.ReconciliationSession) layout.Widget {
-		button := portfolioButton(c.sessionButtons, session.ID)
-		name := strings.Join(session.AccountNames, " · ")
-		status := l.Text(statementStatus(session))
-		when := statementRecordedTime(view, session.StartedAt)
-		openLabel := i18n.ReconciliationOpen
-		if len(session.AccountIDs) == 1 {
-			if a, ok := c.directory.account(session.AccountIDs[0]); ok && a.TrackingMode == domain.TrackingHoldings {
-				openLabel = i18n.HoldingReconOpen
-			}
-		}
-		return fundsCard(view, name,
-			view.Message(status+" · "+when, view.Colors.SecondaryInk),
-			c.link(view, button, fmt.Sprintf(l.Text(openLabel), name), func() {
-				p.openHoldingReconciliation(session.ID, button)
-			}))
-	}
-	for _, session := range c.directory.sessions {
-		if session.Status != "completed" {
-			rows = append(rows, sessionCard(session))
-		}
-	}
-	if len(c.directory.accounts) != 0 {
-		rows = append(rows, c.link(view, &c.start, l.Text(i18n.ReconciliationStart), func() {
-			c.draft = newHoldingReconDraft(&c.start)
-			c.draft.action = statement.Start
-			c.draft.selection = &reconciliationSelection{checks: make(map[domain.AccountID]*widget.Bool)}
-		}))
-	}
-	for _, session := range c.directory.sessions {
-		if session.Status == "completed" {
-			rows = append(rows, sessionCard(session))
-		}
-	}
-	return rows
-}
-
 func (c *holdingReconciliation) link(view ui.View, button *widget.Clickable, label string, open func()) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		c.restoreFocus(gtx, button)
@@ -106,10 +60,8 @@ func (p *tasksPage) layoutHoldingReconciliation(gtx layout.Context, view ui.View
 		title = i18n.HoldingReconTitle
 	}
 	rows := []layout.Widget{
-		c.link(view, &c.back, l.Text(i18n.HoldingReconBack), func() {
-			entry := c.sessionEntry
-			c.discard()
-			c.restore = entry
+		c.link(view, &c.back, l.Text(i18n.ReconciliationHistoryBack), func() {
+			p.backToReconciliationList(view)
 		}),
 		tradeTitle(view, title),
 	}
@@ -167,7 +119,7 @@ func (p *tasksPage) holdingSessionRows(view ui.View) []layout.Widget {
 	found := false
 	for _, account := range s.Accounts {
 		activeAccount, active := c.directory.account(account.AccountID)
-		if !active {
+		if !active && s.Status != "completed" {
 			continue
 		}
 		rows = append(rows, view.Message(account.Name, view.Colors.Ink))
@@ -328,7 +280,7 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}
 	}
-	if d.review != nil {
+	if d.review != nil && d.action != statement.Start {
 		return p.layoutHoldingReconReview(gtx, view)
 	}
 	title := i18n.HoldingReconCorrect
@@ -445,6 +397,10 @@ func (p *tasksPage) layoutHoldingReconDraft(gtx layout.Context, view ui.View) la
 					gtx = gtx.Disabled()
 				}
 				view.Focus.Watch(gtx, &d.preview)
+				if d.startSheet != nil && d.startSheet.restorePreview && gtx.Enabled() {
+					gtx.Execute(key.FocusCmd{Tag: &d.preview})
+					d.startSheet = nil
+				}
 				return view.PrimaryButton(&d.preview, l.Text(i18n.HoldingReconReview))(gtx)
 			}))
 	})
@@ -479,13 +435,8 @@ func (p *tasksPage) layoutHoldingReconReview(gtx layout.Context, view ui.View) l
 	} else if r.session != nil {
 		rows = append(rows, view.Message(holdingReconciliationAccountNames(r.session), view.Colors.Ink),
 			view.Message(l.Text(statementStatus(*r.session)), view.Colors.Ink))
-		if d.action == statement.Start || d.action == statement.Finish || d.check != nil {
+		if d.action == statement.Finish || d.check != nil {
 			rows = append(rows, holdingReconCounts(view, *r.session))
-		}
-		if d.action == statement.Start {
-			started := statementRecordedTime(view, r.session.StartedAt)
-			rows = append(rows, view.Message(fmt.Sprintf(l.Text(i18n.TasksStatementStarted), started), view.Colors.SecondaryInk))
-			rows = append(rows, reconciliationStartEvidence(view, d.selection, r.session.Accounts)...)
 		}
 		if d.action == statement.Finish {
 			rows = append(rows, view.Message(l.Text(i18n.HoldingReconFinishHelp), view.Colors.SecondaryInk))

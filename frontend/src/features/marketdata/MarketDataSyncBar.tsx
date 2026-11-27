@@ -10,6 +10,7 @@ import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatTimestamp } from "@/lib/time";
+import { parseWailsError } from "@/lib/wails";
 import { useSettings } from "@/queries/settings";
 import {
   syncJobIsRunning,
@@ -30,18 +31,26 @@ export function useMarketDataSyncActions() {
   const running = syncJobIsRunning(current.data);
   const syncingInstrumentId = running && current.data?.scope?.scope === "instrument" ? current.data.scope.instrumentId : undefined;
 
-  const startScope = (request: SyncRequestDTO) => {
-    start.mutate(request, {
+  const startScope = (request: SyncRequestDTO, review?: { id: string; onAccepted: () => void }) => {
+    start.mutate({ request, reviewId: review?.id }, {
       onSuccess: (result) => {
         if (result.conflict) {
-          toast.error(result.reason || t("marketData.syncConflict"));
+          toast.error(review ? t("marketData.syncConflict") : (result.reason || t("marketData.syncConflict")));
           return;
         }
         if (result.attached) {
           toast.message(t("marketData.syncAttached"));
         }
+        review?.onAccepted();
       },
-      onError: (error) => toast.error(displayError(error, t("marketData.loadError"))),
+      onError: (error) => {
+        if (review && parseWailsError(error).code === "stale_preview") {
+          toast.error(t("marketData.syncPreviewStale"));
+          preview.mutate(request);
+          return;
+        }
+        toast.error(displayError(error, t("marketData.loadError")));
+      },
     });
   };
 
@@ -52,7 +61,11 @@ export function useMarketDataSyncActions() {
     cancel,
     running,
     syncingInstrumentId,
-    startScope,
+    startReviewed: (request: SyncRequestDTO, reviewId: string | undefined, onAccepted: () => void) => {
+      if (reviewId && !preview.isPending && !start.isPending && !running) {
+        startScope(request, { id: reviewId, onAccepted });
+      }
+    },
     syncInstrument: (instrument: InstrumentDTO) => startScope({ scope: "instrument", instrumentId: instrument.id }),
   };
 }
@@ -74,7 +87,7 @@ export function MarketDataSyncBar({
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
-  const { current, preview, start, cancel, running, startScope } = useMarketDataSyncActions();
+  const { current, preview, start, cancel, running, startReviewed } = useMarketDataSyncActions();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [forceRecheck, setForceRecheck] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -91,9 +104,7 @@ export function MarketDataSyncBar({
   };
 
   const confirmStart = () => {
-    if (!previewReady || start.isPending) return;
-    setPreviewOpen(false);
-    startScope({ scope: "repair_all", forceRecheck });
+    startReviewed({ scope: "repair_all", forceRecheck }, currentPreview?.reviewId, () => setPreviewOpen(false));
   };
 
   return (
@@ -178,6 +189,7 @@ export function MarketDataSyncBar({
               type="checkbox"
               className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               checked={forceRecheck}
+              disabled={start.isPending}
               onChange={(event) => {
                 const next = event.target.checked;
                 setForceRecheck(next);
@@ -190,7 +202,7 @@ export function MarketDataSyncBar({
             <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button type="button" onClick={confirmStart} disabled={!previewReady || start.isPending}>
+            <Button type="button" onClick={confirmStart} disabled={!currentPreview?.reviewId || start.isPending || running}>
               {t("marketData.startSync")}
             </Button>
           </SheetFooter>

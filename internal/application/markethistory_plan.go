@@ -547,6 +547,12 @@ func previousLocalDate(localDate string) (string, error) {
 // RebuildDirtySnapshots rebuilds closed household days in the dirty range.
 // dirty_to is the inclusive upper bound; it is clamped to yesterday.
 func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
+	return s.rebuildDirtySnapshots(ctx, "")
+}
+
+// A reviewed sync may refresh only the already-closed history days the user
+// approved, even if a lengthy provider run crosses a local day boundary.
+func (s *Service) rebuildDirtySnapshots(ctx context.Context, through string) (int, error) {
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return 0, err
@@ -570,6 +576,9 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 	yesterday, err := previousLocalDate(s.clock().In(location).Format("2006-01-02"))
 	if err != nil {
 		return 0, err
+	}
+	if through != "" {
+		yesterday = min(yesterday, through)
 	}
 	from, to, ok := dirtySnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
 	// Recover ready but incomplete snapshots even if an older build cleared

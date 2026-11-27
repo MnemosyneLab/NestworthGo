@@ -86,7 +86,10 @@ func (p *historyCashMovements) checkpointDebtPeer(view ui.View, origin image.Poi
 			gtx.Execute(key.FocusCmd{Tag: &picker.Trigger})
 			d.focusAmount = false
 		}
-		field := ui.PickerField{Label: label, Origin: origin, Disabled: !gtx.Enabled(), Next: &d.amount.Editor}
+		field := ui.PickerField{Label: label, Origin: origin, Disabled: !gtx.Enabled() || account.ID == "", Next: &d.amount.Editor}
+		if p.linked == nil {
+			field.Previous = &d.accountPicker.Trigger
+		}
 		picker.Layout(gtx, view, field, ui.SelectOptions{Items: peers, Searchable: true}, d.destination.String(), func(value string) {
 			if d.destination != domain.AccountID(value) {
 				d.destination, d.problem = domain.AccountID(value), i18n.NoMessage

@@ -26,13 +26,7 @@ type DividendInput struct {
 func ReviewDividend(ctx context.Context, ledger InvestmentLedger, input DividendInput) (ReviewedInvestment, error) {
 	var review ReviewedInvestment
 	preview, token, err := ledger.PreviewChangeGuardedWith(ctx, func(ctx context.Context) (any, error) {
-		kind := domain.ActivityCashDividend
-		if input.Link != nil {
-			// The linked Ledger form accepts any supported payment currency.
-			// It still resolves the exact ordinary Holding in this account.
-			kind = domain.ActivityBuy
-		}
-		sources, err := investmentSources(ctx, ledger, input.Account, kind)
+		sources, err := investmentSources(ctx, ledger, input.Account, domain.ActivityCashDividend)
 		if err != nil {
 			return nil, err
 		}
@@ -40,9 +34,13 @@ func ReviewDividend(ctx context.Context, ledger InvestmentLedger, input Dividend
 			!slices.ContainsFunc(sources.Instruments, func(i domain.Instrument) bool { return i.ID == input.Instrument }) {
 			return nil, &domain.Error{Code: domain.ErrValidation, Field: "holdingId"}
 		}
-		currency := sources.Account.DefaultCurrency
-		if input.Link != nil {
-			currency = input.Currency
+		currency := input.Currency
+		if currency == "" && input.Link == nil {
+			currency = sources.Account.DefaultCurrency
+		}
+		currency, err = domain.ParseSupportedCurrency(currency.String())
+		if err != nil {
+			return nil, err
 		}
 		amount, err := domain.ParseMoney(strings.TrimSpace(input.Amount), currency)
 		if err != nil || amount.IsZero() {

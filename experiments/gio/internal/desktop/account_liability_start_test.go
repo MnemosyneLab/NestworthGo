@@ -31,7 +31,7 @@ func TestLiabilityStartingPointRestoresAccountAndContinuesPosting(t *testing.T) 
 	adapter := historyapi.NewService(ref)
 
 	fault.failedRead.Store(true)
-	click("Record a change")
+	click("Record debt activity")
 	label("Could not load account data.")
 	if p.liabilityPosting.draft.starting != nil {
 		t.Fatal("a failed origin read opened Starting Point")
@@ -50,7 +50,7 @@ func TestLiabilityStartingPointRestoresAccountAndContinuesPosting(t *testing.T) 
 		t.Fatalf("cancel wrote a Starting Point: %+v %v", origin, err)
 	}
 	assertBankObservations(t, session, card, 1, 0)
-	click("Record a change")
+	click("Record debt activity")
 	click("Review Starting Point")
 	h.press(key.NameReturn)
 	finish()
