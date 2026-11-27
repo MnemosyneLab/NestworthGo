@@ -459,10 +459,16 @@ const (
 	AccountRecordDebtValue
 	AccountRecordValue
 	AccountRecordPositionAdjustment
+	AccountRecordScope
+	AccountRecordScopeHelp
+	AccountRecordType
 	AccountDetailTransactions
 	AccountValueUnavailable
 	AccountInstitutionNet
 	AccountValuationComplete
+	AccountValuationPartial
+	AccountValuedSubtotal
+	AccountPendingConversion
 	AccountStaleQuotes
 	AccountReferenceUnavailable
 	AccountOwners
@@ -2044,6 +2050,7 @@ const (
 	ManagedProductsEmpty
 	ProductTermDeposit
 	ProductOpen
+	ProductBackToDetails
 	ProductPrincipal
 	ProductValue
 	ProductStart

@@ -93,6 +93,7 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 	if h.shell.overlay.Trigger != &menu.Trigger || h.shell.overlay.Panel.Empty() {
 		t.Fatal("account actions did not open from the titlebar")
 	}
+	assertPageLabel(t, &h.router, "Related transactions")
 	h.press(key.NameDownArrow)
 	h.press(key.NameReturn)
 	settle()

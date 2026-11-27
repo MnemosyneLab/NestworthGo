@@ -152,6 +152,8 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	settle()
 	h.focused(&p.detail.record.trigger)
 	click("Record a change")
+	label("Account · Harbor Brokerage")
+	label("This account stays fixed. For a transfer, choose the direction and the other account.")
 	for _, shown := range []string{"Buy investment", "Sell", "Record cash dividend", "Money added", "Transfer", "Convert currency"} {
 		label(shown)
 	}

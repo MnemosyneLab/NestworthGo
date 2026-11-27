@@ -55,6 +55,7 @@ type navigationEntry struct {
 	accountPositions accountPositionsVisit
 
 	accountComposition accountCompositionVisit
+	accountProduct     accountProductVisit
 
 	accountStatement statementVisit
 	funds            fundsViewState
@@ -156,29 +157,33 @@ func (n *navigationTrail) recordRecent(entry navigationEntry) {
 }
 
 type navigationRequest struct {
-	target               navigationTarget
-	name                 string
-	focus                event.Tag
-	step                 int
-	recent               *navigationEntry
-	accountsArchived     bool
-	providerSettings     bool
-	settingsProvider     string
-	verifyProductReceipt bool
-	tasksTab             tasksTab
-	tasksSession         string
-	tasksAccount         domain.AccountID
-	asset                assetChangesVisit
-	returns              *returnAnalysisVisit
-	historyFilters       history.Filters
-	historyAction        historyRowAction
-	maintenanceTab       bool
-	catalogEditor        *domain.Instrument
+	target                navigationTarget
+	name                  string
+	focus                 event.Tag
+	step                  int
+	recent                *navigationEntry
+	accountsArchived      bool
+	providerSettings      bool
+	settingsProvider      string
+	verifyProductReceipt  bool
+	accountProductReceipt bool
+	tasksTab              tasksTab
+	tasksSession          string
+	tasksAccount          domain.AccountID
+	asset                 assetChangesVisit
+	returns               *returnAnalysisVisit
+	historyFilters        history.Filters
+	historyAction         historyRowAction
+	maintenanceTab        bool
+	catalogEditor         *domain.Instrument
 }
 
 func (s *shell) activeRoute() routeID { return s.trail.current().target.route }
 
 func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
+	if s.accountProduct != nil && (!request.accountProductReceipt || request.target.route != historyRoute || request.target.activity == "") {
+		return
+	}
 	if !gtx.Enabled() || s.settingsPage.confirming || s.confirmingArchive() || s.accountCreationOpen() || s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen() || s.accountMaintenanceBlocking() || s.startReconciliationReviewOpen() || s.fundsReservationOpen() || s.fundsPolicyOpen() || s.fundsProductSetupOpen() || s.fundsProductTermsOpen() {
 		return
 	}
@@ -243,6 +248,13 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		source.focus = request.focus
 	}
 	s.saveVisit(&source)
+	if drawer := s.accountProduct; drawer != nil {
+		source.accountProduct = drawer.accountProductVisit
+		source.accountProduct.position = s.funds.productPage.list.Position
+		source.accountProduct.saved = s.funds.productPage.saved
+		source.accountProduct.receipt, source.accountProduct.receiptFocus = request.target.activity, request.focus
+		source.focus = drawer.trigger
+	}
 	if request.recent != nil && sameRecentDestination(source, *request.recent) {
 		return
 	}
@@ -262,6 +274,7 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.historyPage.investment.draft, s.historyPage.investment.restore = nil, nil
 	}
 	if entry.target.route == accountsRoute {
+		s.leaveAccountProduct()
 		s.accounts.leave()
 		s.accounts.detail.cashActions.leave()
 		s.accounts.detail.record.open, s.accounts.detail.record.restore = false, false
@@ -391,6 +404,9 @@ func (s *shell) navigate(gtx layout.Context, request navigationRequest) {
 		s.accounts.detail.restore(entry.accountComposition)
 		if statement := s.accounts.statement; statement != nil {
 			statement.restore = entry.accountStatement
+		}
+		if entry.accountProduct.id != "" {
+			s.enterAccountProduct(entry.accountProduct)
 		}
 	}
 	if entry.target.route == fundsRoute {

@@ -20,6 +20,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/format"
 )
 
+const accountWideContent = 900
+
 func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	l := view.Language
 	if gtx.Enabled() && !p.accountActionOpen() {
@@ -52,8 +54,11 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	if p.err != nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
-	if !detail && p.request == nil && !p.invalid && p.archiveFilter.Update(gtx) {
-		p.enter(p.target, p.archiveFilter.Value, layout.Position{})
+	if !detail && p.request == nil && !p.invalid {
+		p.archiveFilter.Update(gtx)
+		if p.archiveFilter.Value != p.archived {
+			p.enter(p.target, p.archiveFilter.Value, layout.Position{})
+		}
 	}
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -90,7 +95,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						if p.request != nil {
 							gtx = gtx.Disabled()
 						}
-						return view.Checkbox(&p.archiveFilter, l.Text(i18n.InstitutionsShowArchived))(gtx)
+						label := l.Text(i18n.InstitutionsShowArchived)
+						return accessibility.Checkbox(gtx, &p.archiveFilter, label, view.Checkbox(&p.archiveFilter, label))
 					})
 				}
 			}
@@ -103,17 +109,20 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					return actions[i](gtx)
 				})
 			}
-			return layout.Flex{Gap: gtx.Dp(16), Alignment: layout.Start}.Layout(gtx,
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-					dims := ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
-					dims.Size.X = gtx.Constraints.Max.X
-					return dims
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return ui.Wrap{Gap: ui.Space8}.Layout(gtx, len(right), func(gtx layout.Context, i int) layout.Dimensions { return right[i](gtx) })
-				}),
-			)
+			intro := func(gtx layout.Context) layout.Dimensions {
+				return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, len(left), func(gtx layout.Context, i int) layout.Dimensions { return left[i](gtx) })
+			}
+			controls := func(gtx layout.Context) layout.Dimensions {
+				return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, len(right), func(gtx layout.Context, i int) layout.Dimensions { return right[i](gtx) })
+			}
+			return ui.Column{Gap: ui.Space12}.Layout(gtx,
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if gtx.Constraints.Max.X < gtx.Dp(accountWideContent) {
+						return ui.Column{Gap: ui.Space8}.Layout(gtx, ui.Rigid(intro), ui.Rigid(controls))
+					}
+					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+						layout.Flexed(1, intro), layout.Rigid(controls))
+				}), ui.Rigid(view.Hairline))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
@@ -238,15 +247,7 @@ func (p *accountsPage) groupHeading(gtx layout.Context, view ui.View, row accoun
 		inset.Top = 0
 	}
 	return inset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		children := []layout.FlexChild{
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if row.icon == nil {
-					return layout.Dimensions{}
-				}
-				return ui.LayoutGlyph(gtx, row.icon, 20, view.Colors.Accent)
-			}),
-			layout.Flexed(1, view.Body(ui.TextHeading, row.heading, view.Colors.Ink)),
-		}
+		children := []layout.FlexChild{layout.Flexed(1, view.Body(ui.TextLabel, row.heading, view.Colors.Ink))}
 		if row.subtotal != nil {
 			label := fmt.Sprintf(view.Language.Text(i18n.AccountInstitutionNet), valuationMoney(view, *row.subtotal, false))
 			width := gtx.Constraints.Max.X / 2
@@ -263,9 +264,20 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 	view = view.WithoutTextSelection()
 	account := row.record.Account
 	amounts := accountAmountLines(view, row, true)
-	labels := make([]string, len(amounts))
-	for i, amount := range amounts {
-		labels[i] = amount.label
+	labels := make([]string, 0, len(amounts)+2)
+	for _, amount := range amounts {
+		labels = append(labels, amount.label)
+	}
+	status, _ := accountValuationStatus(row.value)
+	if status != i18n.NoMessage {
+		label := view.Language.Text(status)
+		if status == i18n.AccountValuationPartial {
+			label = accountIssueStatus(view.Language, *row.value, label)
+		}
+		labels = append(labels, label)
+		if accountStale(*row.value) {
+			labels = append(labels, view.Language.Text(i18n.AccountStaleQuotes))
+		}
 	}
 	value := strings.Join(labels, " · ")
 	button := p.buttons[account.ID]
@@ -297,15 +309,26 @@ func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row account
 					}
 					return layout.Background{}.Layout(gtx, hover, func(gtx layout.Context) layout.Dimensions {
 						return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							title := func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, row, status) }
+							width := gtx.Constraints.Max.X
+							balance := func(gtx layout.Context) layout.Dimensions {
+								return layoutAccountAmounts(gtx, view, amounts, layout.Start)
+							}
+							valueWidth := width * 2 / 5
 							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-									return directoryTile(gtx, view, string(account.AccountType), accountGlyph(account, p.current.institutions))
+									return accountTypeTile(gtx, view, account, p.current.institutions)
 								}),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return accountTitle(gtx, view, account) }),
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-									return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-										return layoutAccountAmounts(gtx, view, amounts, layout.End)
-									})
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									if width < gtx.Dp(480) {
+										return ui.Column{Gap: ui.Space8}.Layout(gtx, ui.Rigid(title), ui.Rigid(balance))
+									}
+									return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+										layout.Flexed(1, title),
+										layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+											gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, valueWidth)
+											return layoutAccountAmounts(gtx, view, amounts, layout.End)
+										}))
 								}),
 							)
 						})
@@ -332,27 +355,66 @@ func accountTypeDescription(l i18n.Language, account domain.Account) string {
 	return description
 }
 
-func accountTitle(gtx layout.Context, view ui.View, account domain.Account) layout.Dimensions {
+func accountTypeTile(gtx layout.Context, view ui.View, account domain.Account, institutions map[domain.InstitutionID]domain.Institution) layout.Dimensions {
+	tone := 7
+	switch account.AccountType {
+	case domain.TypeBankAccount:
+		tone = 0
+	case domain.TypeCashOnHand, domain.TypeProperty, domain.TypePension:
+		tone = 1
+	case domain.TypeCreditCard:
+		tone = 2
+	case domain.TypeVehicle, domain.TypeReceivable:
+		tone = 3
+	case domain.TypeBrokerage, domain.TypeInvestmentAccount:
+		tone = 4
+	case domain.TypeCryptoExchange:
+		tone = 5
+	case domain.TypeLoan, domain.TypeCollectible:
+		tone = 6
+	}
+	return view.IconTile(gtx, accountGlyph(account, institutions), 40, view.Colors.CategorySoft(tone), view.Colors.Category[tone])
+}
+
+func accountTitle(gtx layout.Context, view ui.View, row accountRow, status i18n.MessageID) layout.Dimensions {
 	l := view.Language
-	labels := []string{l.Text(accountTypes[account.AccountType])}
+	account := row.record.Account
+	labels := []layout.Widget{view.Body(ui.TextHeading, account.Name, view.Colors.Ink)}
+	badge := func(id i18n.MessageID, tone ui.BadgeTone) layout.Widget {
+		return func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(id)) }
+	}
+	labels = append(labels, badge(accountTypes[account.AccountType], ui.BadgeOutline))
 	if account.IsLiability() {
-		labels = append(labels, l.Text(i18n.AccountRoleLiability))
+		labels = append(labels, badge(i18n.AccountRoleLiability, ui.BadgeOutline))
 	}
 	if account.ArchivedAt != nil {
-		labels = append(labels, l.Text(i18n.DirectoryArchived))
+		labels = append(labels, badge(i18n.DirectoryArchived, ui.BadgeNeutral))
 	}
 	rows := []ui.ColumnChild{
-		ui.Rigid(view.Body(ui.TextCaptionStrong, account.Name, view.Colors.Ink)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return (ui.Wrap{Gap: ui.Space4}).Layout(gtx, len(labels), func(gtx layout.Context, i int) layout.Dimensions {
-				return view.Badge(gtx, ui.BadgeNeutral, labels[i])
+			return (ui.Wrap{Gap: ui.Space8, Middle: true}).Layout(gtx, len(labels), func(gtx layout.Context, i int) layout.Dimensions {
+				return labels[i](gtx)
 			})
 		}),
 	}
-	if account.TrackingMode == domain.TrackingManualValue || account.TrackingMode == domain.TrackingHoldings {
-		rows = append(rows, ui.Rigid(view.Body(ui.TextCaption, l.Text(accountTrackingLabel(account.TrackingMode, account.AccountType)), view.Colors.SecondaryInk)))
+	if status != i18n.NoMessage {
+		valuation := []layout.Widget{view.Body(ui.TextCaption, l.Text(status), view.Colors.SecondaryInk)}
+		if accountStale(*row.value) {
+			valuation = append(valuation, view.Body(ui.TextCaption, l.Text(i18n.AccountStaleQuotes), view.Colors.WarningInk))
+		}
+		rows = append(rows, ui.Rigid(accountDetailActions(view, valuation)))
 	}
 	return (ui.Column{Gap: ui.Space4}).Layout(gtx, rows...)
+}
+
+func accountValuationStatus(value *domain.AccountValuation) (i18n.MessageID, ui.BadgeTone) {
+	if value == nil {
+		return i18n.NoMessage, ui.BadgeNeutral
+	}
+	if !value.Complete || (value.DisplayValue != nil && !value.DisplayValue.Complete) {
+		return i18n.AccountValuationPartial, ui.BadgeWarning
+	}
+	return i18n.AccountValuationComplete, ui.BadgeSuccess
 }
 
 type accountAmountLine struct {
@@ -392,13 +454,13 @@ func accountAmountLines(view ui.View, row accountRow, brief bool) []accountAmoun
 		}
 		label := valuationMoney(view, *m, a.IsLiability())
 		if partial {
-			label += " · " + l.Text(i18n.OverviewKnownSubtotal)
+			label += " · " + l.Text(i18n.AccountValuedSubtotal)
 		}
 		return label
 	}
-	primaryStyle := ui.TextMoneyMD
+	primaryStyle := ui.TextMetricMD
 	if !brief {
-		primaryStyle = ui.TextMoneyLG
+		primaryStyle = ui.TextMetricLG
 	}
 	primaryCurrency := a.DefaultCurrency
 	if native != nil {
@@ -408,20 +470,11 @@ func accountAmountLines(view ui.View, row accountRow, brief bool) []accountAmoun
 	}
 	lines := []accountAmountLine{{primaryStyle, amount(native, a.DefaultCurrency, nativePartial)}}
 	if baseCurrency != "" && baseCurrency != primaryCurrency {
-		lines = append(lines, accountAmountLine{ui.TextCaption, amount(base, baseCurrency, !v.Complete)})
-	}
-	if v != nil {
-		status := l.Text(i18n.AccountValuationComplete)
-		if !v.Complete || nativePartial {
-			status = l.Text(i18n.OverviewIncomplete)
-			if brief {
-				status = accountIssueStatus(l, *v, status)
-			}
+		label := amount(base, baseCurrency, !v.Complete)
+		if base == nil && brief {
+			label = l.Text(i18n.AccountPendingConversion)
 		}
-		lines = append(lines, accountAmountLine{ui.TextCaption, status})
-		if accountStale(*v) {
-			lines = append(lines, accountAmountLine{ui.TextCaption, l.Text(i18n.AccountStaleQuotes)})
-		}
+		lines = append(lines, accountAmountLine{ui.TextCaption, label})
 	}
 	return lines
 }
@@ -513,44 +566,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	}
 	p.detail.investmentActionsRow = -1
 	clear(p.detail.actionRows)
-	var rows []layout.Widget
-	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Bottom: ui.Space12}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			fields := []layout.Widget{
-				view.Body(ui.TextLabel, institution+" · "+l.Text(accountTypes[a.AccountType]), view.Colors.Ink),
-				view.Body(ui.TextCaption, l.Text(accountTrackingLabel(a.TrackingMode, a.AccountType)), view.Colors.SecondaryInk),
-				view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountGroup), group), view.Colors.SecondaryInk),
-				view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountOwners), owner), view.Colors.SecondaryInk),
-			}
-			summary := func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layoutAccountAmounts(gtx, view, accountAmountLines(view, row, false), layout.End)
-					}),
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return view.LineEnd(gtx, ui.TextCaption, valuationReadTime(view, p.current.readAt), view.Colors.SecondaryInk)
-					}),
-				)
-			}
-			metadata := func(gtx layout.Context) layout.Dimensions {
-				return (layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}).Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return directoryTile(gtx, view, string(a.AccountType), accountGlyph(a, p.current.institutions))
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(fields[0]), ui.Rigid(fields[1]), ui.Rigid(fields[2]), ui.Rigid(fields[3]))
-					}),
-				)
-			}
-			return (ui.Grid{MinColumn: 210, MaxColumns: 2, Gap: ui.Space16}).Layout(gtx, view, 2,
-				func(gtx layout.Context, _ ui.View, index int) layout.Dimensions {
-					if index == 0 {
-						return metadata(gtx)
-					}
-					return layout.E.Layout(gtx, summary)
-				})
-		})
-	})
+	rows := []layout.Widget{accountDetailSummary(view, row, valuationReadTime(view, p.current.readAt), institution, group, owner)}
 	inclusion := i18n.AccountIncludedInNetWorth
 	switch {
 	case a.ArchivedAt != nil:
@@ -558,14 +574,36 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	case !a.IncludeInNetWorth:
 		inclusion = i18n.AccountExcludedFromNetWorth
 	}
-	rows = append(rows, accountLine(view, l.Text(inclusion)))
+	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: ui.Space12}.Layout(gtx, accountLine(view, l.Text(inclusion)))
+	})
 	if f := p.statement; f != nil && statementCard(a) && p.freshDetail() != nil {
 		p.trackDetailActionRow(&f.open, len(rows))
 	}
-	rows = append(rows, p.accountReconciliationRow(view, a))
+	rows = append(rows, accountSectionGap(p.accountReconciliationRow(view, a)))
+	if value := row.value; value != nil {
+		var issues []layout.Widget
+		seen := make(map[string]bool)
+		addIssues := func(inputs []domain.MissingInputView) {
+			for _, input := range inputs {
+				issue := overviewIssue(l, input)
+				if !seen[issue] {
+					seen[issue] = true
+					issues = append(issues, view.Message(issue, view.Colors.WarningInk))
+				}
+			}
+		}
+		addIssues(value.MissingInputs)
+		if value.DisplayValue != nil {
+			addIssues(value.DisplayValue.MissingInputs)
+		}
+		if len(issues) > 0 {
+			rows = append(rows, accountSectionGap(sectionCard(view, issues)))
+		}
+	}
 	if row.value != nil && a.TrackingMode == domain.TrackingHoldings && !a.IsLiability() {
 		if composition := p.accountComposition(view, row.value.Composition); composition != nil {
-			rows = append(rows, composition)
+			rows = append(rows, accountSectionGap(composition))
 		}
 	}
 	debt := p.accountDebtShortcut(view)
@@ -584,27 +622,11 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 		if debt != nil {
 			actions = append(actions, debt)
 		}
-		rows = append(rows, accountSimpleValue(view, row, actions))
+		rows = append(rows, accountSectionGap(accountSimpleValue(view, row, actions)))
 	}
 	if a.OpenedOn != nil {
 		if day, valid := ui.ParseCivilDay(*a.OpenedOn); valid {
 			rows = append(rows, accountLine(view, fmt.Sprintf(l.Text(i18n.AccountCreateReviewDate), ui.FormatDay(day, l, view.DateFormat))))
-		}
-	}
-	if value := row.value; value != nil {
-		issues := make(map[string]bool)
-		addIssues := func(inputs []domain.MissingInputView) {
-			for _, input := range inputs {
-				issue := overviewIssue(l, input)
-				if !issues[issue] {
-					issues[issue] = true
-					rows = append(rows, accountLine(view, issue))
-				}
-			}
-		}
-		addIssues(value.MissingInputs)
-		if value.DisplayValue != nil {
-			addIssues(value.DisplayValue.MissingInputs)
 		}
 	}
 	if a.TrackingMode == domain.TrackingHoldings {
@@ -615,7 +637,7 @@ func (p *accountsPage) detailRows(view ui.View) []layout.Widget {
 	}
 	rows = p.appendProducts(rows, view, a)
 	if history := p.accountCashHistory(view); history != nil {
-		rows = append(rows, history)
+		rows = append(rows, accountSectionGap(history))
 	}
 	return rows
 }
@@ -747,35 +769,35 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 					Title: l.Text(i18n.AccountProductsCreateHoldings)})(gtx)
 			})
 		}
-		return append(rows, sectionCard(view, fields))
+		return append(rows, accountSectionGap(sectionCard(view, fields)))
 	}
-	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-			layout.Flexed(1, accountSection(view, l.Text(i18n.AccountProductsTitle))),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if !canAdd {
-					return layout.Dimensions{}
+	productCount := len(p.current.products)
+	heading := view.Body(ui.TextHeading, l.Text(i18n.AccountProductsTitle), view.Colors.Ink)
+	if canAdd {
+		p.trackDetailActionRow(&p.addProduct, len(rows))
+		heading = accountDetailActions(view, []layout.Widget{heading, func(gtx layout.Context) layout.Dimensions {
+			if p.request != nil || p.err != nil {
+				gtx = gtx.Disabled()
+			} else {
+				if p.restoreProductFocus {
+					gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
+					p.restoreProductFocus = false
 				}
-				if p.request != nil || p.err != nil {
-					gtx = gtx.Disabled()
-				} else {
-					if p.restoreProductFocus {
-						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
-						p.restoreProductFocus = false
-					}
-					if p.addProduct.Clicked(gtx) {
-						p.startProductSetup(account, l.Text(i18n.ProductAddDeposit))
-						gtx.Execute(op.InvalidateCmd{})
-					}
+				if p.addProduct.Clicked(gtx) {
+					p.startProductSetup(account, l.Text(i18n.ProductAddDeposit))
+					gtx.Execute(op.InvalidateCmd{})
 				}
-				view.Focus.Watch(gtx, &p.addProduct)
-				return view.Button(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
-			}))
-	})
-	if len(p.current.products) == 0 {
-		rows = append(rows, accountLine(view, l.Text(i18n.ManagedProductsEmpty)))
+			}
+			view.Focus.Watch(gtx, &p.addProduct)
+			return view.ButtonOf(&p.addProduct, ui.ButtonSpec{Variant: ui.ButtonSoft, Size: ui.ButtonSmall,
+				Title: l.Text(i18n.ProductAddAction)})(gtx)
+		}})
 	}
-	for _, product := range p.current.products {
+	rows = append(rows, accountSectionGap(accountProductCardRow(view, true, false, heading)))
+	if productCount == 0 {
+		return append(rows, accountProductCardRow(view, false, true, view.Message(l.Text(i18n.ManagedProductsEmpty), view.Colors.SecondaryInk)))
+	}
+	for i, product := range p.current.products {
 		name, id := productName(product), product.Contract.ID
 		title := view.Body(ui.TextLabel, name, view.Colors.Ink)
 		if p.openProduct != nil {
@@ -792,27 +814,31 @@ func (p *accountsPage) appendProducts(rows []layout.Widget, view ui.View, accoun
 			}
 		}
 		fields := []layout.Widget{
-			fundsAmount(view, i18n.ProductPrincipal, &product.Contract.Principal),
-			fundsAmount(view, i18n.ProductValue, product.CurrentValue),
+			labeledAmount(view, i18n.ProductPrincipal, fundsAmountText(view, &product.Contract.Principal), view.Colors.Ink),
+			labeledAmount(view, i18n.ProductValue, fundsAmountText(view, product.CurrentValue), view.Colors.Ink),
 			productMaturity(view, product.Contract.MaturityOn),
 		}
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return holdingTableInset.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return (ui.Column{Gap: ui.Space4}).Layout(gtx,
-					ui.Rigid(view.Hairline),
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return accountDetailActions(view, []layout.Widget{title,
-							productState(view, product.Contract.Kind, product.DisplayState)})(gtx)
-					}),
-					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return (ui.Grid{MinColumn: 145, MaxColumns: 3, Gap: ui.Space12}).Layout(gtx, view, len(fields),
-							func(gtx layout.Context, _ ui.View, i int) layout.Dimensions { return fields[i](gtx) })
-					}),
-				)
-			})
-		})
+		rows = append(rows, accountProductCardRow(view, false, i == productCount-1, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+				ui.Rigid(accountDetailActions(view, []layout.Widget{title,
+					productState(view, product.Contract.Kind, product.DisplayState)})),
+				ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return (ui.Grid{MinColumn: 210, MaxColumns: 3, Gap: ui.Space12}).Layout(gtx, view, len(fields),
+						func(gtx layout.Context, _ ui.View, i int) layout.Dimensions { return fields[i](gtx) })
+				}),
+			)
+		}))
 	}
 	return rows
+}
+
+func accountProductCardRow(view ui.View, first, last bool, content layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
+			return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, content)
+		})
+	}
 }
 
 func (p *accountsPage) trackDetailActionRow(button *widget.Clickable, row int) {
