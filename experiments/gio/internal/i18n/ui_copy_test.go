@@ -58,7 +58,9 @@ func TestPresentationCopyUsesCatalog(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		file, err := parser.ParseFile(files, name, source, parser.SkipObjectResolution)
+		// Resolve local identifiers so a local variable shadowing
+		// the log/slog import cannot acquire a diagnostic exception.
+		file, err := parser.ParseFile(files, name, source, 0)
 		if err != nil {
 			return err
 		}
@@ -101,6 +103,7 @@ func importsPresentation(file *ast.File) bool {
 var numericFormat = regexp.MustCompile(`%(?:0[0-9]+)?[ds]`)
 var currencyCode = regexp.MustCompile(`^[A-Z]{3}$`)
 var machineID = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+var diagnosticFieldKey = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 func uncatalogedText(file *ast.File) []*ast.BasicLit {
 	var violations []*ast.BasicLit
@@ -110,7 +113,7 @@ func uncatalogedText(file *ast.File) []*ast.BasicLit {
 			return true
 		}
 		value, _ := strconv.Unquote(lit.Value)
-		if strings.IndexFunc(value, unicode.IsLetter) >= 0 && !nonDisplayLiteral(lit, value, parents) && !accessibilityContextKey(file, value, parents) && !(file.Name.Name == "main" && launcherLiteral(value, parents)) {
+		if strings.IndexFunc(value, unicode.IsLetter) >= 0 && !nonDisplayLiteral(lit, value, parents) && !diagnosticLogLiteral(file, lit, parents) && !accessibilityContextKey(file, value, parents) && !(file.Name.Name == "main" && launcherLiteral(value, parents)) {
 			violations = append(violations, lit)
 		}
 		return true
@@ -197,6 +200,59 @@ func nonDisplayLiteral(lit *ast.BasicLit, value string, parents []ast.Node) bool
 	return false
 }
 
+// Only literal messages and machine field keys passed directly to the
+// standard logger's Info/Warn functions are diagnostic copy. Do not exempt
+// a package/file, an identifier's definition, string values of log fields,
+// indirect calls or shadowed receivers. Those still go through the guard.
+func diagnosticLogLiteral(file *ast.File, lit *ast.BasicLit, parents []ast.Node) bool {
+	call, ok := parents[len(parents)-1].(*ast.CallExpr)
+	if !ok || len(call.Args) == 0 {
+		return false
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || (sel.Sel.Name != "Info" && sel.Sel.Name != "Warn") {
+		return false
+	}
+	receiver, ok := sel.X.(*ast.Ident)
+	if !ok || receiver.Obj != nil {
+		return false
+	}
+	standardLogger := slices.ContainsFunc(file.Imports, func(imp *ast.ImportSpec) bool {
+		importPath, _ := strconv.Unquote(imp.Path.Value)
+		if importPath != "log/slog" {
+			return false
+		}
+		name := "slog"
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		return receiver.Name == name
+	})
+	if !standardLogger {
+		return false
+	}
+	if call.Args[0] == lit {
+		return true
+	}
+	// slog also accepts Attrs and arbitrary arguments. Recognize only the
+	// unambiguous alternating key/value form with literal machine keys.
+	if len(call.Args)%2 == 0 || call.Ellipsis.IsValid() {
+		return false
+	}
+	for i := 1; i < len(call.Args); i += 2 {
+		key, ok := call.Args[i].(*ast.BasicLit)
+		if !ok || key.Kind != token.STRING {
+			return false
+		}
+		name, err := strconv.Unquote(key.Value)
+		if err != nil || !diagnosticFieldKey.MatchString(name) {
+			return false
+		}
+	}
+	index := slices.Index(call.Args, ast.Expr(lit))
+	return index > 0 && index%2 == 1
+}
+
 // The bridge uses a namespaced layout.Context key. Its accessible names
 // and descriptions still go through the normal catalog guard.
 func accessibilityContextKey(file *ast.File, value string, parents []ast.Node) bool {
@@ -229,8 +285,6 @@ func launcherLiteral(value string, parents []ast.Node) bool {
 				return sel.Sel.Name == "Errorf" || sel.Sel.Name == "Println" || sel.Sel.Name == "Fprintln"
 			case named(sel.X, "filepath"):
 				return sel.Sel.Name == "Join" && value == "Resources"
-			case named(sel.X, "slog"):
-				return (sel.Sel.Name == "Info" || sel.Sel.Name == "Warn") && len(n.Args) == 1
 			}
 		}
 		return false
@@ -246,6 +300,7 @@ func named(expr ast.Expr, name string) bool {
 func TestPresentationCopyGuardDetectsInlineAndIndirectText(t *testing.T) {
 	source := `package main
 import "gioui.org/io/semantic"
+import "log/slog"
 const title = "Settings"
 const route routeID = "settings"
 func layout() {
@@ -270,7 +325,7 @@ func layout() {
 	_ = clipboard.WriteCmd{Type: "application/text"}
 	slog.Info("application starting")
 }`
-	file, err := parser.ParseFile(token.NewFileSet(), "preview.go", source, parser.SkipObjectResolution)
+	file, err := parser.ParseFile(token.NewFileSet(), "preview.go", source, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,5 +337,71 @@ func layout() {
 	want := []string{"Settings", "save", "保存", "説明", "Search institutions", "Checking", "Timezone: %s", "Nestworth Gio", "Save"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("flagged %q, want %q", got, want)
+	}
+}
+
+func TestPresentationCopyGuardAllowsOnlyDirectDiagnosticMessagesAndKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name, source string
+		want         []string
+	}{
+		{
+			name: "standard logger and data keys",
+			source: `package desktop
+import "log/slog"
+func layout() {
+	slog.Info("Gio titlebar native handshake verified",
+		"gio_frame_px", frame, "native_buttons", count)
+	slog.Warn("restoring system decorations", "native_full_size", false)
+	slog.Warn("integrated titlebar unavailable")
+	slog.Info("diagnostic", "reason", "Visible field value")
+	slog.Info("diagnostic", "reason", "save")
+	slog.Info("diagnostic", "invalid field key", count)
+	slog.Info("diagnostic", key, "Indirect key value")
+	slog.Info("diagnostic", slog.Int("attr", 3), "Mixed value")
+	slog.Info("concatenated " + "message")
+	const indirect = "Indirect message"
+	slog.Info(indirect)
+	view.Message("Gio titlebar native handshake verified", ink)
+	view.Label(gtx, "native_buttons", size, weight, ink)
+	{
+		slog := fakeLogger
+		slog.Info("Shadowed UI copy")
+	}
+}`,
+			want: []string{"Visible field value", "save", "invalid field key", "Indirect key value", "attr", "Mixed value", "concatenated ", "message", "Indirect message", "Gio titlebar native handshake verified", "native_buttons", "Shadowed UI copy"},
+		},
+		{
+			name: "not the standard logger",
+			source: `package desktop
+import slog "example.com/presentation"
+func layout() { slog.Info("Visible text", "some_key", value) }`,
+			want: []string{"Visible text", "some_key"},
+		},
+		{
+			name: "aliased standard logger",
+			source: `package desktop
+import diagnostics "log/slog"
+func layout() {
+	diagnostics.Warn("Native geometry unavailable", "native_buttons", 0)
+	view.Message("Native geometry unavailable", ink)
+}`,
+			want: []string{"Native geometry unavailable"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file, err := parser.ParseFile(token.NewFileSet(), "diagnostics.go", tc.source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, literal := range uncatalogedText(file) {
+				value, _ := strconv.Unquote(literal.Value)
+				got = append(got, value)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("flagged %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
