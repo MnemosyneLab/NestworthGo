@@ -108,7 +108,7 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	} {
 		assertPageLabel(t, &h.router, label)
 	}
-	assertPageLabelContains(t, &h.router, "Second desk", "QA-BUY")
+	assertPageLabelContains(t, &h.router, "Second desk", "QA-EUR")
 	h.press(key.NameReturn)
 	finish()
 	h.assertTitlebarAction("Record existing holding")
