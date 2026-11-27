@@ -51,9 +51,10 @@ func (p *availableFundsPage) layoutPolicySheet(gtx layout.Context, view ui.View)
 		}
 	}
 
+	saveRequested := false
 	footer := func(gtx layout.Context) layout.Dimensions {
 		return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-			ui.Rigid(p.policyStatus(view, busy)), ui.Rigid(p.policyFooter(view, busy, conflict)))
+			ui.Rigid(p.policyStatus(view, busy)), ui.Rigid(p.policyFooter(view, busy, conflict, func() { saveRequested = true })))
 	}
 	panel := func(gtx layout.Context) layout.Dimensions {
 		d.sheet.layoutPanel(gtx, view, l.Text(i18n.FundsPolicyTitle), func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -71,6 +72,11 @@ func (p *availableFundsPage) layoutPolicySheet(gtx layout.Context, view ui.View)
 	}
 	panel(gtx)
 	d.overlay.Layout(gtx, view)
+	if saveRequested {
+		// The pinned footer is measured before the body. Submit after the
+		// editors and pickers have applied the input received in this frame.
+		p.postPolicy(false)
+	}
 }
 
 func (p *availableFundsPage) policyStatus(view ui.View, busy bool) layout.Widget {

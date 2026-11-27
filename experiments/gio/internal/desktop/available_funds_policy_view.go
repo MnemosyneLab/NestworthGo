@@ -133,7 +133,7 @@ func (f *fundsPolicyFields) input() (application.ProductPolicyInput, bool) {
 	return value, daysOK && (earlyOK || value.EarlyKind != string(domain.EarlyAllowed))
 }
 
-func (p *availableFundsPage) policyFooter(view ui.View, busy, conflict bool) layout.Widget {
+func (p *availableFundsPage) policyFooter(view ui.View, busy, conflict bool, save func()) layout.Widget {
 	d, l := p.policy, view.Language
 	return func(gtx layout.Context) layout.Dimensions {
 		button := func(target *widget.Clickable, text i18n.MessageID, enabled bool, style ui.ButtonVariant, click func()) layout.Widget {
@@ -165,7 +165,7 @@ func (p *availableFundsPage) policyFooter(view ui.View, busy, conflict bool) lay
 					d.confirmation.Open()
 				}))
 			}
-			actions = append(actions, button(&d.save, i18n.FundsPolicySave, !busy, ui.ButtonPrimary, func() { p.postPolicy(false) }))
+			actions = append(actions, button(&d.save, i18n.FundsPolicySave, !busy, ui.ButtonPrimary, save))
 		}
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -230,7 +230,12 @@ func (d *fundsPolicyDraft) formFields(gtx layout.Context, view ui.View, origin *
 			}
 			control.Layout(gtx, view, ui.PickerField{Label: label, Origin: *origin, Disabled: !ready},
 				ui.DateOptions{Today: today, AllowFuture: true, Clearable: true, WeekStart: week, Format: view.DateFormat},
-				productString(value), func(day string) { change(productOptional(day)) })
+				productString(value), func(day string) {
+					if day != productString(value) {
+						change(productOptional(day))
+						d.clearPolicyValidation(gtx)
+					}
+				})
 			height := gtx.Dp(ui.PickerHeight)
 			d.notePolicyFocus(&control.Trigger, origin.Y, height)
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, height)}
@@ -259,10 +264,17 @@ func (d *fundsPolicyDraft) formFields(gtx layout.Context, view ui.View, origin *
 	textField := func(control *ui.TextField, label i18n.MessageID, money bool) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
 			options := ui.FieldOptions{Label: label, Disabled: !ready}
+			before := control.Text()
+			var dims layout.Dimensions
 			if money {
-				return control.LayoutCurrency(gtx, view, options, d.currency)
+				dims = control.LayoutCurrency(gtx, view, options, d.currency)
+			} else {
+				dims = control.Layout(gtx, view, options)
 			}
-			return control.Layout(gtx, view, options)
+			if ready && control.Text() != before {
+				d.clearPolicyValidation(gtx)
+			}
+			return dims
 		}
 	}
 	selectField := func(control *ui.Select, label i18n.MessageID, choices []productFormChoice, value string, change func(string)) layout.Widget {
@@ -271,7 +283,12 @@ func (d *fundsPolicyDraft) formFields(gtx layout.Context, view ui.View, origin *
 			for _, choice := range choices {
 				options = append(options, ui.Choice{ID: choice.value, Label: l.Text(choice.label)})
 			}
-			control.Layout(gtx, view, ui.PickerField{Label: label, Origin: *origin, Disabled: !ready}, ui.SelectOptions{Items: options}, value, change)
+			control.Layout(gtx, view, ui.PickerField{Label: label, Origin: *origin, Disabled: !ready}, ui.SelectOptions{Items: options}, value, func(next string) {
+				change(next)
+				if next != value {
+					d.clearPolicyValidation(gtx)
+				}
+			})
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 		}
 	}
@@ -319,6 +336,14 @@ func (d *fundsPolicyDraft) formFields(gtx layout.Context, view ui.View, origin *
 		fields = append(fields, view.Body(ui.TextCaption, l.Text(i18n.ProductEditWeekdayHelp), view.Colors.SecondaryInk))
 	}
 	return fields
+}
+
+func (d *fundsPolicyDraft) clearPolicyValidation(gtx layout.Context) {
+	switch d.problem {
+	case i18n.FundsPolicyDateRequired, i18n.FundsPolicyEarlyRequired, i18n.FundsPolicyInvalid, i18n.ProductEditValidDays:
+		d.problem = i18n.NoMessage
+		gtx.Execute(op.InvalidateCmd{})
+	}
 }
 
 func fundsPolicyRadioIndicator(gtx layout.Context, view ui.View, selected bool) layout.Dimensions {

@@ -252,6 +252,16 @@ func TestAvailableFundsOrdinaryPolicyResetConfirmation(t *testing.T) {
 	if p.policy == nil || p.policy.problem != i18n.FundsPolicyDateRequired || p.policy.revision != 1 {
 		t.Fatal("invalid date policy reached the ledger")
 	}
+	draft, saves := p.policy, fault.saves.Load()
+	h.click("Available date", true)
+	h.frame()
+	h.press(key.NameRightArrow)
+	h.press(key.NameReturn)
+	settle()
+	if p.policy != draft || draft.problem != i18n.NoMessage || productString(draft.fields.value.UnlockOn) != fundsPresetDay(p.localDate, 1) ||
+		findPageLabel(&h.router, "Choose the date when this source becomes available.") != nil || fault.saves.Load() != saves {
+		t.Fatal("correcting the date left stale validation or saved the unconfirmed draft")
+	}
 	click("Reset to default")
 	if !p.policyConfirming() || fault.resets.Load() != 0 {
 		t.Fatal("reset did not wait for confirmation")
