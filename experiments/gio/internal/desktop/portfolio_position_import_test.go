@@ -3,10 +3,12 @@ package desktop
 import (
 	"fmt"
 	"image"
+	"strings"
 	"testing"
 	"time"
 
 	"gioui.org/f32"
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -102,10 +104,11 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	h.focused(&d.confirm)
 	for _, label := range []string{
 		"Quantity before · 0", "Quantity change · 1.125", "Quantity after · 1.125",
-		"Original cost per unit · 2.12345678 EUR", "Second desk · QA-BUY",
+		"Original cost per unit · 2.12345678 EUR",
 	} {
 		assertPageLabel(t, &h.router, label)
 	}
+	assertPageLabelContains(t, &h.router, "Second desk", "QA-BUY")
 	h.press(key.NameReturn)
 	finish()
 	h.assertTitlebarAction("Record existing holding")
@@ -136,6 +139,34 @@ func TestInvestmentAssetsImportsIntoSelectedAccountAndRestoresContext(t *testing
 	record, err := reopened.Activity(ctx, id)
 	if err != nil || len(record.Effects) != 1 || record.Effects[0].HoldingID == nil || *record.Effects[0].HoldingID != rows[second][0].ID {
 		t.Fatalf("receipt did not retain its selected Holding: %+v / %v", record, err)
+	}
+}
+
+func assertPageLabelContains(t *testing.T, router *input.Router, parts ...string) {
+	t.Helper()
+	var visit func([]input.SemanticNode) bool
+	visit = func(nodes []input.SemanticNode) bool {
+		for _, node := range nodes {
+			if node.Desc.Label != "" {
+				containsAll := true
+				for _, part := range parts {
+					if !strings.Contains(node.Desc.Label, part) {
+						containsAll = false
+						break
+					}
+				}
+				if containsAll {
+					return true
+				}
+			}
+			if visit(node.Children) {
+				return true
+			}
+		}
+		return false
+	}
+	if !visit(router.AppendSemantics(nil)) {
+		t.Fatalf("expected one rendered semantic label containing %q", strings.Join(parts, " + "))
 	}
 }
 
