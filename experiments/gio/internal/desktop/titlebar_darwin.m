@@ -17,6 +17,9 @@
 @property (strong) NSArray *observers;
 @property (strong) id mouseMonitor;
 @property (strong) NSAppearance *originalAppearance;
+@property (strong) NSToolbar *originalToolbar;
+@property (strong) NSToolbar *integratedToolbar;
+@property NSWindowToolbarStyle originalToolbarStyle;
 @property NSTitlebarSeparatorStyle originalSeparator;
 - (void)refresh;
 - (void)schedule;
@@ -79,6 +82,10 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
     NSWindow *window = self.window;
     if (!self.installed || !window || self.view.window != window) return;
     self.installed = NO;
+    window.toolbar = self.originalToolbar;
+    window.toolbarStyle = self.originalToolbarStyle;
+    self.integratedToolbar = nil;
+    self.originalToolbar = nil;
     window.styleMask &= ~NSWindowStyleMaskFullSizeContentView;
     window.titleVisibility = NSWindowTitleVisible;
     window.titlebarAppearsTransparent = NO;
@@ -120,7 +127,12 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
     BOOL firstInstall = !self.installed;
     if (firstInstall) {
         self.originalAppearance = window.appearance;
+        self.originalToolbar = window.toolbar;
+        self.originalToolbarStyle = window.toolbarStyle;
         self.originalSeparator = window.titlebarSeparatorStyle;
+        // Let AppKit provide the taller titlebar and position its own buttons.
+        // Gio draws the navigation controls in the full-size content view.
+        self.integratedToolbar = [[NSToolbar alloc] initWithIdentifier:@"NestworthGioTitlebar"];
         self.installed = YES;
     }
     // Go has now requested Decorated(false) using Gio's public API. The
@@ -129,6 +141,11 @@ static NSUInteger visibleButtons(NSView *view, NSWindow *window, CGFloat *right,
     // REAL AppKit controls here, without requesting Gio's fallback bar.
     BOOL changed = !(window.styleMask & NSWindowStyleMaskFullSizeContentView) ||
         !window.titlebarAppearsTransparent || window.titleVisibility != NSWindowTitleHidden;
+    if (window.toolbar != self.integratedToolbar) {
+        window.toolbarStyle = NSWindowToolbarStyleUnified;
+        window.toolbar = self.integratedToolbar;
+        changed = YES;
+    }
     if (!(window.styleMask & NSWindowStyleMaskFullSizeContentView))
         window.styleMask |= NSWindowStyleMaskFullSizeContentView;
     if (!window.titlebarAppearsTransparent) window.titlebarAppearsTransparent = YES;

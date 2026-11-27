@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -184,10 +185,7 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 	}
 }
 
-// Opening one composition card's data table stretches its peer in the same
-// row; closing it must return both cards to their original height at the same
-// window width, column count and card count.
-func TestOverviewCompositionRowShrinksAfterDataTableCloses(t *testing.T) {
+func TestOverviewCompositionShowsLegendsWithoutDuplicateTables(t *testing.T) {
 	view := ui.View{Theme: ui.NewTheme(), Language: i18n.English, Colors: &lightPalette, DecimalSeparator: ".", GroupingSeparator: ","}
 	amount := decimal.RequireFromString
 	result := domain.OverviewResult{Currency: "USD", Assets: amount("1500"), Liabilities: amount("300"),
@@ -199,31 +197,15 @@ func TestOverviewCompositionRowShrinksAfterDataTableCloses(t *testing.T) {
 		},
 		LiabilitiesByType: []domain.BreakdownItem{{Key: domain.BucketCreditCard, Amount: amount("300"), ShareBPS: 10000}}}
 	var b overviewBreakdowns
-	columns := (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true}).Columns(chartTableContext(900), 900, 2)
-	// A stretched row settles once two frames in a row agree on its height.
-	settle := func() int {
-		previous := -1
-		for range 5 {
-			height := b.composition(chartTableContext(900), view, result).Size.Y
-			if height == previous {
-				return height
-			}
-			previous = height
-		}
-		t.Fatal("the composition grid kept asking for frames")
-		return 0
-	}
-	if columns != 2 || len(overviewSummaries(result)) != 2 {
-		t.Fatalf("columns = %d, cards = %d; want two cards in one row", columns, len(overviewSummaries(result)))
-	}
-	closed := settle()
-	b.summaries[0].table.open = true
-	open := settle()
-	if open <= closed {
-		t.Fatalf("open data table height %d did not grow the row from %d", open, closed)
-	}
-	b.summaries[0].table.open = false
-	if again := settle(); again != closed {
-		t.Fatalf("closed again = %d, want both cards back to %d", again, closed)
+	gtx := chartTableContext(900)
+	b.composition(gtx, view, result)
+	var router input.Router
+	router.Frame(gtx.Ops)
+	assertPageLabel(t, &router, "Asset composition")
+	assertPageLabel(t, &router, "Liability composition")
+	assertPageLabel(t, &router, "Cash balances, US$600.00 · 40.00%")
+	assertPageLabel(t, &router, "Credit card, -US$300.00 · 100.00%")
+	if findPageLabel(&router, view.Language.Text(i18n.ChartDataTable)) != nil {
+		t.Fatal("a composition chart has a duplicate data table")
 	}
 }

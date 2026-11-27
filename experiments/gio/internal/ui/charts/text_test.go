@@ -4,9 +4,32 @@ import (
 	"testing"
 
 	"gioui.org/font"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 )
+
+func TestDonutCenterCompanionAmountsShareSizeAndWeight(t *testing.T) {
+	view := ui.View{Theme: ui.NewTheme()}
+	gtx := layout.Context{Ops: new(op.Ops), Metric: unit.Metric{PxPerDp: 2, PxPerSp: 2}}
+	totals := []string{"CN¥2,667,614.06", "-CN¥29,713.70"}
+	long := textBlock{style: ui.TextMoneyMD, content: totals[0]}
+	short := textBlock{style: ui.TextMoneyMD, content: totals[1]}
+	long.maxWidth = short.natural(gtx, view)
+	short.maxWidth = long.maxWidth
+	longStyle := donutCenterStyle(gtx, view, long, totals)
+	shortStyle := donutCenterStyle(gtx, view, short, totals)
+	if longStyle != shortStyle || longStyle.Size >= ui.TextMoneyMD.Size ||
+		longStyle.Weight != ui.TextMoneyMD.Weight || !longStyle.Serif {
+		t.Fatalf("companion styles = %+v and %+v, want a shared smaller serif semibold style", longStyle, shortStyle)
+	}
+	long.style = longStyle
+	if width := long.natural(gtx, view); width > long.maxWidth {
+		t.Fatalf("long total still needs %d pixels, want at most %d", width, long.maxWidth)
+	}
+}
 
 func TestChartFiguresUsePageTypefaces(t *testing.T) {
 	view := ui.View{Theme: ui.NewTheme()}

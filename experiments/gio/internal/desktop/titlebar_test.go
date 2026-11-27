@@ -23,7 +23,7 @@ import (
 
 // These are representative native point geometries, NOT rendered native buttons.
 // The same production shell is used on all platforms in this test.
-var normalTitlebar = titlebarMetrics{active: true, buttonRight: 72, buttonBottom: 24, buttonCenter: 17}
+var normalTitlebar = titlebarMetrics{active: true, buttonRight: 72, buttonBottom: 33, buttonCenter: 26}
 
 func syntheticTitlebarHarness(t *testing.T) *previewHarness {
 	t.Helper()

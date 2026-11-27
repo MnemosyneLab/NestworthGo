@@ -43,6 +43,9 @@ type DonutSpec struct {
 	// for example the total and its caption. A Compact ring leaves the hole
 	// empty.
 	CenterValue, CenterCaption string
+	// CenterFit lists the totals that should use the same fitted size in
+	// equally sized companion charts.
+	CenterFit []string
 	// NotDrawn is the note on legend entries that have no arc, such as "Not
 	// shown in the ring".
 	NotDrawn string
@@ -419,11 +422,7 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	if spec.CenterValue == spec.Messages.Missing {
 		value.style = ui.TextMetricMD
 	}
-	if value.natural(gtx, view) > avail {
-		smaller := ui.TextLabel
-		smaller.Serif = value.style.Serif
-		value.style = smaller
-	}
+	value.style = donutCenterStyle(gtx, view, value, spec.CenterFit)
 	if value.natural(gtx, view) > avail {
 		// Wrap rather than truncate: the amount is the point of the hole.
 		value.maxLines = 0
@@ -439,6 +438,23 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	left := int(plan.center.X) - avail/2
 	value.draw(gtx, view, image.Pt(left, top))
 	capBlock.draw(gtx, view, image.Pt(left, top+vSize.Y))
+}
+
+func donutCenterStyle(gtx layout.Context, view ui.View, value textBlock, totals []string) ui.TextStyle {
+	width := value.natural(gtx, view)
+	for _, total := range totals {
+		if total != value.content {
+			peer := value
+			peer.content = total
+			width = max(width, peer.natural(gtx, view))
+		}
+	}
+	if width > value.maxWidth {
+		// Keep the money face and weight when there is less room.
+		fitted := math.Floor(float64(value.style.Size) * float64(value.maxWidth) / float64(width))
+		value.style.Size = max(ui.TextLabel.Size, unit.Sp(fitted))
+	}
+	return value.style
 }
 
 // legendMetrics are the measured pixel sizes of the legend columns. A

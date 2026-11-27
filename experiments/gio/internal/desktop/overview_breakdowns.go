@@ -86,6 +86,10 @@ func overviewSummarySpecs(view ui.View, summary overviewSummary, currency domain
 
 func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, result domain.OverviewResult) layout.Dimensions {
 	summaries := overviewSummaries(result)
+	var totals [2]string
+	for i, summary := range summaries {
+		totals[i] = overviewBreakdownMoney(view, result.Currency, summary.total, summary.liability)
+	}
 	return (ui.Grid{MinColumn: 350, MaxColumns: 2, Gap: 16, Balanced: true, Rows: &b.stretch[0]}).Layout(gtx, view, len(summaries),
 		func(gtx layout.Context, view ui.View, index int) layout.Dimensions {
 			summary, chart := summaries[index], &b.summaries[0]
@@ -93,6 +97,7 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 				chart = &b.summaries[1]
 			}
 			donut, bars, useDonut := overviewSummarySpecs(view, summary, result.Currency)
+			donut.CenterFit = totals[:len(summaries)]
 			l := view.Language
 			rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(summary.label), view.Colors.Ink))}
 			if summary.quality.UnpricedCount > 0 {
@@ -117,10 +122,6 @@ func (b *overviewBreakdowns) composition(gtx layout.Context, view ui.View, resul
 				}
 				return dims
 			}))
-			rows = append(rows, ui.Rigid(chart.table.layout(view, len(donut.Slices), func() charts.Table {
-				donut.Selected = chart.selected
-				return donut.Table(chartTableLabels(l, i18n.ChartDetails))
-			})))
 			return overviewBreakdownCard(gtx, view, rows)
 		})
 }

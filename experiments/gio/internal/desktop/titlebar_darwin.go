@@ -153,6 +153,7 @@ func (n *nativeTitlebar) Metrics(size image.Point) titlebarMetrics {
 			slog.Info("Gio titlebar native handshake verified",
 				"gio_frame_px", size, "appkit_view_px", p.viewSize,
 				"outer_frame_pt", image.Pt(int(native.outerWidth+.5), int(native.outerHeight+.5)),
+				"native_button_center_pt", state.metrics.buttonCenter,
 				"native_buttons", p.visibleButtons, "native_full_size", p.fullSize,
 				"gio_decorated_requested", false)
 		}
