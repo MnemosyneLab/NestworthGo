@@ -196,6 +196,11 @@ func (p *productDetailPage) read() {
 }
 
 func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
+	p.poll()
+	return p.layoutContent(gtx, view, false)
+}
+
+func (p *productDetailPage) poll() {
 	select {
 	case result := <-p.request:
 		p.finishRead()
@@ -222,6 +227,9 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	p.pollReceipt()
 	p.pollValuation()
 	p.pollTerms()
+}
+
+func (p *productDetailPage) layoutContent(gtx layout.Context, view ui.View, inAccount bool) layout.Dimensions {
 	if p.receipt != nil {
 		return p.layoutReceipt(gtx, view)
 	}
@@ -274,7 +282,7 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 			if status != i18n.NoMessage {
 				return layout.Dimensions{}
 			}
-			rows := p.rows(view)
+			rows := p.rows(view, inAccount)
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
 			return view.List(&p.list).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, rows[i])
@@ -282,18 +290,41 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 		}))
 }
 
-func (p *productDetailPage) rows(view ui.View) []layout.Widget {
+func (p *productDetailPage) rows(view ui.View, inAccount bool) []layout.Widget {
 	l := view.Language
 	product := p.current.detail
 	contract := product.Contract
+	amount := fundsAmount
+	if inAccount {
+		amount = func(view ui.View, label i18n.MessageID, value *domain.Money) layout.Widget {
+			return labeledAmount(view, label, fundsAmountText(view, value), view.Colors.Ink)
+		}
+	}
 	fields := []layout.Widget{
 		productState(view, contract.Kind, product.DisplayState),
-		fundsAmount(view, i18n.ProductPrincipal, &contract.Principal),
-		fundsAmount(view, i18n.ProductValue, product.CurrentValue),
-		view.Message(fmt.Sprintf(l.Text(i18n.ProductStart), historyDay(view, contract.StartOn)), view.Colors.Ink),
-		productMaturity(view, contract.MaturityOn),
+		amount(view, i18n.ProductPrincipal, &contract.Principal),
+		amount(view, i18n.ProductValue, product.CurrentValue),
 	}
-	if name := p.current.account; name != "" && p.openAccount != nil {
+	var summary layout.Widget
+	if inAccount {
+		fields = append(fields, labeledAmount(view, i18n.ProductStart, historyDay(view, contract.StartOn), view.Colors.Ink))
+		if contract.MaturityOn != nil {
+			fields = append(fields, labeledAmount(view, i18n.ProductMaturity, historyDay(view, *contract.MaturityOn), view.Colors.Ink))
+		}
+		if contract.Note != nil && *contract.Note != "" {
+			fields = append(fields, view.Message(*contract.Note, view.Colors.SecondaryInk))
+		}
+		summary = func(gtx layout.Context) layout.Dimensions {
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return holdingReconColumn(gtx, fields)
+			})
+		}
+	} else {
+		fields = append(fields,
+			view.Message(fmt.Sprintf(l.Text(i18n.ProductStart), historyDay(view, contract.StartOn)), view.Colors.Ink),
+			productMaturity(view, contract.MaturityOn))
+	}
+	if name := p.current.account; !inAccount && name != "" && p.openAccount != nil {
 		button := portfolioButton(p.accounts, contract.AccountID)
 		fields = append(fields, func(gtx layout.Context) layout.Dimensions {
 			if button.Clicked(gtx) {
@@ -303,10 +334,13 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 			view.Focus.Watch(gtx, button)
 			return layout.W.Layout(gtx, view.Button(button, fmt.Sprintf(l.Text(i18n.HistoryOpenAccount), name)))
 		})
-	} else {
+	} else if !inAccount {
 		fields = append(fields, view.Message(l.Text(i18n.AccountReferenceUnavailable), view.Colors.SecondaryInk))
 	}
-	rows := []layout.Widget{fundsCard(view, productName(*product), fields...)}
+	if !inAccount {
+		summary = fundsCard(view, productName(*product), fields...)
+	}
+	rows := []layout.Widget{summary}
 	if contract.State == domain.ProductStateOpen {
 		var estimated *domain.Money
 		var receipt string
@@ -327,8 +361,8 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 			receipt = l.Text(i18n.OverviewNoValue)
 		}
 		fields := []layout.Widget{
-			fundsAmount(view, i18n.ProductForecastInterest, p.current.unpaidInterest),
-			fundsAmount(view, i18n.ProductForecastNet, estimated),
+			amount(view, i18n.ProductForecastInterest, p.current.unpaidInterest),
+			amount(view, i18n.ProductForecastNet, estimated),
 			view.Message(fmt.Sprintf(l.Text(i18n.ProductReceiptDate), receipt), view.Colors.Ink),
 		}
 		var reasons []i18n.MessageID
@@ -395,7 +429,11 @@ func (p *productDetailPage) rows(view ui.View) []layout.Widget {
 	if p.canStartGroupedUndo() {
 		actions = append(actions, p.lifecycleAction(view, &p.startGroupedUndo, i18n.ProductGroupedUndo, false, p.startUndo))
 	}
-	rows = append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
+	if inAccount {
+		rows = slices.Insert(rows, 1, accountDetailActions(view, actions))
+	} else {
+		rows = append(rows, fundsCard(view, l.Text(i18n.ProductActions), actions...))
+	}
 	return append(rows, p.productHistoryRows(view)...)
 }
 

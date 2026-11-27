@@ -1,6 +1,8 @@
 package desktop
 
 import (
+	"fmt"
+
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -136,7 +138,16 @@ func (p *accountsPage) layoutAccountRecord(gtx layout.Context, view ui.View) lay
 		return layout.Dimensions{}
 	}
 	rows := []ui.ColumnChild{
-		ui.Rigid(view.Body(ui.TextLabel, p.name(), view.Colors.Ink)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return ui.Column{Gap: ui.Space4}.Layout(gtx,
+					ui.Rigid(view.Body(ui.TextLabel, fmt.Sprintf(l.Text(i18n.AccountRecordScope), p.name()), view.Colors.Ink)),
+					ui.Rigid(view.Body(ui.TextBody, l.Text(i18n.AccountRecordScopeHelp), view.Colors.SecondaryInk)),
+				)
+			})
+		}),
+		ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.AccountRecordType), view.Colors.Ink)),
 	}
 	if row := p.freshDetail(); row != nil {
 		choices := p.accountRecordChoices(row.record.Account)
@@ -159,17 +170,28 @@ func (p *accountsPage) layoutAccountRecord(gtx layout.Context, view ui.View) lay
 						d.focus = false
 						gtx.Execute(key.FocusCmd{Tag: button})
 					}
-					return accountDetailButton(view, button, choice.label, ui.ButtonOutline, func() {
+					if button.Clicked(gtx) {
 						d.open = false
 						choice.start(gtx)
-					})(gtx)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					label := l.Text(choice.label)
+					return view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonLarge,
+						Name: label, Content: view.Body(ui.TextLabel, label, view.Colors.Ink), Fill: true})(gtx)
 				})
 				i++
 			}
-			rows = append(rows, ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.SecondaryInk)),
-				ui.Rigid(accountDetailActions(view, actions)))
+			rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return ui.Column{Gap: ui.Space8}.Layout(gtx,
+					ui.Rigid(view.Body(ui.TextLabel, l.Text(group), view.Colors.SecondaryInk)),
+					ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return ui.Grid{MinColumn: 144, MaxColumns: 3, Gap: ui.Space8}.Layout(gtx, view, len(actions),
+							func(gtx layout.Context, _ ui.View, i int) layout.Dimensions { return actions[i](gtx) })
+					}),
+				)
+			}))
 		}
 	}
 	rows = append(rows, ui.Rigid(view.ButtonOf(&d.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.InstitutionsCancel)})))
-	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+	return (ui.Column{Gap: ui.Space12}).Layout(gtx, rows...)
 }

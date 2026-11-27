@@ -13,6 +13,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+// Match the large account sheet used by the Wails account routes.
+const accountSheetWidth = 576
+
 type accountActionSheet struct {
 	panel   analysisSheet
 	overlay ui.Overlay
@@ -103,7 +106,7 @@ func (p *accountsPage) layoutAccountActionSheet(gtx layout.Context, view ui.View
 	cancel := p.accountActionCancel()
 	if p.actionSheet == nil {
 		p.actionSheet = &accountActionSheet{panel: newAnalysisSheet(), cancel: cancel}
-		p.actionSheet.panel.width, p.actionSheet.panel.modal = 680, true
+		p.actionSheet.panel.width, p.actionSheet.panel.modal = accountSheetWidth, true
 		// The form retains its existing initial field focus.
 		p.actionSheet.panel.focus = false
 	}

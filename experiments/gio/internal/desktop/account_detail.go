@@ -69,6 +69,63 @@ func accountDetailActions(view ui.View, actions []layout.Widget) layout.Widget {
 	}
 }
 
+func accountDetailSummary(view ui.View, row accountRow, readTime, institution, group, owner string) layout.Widget {
+	l := view.Language
+	account := row.record.Account
+	identity := view.Body(ui.TextBody, institution+" · "+l.Text(accountTypes[account.AccountType]), view.Colors.SecondaryInk)
+	metadata := []layout.Widget{
+		view.Body(ui.TextCaption, l.Text(accountTrackingLabel(account.TrackingMode, account.AccountType)), view.Colors.SecondaryInk),
+		view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountGroup), group), view.Colors.SecondaryInk),
+		view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountOwners), owner), view.Colors.SecondaryInk),
+	}
+	amounts := accountAmountLines(view, row, false)
+	status, tone := accountValuationStatus(row.value)
+	value := func(gtx layout.Context) layout.Dimensions {
+		fields := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+			return layoutAccountAmounts(gtx, view, amounts, layout.Start)
+		}}
+		if status != i18n.NoMessage {
+			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
+				return view.Badge(gtx, tone, l.Text(status))
+			})
+		}
+		if account.ArchivedAt != nil {
+			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
+				return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.DirectoryArchived))
+			})
+		}
+		fields = append(fields, view.Body(ui.TextCaption, readTime, view.Colors.SecondaryInk))
+		return accountDetailActions(view, fields)(gtx)
+	}
+	if row.value != nil && accountStale(*row.value) {
+		metadata = append(metadata, view.Body(ui.TextCaption, l.Text(i18n.AccountStaleQuotes), view.Colors.WarningInk))
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return ui.Column{Gap: ui.Space12}.Layout(gtx,
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if gtx.Constraints.Max.X < gtx.Dp(accountWideContent) {
+					return ui.Column{Gap: ui.Space8}.Layout(gtx, ui.Rigid(identity), ui.Rigid(value))
+				}
+				maxValueWidth := gtx.Constraints.Max.X * 2 / 3
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+					layout.Flexed(1, identity),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, maxValueWidth)
+						return value(gtx)
+					}))
+			}),
+			ui.Rigid(accountDetailActions(view, metadata)),
+			ui.Rigid(view.Hairline),
+		)
+	}
+}
+
+func accountSectionGap(section layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: ui.Space24}.Layout(gtx, section)
+	}
+}
+
 func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Account) layout.Widget {
 	l, d, data := view.Language, &p.detail, p.current
 	status, ink := l.Text(i18n.AccountCheckNever), view.Colors.Ink

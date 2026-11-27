@@ -245,9 +245,9 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 		t.Fatal("the institution link didn't open its account scope")
 	}
 	label("Pacific Sample Brokerage")
-	label("Complete valuation")
-	description("USD savings", "US$125.50 · A$188.25 · Complete valuation · Cached quotes are out of date.")
-	description("SGD savings", "S$75.00 · AUD value unavailable · Incomplete valuation · Missing exchange rate")
+	label("Complete")
+	description("USD savings", "US$125.50 · A$188.25 · Complete · Cached quotes are out of date.")
+	description("SGD savings", "S$75.00 · Pending conversion · Partial valuation · Missing exchange rate")
 	if len(p.rows) == 0 || p.rows[0].subtotal != nil {
 		t.Fatal("an institution with missing valuations has a complete-looking subtotal")
 	}
@@ -264,6 +264,21 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	label("Group · Long-term sample · Archived")
 	label("Owners · Ana Example · 50.00%  /  Bea Example · Archived · 50.00%")
 	label("Read 2026-11-22 01:00 (Asia/Singapore)")
+	previousSize := h.size
+	for _, size := range []image.Point{image.Pt(1280, 800), image.Pt(900, 600)} {
+		h.size = size
+		h.frame()
+		identity := assertPageLabel(t, &h.router, "Pacific Sample Brokerage · Bank account")
+		amount := assertPageLabel(t, &h.router, "US$125.50")
+		if size.X == 1280 && (amount.Min.X <= identity.Min.X || absTitlebarPixel(amount.Min.Y-identity.Min.Y) > 24) {
+			t.Fatalf("wide account detail did not place identity and balance side by side: %v, %v", identity, amount)
+		}
+		if size.X == 900 && (amount.Min.Y-identity.Min.Y < 20 || amount.Min.X != identity.Min.X) {
+			t.Fatalf("narrow account detail did not stack identity and balance: %v, %v", identity, amount)
+		}
+	}
+	h.size = previousSize
+	h.frame()
 	h.click("Back to accounts", false)
 	finish()
 	h.focused(p.buttons[ids.usd])
@@ -276,7 +291,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 	finish()
 	h.click("Mixed brokerage", false)
 	finish()
-	label("US$15.00 · Known subtotal")
+	label("US$15.00 · Valued subtotal")
 	label("Missing price · DEMO")
 	label("Missing exchange rate · AUD/SGD")
 	scrollToAccountDetailLabel(h, "Synthetic equity")

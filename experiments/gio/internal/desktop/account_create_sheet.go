@@ -32,7 +32,7 @@ type accountCreateSheet struct {
 
 func newAccountCreateSheet(step accountCreateStep, source *widget.Clickable) *accountCreateSheet {
 	sheet := newAnalysisSheet()
-	sheet.width, sheet.modal = 680, true
+	sheet.width, sheet.modal = accountSheetWidth, true
 	return &accountCreateSheet{analysisSheet: sheet, step: step, source: source}
 }
 

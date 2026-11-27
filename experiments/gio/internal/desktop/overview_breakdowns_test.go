@@ -184,6 +184,26 @@ func TestOverviewDimensionsFilterAccountsAndRestoreCompactFocus(t *testing.T) {
 	if accounts.target.institution != institution.ID {
 		t.Fatal("restored Overview focus reopened a different filter")
 	}
+	member := accountListScope{accountByMember, owners["Sample owner"].String()}
+	h.click("Back", false)
+	h.frame()
+	page.list.ScrollTo(page.dimensionsIndex() + 1)
+	h.frame()
+	h.click(findLabel(member, "Sample owner", 1), false)
+	h.frame()
+	accounts.workers.Wait()
+	h.frame()
+	assertPageLabel(t, &h.router, "Filtered accounts · Sample owner")
+	h.router.Source().Execute(key.FocusCmd{Tag: &accounts.clear})
+	h.frame()
+	h.focused(&accounts.clear)
+	h.press(key.NameReturn)
+	h.frame()
+	accounts.workers.Wait()
+	h.frame()
+	if accounts.target.accountList.active() || len(accounts.current.rows) != 2 {
+		t.Fatal("keyboard activation did not clear the account scope")
+	}
 }
 
 func TestOverviewCompositionShowsLegendsWithoutDuplicateTables(t *testing.T) {
