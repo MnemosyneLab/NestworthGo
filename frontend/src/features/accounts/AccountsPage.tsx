@@ -2,7 +2,6 @@ import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmati
 import type { AccountListFocus } from "@/app/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -141,8 +140,8 @@ export function AccountsPage({
               if (open) setCreateError(undefined);
             }}
           >
-            <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
-              <Plus className="size-4" aria-hidden="true" /> {t("accounts.create")}
+            <SheetTrigger className={buttonVariants()}>
+              {t("accounts.create")}
             </SheetTrigger>
             <SheetContent size="lg">
               <SheetHeader>

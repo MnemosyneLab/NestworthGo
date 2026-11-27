@@ -141,6 +141,7 @@ func TestMarketDataManualQuotesRefreshValuationAndPreserveUnrelatedGaps(t *testi
 	counts(1, 0)
 	h.click("FX rates", false)
 	marketFrame()
+	h.assertTitlebarAction("Add manual FX quote")
 	h.click("Add manual FX quote", false)
 	marketFrame()
 	d = p.manual.draft

@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { hasUnresolvedSheetConfirmation } from "@/components/ui/sheet-confirmation";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -26,7 +25,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { displayError } from "@/lib/display";
 import { instrumentSelectionLabels, instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
@@ -215,8 +213,8 @@ function Timeline({ navigationFilters, navigationActivityId, navigationRequestId
           pageId="history"
           actions={
             <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
-                <Plus className="size-4" aria-hidden="true" /> {t("history.recordButton")}
+              <SheetTrigger className={buttonVariants()}>
+                {t("history.recordButton")}
               </SheetTrigger>
               <SheetContent size="lg">
                 <SheetHeader>

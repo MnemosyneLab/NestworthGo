@@ -170,9 +170,6 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 						Title: l.Text(i18n.NavAccounts), Name: l.Text(i18n.AccountBack)})(gtx)
 				})
 				if row := p.freshDetail(); row != nil {
-					if record := p.detailRecordButton(view, row.record.Account); record != nil {
-						right = append(right, record)
-					}
 					right = append(right, p.detailAnalysisActions(view, row.record.Account)...)
 				}
 				right = append(right, p.accountMaintenanceActions(gtx, view)...)
@@ -182,26 +179,8 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					right = append(right, returnMonthButton(view, &p.clear, i18n.AccountClearOverviewFilter, nil, false))
 				}
 			} else {
-				primary := true
-				add := func(button *widget.Clickable, id i18n.MessageID) {
-					draw := view.Button(button, l.Text(id))
-					if primary {
-						draw = view.PrimaryButton(button, l.Text(id))
-						primary = false
-					}
-					left = append(left, func(gtx layout.Context) layout.Dimensions {
-						if p.focusCreate == button && gtx.Enabled() {
-							gtx.Execute(key.FocusCmd{Tag: button})
-							p.focusCreate = nil
-						}
-						return draw(gtx)
-					})
-				}
 				if p.canCreateBankAccount() {
-					add(&p.createBank, i18n.AccountCreateAdd)
-					add(&p.createShell, i18n.AccountCreateShellAdd)
-				} else if p.canCreateUnscoped() {
-					add(&p.createAccount, i18n.AccountAddEntry)
+					left = append(left, p.createAction(view, &p.createShell, i18n.AccountCreateShellAdd, false))
 				}
 				if p.target.institution != "" {
 					right = append(right, view.Button(&p.clear, l.Text(i18n.AccountClearInstitution)))

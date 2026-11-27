@@ -140,6 +140,9 @@ type shell struct {
 	motion                                ui.Motion
 	titlebar                              titlebarMetrics
 	chrome                                titlebarLayout
+
+	accountTitleMenu                                      ui.Select
+	openWealthHistory, exitWealthHistory, refreshUpcoming widget.Clickable
 }
 
 func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
@@ -761,11 +764,13 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	directoryArchiveOpen := s.confirmingArchive()
 	catalogEditorOpen := s.instrumentCatalogEditorOpen()
 	fundsReservationOpen := s.fundsReservationOpen()
+	if s.activeRoute() == fundsRoute && s.funds != nil && s.trail.current().target.product == "" {
+		s.funds.update()
+	}
 	if fundsReservationOpen {
 		s.funds.pollReservations()
 	}
 	if s.fundsPolicyOpen() {
-		s.funds.update()
 		s.funds.pollPolicy()
 	}
 	fundsPolicyOpen := s.fundsPolicyOpen()
@@ -781,10 +786,6 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		} else {
 			s.wideCollapsed = !s.wideCollapsed
 		}
-	}
-	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth(), !s.collapsed())
-	if !gtx.Enabled() {
-		s.chrome.drag = [2]image.Rectangle{}
 	}
 	gtx.Locale.Language = string(s.preferences.language)
 	colors := s.preferences.colors()
@@ -809,6 +810,14 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	s.observeLedger(gtx)
 	s.updateNavigation(gtx)
+	if s.activeRoute() == marketDataRoute && s.marketData != nil {
+		s.marketData.update()
+	}
+	// A navigation visit can collapse the sidebar in the same frame.
+	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth(), !s.collapsed())
+	if !gtx.Enabled() {
+		s.chrome.drag = [2]image.Rectangle{}
+	}
 	if s.tasks != nil {
 		s.tasks.pollReviewAcknowledgement(s.activeRoute() == tasksRoute)
 	}
@@ -1352,13 +1361,15 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 	if entry := s.trail.current(); entry.target.route == portfolioRoute && entry.target.instrument != "" && entry.name != "" {
 		name = entry.name
 	}
-	recordView := view
+	action := s.pageTitleAction(gtx, view)
+	headerView := view
 	view.Focus = nil
 	colors := view.Colors
 	size := image.Pt(gtx.Constraints.Max.X, s.chrome.height)
 	gtx.Constraints = layout.Exact(size)
 	paint.FillShape(gtx.Ops, colors.Divider, clip.Rect(image.Rect(0, size.Y-1, size.X, size.Y)).Op())
 	return s.layoutHeaderChrome(gtx, view, func(gtx layout.Context) layout.Dimensions {
+		gtx = s.accountHeaderActions(gtx, headerView)
 		return layout.W.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min.Y = 0
 			left := unit.Dp(20)
@@ -1383,6 +1394,9 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 					layout.Rigid(layout.Spacer{Width: 10}.Layout),
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						if action != nil {
+							gtx.Constraints.Min.X = 0
+						}
 						for {
 							if _, ok := gtx.Event(key.FocusFilter{Target: &s.headingFocus}); !ok {
 								break
@@ -1392,13 +1406,12 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						event.Op(gtx.Ops, &s.headingFocus)
 						return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						if s.activeRoute() == historyRoute && s.historyPage.canRecord() {
-							return s.historyPage.layoutRecordTrigger(gtx, recordView)
-						}
-						return layout.Dimensions{}
-					}),
 				)
+				if action != nil {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: ui.Space8}.Layout(gtx, action)
+					}))
+				}
 				return layout.Flex{Alignment: layout.Middle, Gap: gap}.Layout(gtx, controls...)
 			})
 		})

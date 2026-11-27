@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -226,13 +225,6 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	if f := p.investment; f != nil {
 		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 		f.poll(run)
-		if p.canImportPosition() && f.draft == nil && f.importOpen.Clicked(gtx) {
-			f.draft = newAccountInvestmentDraft(domain.ActivityPositionTransfer, domain.Account{})
-			f.draft.pickAccount, f.draft.focusAccount = true, true
-			f.draft.accounts = p.current.importAccounts
-			view.RestorePageScroll(0)
-			gtx.Execute(op.InvalidateCmd{})
-		}
 		if f.draft != nil {
 			return f.layoutForm(gtx, view, run)
 		}
@@ -266,18 +258,6 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 						color = view.Colors.ErrorInk
 					}
 					return view.Message(l.Text(status), color)(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !p.canImportPosition() {
-						return layout.Dimensions{}
-					}
-					f := p.investment
-					view.Focus.Watch(gtx, &f.importOpen)
-					if f.restore == &f.importOpen && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &f.importOpen})
-						f.restore = nil
-					}
-					return view.PrimaryButton(&f.importOpen, l.Text(i18n.PositionImportPortfolioAction))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.err == nil {

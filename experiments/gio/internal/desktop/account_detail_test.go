@@ -143,6 +143,7 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	if !p.detail.composition.detail {
 		t.Fatal("Back dropped the selected composition grouping")
 	}
+	h.assertTitlebarAction("Record a change")
 	click("Record a change")
 	h.press(key.NameEscape)
 	settle()

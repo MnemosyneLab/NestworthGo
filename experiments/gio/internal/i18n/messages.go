@@ -24,6 +24,9 @@ const (
 	NavTasks
 	NavHistory
 	NavHistoricalOverview
+	AccountTitleActions
+	WealthExit
+	TasksRefreshUpcoming
 	NavReturns
 	NavAssetChanges
 	NavDirectory

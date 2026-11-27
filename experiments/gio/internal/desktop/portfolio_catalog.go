@@ -179,36 +179,10 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 	}
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			search := func(gtx layout.Context) layout.Dimensions {
-				return c.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
-					p.list.Position = layout.Position{}
-					gtx.Execute(op.InvalidateCmd{})
-				})
-			}
-			if c.ledger == nil {
-				return search(gtx)
-			}
-			ready := p.request == nil && p.err == nil
-			if ready && c.add.Clicked(gtx) {
-				p.beginCatalogEditor(gtx, domain.Instrument{QuoteCurrency: p.current.summary.Currency}, &c.add)
-			}
-			return (ui.Grid{MinColumn: 215, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, view, 2,
-				func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
-					if i == 0 {
-						return search(gtx)
-					}
-					if c.focus == &c.add && ready {
-						gtx.Execute(key.FocusCmd{Tag: &c.add})
-						c.focus = nil
-					}
-					if !ready {
-						gtx = gtx.Disabled()
-					}
-					title := view.Language.Text(i18n.PortfolioCatalogAdd)
-					return layout.E.Layout(gtx, view.ButtonOf(&c.add, ui.ButtonSpec{
-						Variant: ui.ButtonPrimary, Title: title, Name: title, Icon: lucide.Plus,
-					}))
-				})
+			return c.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
+				p.list.Position = layout.Position{}
+				gtx.Execute(op.InvalidateCmd{})
+			})
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if c.notice == i18n.NoMessage {

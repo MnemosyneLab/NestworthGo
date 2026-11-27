@@ -129,6 +129,7 @@ func TestMarketDataSavedReadsMatchWails(t *testing.T) {
 	}
 	h.click("More actions · QA-FUND", false)
 	assertPageLabel(t, &h.router, "View quote history")
+	h.assertTitlebarAction("Add instrument")
 	h.click("Add instrument", false)
 	if editor != "" || editorFocus != &page.addInstrument {
 		t.Fatal("the toolbar did not open the creation path")

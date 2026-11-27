@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget"
@@ -188,7 +187,6 @@ func (p *availableFundsPage) update() {
 }
 
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
-	p.update()
 	p.openActionFocus(gtx, view)
 	if d := p.setup; d != nil && d.poll() {
 		p.closeProductSetup()
@@ -203,13 +201,6 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		p.state.focusSources = true
 	}
 	l := view.Language
-	accounts := p.productAccounts()
-	if gtx.Enabled() && p.setup == nil && len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
-		p.productSaved = false
-		run := productSetupRuntime{ctx: p.ctx, ledger: p.productLedger, clock: p.productClock, workers: &p.workers, invalidate: p.invalidate}
-		p.setup = newProductSetup(run, accounts, l.Text(i18n.ProductAddDeposit))
-		gtx.Execute(op.InvalidateCmd{})
-	}
 	if p.current != nil && p.request == nil && p.reservation == nil && p.policy == nil && p.setup == nil {
 		switch {
 		case p.nextRefresh.IsZero():
@@ -246,20 +237,6 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 						color = view.Colors.ErrorInk
 					}
 					return view.Message(l.Text(status), color)(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if len(accounts) == 0 {
-						return layout.Dimensions{}
-					}
-					if p.restoreAddFocus && p.request == nil && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
-						p.restoreAddFocus = false
-					}
-					if p.request != nil {
-						gtx = gtx.Disabled()
-					}
-					view.Focus.Watch(gtx, &p.addProduct)
-					return view.PrimaryButton(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.err == nil {

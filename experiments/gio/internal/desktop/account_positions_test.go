@@ -75,6 +75,21 @@ func TestAccountPositionsFilterAndScopedInstrumentHistory(t *testing.T) {
 	h.frame()
 	click("Accounts")
 	click("Harbor Brokerage")
+	const accountActions = "More actions for Harbor Brokerage"
+	h.assertTitlebarAction(accountActions)
+	click(accountActions)
+	menu := &h.shell.accountTitleMenu
+	if h.shell.overlay.Trigger != &menu.Trigger || h.shell.overlay.Panel.Empty() {
+		t.Fatal("account actions did not open from the titlebar")
+	}
+	h.press(key.NameDownArrow)
+	h.press(key.NameReturn)
+	settle()
+	if h.shell.activeRoute() != historyRoute || !ledger.model.Filters().Equal(historyui.Filters{Account: fixture.account}) {
+		t.Fatal("account titlebar menu did not open its scoped transactions")
+	}
+	click("Back")
+	h.focused(&menu.Trigger)
 	if groups := accounts.current.holdingGroups; len(groups) == 0 || len(groups) != len(want) ||
 		len(groups[0].Subtotals) == 0 || len(want[0].Subtotals) == 0 ||
 		groups[0].Subtotals[0].Amounts.TotalCost == nil || want[0].Subtotals[0].TotalCost == nil ||
