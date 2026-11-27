@@ -118,9 +118,6 @@ func TestFinancialComparisonMissingFXNativeDeltaAndDates(t *testing.T) {
 	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "FX", "bank_account", "asset", "balance", "USD", "10")
-	if _, err := s.BuildFinancialComparison(t.Context(), FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); !hasDomainCode(err, domain.ErrMissingHistoryOrigin) {
-		t.Fatal(err)
-	}
 	if _, err := s.CaptureSyntheticOrigin(t.Context(), "America/New_York"); err != nil {
 		t.Fatal(err)
 	}

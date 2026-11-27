@@ -14,7 +14,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
-	"github.com/waltwang/nestworth-go/internal/testfixture"
 	quoteapi "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 )
 
@@ -39,10 +38,10 @@ func TestMarketAgentEvidenceScopedClosureRetryAndReadback(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	app := application.NewService(&testfixture.BaselineRepository{Repository: sqlite.NewRepository(db)})
+	app := application.NewService(sqlite.NewRepository(db))
 	clock := func() time.Time { return time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC) }
 	app.SetClock(clock)
-	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Agent evidence", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}}); err != nil {
+	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Synthetic Agent evidence", BaseCurrency: "USD", MemberNames: []string{"Sample owner"}, Timezone: "UTC", HistoryStartDate: "2026-11-20"}); err != nil {
 		t.Fatal(err)
 	}
 	asset, err := app.CreateInstrument(ctx, application.InstrumentInput{Name: "Synthetic Agent NAV", Type: "mutual_fund", QuoteCurrency: "USD", QuoteSource: "agent"})

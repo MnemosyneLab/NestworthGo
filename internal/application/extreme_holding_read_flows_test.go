@@ -27,7 +27,7 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
-		holding, createErr := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: quantity})
+		holding, createErr := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: quantity, UnitCost: "0"})
 		if createErr != nil {
 			t.Fatal(createErr)
 		}
@@ -65,6 +65,12 @@ func TestExtremePersistedHoldingKeepsOverviewAndUpcomingActionsReadable(t *testi
 	}
 
 	ordinary := addHolding("Ordinary synthetic holding", "2", "2")
+	// This regression compares a valid ledger's health before and after
+	// a deliberately extreme synthetic quantity; it must not rely on a
+	// history-less household being a usable ledger.
+	if _, err := service.CaptureSyntheticOrigin(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
 	saveScheduledPolicy(ordinary)
 	controlOverview, err := service.Overview(ctx, domain.AccountFilter{})
 	if err != nil {

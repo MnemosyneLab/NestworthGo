@@ -28,12 +28,15 @@ func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) 
 	}
 	return r
 }
-func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T) {
+func TestFinancialContextCurrentWithHistoryAndObservationSources(t *testing.T) {
 	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Secret bank", "bank_account", "asset", "balance", "CNY", "100.01")
 	b := overviewAccount(t, s, owner, "Secret broker", "brokerage", "asset", "holdings", "CNY", "")
 	if _, err := s.AppendAccountCashValue(t.Context(), b.Account.ID, "2.03", "CNY", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CaptureSyntheticOrigin(t.Context(), "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	input, err := s.repository.ReadPortfolioSnapshot(t.Context(), domain.AccountFilter{IncludeArchived: true})
@@ -45,7 +48,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	}
 	r := contextFor(t, s, "current")
 	wantOverviewAmount(t, r.Content.Summary.NetWorth.Value, "102.04")
-	if r.Content.AsOf.Timezone != nil || r.Content.Coverage.SnapshotHealth != "not_assessed" {
+	if r.Content.AsOf.Timezone == nil || *r.Content.AsOf.Timezone != "UTC" || r.Content.Coverage.SnapshotHealth != "not_assessed" {
 		t.Fatal(r.Content)
 	}
 	wantDates := map[string]bool{}
@@ -73,9 +76,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	if next := contextFor(t, s, "current"); next.ContentHash != before {
 		t.Fatal("clock changed stable content")
 	}
-	if _, err := s.BuildFinancialContext(t.Context(), FinancialContextRequest{AsOf: "2026-08-01"}); !hasDomainCode(err, domain.ErrMissingHistoryOrigin) {
-		t.Fatal(err)
-	}
+
 }
 func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 	t.Parallel()
