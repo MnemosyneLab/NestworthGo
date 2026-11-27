@@ -181,6 +181,15 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	assertPageLabel(t, &h.router, "EUR · Full group subtotal")
 	subtotal := assertPageLabel(t, &h.router, "Cost basis · €68.36")
 	name := ids.instruments["QA-FULL"].DisplayLabel()
+	reveal("Actions for " + name)
+	beforeWideMenu := semanticBounds(t, &h.router, name, false)
+	click("Actions for " + name)
+	afterWideMenu := semanticBounds(t, &h.router, name, false)
+	if beforeWideMenu != afterWideMenu {
+		t.Fatalf("opening the wide row menu moved its row: before %v, after %v", beforeWideMenu, afterWideMenu)
+	}
+	h.press(key.NameEscape)
+	settle()
 	identity := assertPageLabel(t, &h.router, name)
 	cost := assertPageLabel(t, &h.router, "Cost basis · €60.36")
 	menu := assertPageLabel(t, &h.router, "Actions for "+name)
@@ -250,14 +259,22 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 		t.Fatal("Back discarded the selected holdings view")
 	}
 	reveal("Actions for " + loss.DisplayLabel())
+	beforeMenuRow := semanticBounds(t, &h.router, loss.DisplayLabel(), false)
 	click("Actions for " + loss.DisplayLabel())
+	afterMenuRow := semanticBounds(t, &h.router, loss.DisplayLabel(), false)
+	if beforeMenuRow != afterMenuRow {
+		t.Fatalf("opening the anchored row menu moved its row: before %v, after %v", beforeMenuRow, afterMenuRow)
+	}
+	if h.shell.overlay.Trigger != &control.menu.Trigger || portfolio.holdings.rowWidth <= 0 {
+		t.Fatal("row action menu did not stay attached to its visible trigger")
+	}
 	reveal("View instrument history")
 	click("View instrument history")
 	if filters := timeline.model.Filters(); filters.Account != ids.account || filters.Instrument != loss.ID {
 		t.Fatalf("holding action used the wrong ledger scope %+v", filters)
 	}
 	click("Back")
-	h.focused(&control.toggle)
+	h.focused(&control.menu.Trigger)
 	for _, choice := range []struct {
 		label string
 		route routeID
@@ -284,7 +301,7 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 			t.Fatalf("holding action did not open the expected analysis view for %s", choice.label)
 		}
 		click("Back")
-		h.focused(&control.toggle)
+		h.focused(&control.menu.Trigger)
 	}
 
 	setBankField(h, "Search holdings", &portfolio.search.Field, "qa-zero")

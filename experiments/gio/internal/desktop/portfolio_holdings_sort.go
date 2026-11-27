@@ -137,7 +137,9 @@ func (p *portfolioPage) holdingSortHeader(gtx layout.Context, view ui.View, grou
 	}
 	wide := ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth)
 	return layoutHoldingSortControls(gtx, view, &h.visit.sort, buttons, wide, func() {
-		h.openActions = portfolioHoldingKey{}
+		if view.Overlay != nil {
+			view.Overlay.Close()
+		}
 		gtx.Execute(op.InvalidateCmd{})
 	})
 }

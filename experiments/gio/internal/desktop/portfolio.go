@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image"
 	"slices"
 	"strings"
 	"sync"
@@ -249,7 +250,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	case p.request != nil:
 		status = i18n.OverviewRefreshing
 	}
-	return ui.Column{Gap: 12}.Layout(gtx,
+	children := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -325,11 +326,24 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			if p.id == "" && p.tabs.active == portfolioHoldingsTab && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
 				gap = ui.Space4
 			}
+			if p.id == "" && p.tabs.active == portfolioHoldingsTab {
+				return pageListGapWithRowOrigins(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, p.holdings.listOrigin, &p.holdings.rowHeights,
+					func(origin image.Point, width, _ int) {
+						p.holdings.rowOrigin, p.holdings.rowWidth = origin, width
+					}, func(gtx layout.Context, i int) layout.Dimensions {
+						return rows[i](gtx)
+					})
+			}
 			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, func(gtx layout.Context, i int) layout.Dimensions {
 				return rows[i](gtx)
 			})
 		}),
-	)
+	}
+	return (ui.Column{Gap: 12}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
+		if index == len(children)-1 {
+			p.holdings.listOrigin = origin
+		}
+	}, children...)
 }
 
 func (p *portfolioPage) positionImported(activity domain.Activity, notice i18n.MessageID, _ event.Tag) {
