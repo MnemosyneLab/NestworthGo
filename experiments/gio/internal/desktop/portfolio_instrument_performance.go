@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image"
 	"image/color"
 	"sync"
 	"time"
@@ -174,6 +175,7 @@ func (perf *instrumentPerformance) seriesRows(view ui.View, instrument domain.In
 	return []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		fields := []ui.ColumnChild{ui.Rigid(perf.controls(view, data, period))}
 		if perf.infoOpen {
+			fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.PortfolioPerformanceBasis), view.Colors.SecondaryInk)))
 			fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentMarketNote), view.Colors.SecondaryInk)))
 			if instrument.UsesMetalConversion() {
 				fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.QuoteHistoryMetalReference), view.Colors.SecondaryInk)))
@@ -207,8 +209,18 @@ func (perf *instrumentPerformance) seriesRows(view ui.View, instrument domain.In
 		if instrument.ProviderKey != nil && *instrument.ProviderKey == application.CoinGeckoProviderKey {
 			fields = append(fields, ui.Rigid(quoteHistoryAttribution(view, &perf.attribution, &perf.attributionCopied)))
 		}
-		return overviewBreakdownCard(gtx, view, fields)
+		return instrumentPerformanceCard(gtx, view, fields)
 	}}
+}
+
+// instrumentPerformanceCard keeps this chart section compact like Wails while
+// preserving the same card surface used elsewhere in the investment pages.
+func instrumentPerformanceCard(gtx layout.Context, view ui.View, fields []ui.ColumnChild) layout.Dimensions {
+	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: ui.Space16, Bottom: 12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return (ui.Column{Gap: ui.Space4}).Layout(gtx, fields...)
+		})
+	})
 }
 
 func (perf *instrumentPerformance) controls(view ui.View, data *domain.QuotePerformanceSeries, period instrumentPerformancePeriod) layout.Widget {
@@ -238,8 +250,10 @@ func (perf *instrumentPerformance) controls(view ui.View, data *domain.QuotePerf
 			return (ui.Column{Gap: ui.Space4}).Layout(gtx,
 				ui.Rigid(view.Body(ui.TextMetricLG, value, ink)),
 				ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+					dateWidth := marketTextWidth(gtx, view, ui.TextCaption, date)
 					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
-						layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints = layout.Constraints{Min: image.Pt(dateWidth, 0), Max: image.Pt(dateWidth, gtx.Constraints.Max.Y)}
 							return view.Line(gtx, ui.TextCaption, date, view.Colors.SecondaryInk)
 						}), layout.Rigid(info))
 				}),
@@ -348,7 +362,7 @@ func instrumentPerformanceReturns(view ui.View, items []domain.QuotePerformance)
 
 func instrumentPerformanceChart(view ui.View, instrument domain.Instrument, data domain.QuotePerformanceSeries) charts.LineSpec {
 	l := view.Language
-	spec := charts.LineSpec{Label: l.Text(i18n.ChartPrice) + " · " + instrument.QuoteCurrency.String(), Summary: l.Text(i18n.PortfolioPerformanceBasis), Height: 220,
+	spec := charts.LineSpec{Label: l.Text(i18n.ChartPrice) + " · " + instrument.QuoteCurrency.String(), Height: 160,
 		Area: true, FormatTime: func(day time.Time) string { return ui.FormatDay(day, l, view.DateFormat) },
 		FormatValue: func(value float64) string { return chartAxisNumber(view, value) },
 		Messages:    charts.Messages{Empty: l.Text(i18n.PortfolioPerformanceNoHistory), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)}}

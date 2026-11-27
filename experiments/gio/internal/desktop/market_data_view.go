@@ -535,8 +535,9 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 						return view.IconTile(gtx, spec.icon, 20, colors.Tint(colors.Accent, 0.10), colors.Accent)
 					}
 					catalogIdentity := func(gtx layout.Context) layout.Dimensions {
+						assignedWidth := gtx.Constraints.Min.X
 						count := 2 + len(spec.badges)
-						return ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, count, func(gtx layout.Context, index int) layout.Dimensions {
+						dims := ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, count, func(gtx layout.Context, index int) layout.Dimensions {
 							switch {
 							case index == 0:
 								return catalogIcon(gtx)
@@ -555,6 +556,10 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 								return view.Badge(gtx, badge.tone, badge.text)
 							}
 						})
+						// Wrap reports its intrinsic width. Preserve the Flexed slot
+						// assigned by the parent so row actions stay on one trailing edge.
+						dims.Size.X = max(dims.Size.X, assignedWidth)
+						return dims
 					}
 					catalogQuote := func(gtx layout.Context) layout.Dimensions {
 						width := marketCatalogQuoteWidth(gtx, view, spec)

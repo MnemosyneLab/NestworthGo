@@ -82,15 +82,33 @@ func TestPortfolioCatalogActionsTrailAt900x600ShellViewport(t *testing.T) {
 		qqq := assertPageLabel(t, &h.router, "QA-QQQ")
 		aaplActions := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), "QA-AAPL"), false)
 		es3Actions := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), "QA-ES3"), false)
+		qqqActions := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogOpen), "QA-QQQ"), false)
 		aaplEdit := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), "QA-AAPL"), false)
 		es3Edit := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), "QA-ES3"), false)
-		if aapl.Min.Y < 0 || aapl.Min.Y >= height || es3.Min.Y < 0 || es3.Min.Y >= height || qqq.Min.Y >= height ||
+		qqqEdit := semanticBounds(t, &h.router, fmt.Sprintf(language.Text(i18n.PortfolioCatalogEditNamed), "QA-QQQ"), false)
+		if aapl.Min.Y < 0 || aapl.Min.Y >= height || es3.Min.Y < 0 || es3.Min.Y >= height ||
+			semanticTextLineBounds(qqq, ui.TextLabel).Max.Y > height ||
 			aaplActions.Min.Y < 0 || aaplActions.Max.Y > height || es3Actions.Min.Y < 0 || es3Actions.Max.Y > height ||
-			aaplEdit.Min.Y < 0 || aaplEdit.Max.Y > height || es3Edit.Min.Y < 0 || es3Edit.Max.Y > height {
-			t.Fatalf("the 900px catalog viewport should show AAPL and ES3 and the start of QQQ: AAPL %v, ES3 %v, QQQ %v", aapl, es3, qqq)
+			qqqActions.Min.Y < 0 || qqqActions.Max.Y > height ||
+			aaplEdit.Min.Y < 0 || aaplEdit.Max.Y > height || es3Edit.Min.Y < 0 || es3Edit.Max.Y > height ||
+			qqqEdit.Min.Y < 0 || qqqEdit.Max.Y > height {
+			t.Fatalf("the %dpx catalog viewport should show AAPL and ES3 and the full first line of QQQ: AAPL %v, ES3 %v, QQQ %v, actions %v/%v/%v, edits %v/%v/%v",
+				width, aapl, es3, qqq, aaplActions, es3Actions, qqqActions, aaplEdit, es3Edit, qqqEdit)
 		}
 		if qqq.Min.Y-es3.Min.Y > 120 {
 			t.Fatalf("the measured ETF row height should keep QQQ near ES3 in the viewport: ES3 %v, QQQ %v", es3, qqq)
+		}
+		for _, bounds := range []image.Rectangle{aaplActions, es3Actions, qqqActions} {
+			if absTitlebarPixel(bounds.Max.X-aaplActions.Max.X) > 1 {
+				t.Fatalf("catalog Details actions should share one trailing edge at %d×%d: details %v/%v/%v, edits %v/%v/%v",
+					width, height, aaplActions, es3Actions, qqqActions, aaplEdit, es3Edit, qqqEdit)
+			}
+		}
+		for _, bounds := range []image.Rectangle{aaplEdit, es3Edit, qqqEdit} {
+			if absTitlebarPixel(bounds.Max.X-aaplEdit.Max.X) > 1 {
+				t.Fatalf("catalog Edit actions should share one trailing edge at %d×%d: details %v/%v/%v, edits %v/%v/%v",
+					width, height, aaplActions, es3Actions, qqqActions, aaplEdit, es3Edit, qqqEdit)
+			}
 		}
 		identity := aapl
 		quoteLabel := fmt.Sprintf(language.Text(i18n.MarketLatestPrice), "US$203.00")

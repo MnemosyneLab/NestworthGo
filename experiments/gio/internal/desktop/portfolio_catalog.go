@@ -181,20 +181,19 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 			c.focus = nil
 		}
 	}
-	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return c.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
-				p.list.Position = layout.Position{}
-				gtx.Execute(op.InvalidateCmd{})
-			})
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if c.notice == i18n.NoMessage {
-				return layout.Dimensions{}
-			}
+	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return c.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
+			p.list.Position = layout.Position{}
+			gtx.Execute(op.InvalidateCmd{})
+		})
+	})}
+	if c.notice != i18n.NoMessage {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Message(view.Language.Text(c.notice), view.Colors.Ink)(gtx)
 		}))
+	}
+	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 }
 
 func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {

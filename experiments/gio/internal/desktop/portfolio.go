@@ -357,6 +357,8 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 		// The holdings page has its own compact filter toolbar directly under
 		// the portfolio tabs. Keep this stack closer to the first group header.
 		columnGap = ui.Space8
+	} else if p.id != "" && p.detail.visit.section == instrumentDetailPerformance {
+		columnGap = ui.Space8
 	}
 	return (ui.Column{Gap: columnGap}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
 		if index == len(children)-1 {
