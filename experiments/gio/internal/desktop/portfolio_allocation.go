@@ -25,6 +25,12 @@ type portfolioAllocationRead struct {
 	accounts  []domain.AccountValuation
 }
 
+const portfolioAllocationSideBySideWidth = 1024
+
+func portfolioAllocationStacksLegend(gtx layout.Context) bool {
+	return !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, portfolioAllocationSideBySideWidth)
+}
+
 func readPortfolioAllocation(ctx context.Context, service portfolioReader) (out portfolioRead, err error) {
 	err = service.WithRead(ctx, func(ctx context.Context) error {
 		summary, err := service.Portfolio(ctx, domain.AccountFilter{})
@@ -145,6 +151,7 @@ func (p *portfolioPage) portfolioAllocationCard(view ui.View, data domain.Portfo
 			var dims layout.Dimensions
 			var events []charts.Event
 			if useDonut {
+				donut.StackLegend = portfolioAllocationStacksLegend(gtx)
 				donut.Selected = chart.selected
 				view.Focus.Watch(gtx, &chart.donut)
 				dims, events = chart.donut.Layout(gtx, view, donut)

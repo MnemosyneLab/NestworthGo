@@ -250,8 +250,9 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	case p.request != nil:
 		status = i18n.OverviewRefreshing
 	}
-	children := []ui.ColumnChild{
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := make([]ui.ColumnChild, 0, 5)
+	if status != i18n.NoMessage || p.id != "" {
+		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
@@ -277,7 +278,9 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}),
 			)
-		}),
+		}))
+	}
+	children = append(children,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.positionReceipt == nil {
 				return layout.Dimensions{}
@@ -323,22 +326,24 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			}
 			rows := p.rows(view)
 			gap := ui.Space12
-			if p.id == "" && p.tabs.active == portfolioHoldingsTab && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
-				gap = ui.Space4
-			}
 			if p.id == "" && p.tabs.active == portfolioHoldingsTab {
-				return pageListGapWithRowOrigins(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, p.holdings.listOrigin, &p.holdings.rowHeights,
+				return pageListGapWithRowOrigins(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), 0, p.holdings.listOrigin, &p.holdings.rowHeights,
 					func(origin image.Point, width, _ int) {
 						p.holdings.rowOrigin, p.holdings.rowWidth = origin, width
 					}, func(gtx layout.Context, i int) layout.Dimensions {
 						return rows[i](gtx)
 					})
 			}
+			if p.id == "" && p.tabs.active == portfolioInstruments {
+				return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions {
+					return rows[i](gtx)
+				})
+			}
 			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, func(gtx layout.Context, i int) layout.Dimensions {
 				return rows[i](gtx)
 			})
 		}),
-	}
+	)
 	return (ui.Column{Gap: 12}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
 		if index == len(children)-1 {
 			p.holdings.listOrigin = origin

@@ -12,6 +12,7 @@ import (
 
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/unit"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -28,6 +29,19 @@ type portfolioTrendProbe struct {
 	mu     sync.Mutex
 	reads  []domain.TrendRange
 	failed atomic.Bool
+}
+
+func TestPortfolioAllocationResponsiveLegendBreakpoint(t *testing.T) {
+	for _, tc := range []struct {
+		width   int
+		stacked bool
+	}{{900, true}, {1024, false}, {1280, false}} {
+		gtx := layout.Context{Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+			Constraints: layout.Constraints{Max: image.Pt(tc.width, 600)}}
+		if got := portfolioAllocationStacksLegend(gtx); got != tc.stacked {
+			t.Errorf("allocation legend at %dpx stacked = %v, want %v", tc.width, got, tc.stacked)
+		}
+	}
 }
 
 func (s *portfolioTrendProbe) PortfolioTrend(ctx context.Context, period domain.TrendRange) (domain.PortfolioTrend, error) {

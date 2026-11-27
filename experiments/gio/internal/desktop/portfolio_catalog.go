@@ -12,6 +12,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
@@ -182,7 +183,8 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 	}
 	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return c.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return c.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
 				p.list.Position = layout.Position{}
 				gtx.Execute(op.InvalidateCmd{})
 			})
@@ -214,7 +216,11 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 		if len(items) == 0 {
 			continue
 		}
+		if len(rows) > 0 {
+			rows = append(rows, portfolioSpacer(ui.Space12))
+		}
 		rows = append(rows, view.Body(ui.TextHeading, l.Text(marketInstrumentTypes[kind]), view.Colors.Ink))
+		rows = append(rows, portfolioSpacer(ui.Space8))
 		for i, item := range items {
 			rows = append(rows, p.catalogRow(view, item, catalog, i == 0, i == len(items)-1))
 		}
@@ -227,6 +233,12 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 		return []layout.Widget{emptyState(view, l.Text(label))}
 	}
 	return rows
+}
+
+func portfolioSpacer(height unit.Dp) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Spacer{Height: height}.Layout(gtx)
+	}
 }
 
 // Wails groups by domain type, then sorts each group by quote currency and
@@ -259,8 +271,14 @@ func sortPortfolioCatalogInstruments(items []domain.Instrument, locale i18n.Lang
 }
 
 func catalogMatches(item domain.Instrument, query string) bool {
-	facts := strings.Join([]string{item.Name, item.ShortName, productString(item.Symbol), productString(item.ISIN),
-		productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()}, " ")
+	var fields []string
+	for _, value := range []string{item.ShortName, item.Name, productString(item.Symbol), productString(item.ISIN),
+		productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()} {
+		if value = strings.TrimSpace(value); value != "" {
+			fields = append(fields, value)
+		}
+	}
+	facts := strings.Join(fields, " ")
 	return strings.Contains(normalizeDirectoryQuery(facts), query)
 }
 

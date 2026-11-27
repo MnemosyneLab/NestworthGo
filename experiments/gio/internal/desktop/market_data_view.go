@@ -333,6 +333,12 @@ type marketBadge struct {
 	text string
 }
 
+const marketRowActionsSideBySideWidth = 760
+
+func marketRowActionsAreTrailing(gtx layout.Context) bool {
+	return ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, marketRowActionsSideBySideWidth)
+}
+
 // marketBadges are the currency and quote-source chips of a row.
 func marketBadges(view ui.View, currency string, source domain.QuoteSourceKind) []marketBadge {
 	var badges []marketBadge
@@ -393,7 +399,7 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 						return w(gtx)
 					}
 				}
-				if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 900) {
+				if marketRowActionsAreTrailing(gtx) {
 					children := []layout.FlexChild{
 						layout.Rigid(tile), layout.Flexed(1, fill(left)), layout.Flexed(1, fill(figures())),
 					}

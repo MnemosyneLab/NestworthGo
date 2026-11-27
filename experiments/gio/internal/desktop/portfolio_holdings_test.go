@@ -152,6 +152,18 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	}
 
 	narrowSize := h.size
+	h.size = image.Pt(900, 600)
+	settle()
+	summaryAtNineHundred := assertPageLabel(t, &h.router, "Current investment value · Known subtotal")
+	toolbarTab := semanticBounds(t, &h.router, "My holdings", false)
+	groupAtNineHundred := semanticBounds(t, &h.router, "Stocks · 1 holding", false)
+	if summaryAtNineHundred.Min.Y > 130 {
+		t.Fatalf("investment summary retained excess empty space above it at 900px: %v", summaryAtNineHundred)
+	}
+	if groupAtNineHundred.Empty() || groupAtNineHundred.Min.Y > 360 || toolbarTab.Min.Y >= groupAtNineHundred.Min.Y {
+		t.Fatalf("the grouped holdings table should follow the single responsive toolbar near the first viewport: tab %v, group %v",
+			toolbarTab, groupAtNineHundred)
+	}
 	h.size = image.Pt(1280, 800)
 	settle()
 	stockHeader := portfolio.holdings.sortButtons[domain.HoldingGroupStock]
@@ -191,12 +203,14 @@ func TestPortfolioMyHoldingsGroupedAmountsAndCompactNavigation(t *testing.T) {
 	h.press(key.NameEscape)
 	settle()
 	identity := assertPageLabel(t, &h.router, name)
+	fullName := assertPageLabel(t, &h.router, "Complete Fund")
+	accountCount := assertPageLabel(t, &h.router, "2 accounts")
 	cost := assertPageLabel(t, &h.router, "Cost basis · €60.36")
 	menu := assertPageLabel(t, &h.router, "Actions for "+name)
-	if cost.Min.X < identity.Max.X || menu.Min.X < cost.Max.X ||
-		cost.Min.Y >= identity.Max.Y || menu.Min.Y >= identity.Max.Y ||
-		cost.Max.Y <= identity.Min.Y || menu.Max.Y <= identity.Min.Y {
-		t.Fatalf("desktop holding cells should share a single row: instrument %v, cost %v, actions %v", identity, cost, menu)
+	if fullName.Min.Y <= identity.Min.Y || accountCount.Min.Y <= fullName.Min.Y ||
+		cost.Min.X < identity.Max.X || menu.Min.X < cost.Max.X {
+		t.Fatalf("holding identity should read symbol, full name and account count in order before the right-side values and actions: identity %v, full name %v, accounts %v, cost %v, actions %v",
+			identity, fullName, accountCount, cost, menu)
 	}
 	costHeader := semanticBounds(t, &h.router, "Cost basis", false)
 	if subtotal.Max.X != cost.Max.X || costHeader.Max.X-8 != cost.Max.X {

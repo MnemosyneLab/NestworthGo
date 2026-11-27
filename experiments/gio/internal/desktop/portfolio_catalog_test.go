@@ -7,11 +7,26 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/layout"
+	"gioui.org/unit"
+
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
+
+func TestCatalogQuoteActionsStayTrailingAt900PixelWindowWidth(t *testing.T) {
+	gtx := layout.Context{Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+		Constraints: layout.Constraints{Max: image.Pt(844, 600)}}
+	if !marketRowActionsAreTrailing(gtx) {
+		t.Fatal("catalog quote and actions should stay on the trailing edge for a 900px window's 844px content area")
+	}
+	gtx.Constraints.Max.X = 700
+	if marketRowActionsAreTrailing(gtx) {
+		t.Fatal("catalog row actions should stack below the figures when the content cannot fit them")
+	}
+}
 
 func TestPortfolioCatalogSortMatchesWailsTypeCurrencyAndLabelOrder(t *testing.T) {
 	stringValue := func(value string) *string { return &value }
@@ -44,6 +59,19 @@ func TestPortfolioCatalogSearchUsesWailsIdentityFields(t *testing.T) {
 		if !catalogMatches(item, normalizeDirectoryQuery(query)) {
 			t.Errorf("catalog search %q did not match an identity field used by Wails", query)
 		}
+	}
+	if !catalogMatches(item, normalizeDirectoryQuery("short label issuer")) {
+		t.Fatal("catalog search should preserve Wails' short-name-then-full-name phrase order")
+	}
+	for _, query := range []string{"issuer full name short label", "issuer short label"} {
+		if catalogMatches(item, normalizeDirectoryQuery(query)) {
+			t.Errorf("catalog search %q should not match the reverse field order", query)
+		}
+	}
+	missingShortName := item
+	missingShortName.ShortName = ""
+	if !catalogMatches(missingShortName, normalizeDirectoryQuery("issuer full name sym")) {
+		t.Fatal("catalog search should skip the empty short-name field between full name and symbol")
 	}
 	if catalogMatches(item, normalizeDirectoryQuery("yahoo")) {
 		t.Fatal("catalog search should not match provider key, which Wails does not search")
