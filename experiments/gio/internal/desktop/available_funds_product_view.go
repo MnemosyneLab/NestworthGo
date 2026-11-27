@@ -4,7 +4,6 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -22,23 +21,8 @@ func (d *fundsProductSetup) layout(gtx layout.Context, view ui.View, calendar pr
 	}
 	if d.form == nil {
 		children := []layout.FlexChild{layout.Rigid(tradeTitle(view, i18n.ProductChooseAccount))}
-		for _, account := range d.choices {
-			button := d.accountButtons[account.ID]
-			if button == nil {
-				button = new(widget.Clickable)
-				d.accountButtons[account.ID] = button
-			}
-			if button.Clicked(gtx) {
-				d.chooseAccount(account, l.Text(i18n.ProductAddDeposit))
-				view.RestorePageScroll(0)
-				gtx.Execute(op.InvalidateCmd{})
-				break
-			}
-			if d.focus {
-				gtx.Execute(key.FocusCmd{Tag: button})
-				d.focus = false
-			}
-			children = append(children, layout.Rigid(view.Button(button, account.Name)))
+		for _, choice := range d.layoutAccountChoices(gtx, view, func() { view.RestorePageScroll(0) }) {
+			children = append(children, layout.Rigid(choice))
 		}
 		children = append(children, layout.Rigid(view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel))))
 		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
@@ -103,13 +87,7 @@ func (d *fundsProductSetup) layoutReview(gtx layout.Context, view ui.View) layou
 		gtx.Execute(key.FocusCmd{Tag: &d.confirm})
 		d.focus = false
 	}
-	review := liquidity.FromProductOperationPreview(d.plan.review)
-	rows := []layout.Widget{tradeTitle(view, i18n.HoldingReconReview), view.Message(d.account.Name, view.Colors.Ink)}
-	rows = append(rows, holdingProductAddFacts(view, []byte(review.NormalizedJSON))...)
-	rows = append(rows, productReviewProjection(view, &review)...)
-	if d.uncertain {
-		rows = append(rows, view.Message(view.Language.Text(i18n.ContributionUncertain), view.Colors.ErrorInk))
-	}
+	rows := append([]layout.Widget{tradeTitle(view, i18n.HoldingReconReview)}, d.reviewRows(view)...)
 	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
 		return layoutTargetBalanceConfirmation(gtx, view, d.post != nil, d.uncertain, &d.cancel, &d.edit, &d.confirm, i18n.HoldingReconConfirm)
 	})
@@ -118,4 +96,34 @@ func (d *fundsProductSetup) layoutReview(gtx layout.Context, view ui.View) layou
 		children = append(children, layout.Rigid(row))
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+}
+
+func (d *fundsProductSetup) layoutAccountChoices(gtx layout.Context, view ui.View, advance func()) []layout.Widget {
+	choices := make([]layout.Widget, 0, len(d.choices))
+	for _, account := range d.choices {
+		button := portfolioButton(d.accountButtons, account.ID)
+		if button.Clicked(gtx) {
+			d.chooseAccount(account, view.Language.Text(i18n.ProductAddDeposit))
+			advance()
+			gtx.Execute(op.InvalidateCmd{})
+			break
+		}
+		if d.focus {
+			gtx.Execute(key.FocusCmd{Tag: button})
+			d.focus = false
+		}
+		choices = append(choices, view.Button(button, account.Name))
+	}
+	return choices
+}
+
+func (d *fundsProductSetup) reviewRows(view ui.View) []layout.Widget {
+	review := liquidity.FromProductOperationPreview(d.plan.review)
+	rows := []layout.Widget{view.Message(d.account.Name, view.Colors.Ink)}
+	rows = append(rows, holdingProductAddFacts(view, []byte(review.NormalizedJSON))...)
+	rows = append(rows, productReviewProjection(view, &review)...)
+	if d.uncertain {
+		rows = append(rows, view.Message(view.Language.Text(i18n.ContributionUncertain), view.Colors.ErrorInk))
+	}
+	return rows
 }

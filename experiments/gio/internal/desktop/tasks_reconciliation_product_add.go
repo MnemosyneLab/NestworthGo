@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -24,6 +25,8 @@ type holdingProductAdd struct {
 	excludesCash                              widget.Bool
 	time                                      holdingProductTime
 	depositName                               string
+	recordedOpen, transactionOpen             bool
+	recordedToggle, transactionToggle         widget.Clickable
 }
 
 func newHoldingProductAdd(depositName string) *holdingProductAdd {
@@ -105,6 +108,14 @@ func (c *holdingReconciliation) holdingProductAddFields(view ui.View, origin *im
 }
 
 func (f *holdingProductAdd) fields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func()) []layout.Widget {
+	return f.addFields(view, origin, calendar, name, currency, cash, ready, focus, changed, nil)
+}
+
+func (f *holdingProductAdd) sheetFields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func(), principalProblem func(string) string) []layout.Widget {
+	return f.addFields(view, origin, calendar, name, currency, cash, ready, focus, changed, principalProblem)
+}
+
+func (f *holdingProductAdd) addFields(view ui.View, origin *image.Point, calendar productFormCalendar, name string, currency *string, cash string, ready bool, focus func(layout.Context, *ui.TextField), changed func(), principalProblem func(string) string) []layout.Widget {
 	l := view.Language
 	pick := func(selectControl *ui.Select, label i18n.MessageID, options []ui.Choice, value string, searchable bool, change func(string)) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
@@ -114,10 +125,14 @@ func (f *holdingProductAdd) fields(view ui.View, origin *image.Point, calendar p
 	}
 	text := func(field *ui.TextField, label i18n.MessageID) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
-			if ready && field == &f.principal {
-				focus(gtx, field)
+			options := ui.FieldOptions{Label: label, Disabled: !ready}
+			if field == &f.principal {
+				options.Problem = principalProblem
+				if ready {
+					focus(gtx, field)
+				}
 			}
-			return field.LayoutCurrency(gtx, view, ui.FieldOptions{Label: label, Disabled: !ready}, *currency)
+			return field.LayoutCurrency(gtx, view, options, *currency)
 		}
 	}
 	currencies := make([]ui.Choice, 0, len(domain.SupportedCurrencies()))
@@ -130,23 +145,53 @@ func (f *holdingProductAdd) fields(view ui.View, origin *image.Point, calendar p
 	if f.mode == domain.ProductOpRecordExisting {
 		help = i18n.ProductAddExistingHelp
 	}
-	rows := []layout.Widget{view.Message(name, view.Colors.Ink),
-		pick(&f.currency, i18n.ProductAddCurrency, currencies, *currency, true, func(v string) { *currency = v }),
-		view.Message(fmt.Sprintf(l.Text(i18n.ProductAddCash), cash), view.Colors.SecondaryInk),
+	sheet := principalProblem != nil
+	currencyPicker := pick(&f.currency, i18n.ProductAddCurrency, currencies, *currency, true, func(v string) { *currency = v })
+	account := view.Message(name, view.Colors.Ink)
+	cashLabel := fmt.Sprintf(l.Text(i18n.ProductAddCash), cash)
+	rows := []layout.Widget{account, currencyPicker}
+	if sheet {
+		rows = []layout.Widget{currencyPicker, view.Message(fmt.Sprintf(l.Text(i18n.ProductSetupAccount), name), view.Colors.Ink)}
+		cashLabel = fmt.Sprintf(l.Text(i18n.ProductSetupCash), *currency, cash)
+	}
+	rows = append(rows, view.Message(cashLabel, view.Colors.SecondaryInk),
 		pick(&f.method, i18n.ProductAddMethod, methods, string(f.mode), false, func(v string) { f.mode = domain.ProductOperationKind(v) }),
 		view.Message(l.Text(help), view.Colors.SecondaryInk),
 		pick(&f.kind, i18n.ProductAddKind, kinds, f.terms.terms.Kind, false, f.pickKind),
-		text(&f.principal, i18n.ProductAddPrincipal)}
+		text(&f.principal, i18n.ProductAddPrincipal))
 	if f.mode == domain.ProductOpRecordExisting {
-		rows = append(rows, text(&f.currentValue, i18n.ProductAddCurrent), text(&f.cost, i18n.ProductAddCost),
-			checkpointCheckbox(view, &f.excludesCash, i18n.ProductAddExcludeCash, ready))
+		if sheet && f.terms.deposit != nil {
+			rows = append(rows, productFormDisclosure(view, &f.recordedToggle, i18n.ProductSetupRecordedValues, &f.recordedOpen, ready))
+		}
+		if !sheet || f.terms.deposit == nil || f.recordedOpen {
+			rows = append(rows, text(&f.currentValue, i18n.ProductAddCurrent), text(&f.cost, i18n.ProductAddCost))
+		}
+		rows = append(rows, checkpointCheckbox(view, &f.excludesCash, i18n.ProductAddExcludeCash, ready))
 	}
-	rows = append(rows, f.terms.fields(view, origin, calendar, *currency, f.principal.Text(), ready, false, focus)...)
+	rows = append(rows, f.terms.termsFields(view, origin, calendar, *currency, f.principal.Text(), ready, false, sheet, focus)...)
 	if f.mode == domain.ProductOpOpen {
-		rows = append(rows, text(&f.openingFee, i18n.ProductRenewOpeningFee))
-		rows = append(rows, f.time.fields(view, origin, calendar, &f.openingFee.Editor, ready, changed)...)
+		if sheet {
+			rows = append(rows, productFormDisclosure(view, &f.transactionToggle, i18n.ProductSetupTransaction, &f.transactionOpen, ready))
+		}
+		if !sheet || f.transactionOpen {
+			rows = append(rows, text(&f.openingFee, i18n.ProductRenewOpeningFee))
+			rows = append(rows, f.time.fields(view, origin, calendar, &f.openingFee.Editor, ready, changed)...)
+		}
 	}
 	return rows
+}
+
+func productFormDisclosure(view ui.View, toggle *widget.Clickable, label i18n.MessageID, open *bool, ready bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		if !ready {
+			gtx = gtx.Disabled()
+		}
+		if toggle.Clicked(gtx) {
+			*open = !*open
+			gtx.Execute(op.InvalidateCmd{})
+		}
+		return analysisDisclosure(view, toggle, view.Language.Text(label), *open)(gtx)
+	}
 }
 
 func holdingProductAddFacts(view ui.View, request []byte) []layout.Widget {

@@ -190,15 +190,10 @@ func (p *availableFundsPage) update() {
 func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
 	p.openActionFocus(gtx, view)
-	if d := p.setup; d != nil {
-		if !d.poll() {
-			return d.layout(gtx, view, productFormCalendar{today: p.localDate, zone: p.timezone}, func() {
-				p.setup, p.restoreAddFocus = nil, true
-			})
-		}
-		p.setup, p.productSaved, p.restoreAddFocus = nil, true, true
+	if d := p.setup; d != nil && d.poll() {
+		p.closeProductSetup()
+		p.productSaved = true
 		p.read()
-		view.RestorePageScroll(0)
 	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
@@ -209,15 +204,13 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	}
 	l := view.Language
 	accounts := p.productAccounts()
-	if len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
+	if gtx.Enabled() && p.setup == nil && len(accounts) != 0 && p.request == nil && p.addProduct.Clicked(gtx) {
 		p.productSaved = false
 		run := productSetupRuntime{ctx: p.ctx, ledger: p.productLedger, clock: p.productClock, workers: &p.workers, invalidate: p.invalidate}
 		p.setup = newProductSetup(run, accounts, l.Text(i18n.ProductAddDeposit))
-		view.RestorePageScroll(0)
 		gtx.Execute(op.InvalidateCmd{})
-		return layout.Dimensions{}
 	}
-	if p.current != nil && p.request == nil && p.reservation == nil && p.policy == nil {
+	if p.current != nil && p.request == nil && p.reservation == nil && p.policy == nil && p.setup == nil {
 		switch {
 		case p.nextRefresh.IsZero():
 			p.nextRefresh = gtx.Now.Add(time.Minute)
@@ -259,7 +252,7 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					if len(accounts) == 0 {
 						return layout.Dimensions{}
 					}
-					if p.restoreAddFocus && p.request == nil {
+					if p.restoreAddFocus && p.request == nil && gtx.Enabled() {
 						gtx.Execute(key.FocusCmd{Tag: &p.addProduct})
 						p.restoreAddFocus = false
 					}
@@ -272,6 +265,10 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.request != nil {
 						gtx = gtx.Disabled()
+					}
+					if p.restoreAddFocus && len(accounts) == 0 && gtx.Enabled() {
+						gtx.Execute(key.FocusCmd{Tag: &p.reload})
+						p.restoreAddFocus = false
 					}
 					p.restoreReservationEntry(gtx, &p.reload)
 					view.Focus.Watch(gtx, &p.reload)
@@ -317,6 +314,10 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 				return rows[i](gtx)
 			})
 		}))
+}
+
+func (p *availableFundsPage) closeProductSetup() {
+	p.setup, p.restoreAddFocus = nil, true
 }
 
 func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {

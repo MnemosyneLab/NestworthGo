@@ -2374,6 +2374,12 @@ var simplifiedChineseCatalog = catalog{
 
 	ProductAddAction:               "添加产品",
 	ProductChooseAccount:           "选择账户",
+	ProductSetupAccount:            "所属账户: %s",
+	ProductSetupCash:               "%s 可用现金：%s",
+	ProductSetupRequired:           "%s：请填写此项。",
+	ProductSetupAdvanced:           "高级设置 · 名称、计息和取用规则",
+	ProductSetupRecordedValues:     "估值与成本 · 默认等于本金",
+	ProductSetupTransaction:        "实际交易时间与开立费用",
 	ProductSetupSaved:              "已记录产品。",
 	ProductSetupInvalid:            "请检查输入的产品详情后重试。",
 	ProductAddCurrency:             "合同币种",

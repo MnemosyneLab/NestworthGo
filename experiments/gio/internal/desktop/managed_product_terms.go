@@ -25,7 +25,8 @@ type productTermsDraft struct {
 	shortName    ui.TextField
 	principal    domain.Money
 	calendar     productFormCalendar
-	list         widget.List
+	sheet        analysisSheet
+	overlay      ui.Overlay
 	input        *application.UpdateProductTermsInput
 	posting      <-chan historyResult[application.ProductDetail]
 	save, cancel widget.Clickable
@@ -37,9 +38,11 @@ type productTermsDraft struct {
 
 func (p *productDetailPage) startTerms() {
 	detail := p.current.detail
+	sheet := newAnalysisSheet()
+	sheet.modal, sheet.focus = true, false
 	d := &productTermsDraft{fields: newHoldingProductTerms(), shortName: ui.NewTextField(true),
 		principal: detail.Contract.Principal, calendar: productFormCalendar{today: p.current.localDate, zone: p.current.timezone},
-		list: widget.List{List: layout.List{Axis: layout.Vertical}}, focus: true}
+		sheet: sheet, focus: true}
 	d.fields.receive(*detail)
 	d.shortName.Editor.SetText(detail.Contract.ShortName)
 	p.terms, p.saved = d, i18n.NoMessage
@@ -77,8 +80,10 @@ func (p *productDetailPage) pollTerms() {
 	case result := <-d.posting:
 		d.posting = nil
 		if result.err == nil && result.value.Contract.ID == d.input.ProductID && result.value.Contract.Revision == d.input.ExpectedRevision+1 {
-			p.terms = nil
+			position := p.list.Position
+			p.terms, p.focusAction = nil, &p.startTermsEdit
 			p.refreshAfterProductWrite(i18n.ProductStandaloneTermsSaved)
+			p.list.Position = position
 			return
 		}
 		// The standalone Wails command uses the contract revision as a CAS.
@@ -103,91 +108,120 @@ func (p *productDetailPage) pollTerms() {
 	}
 }
 
-func (p *productDetailPage) layoutTerms(gtx layout.Context, view ui.View) layout.Dimensions {
+func (p *productDetailPage) layoutTermsSheet(gtx layout.Context, view ui.View) {
 	d, l := p.terms, view.Language
 	pending, stale := d.posting != nil, d.problem == i18n.ProductStandaloneTermsStale
-	if !pending && d.cancel.Clicked(gtx) {
-		p.terms, p.focusAction = nil, &p.startTermsEdit
-		if d.input != nil && !stale {
-			p.read()
+	view.Overlay = &d.overlay
+	d.overlay.BeginFrame(gtx)
+
+	if d.overlay.Trigger == nil {
+		if !pending && (productSheetDismissed(gtx, &d.sheet) || d.cancel.Clicked(gtx)) {
+			p.terms, p.focusAction = nil, &p.startTermsEdit
+			if d.input != nil && !stale {
+				p.read()
+			}
+			gtx.Execute(op.InvalidateCmd{})
+			return
 		}
-		gtx.Execute(op.InvalidateCmd{})
-		return layout.Dimensions{}
+		if stale && p.request == nil && d.reload.Clicked(gtx) {
+			if p.current != nil && p.current.detail != nil && p.err == nil {
+				p.startTerms()
+			} else {
+				p.read()
+			}
+			gtx.Execute(op.InvalidateCmd{})
+			return
+		}
+		if !pending {
+			last := &d.save
+			if stale {
+				last = &d.reload
+				if p.request != nil {
+					last = &d.cancel
+				}
+			}
+			catalogSheetWrapFocus(gtx, &d.sheet.close, last)
+		}
 	}
-	if stale && p.request == nil && d.reload.Clicked(gtx) {
-		if p.current != nil && p.current.detail != nil && p.err == nil {
-			p.startTerms()
-		} else {
-			p.read()
-		}
+
+	save := !pending && !stale && d.overlay.Trigger == nil && d.save.Clicked(gtx)
+	d.sheet.layoutPanel(gtx, view, l.Text(i18n.ProductEditTerms), func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return productSheetRows(gtx, view, &d.sheet, &d.overlay, d.termsSheetFields)
+	}, p.termsSheetFooter(view, pending, stale), !pending)
+	d.overlay.Layout(gtx, view)
+	if save {
+		p.postTerms()
 		gtx.Execute(op.InvalidateCmd{})
-		return layout.Dimensions{}
 	}
-	gtx, view = view.Measure(gtx, 660)
-	origin := view.Origin
-	formView := view.WithScrollAnchors(&d.list)
-	currency, principal := d.principal.Currency().String(), d.principal.CanonicalAmount()
-	fields := d.fields.fields(formView, &origin, d.calendar, currency, principal, d.input == nil, true, func(gtx layout.Context, field *ui.TextField) {
-		if d.focus && gtx.Enabled() {
-			field.Focus(gtx)
-			d.focus = false
+}
+
+func (d *productTermsDraft) termsSheetFields(gtx layout.Context, view ui.View, origin *image.Point) []layout.Widget {
+	l := view.Language
+	fields := d.fields
+	open := fields.current.State == string(domain.ProductStateOpen)
+	if d.focus && open && fields.deposit != nil && gtx.Enabled() {
+		focus := &fields.maturity.Trigger
+		if d.calendar.today == "" {
+			focus = &fields.deposit.mode.Trigger
 		}
+		gtx.Execute(key.FocusCmd{Tag: focus})
+		d.focus = false
+	}
+	var rows []layout.Widget
+	currency, principal := d.principal.Currency(), d.principal.CanonicalAmount()
+	if open {
+		label := l.Text(i18n.ProductAddPrincipal)
+		amount := valuationMoney(view, domain.MoneyView{Currency: currency, Amount: principal}, false)
+		rows = append(rows, labeledRow(view, label+" · "+amount, label, amount, view.Colors.Ink))
+	}
+	rows = append(rows, fields.termsFields(view, origin, d.calendar, currency.String(), principal, d.input == nil, true, true,
+		func(gtx layout.Context, field *ui.TextField) {
+			if d.focus && gtx.Enabled() {
+				field.Focus(gtx)
+				d.focus = false
+			}
+		})...)
+	return append(rows, func(gtx layout.Context) layout.Dimensions {
+		return d.shortName.Layout(gtx, view, ui.FieldOptions{Label: i18n.ProductTermsShortName,
+			Help: i18n.ProductTermsShortNameHelp, Disabled: d.input != nil})
 	})
-	fields = append(fields, func(gtx layout.Context) layout.Dimensions {
-		return d.shortName.Layout(gtx, view, ui.FieldOptions{Label: i18n.ProductTermsShortName, Disabled: d.input != nil})
-	}, view.Message(l.Text(i18n.ProductTermsShortNameHelp), view.Colors.SecondaryInk))
-	place := func(body layout.Widget) layout.Widget {
-		return func(gtx layout.Context) layout.Dimensions { return fieldPosition(gtx, &origin, body) }
-	}
-	children := make([]layout.FlexChild, 0, len(fields))
-	for _, field := range fields {
-		children = append(children, layout.Rigid(place(field)))
-	}
-	return ui.Column{Gap: 8}.Layout(gtx,
-		ui.Rigid(place(tradeTitle(view, i18n.ProductEditTerms))),
-		ui.Rigid(place(fundsAmount(view, i18n.ProductPrincipal, &d.principal))),
-		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			bounds := image.Rectangle{Min: origin, Max: origin.Add(gtx.Constraints.Max)}
-			view.Overlay.ScrollOutsidePanel(gtx, &d.list, bounds)
-			dims := view.List(&d.list).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
-			})
-			view.Overlay.OffsetScrollAnchor(&d.list, bounds)
-			return dims
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if pending {
-				return view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)(gtx)
-			}
-			if d.problem != i18n.NoMessage {
-				return view.Message(l.Text(d.problem), view.Colors.ErrorInk)(gtx)
-			}
-			return layout.Dimensions{}
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			button, title := &d.save, i18n.SettingsSave
+}
+
+func (p *productDetailPage) termsSheetFooter(view ui.View, pending, stale bool) layout.Widget {
+	d, l := p.terms, view.Language
+	return func(gtx layout.Context) layout.Dimensions {
+		message, ink := d.problem, view.Colors.ErrorInk
+		if pending {
+			message, ink = i18n.SettingsPending, view.Colors.SecondaryInk
+		}
+		var rows []ui.ColumnChild
+		if message != i18n.NoMessage {
+			rows = append(rows, ui.Rigid(view.Message(l.Text(message), ink)))
+		}
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			button, title := &d.save, i18n.FundsPolicySave
 			enabled := !pending
 			if stale {
 				button, title, enabled = &d.reload, i18n.ProductTermsLoadLatest, p.request == nil
 			} else if d.input != nil {
 				title = i18n.HistoryRetry
 			}
-			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Rigid(taskPagerButton(view, &d.cancel, i18n.InstitutionsCancel, !pending)),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if !enabled {
-						gtx = gtx.Disabled()
-					}
-					if d.focusButton && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: button})
-						d.focusButton = false
-					}
-					if button == &d.save && d.save.Clicked(gtx) && enabled {
-						p.postTerms()
-						gtx.Execute(op.InvalidateCmd{})
-					}
-					view.Focus.Watch(gtx, button)
-					return view.PrimaryButton(button, l.Text(title))(gtx)
-				}))
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
+			return layout.E.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+					layout.Rigid(taskPagerButton(view, &d.cancel, i18n.InstitutionsCancel, !pending)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if !enabled {
+							gtx = gtx.Disabled()
+						}
+						if d.focusButton && gtx.Enabled() {
+							gtx.Execute(key.FocusCmd{Tag: button})
+							d.focusButton = false
+						}
+						return view.PrimaryButton(button, l.Text(title))(gtx)
+					}))
+			})
 		}))
+		return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+	}
 }

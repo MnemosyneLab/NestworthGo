@@ -115,8 +115,10 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				click("Available funds")
 			}
 			entryButton := &funds.addProduct
+			reviewLabel := "Preview"
 			if entry.account {
 				entryButton = &accounts.addProduct
+				reviewLabel = "Review"
 			}
 			seekAddProduct := func() {
 				t.Helper()
@@ -135,7 +137,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				click("Add product")
 				d := setup()
 				if existing && !entry.account {
-					label("Choose account")
+					label("Choose an account")
 					if len(d.choices) != 2 || findPageLabel(&h.router, "Physical wallet") != nil || findPageLabel(&h.router, "Archived Brokerage") != nil {
 						t.Fatalf("incorrect account choices: %+v", d.choices)
 					}
@@ -145,8 +147,19 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				if d.account.ID != ids.account || d.currency != "USD" || d.form == nil {
 					t.Fatal("wrong setup account or currency")
 				}
-				h.focused(&d.form.principal.Editor)
-				label("Account cash available · 156 USD")
+				if entry.account {
+					h.focused(&d.form.principal.Editor)
+					label("Account cash available · 156 USD")
+				} else {
+					h.focused(&d.form.currency.Trigger)
+					label("Available cash in USD: US$156.00")
+					click(reviewLabel)
+					h.focused(&d.form.principal.Editor)
+					label("Principal: complete this field.")
+					if d.preview != nil || d.plan != nil {
+						t.Fatal("blank Principal reached product preview")
+					}
+				}
 				d.form.principal.Editor.SetText(principal)
 				if existing {
 					d.currency, d.form.mode = "EUR", domain.ProductOpRecordExisting
@@ -165,7 +178,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				d.form.terms.fee.Editor.SetText("0.0021")
 				settle()
 				if existing {
-					click("Review")
+					click(reviewLabel)
 					label("Confirm that account cash excludes this product before recording it.")
 					d.form.excludesCash.Value = true
 					settle()
@@ -181,7 +194,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				}
 			}
 			d := fill()
-			click("Review")
+			click(reviewLabel)
 			if entry.account {
 				click("Back to Accounts")
 				if accounts.target.account != ids.account || setup() != d {
@@ -194,13 +207,13 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			if d.form.principal.Text() != principal {
 				t.Fatal("back discarded product input")
 			}
-			click("Review")
+			click(reviewLabel)
 			click("Cancel")
 			h.focused(entryButton)
 			noWrite()
 
 			d = fill()
-			click("Review")
+			click(reviewLabel)
 			stale := d.plan.mutation.String()
 			now = now.Add(24 * time.Hour)
 			h.press(key.NameReturn)
@@ -210,7 +223,7 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				t.Fatal("stale product review lost the draft")
 			}
 			h.focused(&d.form.principal.Editor)
-			click("Review")
+			click(reviewLabel)
 			plan := d.plan.mutation.String()
 			wantCash, wantValue := "105.8643", principal
 			terms := application.ProductTermsInput{Kind: "term_deposit", Name: title, StartOn: start, MaturityOn: productOptional(maturity),

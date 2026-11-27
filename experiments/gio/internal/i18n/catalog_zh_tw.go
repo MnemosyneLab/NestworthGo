@@ -2374,6 +2374,12 @@ var traditionalChineseCatalog = catalog{
 
 	ProductAddAction:               "新增產品",
 	ProductChooseAccount:           "選擇帳戶",
+	ProductSetupAccount:            "所屬帳戶: %s",
+	ProductSetupCash:               "%s 可用現金：%s",
+	ProductSetupRequired:           "%s：請填寫此項。",
+	ProductSetupAdvanced:           "進階設定 · 名稱、計息和取用規則",
+	ProductSetupRecordedValues:     "估值與成本 · 預設等於本金",
+	ProductSetupTransaction:        "實際交易時間與開立費用",
 	ProductSetupSaved:              "已記錄產品。",
 	ProductSetupInvalid:            "請檢查輸入的產品詳細資料後再試。",
 	ProductAddCurrency:             "合約幣別",

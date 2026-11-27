@@ -229,7 +229,7 @@ func TestStandaloneProductTermsMatchWails(t *testing.T) {
 	d.fields.name.Editor.SetText(name)
 	d.shortName.Editor.SetText(short)
 	d.fields.days.Editor.SetText("366")
-	h.clickButton("Save changes")
+	h.clickButton("Save policy")
 	if d.problem != i18n.ProductStandaloneTermsInvalid || d.fields.name.Text() != name || d.fields.days.Text() != "366" {
 		t.Fatal("invalid save lost draft or bypassed shared validation")
 	}
@@ -250,7 +250,7 @@ func TestStandaloneProductTermsMatchWails(t *testing.T) {
 	h.size = image.Pt(665, 480)
 	h.settle()
 	fault.loseTerms = true
-	h.clickButton("Save changes")
+	h.clickButton("Save policy")
 	h.focused(&d.save)
 	if p.terms != d || d.problem != i18n.ProductStandaloneTermsRetry {
 		t.Fatal("unknown terms response discarded the submitted revision")

@@ -227,9 +227,6 @@ func (p *productDetailPage) layout(gtx layout.Context, view ui.View) layout.Dime
 	if p.valuation != nil {
 		return p.layoutValuation(gtx, view)
 	}
-	if p.terms != nil {
-		return p.layoutTerms(gtx, view)
-	}
 	if p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 	}

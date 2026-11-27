@@ -2373,6 +2373,12 @@ var japaneseCatalog = catalog{
 
 	ProductAddAction:               "商品を追加",
 	ProductChooseAccount:           "口座を選択",
+	ProductSetupAccount:            "口座: %s",
+	ProductSetupCash:               "%s の利用可能な現金：%s",
+	ProductSetupRequired:           "%sを入力してください。",
+	ProductSetupAdvanced:           "詳細設定 · 名前、利息、引き出しルール",
+	ProductSetupRecordedValues:     "現在価値と取得原価 · 初期値は元本",
+	ProductSetupTransaction:        "取引日時と開始手数料",
 	ProductSetupSaved:              "商品を記録しました。",
 	ProductSetupInvalid:            "入力した商品情報を確認して再試行してください。",
 	ProductAddCurrency:             "契約通貨",

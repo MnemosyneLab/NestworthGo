@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gioui.org/layout"
+	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -24,6 +25,8 @@ type holdingProductTerms struct {
 	start, maturity, unlock, receipt                       ui.DatePicker
 	access, basis, early, earlyBasis, earlyMode            ui.Select
 	deposit                                                *holdingDepositTerms
+	advancedToggle                                         widget.Clickable
+	advancedOpen                                           bool
 }
 
 func newHoldingProductTerms() *holdingProductTerms {
@@ -169,6 +172,10 @@ func (c *holdingReconciliation) productTermsFields(view ui.View, origin *image.P
 }
 
 func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing bool, focus func(layout.Context, *ui.TextField)) []layout.Widget {
+	return f.termsFields(view, origin, calendar, currency, principal, ready, editing, false, focus)
+}
+
+func (f *holdingProductTerms) termsFields(view ui.View, origin *image.Point, calendar productFormCalendar, currency, principal string, ready, editing, sheet bool, focus func(layout.Context, *ui.TextField)) []layout.Widget {
 	l := view.Language
 	text := func(field *ui.TextField, label i18n.MessageID, money bool) layout.Widget {
 		return func(gtx layout.Context) layout.Dimensions {
@@ -182,9 +189,21 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 			return field.Layout(gtx, view, opts)
 		}
 	}
-	rows := []layout.Widget{view.Message(l.Text(i18n.ProductEditTermsHeading), view.Colors.Ink), text(&f.name, i18n.ProductEditName, false)}
+	name := text(&f.name, i18n.ProductEditName, false)
 	if f.current != nil && f.current.State != string(domain.ProductStateOpen) {
-		return append(rows, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditClosed), view.Colors.SecondaryInk))
+		closed := view.Message(l.Text(i18n.ProductEditClosed), view.Colors.SecondaryInk)
+		note := text(&f.note, i18n.ProductEditNote, false)
+		if sheet {
+			return []layout.Widget{closed, name, note}
+		}
+		return []layout.Widget{view.Message(l.Text(i18n.ProductEditTermsHeading), view.Colors.Ink), name, note, closed}
+	}
+	compactDeposit := sheet && f.deposit != nil
+	var rows, advanced []layout.Widget
+	if compactDeposit {
+		advanced = append(advanced, name)
+	} else {
+		rows = []layout.Widget{view.Message(l.Text(i18n.ProductEditTermsHeading), view.Colors.Ink), name}
 	}
 	week := time.Monday
 	if view.WeekStart == "sunday" {
@@ -208,8 +227,22 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(ui.PickerHeight))}
 		}
 	}
-	rows = append(rows, date(&f.start, i18n.ProductEditStart, f.terms.StartOn, editing, func(day string) { f.terms.StartOn = day }),
-		date(&f.maturity, i18n.ProductEditMaturity, productString(f.terms.MaturityOn), false, func(day string) { f.terms.MaturityOn = productOptional(day) }))
+	start := date(&f.start, i18n.ProductEditStart, f.terms.StartOn, editing, func(day string) { f.terms.StartOn = day })
+	maturity := date(&f.maturity, i18n.ProductEditMaturity, productString(f.terms.MaturityOn), false, func(day string) { f.terms.MaturityOn = productOptional(day) })
+	if compactDeposit {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			fields := [...]layout.Widget{start, maturity}
+			gridView := view
+			gridView.Origin = *origin
+			return (ui.Grid{MinColumn: 170, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, gridView, len(fields), func(gtx layout.Context, fieldView ui.View, index int) layout.Dimensions {
+				*origin = fieldView.Origin
+				defer func() { *origin = gridView.Origin }()
+				return fields[index](gtx)
+			})
+		})
+	} else {
+		rows = append(rows, start, maturity)
+	}
 	access, accessChoices := f.policy.AccessKind, productAccessChoices
 	unlock := f.policy.UnlockOn
 	if deposit := f.deposit; deposit != nil {
@@ -224,8 +257,13 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 			f.changeDepositMode(value)
 		}))
 		if depositSimple(mode) {
-			rows = append(rows, text(&deposit.rate, i18n.ProductDepositAnnualRate, false),
-				selectField(&deposit.yearBasis, i18n.ProductDepositYearBasis, productDepositBases, f.terms.InterestMode, func(value string) { f.terms.InterestMode = value }))
+			rows = append(rows, text(&deposit.rate, i18n.ProductDepositAnnualRate, false))
+			yearBasis := selectField(&deposit.yearBasis, i18n.ProductDepositYearBasis, productDepositBases, f.terms.InterestMode, func(value string) { f.terms.InterestMode = value })
+			if compactDeposit {
+				advanced = append(advanced, yearBasis)
+			} else {
+				rows = append(rows, yearBasis)
+			}
 			if editing {
 				rows = append(rows, date(&deposit.paidThrough, i18n.ProductDepositPaidThrough, productString(f.terms.InterestPaidThroughOn), false, func(day string) {
 					deposit.lastPaidThrough = productOptional(day)
@@ -237,16 +275,22 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 		}
 		access, accessChoices, unlock = depositAccess(access), accessChoices[1:], f.terms.MaturityOn
 	}
-	rows = append(rows, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditPolicy), view.Colors.Ink),
+	if compactDeposit {
+		rows = append(rows, productFormDisclosure(view, &f.advancedToggle, i18n.ProductSetupAdvanced, &f.advancedOpen, ready))
+		if !f.advancedOpen {
+			return rows
+		}
+	}
+	advanced = append(advanced, text(&f.note, i18n.ProductEditNote, false), view.Message(l.Text(i18n.ProductEditPolicy), view.Colors.Ink),
 		selectField(&f.access, i18n.ProductEditAccess, accessChoices, access, func(value string) { f.policy.AccessKind = value }))
 	if access == string(domain.AccessOnDate) || access == string(domain.AccessOnRequest) {
-		rows = append(rows, date(&f.unlock, i18n.ProductEditUnlock, productString(unlock), f.deposit != nil, func(day string) { f.policy.UnlockOn = productOptional(day) }))
+		advanced = append(advanced, date(&f.unlock, i18n.ProductEditUnlock, productString(unlock), f.deposit != nil, func(day string) { f.policy.UnlockOn = productOptional(day) }))
 	}
 	basis := productString(f.policy.DayBasis)
 	if basis == "" {
 		basis = string(domain.DayBasisCalendar)
 	}
-	rows = append(rows, text(&f.days, i18n.ProductEditDays, false),
+	advanced = append(advanced, text(&f.days, i18n.ProductEditDays, false),
 		selectField(&f.basis, i18n.ProductEditDayBasis, productBasisChoices, basis, func(value string) { f.policy.DayBasis = &value }),
 		date(&f.receipt, i18n.ProductEditReceipt, productString(f.policy.ReceiptOnOverride), false, func(day string) { f.policy.ReceiptOnOverride = productOptional(day) }),
 		text(&f.fee, i18n.ProductEditExitFee, true), view.Message(l.Text(i18n.ProductEditMissingPolicy), view.Colors.SecondaryInk),
@@ -266,7 +310,7 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 			}
 		}))
 	if f.policy.EarlyKind == string(domain.EarlyAllowed) {
-		rows = append(rows, text(&f.earlyDays, i18n.ProductEditEarlyDays, false),
+		advanced = append(advanced, text(&f.earlyDays, i18n.ProductEditEarlyDays, false),
 			selectField(&f.earlyBasis, i18n.ProductEditEarlyBasis, productBasisChoices, productString(f.policy.EarlyDayBasis), func(value string) { f.policy.EarlyDayBasis = &value }),
 			text(&f.earlyFee, i18n.ProductEditEarlyFee, true),
 			selectField(&f.earlyMode, i18n.ProductEditEarlyMode, productEarlyModeChoices, productString(f.policy.EarlyAmountMode), func(value string) {
@@ -275,13 +319,13 @@ func (f *holdingProductTerms) fields(view ui.View, origin *image.Point, calendar
 				f.earlyGross.Editor.SetText("")
 			}))
 		if productString(f.policy.EarlyAmountMode) == string(domain.EarlyAmountFixedGross) {
-			rows = append(rows, text(&f.earlyGross, i18n.ProductEditEarlyGross, true))
+			advanced = append(advanced, text(&f.earlyGross, i18n.ProductEditEarlyGross, true))
 		}
 	}
 	if basis == string(domain.DayBasisWeekdays) || f.policy.EarlyKind == string(domain.EarlyAllowed) && productString(f.policy.EarlyDayBasis) == string(domain.DayBasisWeekdays) {
-		rows = append(rows, view.Message(l.Text(i18n.ProductEditWeekdayHelp), view.Colors.SecondaryInk))
+		advanced = append(advanced, view.Message(l.Text(i18n.ProductEditWeekdayHelp), view.Colors.SecondaryInk))
 	}
-	return rows
+	return append(rows, advanced...)
 }
 
 func holdingProductTermsReviewRows(view ui.View, before, after liquidity.ProductDTO) []layout.Widget {

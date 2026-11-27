@@ -760,7 +760,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.funds.pollPolicy()
 	}
 	fundsPolicyOpen := s.fundsPolicyOpen()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	fundsProductSetupOpen, fundsProductTermsOpen := s.fundsProductSetupOpen(), s.fundsProductTermsOpen()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -870,6 +871,17 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.funds.layoutPolicySheet(windowContext, view)
 		return dims
 	}
+	if fundsProductSetupOpen || fundsProductTermsOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		// The body can finish a pending save and close either editor.
+		if s.fundsProductSetupOpen() {
+			s.funds.layoutProductSetupSheet(windowContext, view)
+		} else if s.fundsProductTermsOpen() {
+			s.funds.productPage.layoutTermsSheet(windowContext, view)
+		}
+		return dims
+	}
 	dims := background(gtx)
 	if s.settingsPage.confirming {
 		s.settingsPage.layoutConfirmation(windowContext, view)
@@ -968,6 +980,16 @@ func (s *shell) wealthDetailOpen() bool {
 
 func (s *shell) fundsPolicyOpen() bool {
 	return s.activeRoute() == fundsRoute && s.funds != nil && s.funds.policy != nil
+}
+
+func (s *shell) fundsProductSetupOpen() bool {
+	target := s.trail.current().target
+	return target.route == fundsRoute && target.product == "" && s.funds != nil && s.funds.setup != nil
+}
+
+func (s *shell) fundsProductTermsOpen() bool {
+	target := s.trail.current().target
+	return target.route == fundsRoute && target.product != "" && s.funds != nil && s.funds.productPage != nil && s.funds.productPage.terms != nil
 }
 
 func (s *shell) assetDetailOpen() bool {

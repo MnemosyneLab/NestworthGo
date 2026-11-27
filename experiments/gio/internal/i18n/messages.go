@@ -2271,6 +2271,12 @@ const (
 
 	ProductAddAction
 	ProductChooseAccount
+	ProductSetupAccount
+	ProductSetupCash
+	ProductSetupRequired
+	ProductSetupAdvanced
+	ProductSetupRecordedValues
+	ProductSetupTransaction
 	ProductSetupSaved
 	ProductSetupInvalid
 	ProductAddCurrency
