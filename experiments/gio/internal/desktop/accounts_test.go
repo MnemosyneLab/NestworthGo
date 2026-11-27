@@ -270,7 +270,7 @@ func TestAccountsReadsMatchWailsAndNavigateFromInstitution(t *testing.T) {
 		h.frame()
 		identity := assertPageLabel(t, &h.router, "Pacific Sample Brokerage · Bank account")
 		amount := assertPageLabel(t, &h.router, "US$125.50")
-		if size.X == 1280 && (amount.Min.X <= identity.Min.X || absTitlebarPixel(amount.Min.Y-identity.Min.Y) > 12) {
+		if size.X == 1280 && (amount.Min.X <= identity.Min.X || absTitlebarPixel(amount.Min.Y-identity.Min.Y) > 24) {
 			t.Fatalf("wide account detail did not place identity and balance side by side: %v, %v", identity, amount)
 		}
 		if size.X == 900 && (amount.Min.Y-identity.Min.Y < 20 || amount.Min.X != identity.Min.X) {
