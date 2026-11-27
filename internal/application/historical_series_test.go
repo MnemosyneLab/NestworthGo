@@ -552,7 +552,7 @@ func TestHistoricalSeriesMarketCloseAndCoverageEquivalence(t *testing.T) {
 	batch := domain.HistoricalSnapshotBatch{
 		Origin:                    domain.HistoryOrigin{StartedAt: originAt, Timezone: "Asia/Singapore"},
 		OriginData:                domain.HistoryOriginData{Components: []domain.HistoryOriginComponent{{Kind: domain.HistoryOriginHoldingQuantity, AccountID: &accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}},
-		Portfolio:                 domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}},
+		Portfolio:                 domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity, CreatedAt: originAt}}},
 		InstrumentQuoteFacts:      []domain.InstrumentQuote{quote("180", "2026-09-08", cutoff.Add(-20*time.Hour))},
 		InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}},
 	}

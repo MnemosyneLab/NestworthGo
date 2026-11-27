@@ -39,7 +39,7 @@ func TestAccountDisplayArchivedInstrumentRefreshTargets(t *testing.T) {
 			if test.archivedHolding {
 				holding.ArchivedAt = &archived
 			}
-			snapshot := domain.PortfolioSnapshot{
+			snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 				Household:   &domain.Household{ID: "household", BaseCurrency: "CNY"},
 				Accounts:    []domain.AccountRecord{{Account: account}},
 				Holdings:    []domain.Holding{holding},

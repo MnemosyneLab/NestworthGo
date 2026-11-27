@@ -400,7 +400,7 @@ func TestFinancialAttributionPrecisionDoesNotHideUnknownDailyGap(t *testing.T) {
 	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}}}}
 	for index, exact := range []string{"100", "100.000001", "100"} {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", index+1), domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeAmount: exact, NativeCurrency: "CNY", BaseAmountExact: exact, Complete: true}))
 	}
@@ -423,7 +423,7 @@ func TestFinancialAttributionPrecisionDoesNotHideCancellingComponentGaps(t *test
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
 	for index, exact := range [][2]string{{"100", "100"}, {"100.000001", "99.999999"}} {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", index+1), domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeAmount: exact[0], NativeCurrency: "CNY", BaseAmountExact: exact[0], Complete: true}, domain.DailyValuationSnapshotItem{AccountID: b.ID, NativeAmount: exact[1], NativeCurrency: "CNY", BaseAmountExact: exact[1], Complete: true}))
 	}
@@ -444,7 +444,7 @@ func TestFinancialAttributionPrecisionRejectsCancellingComponentCorruption(t *te
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
 	for day := 1; day <= 3; day++ {
 		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", day), analysisItem(t, a.ID, "CNY", "100", "100", nil, nil, "", ""), analysisItem(t, b.ID, "CNY", "100", "100", nil, nil, "", "")))
 	}

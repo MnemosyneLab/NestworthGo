@@ -127,14 +127,22 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 		return value
 	}
 	before, refBefore := netWorth(app), netWorth(reference)
+	initialActivities := make(map[*application.Service][]domain.Activity)
+	for _, service := range []*application.Service{app, reference} {
+		rows, err := service.ListActivities(ctx, 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		initialActivities[service] = rows
+	}
 	checkState := func(s *application.Service, bank domain.AccountID, baseline portfolioapi.OverviewDTO, active, applied, available, shortfall string) {
 		t.Helper()
 		if again := netWorth(s); !reflect.DeepEqual(again, baseline) {
 			t.Fatalf("reservation changed net worth: %+v -> %+v", baseline, again)
 		}
 		activities, err := s.ListActivities(ctx, 10)
-		if err != nil || len(activities) != 0 {
-			t.Fatalf("reservation wrote activities: %+v / %v", activities, err)
+		if err != nil || !reflect.DeepEqual(activities, initialActivities[s]) {
+			t.Fatalf("reservation changed activities: %+v / %v", activities, err)
 		}
 		report, err := readAvailableFunds(ctx, s)
 		if err != nil {

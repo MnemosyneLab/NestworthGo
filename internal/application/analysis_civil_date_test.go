@@ -31,7 +31,7 @@ func TestAnalysisCivilDateLabelsRemainMonotonicAcrossTimezoneTransitions(t *test
 				t.Fatal(err)
 			}
 			account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-			input := AnalysisInputs{Origin: origin, Portfolio: domain.PortfolioSnapshot{
+			input := AnalysisInputs{Origin: origin, Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 				Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 				Accounts:  []domain.AccountRecord{{Account: account}},
 			}}
@@ -97,7 +97,7 @@ func TestAnalysisContinuesAcrossSkippedCivilDateOnly(t *testing.T) {
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Apia holding", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
 	holding := domain.Holding{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}
-	portfolio := domain.PortfolioSnapshot{
+	portfolio := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 		Accounts:  []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding},
 	}

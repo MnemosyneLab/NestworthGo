@@ -69,7 +69,7 @@ func TestNativeDisplayRetainsUnverifiedNAVWhenFXMissing(t *testing.T) {
 	qs := qid.String()
 	reason := "historical market-data coverage is unverified"
 	at := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
-	p := domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "CNY"}, Instruments: []domain.Instrument{{ID: id, Type: domain.InstrumentMutualFund}}, Accounts: []domain.AccountRecord{{Account: account}}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "CNY"}, Instruments: []domain.Instrument{{ID: id, Type: domain.InstrumentMutualFund}}, Accounts: []domain.AccountRecord{{Account: account}}}
 	evidence := newSnapshotDisplayEvidence(domain.HistoricalSnapshotBatch{Portfolio: p, InstrumentQuoteFacts: []domain.InstrumentQuote{{ID: qid, InstrumentID: id, SourceKind: domain.QuoteSourceAgent, EffectiveDate: "2026-10-09", QuotedAt: at, ValueEffectiveAt: at}}}, at.AddDate(0, 0, 3), 12*time.Hour)
 	item := domain.DailyValuationSnapshotItem{AccountID: account.ID, InstrumentID: &id, NativeCurrency: "USD", NativeAmount: "200", QuoteID: &qs, MissingReason: &reason}
 	for _, basis := range []domain.Valuation{domain.ValuationBase, domain.ValuationNative} {
@@ -310,7 +310,7 @@ func TestEstimatedRowsAndAccountsRejectProvisionalSourceBasisChange(t *testing.T
 func TestAnalysisBalanceDisplayMemoRetainsExactAndIsolatesCopies(t *testing.T) {
 	t.Parallel()
 	a := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
-	p := domain.PortfolioSnapshot{Household: &domain.Household{BaseCurrency: "CNY"}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{BaseCurrency: "CNY"}}
 	e := snapshotDisplayEvidence{balances: map[balanceDisplayKey]balanceDisplayValue{}}
 	item := domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeCurrency: "CNY", NativeAmount: "0.00006", BaseAmountExact: "0.00006", Complete: true}
 	first, exact, err := analysisDisplayEnding(item, true, a, AnalysisInputs{Portfolio: p}, domain.AnalysisQuery{Valuation: domain.ValuationBase}, e, "2026-10-12")

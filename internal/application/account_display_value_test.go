@@ -10,7 +10,7 @@ import (
 )
 
 func displayTestSnapshot() domain.PortfolioSnapshot {
-	return domain.PortfolioSnapshot{Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
+	return domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
 }
 
 func displayTestQuote(t *testing.T, from, to domain.CurrencyCode, rate string) domain.FXQuote {

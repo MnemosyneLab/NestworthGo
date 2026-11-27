@@ -9,7 +9,7 @@ import (
 
 func TestReviewSourceCheckpointMissingPolicyKeepsFullOracleAvailable(t *testing.T) {
 	db := financialConflictDB(t)
-	if _, err := db.SQL.Exec(`INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000001','UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`); err != nil {
+	if _, err := db.SQL.Exec(`UPDATE history_origins SET id='00000000-0000-4000-8000-000000000004' WHERE household_id='00000000-0000-4000-8000-000000000001'`); err != nil {
 		t.Fatal(err)
 	}
 	capture, err := NewRepository(db).CaptureReviewProjection(t.Context(), domain.HouseholdID("00000000-0000-4000-8000-000000000001"), time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC))

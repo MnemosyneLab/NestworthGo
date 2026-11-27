@@ -320,7 +320,7 @@ func TestFinancialAttributionResidualIsPreserved(t *testing.T) {
 	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "150", "150", nil, nil, "", ""))}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "150", "150", nil, nil, "", ""))}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)

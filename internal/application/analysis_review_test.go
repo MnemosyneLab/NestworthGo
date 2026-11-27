@@ -100,7 +100,7 @@ func TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(t *testing.T) {
 	t.Run("fully-missing-day-is-unavailable", func(t *testing.T) {
 		input := AnalysisInputs{
 			Origin:    analysisOrigin(t, householdID, "UTC"),
-			Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
+			Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
 			Snapshots: []domain.DailyValuationSnapshot{complete("2026-07-31", "100"), complete("2026-08-01", "100")},
 		}
 		result, err := ComputeAnalysis(input, query)
@@ -131,7 +131,7 @@ func TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(t *testing.T) {
 		zeroQuery.To = "2026-08-01"
 		input := AnalysisInputs{
 			Origin:    analysisOrigin(t, householdID, "UTC"),
-			Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
+			Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
 			Snapshots: []domain.DailyValuationSnapshot{complete("2026-07-31", "100"), complete("2026-08-01", "100")},
 		}
 		result, err := ComputeAnalysis(input, zeroQuery)
@@ -148,7 +148,7 @@ func TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(t *testing.T) {
 		zeroQuery.To = "2026-08-01"
 		input := AnalysisInputs{
 			Origin:    analysisOrigin(t, householdID, "UTC"),
-			Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
+			Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
 			Snapshots: []domain.DailyValuationSnapshot{complete("2026-07-31", "0"), complete("2026-08-01", "0")},
 		}
 		result, err := ComputeAnalysis(input, zeroQuery)
@@ -183,7 +183,7 @@ func TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary(t *testing.T) {
 	}}
 	input := AnalysisInputs{
 		Origin:           analysisOrigin(t, householdID, "UTC"),
-		Portfolio:        domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: source}, {Account: receiver}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: fromHolding, AccountID: source.ID, InstrumentID: instrumentID}, {ID: toHolding, AccountID: receiver.ID, InstrumentID: instrumentID}}},
+		Portfolio:        domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: source}, {Account: receiver}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: fromHolding, AccountID: source.ID, InstrumentID: instrumentID}, {ID: toHolding, AccountID: receiver.ID, InstrumentID: instrumentID}}},
 		Snapshots:        []domain.DailyValuationSnapshot{previous, current},
 		Activities:       []domain.Activity{activity},
 		InstrumentQuotes: []domain.InstrumentQuote{openingQuote, quote},
@@ -229,7 +229,7 @@ func TestReviewF03SplitAndReconciliationAreNotDietzCapital(t *testing.T) {
 	activityID := domain.NewActivityID()
 	quantity := mustQuantity(t, "300")
 	activity := domain.Activity{ID: activityID, Kind: domain.ActivityPositionTransfer, Reason: domain.ReasonReconciliation, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Direction: domain.EffectAdded, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationRemeasurement, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}}}
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)

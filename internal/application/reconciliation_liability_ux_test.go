@@ -74,7 +74,7 @@ func TestLiabilityPurchaseAndRefundAttribution(t *testing.T) {
 			if refund {
 				activity.Kind = domain.ActivityCashOut
 			}
-			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", before, before, nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", after, after, nil, nil, "", ""))}, Activities: []domain.Activity{activity}}
+			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", before, before, nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", after, after, nil, nil, "", ""))}, Activities: []domain.Activity{activity}}
 			result, err := ComputeAnalysis(input, domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true})
 			if err != nil {
 				t.Fatal(err)

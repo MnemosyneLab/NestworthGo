@@ -37,7 +37,7 @@ func TestCurrentClosedCarryRequiresDailyAnchor(t *testing.T) {
 			if scenario == "missing" {
 				quotes = nil
 			}
-			snapshot := domain.PortfolioSnapshot{Household: household, InstrumentQuotes: quotes}
+			snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, InstrumentQuotes: quotes}
 			c, _, err := v.valueHolding(snapshot, domain.NewAccountID(), domain.Holding{InstrumentID: id, Quantity: quantity}, i)
 			if err != nil {
 				t.Fatal(err)
@@ -100,11 +100,14 @@ func TestCurrentFXClosedCarryRequiresDailyReference(t *testing.T) {
 			if scenario == "manual-source" {
 				q.SourceKind = domain.QuoteSourceManual
 			}
-			snapshot := domain.PortfolioSnapshot{Household: household}
+			snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household}
 			if scenario == "manual-preference" {
 				snapshot.FXPreferences = []domain.FXPreference{{HouseholdID: household.ID, CurrencyA: "CNY", CurrencyB: "USD", SourceKind: domain.QuoteSourceManual}}
 			}
-			e := v.quoteEvidenceForFXConversion(snapshot, q)
+			e, err := v.quoteEvidenceForFXConversion(snapshot, q)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if e.ClosedCarry != (scenario == "reference") {
 				t.Fatalf("carry: %+v", e)
 			}

@@ -22,7 +22,7 @@ func TestReviewCertifiedUnknownConnectionKeepsFullPublication(t *testing.T) {
 func testReviewCertifiedUnavailableProof(t *testing.T, unavailable string) {
 	db := financialConflictDB(t)
 	id := domain.HouseholdID("00000000-0000-4000-8000-000000000001")
-	if _, err := db.SQL.Exec(`INSERT INTO history_origins(id,household_id,timezone,started_at,created_at) VALUES('00000000-0000-4000-8000-000000000004',?,'UTC','2026-10-01T00:00:00Z','2026-10-01T00:00:00Z')`, id.String()); err != nil {
+	if _, err := db.SQL.Exec(`UPDATE history_origins SET id='00000000-0000-4000-8000-000000000004' WHERE household_id=?`, id.String()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.SQL.Exec(`INSERT INTO history_snapshot_state(household_id,updated_at,resolver_policy_version) VALUES(?,'2026-10-01T00:00:00Z',?)`, id.String(), domain.MarketDataResolverPolicy); err != nil {

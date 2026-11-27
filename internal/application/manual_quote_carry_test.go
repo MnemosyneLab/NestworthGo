@@ -129,7 +129,7 @@ func TestManualPreferenceDoesNotHideMissingFuturePriceOrFX(t *testing.T) {
 	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price, SourceKind: domain.QuoteSourceAgent, ObservationKind: "close", EffectiveDate: "2026-10-09", ValueEffectiveAt: at, QuotedAt: at, PriceBasis: "agent_raw_close_v1", SourcePolicyVersion: "agent_supplied_v1", TimestampBasis: "date_label"}
 	quantity, _ := domain.ParseQuantity("10")
 	instrument := domain.Instrument{ID: id, Type: domain.InstrumentCrypto, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceManual}
-	p := domain.PortfolioSnapshot{Household: &domain.Household{ID: domain.NewHouseholdID(), BaseCurrency: "CNY"}}
+	p := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: domain.NewHouseholdID(), BaseCurrency: "CNY"}}
 	v := NewValuationService(nil, func() time.Time { return at.AddDate(0, 0, 10) })
 	v.SetHistorical(true)
 	v.SetHistoricalMarketDate("2026-10-19")

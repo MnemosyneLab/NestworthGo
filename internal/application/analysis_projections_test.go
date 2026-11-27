@@ -171,7 +171,7 @@ func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 	}
 	input := AnalysisInputs{
 		Origin: analysisOrigin(t, householdID, "UTC"),
-		Portfolio: domain.PortfolioSnapshot{
+		Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 			Household:   &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 			Accounts:    []domain.AccountRecord{{Account: account}},
 			Instruments: []domain.Instrument{instrument},

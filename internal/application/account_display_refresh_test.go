@@ -53,7 +53,7 @@ func TestAccountDisplayRefreshTargets(t *testing.T) {
 				account.DefaultCurrency = "SGD"
 			}
 			record := domain.AccountRecord{Account: account}
-			snapshot := domain.PortfolioSnapshot{Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
+			snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: "household", BaseCurrency: "CNY"}}
 			if test.source == "value" {
 				record.LatestValue = &domain.AccountValue{Amount: amount}
 			}

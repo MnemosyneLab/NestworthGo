@@ -1286,9 +1286,13 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			accountCount++
 		}
 	}
+	date, err := displayDate(snapshot, s.clock())
+	if err != nil {
+		return domain.OverviewResult{}, err
+	}
 	result := domain.OverviewResult{
 		Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true,
-		ValuationReadDate: displayDate(snapshot, s.clock()),
+		ValuationReadDate: date,
 	}
 	composition := overviewAssetComposition{paths: make(map[overviewAssetPathKey]domain.OverviewAssetPath)}
 	assetsByType := map[string]decimal.Decimal{}

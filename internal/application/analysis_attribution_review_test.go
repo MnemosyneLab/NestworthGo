@@ -118,7 +118,7 @@ func reviewPortfolio(household *domain.Household, accounts ...domain.Account) do
 	for _, account := range accounts {
 		records = append(records, domain.AccountRecord{Account: account})
 	}
-	return domain.PortfolioSnapshot{Household: household, Accounts: records}
+	return domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: records}
 }
 
 func TestAnalysisReviewCase03ScopeIntersection(t *testing.T) {
@@ -677,7 +677,7 @@ func analysisCurrencyResidualResult(t *testing.T, currency domain.CurrencyCode, 
 	account := analysisAccount(householdID, currency, domain.TrackingBalance, domain.RoleAsset)
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, string(currency), begin, begin, nil, nil, "", ""))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, string(currency), end, end, nil, nil, "", ""))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -767,7 +767,7 @@ func TestAnalysisClosedPositionWithoutCloseQuoteIsPartial(t *testing.T) {
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "0", "0", &holdingID, &instrumentID, "", ""))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -786,7 +786,7 @@ func TestAnalysisUnknownAccountSnapshotItemIsPartial(t *testing.T) {
 	orphan := domain.NewAccountID()
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""), analysisItem(t, orphan, "CNY", "50", "50", nil, nil, "", ""))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""), analysisItem(t, orphan, "CNY", "50", "50", nil, nil, "", ""))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
@@ -808,7 +808,7 @@ func TestAnalysisSnapshotWindowExcludesOutOfRangeComponents(t *testing.T) {
 	stale := analysisSnapshot("2025-01-01", analysisItem(t, usd.ID, "USD", "1", "7", nil, nil, "", ""))
 	previous := analysisSnapshot("2026-08-01", analysisItem(t, cny.ID, "CNY", "100", "100", nil, nil, "", ""))
 	current := analysisSnapshot("2026-08-02", analysisItem(t, cny.ID, "CNY", "100", "100", nil, nil, "", ""))
-	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: cny}, {Account: usd}}}, Snapshots: []domain.DailyValuationSnapshot{stale, previous, current}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: cny}, {Account: usd}}}, Snapshots: []domain.DailyValuationSnapshot{stale, previous, current}}
 	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationNative))
 	if err != nil {
 		t.Fatal(err)

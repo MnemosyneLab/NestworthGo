@@ -37,7 +37,7 @@ func TestAnalysisCashBridgeUsesWholeAmountConversionForInverseQuotes(t *testing.
 		effect:      domain.ActivityEffect{Target: domain.EffectTargetAccountCash, Direction: domain.EffectAdded, Money: &money},
 		amountKnown: true,
 	}}
-	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: base}}, FXQuotes: []domain.FXQuote{eventFX, closeFX}}
+	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: base}}, FXQuotes: []domain.FXQuote{eventFX, closeFX}}
 	if quote, ok := (analysisUniverse{}).fxQuoteForItem(current, input, closeAt); !ok || quote == nil {
 		t.Fatalf("cash close quote selection=%+v available=%v id=%q wanted=%q quotes=%+v household=%s base=%s native=%s", quote, ok, *current.FXQuoteID, closeFX.ID.String(), input.FXQuotes, input.Portfolio.Household.ID, base, native)
 	}
@@ -83,7 +83,7 @@ func TestAnalysisHoldingBridgeConvertsWholePriceAndClosingAmounts(t *testing.T) 
 	gross := mustMoney(t, quantity.Canonical(), native.String())
 	activity := domain.Activity{ID: domain.NewActivityID(), Kind: domain.ActivityBuy, EffectiveAt: eventAt, TradeDetail: &domain.TradeDetail{Side: domain.TradeBuy, InstrumentID: instrumentID, HoldingID: holdingID, Quantity: quantity, Gross: gross, UnitPrice: priceAtBuy}}
 	classified := []classifiedAnalysisEffect{{activity: activity}}
-	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: base}}, FXQuotes: []domain.FXQuote{eventFX, closeFX}, InstrumentQuotes: []domain.InstrumentQuote{closeQuote}}
+	input := AnalysisInputs{Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: base}}, FXQuotes: []domain.FXQuote{eventFX, closeFX}, InstrumentQuotes: []domain.InstrumentQuote{closeQuote}}
 	if quote, ok := (analysisUniverse{}).fxQuoteForItem(current, input, closeAt); !ok || quote == nil {
 		t.Fatalf("holding close FX selection=%+v available=%v id=%q wanted=%q quotes=%+v household=%s base=%s native=%s", quote, ok, *current.FXQuoteID, closeFX.ID.String(), input.FXQuotes, input.Portfolio.Household.ID, base, native)
 	}
@@ -181,7 +181,7 @@ func TestAnalysisCashBridgeAggregatesInverseFXMovementsExactly(t *testing.T) {
 	previous := domain.DailyValuationSnapshotItem{NativeAmount: "0", NativeCurrency: native}
 	current := domain.DailyValuationSnapshotItem{NativeAmount: "0.0009", NativeCurrency: native, FXQuoteID: stringPointer(closeFX.ID.String())}
 	input := AnalysisInputs{
-		Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: base}, FXPreferences: preferences},
+		Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: base}, FXPreferences: preferences},
 		FXQuotes:  []domain.FXQuote{eventFX, closeFX},
 	}
 	component := domain.ComponentID{AccountID: accountID, Currency: native}
@@ -291,7 +291,7 @@ func TestBuildComponentDayProjectsCashBridgeFromExactFXForBucketsReturnsAndEffec
 			}
 			input := AnalysisInputs{
 				Origin: analysisOrigin(t, householdID, "UTC"),
-				Portfolio: domain.PortfolioSnapshot{
+				Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 					Household:     &domain.Household{ID: householdID, BaseCurrency: base},
 					FXPreferences: preferences,
 				},
@@ -334,7 +334,7 @@ func TestBuildComponentDayReconcilesNonFXResidualOnDecimalPath(t *testing.T) {
 	universe := analysisUniverse{accounts: map[domain.AccountID]domain.Account{account.ID: account}}
 	input := AnalysisInputs{
 		Origin:    analysisOrigin(t, householdID, "UTC"),
-		Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}},
+		Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}},
 	}
 	day, err := buildComponentDay("2026-08-02", component, previous, current, previousSnapshot, currentSnapshot, true, true, nil, input, analysisBaseQuery(domain.ValuationBase), universe)
 	if err != nil {
@@ -383,7 +383,7 @@ func TestAnalysisExactCashResidualUsesRoundedMoneyForItsBucket(t *testing.T) {
 	current.Items[0].FXQuoteID = stringPointer(closeFX.ID.String())
 	input := AnalysisInputs{
 		Origin: analysisOrigin(t, householdID, "UTC"),
-		Portfolio: domain.PortfolioSnapshot{
+		Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 			Household:     &domain.Household{ID: householdID, BaseCurrency: base},
 			Accounts:      []domain.AccountRecord{{Account: account}},
 			FXPreferences: []domain.FXPreference{{HouseholdID: householdID, CurrencyA: base, CurrencyB: native, SourceKind: domain.QuoteSourceManual}},

@@ -15,7 +15,7 @@ func TestAnalysisCanonicalSimpleAccountTaxonomyAndLiabilitySigns(t *testing.T) {
 	property.AccountType = domain.TypeProperty
 	debt := analysisAccount(household, "CNY", domain.TrackingBalance, domain.RoleLiability)
 	debt.AccountType = domain.TypeOther
-	input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: bank}, {Account: property}, {Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{
+	input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: bank}, {Account: property}, {Account: debt}}}, Snapshots: []domain.DailyValuationSnapshot{
 		analysisSnapshot("2026-08-01", analysisItem(t, bank.ID, "CNY", "100", "100", nil, nil, "", ""), analysisItem(t, property.ID, "CNY", "1000", "1000", nil, nil, "", ""), analysisItem(t, debt.ID, "CNY", "50", "50", nil, nil, "", "")),
 		analysisSnapshot("2026-08-02", analysisItem(t, bank.ID, "CNY", "110", "110", nil, nil, "", ""), analysisItem(t, property.ID, "CNY", "1200", "1200", nil, nil, "", ""), analysisItem(t, debt.ID, "CNY", "60", "60", nil, nil, "", "")),
 	}}
@@ -76,7 +76,7 @@ func TestAnalysisOrdinaryUndoCancelsOriginalSemanticBucket(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Activities: []domain.Activity{original.Activity, undo.Activity}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "500", "500", nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", after, after, nil, nil, "", "")), analysisSnapshot("2026-08-03", analysisItem(t, account.ID, "CNY", "500", "500", nil, nil, "", ""))}}
+			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Activities: []domain.Activity{original.Activity, undo.Activity}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "500", "500", nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", after, after, nil, nil, "", "")), analysisSnapshot("2026-08-03", analysisItem(t, account.ID, "CNY", "500", "500", nil, nil, "", ""))}}
 			result, err := ComputeAnalysis(input, domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-03", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true})
 			if err != nil {
 				t.Fatal(err)
@@ -130,7 +130,7 @@ func TestAnalysisOrdinaryTradeUndoUsesInverseSide(t *testing.T) {
 				}
 				undo.Effects = append(undo.Effects, effect)
 			}
-			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Activities: []domain.Activity{original, undo}}
+			input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Activities: []domain.Activity{original, undo}}
 			for i, day := range []string{"2026-08-01", "2026-08-02", "2026-08-03"} {
 				mark := "12"
 				if i == 0 {
@@ -187,7 +187,7 @@ func TestAnalysisIncludeCashDoesNotDiluteETFReturnWithProperty(t *testing.T) {
 	property := analysisAccount(household, "USD", domain.TrackingManualValue, domain.RoleAsset)
 	property.AccountType = domain.TypeProperty
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
-	input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: household, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: broker}, {Account: property}}, Instruments: []domain.Instrument{{ID: instrumentID, HouseholdID: household, Type: domain.InstrumentETF, QuoteCurrency: "USD"}}, Holdings: []domain.Holding{{ID: holdingID, AccountID: broker.ID, InstrumentID: instrumentID}}}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, household, "UTC"), Portfolio: domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: &domain.Household{ID: household, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: broker}, {Account: property}}, Instruments: []domain.Instrument{{ID: instrumentID, HouseholdID: household, Type: domain.InstrumentETF, QuoteCurrency: "USD"}}, Holdings: []domain.Holding{{ID: holdingID, AccountID: broker.ID, InstrumentID: instrumentID}}}}
 	for i, value := range []string{"100", "110"} {
 		day := []string{"2026-08-01", "2026-08-02"}[i]
 		quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, value), Currency: "USD", QuotedAt: time.Date(2026, 8, 1+i, 23, 0, 0, 0, time.UTC)}

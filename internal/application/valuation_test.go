@@ -380,7 +380,7 @@ func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
 	holding := domain.Holding{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity}
 	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 4, 20, 1, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose), TimestampBasis: string(TimestampBasisSessionClose)}
-	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
 	cutoff := time.Date(2026, 9, 7, 23, 59, 59, 999000000, time.UTC)
 	valuation := NewValuationService(nil, func() time.Time { return cutoff })
 	valuation.SetHistorical(true)
@@ -445,7 +445,7 @@ func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
 	valuation := NewValuationService(nil, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
 	valuation.SetHistorical(true)
 	valuation.SetHistoricalMarketDate("2026-09-09")
-	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{previous}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"}, Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{previous}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisYahooClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
 	accounts, _, err := valuation.ValueAccounts(snapshot)
 	if err != nil {
 		t.Fatal(err)
@@ -622,7 +622,7 @@ func TestValuationConvertAmountDividesWholeAmountForReciprocalQuote(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := domain.PortfolioSnapshot{
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
 	}
@@ -665,7 +665,7 @@ func TestValuationFXNearHalfRetainsNativePrecisionForPositiveAndNegativeAmounts(
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := domain.PortfolioSnapshot{
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 		Household: &domain.Household{ID: householdID, BaseCurrency: "USD"},
 		FXQuotes:  []domain.FXQuote{quote}, FXPreferences: []domain.FXPreference{preference},
 	}
@@ -716,7 +716,7 @@ func TestValuationAggregatesFiveReciprocalAmountsBeforeMoneyRounding(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot := domain.PortfolioSnapshot{
+	snapshot := domain.PortfolioSnapshot{Origin: &domain.HistoryOrigin{Timezone: "UTC"},
 		Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 		Accounts:  []domain.AccountRecord{{Account: account}},
 		FXQuotes: []domain.FXQuote{{
