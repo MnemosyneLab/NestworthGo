@@ -197,6 +197,9 @@ func TestCreditCardStatementMatchesWailsAndKeepsEvidence(t *testing.T) {
 	if _, err := reference.Preview(ctx, check); err == nil {
 		t.Fatal("Wails accepted an edit to a completed record")
 	}
+	click("Back to statement records")
+	click("Back to account")
+	h.focused(&p.statement.open)
 	if err := storage.Close(); err != nil {
 		t.Fatal(err)
 	}

@@ -40,23 +40,24 @@ type accountRow struct {
 }
 
 type accountsResult struct {
-	rows          []accountRow
-	institutions  map[domain.InstitutionID]domain.Institution
-	members       map[domain.MemberID]domain.Member
-	groups        map[domain.GroupID]domain.Group
-	holdings      map[domain.HoldingID]domain.Holding
-	holdingGroups []domain.InstrumentHoldingGroupView
-	holdingsErr   error
-	lastCheck     *domain.ReconciliationSession
-	checkErr      error
-	cashValues    []domain.AccountCashValue
-	cashValuesErr error
-	managed       map[domain.InstrumentID]bool
-	products      []application.ProductDetail
-	unavailable   bool
-	historyZone   *time.Location
-	readAt        time.Time
-	err           error
+	rows             []accountRow
+	institutions     map[domain.InstitutionID]domain.Institution
+	members          map[domain.MemberID]domain.Member
+	groups           map[domain.GroupID]domain.Group
+	holdings         map[domain.HoldingID]domain.Holding
+	holdingGroups    []domain.InstrumentHoldingGroupView
+	holdingsErr      error
+	lastCheck        *domain.ReconciliationSession
+	checkErr         error
+	cashValues       []domain.AccountCashValue
+	cashValuesErr    error
+	managed          map[domain.InstrumentID]bool
+	products         []application.ProductDetail
+	unavailable      bool
+	historyZone      *time.Location
+	historyStartedAt time.Time
+	readAt           time.Time
+	err              error
 }
 
 // Match the Wails list and valuation reads. A detail visit uses the same
@@ -143,16 +144,18 @@ func readAccounts(ctx context.Context, service accountsReader, target navigation
 		}
 	}
 	result.lastCheck, result.checkErr = service.ReconciliationLastSuccess(ctx, target.account.String())
+	origin, err := service.HistoryOrigin(ctx)
+	if err != nil {
+		result.err = err
+		return
+	}
+	if origin != nil {
+		result.historyZone, _ = time.LoadLocation(origin.Timezone)
+		result.historyStartedAt = origin.StartedAt
+	}
 	if records[0].Account.TrackingMode == domain.TrackingHoldings {
 		result.cashValues, result.cashValuesErr = service.ListAccountCashValues(ctx, target.account)
-		origin, err := service.HistoryOrigin(ctx)
-		if err != nil {
-			result.err = err
-			return
-		}
-		if origin != nil {
-			result.historyZone, _ = time.LoadLocation(origin.Timezone)
-		}
+
 		holdings, err := service.HoldingsByAccounts(ctx, filter.AccountIDs)
 		if err != nil {
 			result.err = err
@@ -303,43 +306,46 @@ type accountsPage struct {
 	request     <-chan accountsResult
 	cancel      context.CancelFunc
 
-	target                             navigationTarget
-	archived                           bool
-	invalid                            bool
-	current                            *accountsResult
-	err                                error
-	rows                               []accountListRow
-	locale                             i18n.Language
-	position                           layout.Position
-	list                               widget.List
-	buttons                            map[domain.AccountID]*widget.Clickable
-	instruments                        map[domain.InstrumentID]*widget.Clickable
-	reload, archiveFilter, clear, back widget.Clickable
-	open                               func(navigationTarget, string, event.Tag)
-	openInstrument                     func(domain.InstrumentID, domain.AccountID, string, event.Tag)
-	openHoldingHistory                 func(domain.InstrumentID, domain.AccountID, string, event.Tag)
-	openHoldingAnalysis                func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
-	positions                          accountPositions
-	detail                             accountDetailControls
-	openProduct                        func(domain.ProductContractID, string, event.Tag)
-	productButtons                     map[domain.ProductContractID]*widget.Clickable
-	productLedger                      fundsProductLedger
-	productSetup                       *fundsProductSetup
-	addProduct                         widget.Clickable
-	restoreProductFocus, productSaved  bool
-	backToList                         func()
-	creation                           *balanceAccountCreation
-	createBank, createAccount          widget.Clickable
-	createShell                        widget.Clickable
-	focusCreate                        *widget.Clickable
-	createdID                          domain.AccountID
-	createdMessage                     i18n.MessageID
-	maintenance                        *accountMaintenance
-	cashBalance                        *accountCashBalance
-	investment                         *accountInvestment
-	balanceTarget                      *accountBalanceTarget
-	liabilityPosting                   *accountLiabilityPosting
-	statement                          *accountStatement
+	target                            navigationTarget
+	archived                          bool
+	invalid                           bool
+	current                           *accountsResult
+	err                               error
+	rows                              []accountListRow
+	locale                            i18n.Language
+	position                          layout.Position
+	list                              widget.List
+	buttons                           map[domain.AccountID]*widget.Clickable
+	instruments                       map[domain.InstrumentID]*widget.Clickable
+	reload, clear, back               widget.Clickable
+	archiveFilter                     widget.Bool
+	open                              func(navigationTarget, string, event.Tag)
+	openInstrument                    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingHistory                func(domain.InstrumentID, domain.AccountID, string, event.Tag)
+	openHoldingAnalysis               func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
+	positions                         accountPositions
+	detail                            accountDetailControls
+	actionSheet                       *accountActionSheet
+	openProduct                       func(domain.ProductContractID, string, event.Tag)
+	productButtons                    map[domain.ProductContractID]*widget.Clickable
+	productLedger                     fundsProductLedger
+	productSetup                      *fundsProductSetup
+	addProduct, createProductAccount  widget.Clickable
+	restoreProductFocus, productSaved bool
+	backToList                        func()
+	creation                          *balanceAccountCreation
+	createBank, createAccount         widget.Clickable
+	createShell                       widget.Clickable
+	focusCreate                       *widget.Clickable
+	createdID                         domain.AccountID
+	createdMessage                    i18n.MessageID
+	maintenance                       *accountMaintenance
+	cashBalance                       *accountCashBalance
+	investment                        *accountInvestment
+
+	balanceTarget    *accountBalanceTarget
+	liabilityPosting *accountLiabilityPosting
+	statement        *accountStatement
 }
 
 func newAccountsPage(ctx context.Context, service accountsReader, clock func() time.Time, invalidate func()) *accountsPage {
@@ -351,10 +357,19 @@ func newAccountsPage(ctx context.Context, service accountsReader, clock func() t
 func (p *accountsPage) enter(target navigationTarget, archived bool, position layout.Position) {
 	p.leave()
 	p.target, p.archived, p.position = target, archived, position
+	p.archiveFilter.Value = archived
 	p.list.Position = position
 	p.current, p.err, p.rows = nil, nil, nil
 	p.productSetup, p.restoreProductFocus, p.productSaved = nil, false, false
+	p.actionSheet = nil
+	if p.balanceTarget != nil {
+		p.balanceTarget.restore = nil
+	}
+	if p.statement != nil {
+		p.statement.restoreFocus = false
+	}
 	p.positions.visit = accountPositionsVisit{}
+	p.positions.trend.restore(instrumentPerformanceVisit{})
 	p.detail.restore(accountCompositionVisit{})
 	p.detail.investmentActionsRow, p.detail.revealedShortcut = -1, nil
 	p.invalid = !validAccountTarget(target)
@@ -377,6 +392,7 @@ func validAccountTarget(target navigationTarget) bool {
 }
 
 func (p *accountsPage) leave() {
+	p.positions.trend.series.reset()
 	if p.cancel != nil {
 		p.cancel()
 		p.cancel = nil

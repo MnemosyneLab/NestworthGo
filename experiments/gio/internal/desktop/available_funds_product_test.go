@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gioui.org/io/event"
+	"gioui.org/io/input"
 	"gioui.org/io/key"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -162,8 +163,27 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 					t.Fatal("wrong setup account or currency")
 				}
 				if entry.account {
+					// The portable tree also holds the disabled account trigger.
+					titles := make(map[input.SemanticID]struct{})
+					var collect func([]input.SemanticNode)
+					collect = func(nodes []input.SemanticNode) {
+						for _, node := range nodes {
+							if node.Desc.Label == "Add product" {
+								titles[node.ID] = struct{}{}
+							}
+							collect(node.Children)
+						}
+					}
+					collect(h.router.AppendSemantics(nil))
+					if len(titles) != 2 {
+						t.Fatalf("want one account trigger and one Add product heading, got %d labels", len(titles))
+					}
 					h.focused(&d.form.principal.Editor)
-					label("Account cash available · 156 USD")
+					if entry.account {
+						label("Account cash available · US$156.00")
+					} else {
+						label("Account cash available · 156 USD")
+					}
 				} else {
 					h.focused(&d.form.currency.Trigger)
 					label("Available cash in USD: US$156.00")
@@ -214,13 +234,9 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 			}
 			d := fill()
 			click(reviewLabel)
-			if entry.account {
-				click("Back to Accounts")
-				if accounts.target.account != ids.account || setup() != d {
-					t.Fatal("Back left the originating account detail")
-				}
-			} else {
-				click("Back to details")
+			click("Back to details")
+			if entry.account && (accounts.target.account != ids.account || setup() != d) {
+				t.Fatal("Back left the originating account detail")
 			}
 			h.focused(&d.form.principal.Editor)
 			if d.form.principal.Text() != principal {

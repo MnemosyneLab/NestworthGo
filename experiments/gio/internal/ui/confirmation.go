@@ -21,7 +21,7 @@ type Confirmation struct {
 
 type ConfirmationOptions struct {
 	Title, Body, Cancel, Confirm, Problem string
-	Busy                                  bool
+	Busy, Destructive                     bool
 }
 
 func (c *Confirmation) Open() {
@@ -87,7 +87,13 @@ func (c *Confirmation) Layout(gtx layout.Context, view View, options Confirmatio
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 						return layout.Flex{Spacing: layout.SpaceStart, Gap: gtx.Dp(Space8)}.Layout(gtx,
 							layout.Rigid(view.Button(&c.Cancel, options.Cancel)),
-							layout.Rigid(view.PrimaryButton(&c.Confirm, options.Confirm)),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								variant := ButtonPrimary
+								if options.Destructive {
+									variant = ButtonDestructive
+								}
+								return view.ButtonOf(&c.Confirm, ButtonSpec{Variant: variant, Title: options.Confirm})(gtx)
+							}),
 						)
 					}),
 				)

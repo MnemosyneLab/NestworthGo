@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"image"
 	"reflect"
 	"sync"
 	"testing"
@@ -10,9 +11,28 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/reconciliation"
 )
 
 const cardInvalidTarget = "Enter a nonnegative amount owed with up to four decimal places. Overpaid balances are unsupported."
+
+func TestNarrowCardBalanceRestoresEntryAfterPosting(t *testing.T) {
+	app, _, _, _ := seedBankBalanceFixture(t, true)
+	p, h, settle := balanceTargetHarness(t, &balanceTargetTestService{Service: app}, "Synthetic Card", func() time.Time { return accountTestClock })
+	p.statement = &accountStatement{service: reconciliation.NewService(app), origin: app}
+	p.balanceTarget.openActivity = h.shell.historyPage.reads.open
+	h.size = image.Pt(900, 600)
+	settle()
+	h.click("Update card balance", false)
+	settle()
+	setBankField(h, "Target amount owed · USD", &p.balanceTarget.draft.amount, "42.3456")
+	h.click("Review card balance", false)
+	settle()
+	h.click("Confirm card balance", false)
+	settle()
+	assertPageLabel(t, &h.router, "Card balance saved.")
+	h.focused(&p.balanceTarget.open)
+}
 
 func TestCreditCardReconciliationSignedReviewAndReceiptMatchWails(t *testing.T) {
 	ctx := t.Context()

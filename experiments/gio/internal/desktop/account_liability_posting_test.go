@@ -104,7 +104,8 @@ func TestCardPostingReviewCancellationStaleAndDurableRetry(t *testing.T) {
 		t.Fatal("confirmation did not start")
 	}
 	h.clickAt(point)
-	h.click("Back", false)
+	h.shell.pendingNavigation = &navigationRequest{step: -1}
+	h.frame()
 	if !p.liabilityPostingUnresolved() || h.shell.activeRoute() != accountsRoute {
 		t.Fatal("pending post allowed navigation")
 	}

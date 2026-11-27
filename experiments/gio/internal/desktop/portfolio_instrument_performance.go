@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"sync"
 	"time"
 
 	"gioui.org/layout"
@@ -93,11 +94,11 @@ func (r *instrumentPerformanceRead[T]) reset() {
 	r.request, r.cancel, r.value, r.err = nil, nil, nil, nil
 }
 
-func (r *instrumentPerformanceRead[T]) load(page *portfolioPage, read func(context.Context) (T, error)) {
+func (r *instrumentPerformanceRead[T]) load(parent context.Context, workers *sync.WaitGroup, invalidate func(), read func(context.Context) (T, error)) {
 	r.reset()
-	ctx, cancel := context.WithCancel(page.ctx)
+	ctx, cancel := context.WithCancel(parent)
 	r.cancel = cancel
-	r.request = runHistoryRead(&page.workers, page.invalidate, func() (T, error) { return read(ctx) })
+	r.request = runHistoryRead(workers, invalidate, func() (T, error) { return read(ctx) })
 }
 
 func (r *instrumentPerformanceRead[T]) update() {
@@ -121,6 +122,34 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 	if p.request != nil || p.err != nil {
 		return nil
 	}
+	rows := perf.seriesRows(view, instrument, reader, p.ctx, &p.workers, p.invalidate)
+	readReturns := func(ctx context.Context) (domain.QuotePerformanceReport, error) {
+		return reader.InstrumentQuoteReturns(ctx, instrument.ID)
+	}
+	perf.returns.update()
+	if perf.returns.request == nil && perf.returns.value == nil && perf.returns.err == nil {
+		perf.returns.load(p.ctx, &p.workers, p.invalidate, readReturns)
+	}
+	if perf.returns.err != nil {
+		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
+			if perf.returns.retry.Clicked(gtx) {
+				perf.returns.load(p.ctx, &p.workers, p.invalidate, readReturns)
+				gtx.Execute(op.InvalidateCmd{})
+			}
+			return overviewBreakdownCard(gtx, view, []ui.ColumnChild{
+				ui.Rigid(view.Message(l.Text(i18n.PortfolioPerformanceReturnsFailed), view.Colors.ErrorInk)),
+				ui.Rigid(returnMonthButton(view, &perf.returns.retry, i18n.HistoryRetry, nil, true)),
+			})
+		})
+	} else if perf.returns.value != nil && len(perf.returns.value.Items) > 0 {
+		rows = append(rows, instrumentPerformanceReturns(view, perf.returns.value.Items))
+	}
+	return rows
+}
+
+// seriesRows is shared by instrument detail and the expanded account holding.
+func (perf *instrumentPerformance) seriesRows(view ui.View, instrument domain.Instrument, reader instrumentPerformanceReader, ctx context.Context, workers *sync.WaitGroup, invalidate func()) []layout.Widget {
+	l := view.Language
 	period := perf.period
 	var days int
 	for _, choice := range instrumentPerformancePeriods {
@@ -132,16 +161,9 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 	readSeries := func(ctx context.Context) (domain.QuotePerformanceSeries, error) {
 		return reader.InstrumentQuotePerformanceSeries(ctx, instrument.ID, days)
 	}
-	readReturns := func(ctx context.Context) (domain.QuotePerformanceReport, error) {
-		return reader.InstrumentQuoteReturns(ctx, instrument.ID)
-	}
 	perf.series.update()
 	if perf.series.request == nil && perf.series.value == nil && perf.series.err == nil {
-		perf.series.load(p, readSeries)
-	}
-	perf.returns.update()
-	if perf.returns.request == nil && perf.returns.value == nil && perf.returns.err == nil {
-		perf.returns.load(p, readReturns)
+		perf.series.load(ctx, workers, invalidate, readSeries)
 	}
 	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		fields := []ui.ColumnChild{
@@ -153,7 +175,7 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 		switch {
 		case perf.series.err != nil:
 			if perf.series.retry.Clicked(gtx) {
-				perf.series.load(p, readSeries)
+				perf.series.load(ctx, workers, invalidate, readSeries)
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			fields = append(fields, ui.Rigid(view.Message(l.Text(i18n.MarketFailed), view.Colors.ErrorInk)),
@@ -197,20 +219,6 @@ func (p *portfolioPage) instrumentPerformanceRows(view ui.View, instrument domai
 				return quoteObservationsTable(view, observations, marketFXPair{}, &instrument)
 			})(gtx)
 		})
-	}
-	if perf.returns.err != nil {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			if perf.returns.retry.Clicked(gtx) {
-				perf.returns.load(p, readReturns)
-				gtx.Execute(op.InvalidateCmd{})
-			}
-			return overviewBreakdownCard(gtx, view, []ui.ColumnChild{
-				ui.Rigid(view.Message(l.Text(i18n.PortfolioPerformanceReturnsFailed), view.Colors.ErrorInk)),
-				ui.Rigid(returnMonthButton(view, &perf.returns.retry, i18n.HistoryRetry, nil, true)),
-			})
-		})
-	} else if perf.returns.value != nil && len(perf.returns.value.Items) > 0 {
-		rows = append(rows, instrumentPerformanceReturns(view, perf.returns.value.Items))
 	}
 	return rows
 }

@@ -3,6 +3,7 @@ package desktop
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"gioui.org/io/event"
@@ -22,14 +23,14 @@ type accountDetailControls struct {
 	openActivityList   func(domain.AccountID, event.Tag)
 	openAnalysis       func(routeID, domain.AccountID, string, event.Tag)
 	reconcile, receipt widget.Clickable
-	transactions       widget.Clickable
-	returns, changes   widget.Clickable
 	record             accountRecordControls
 	cashActions        accountCashActions
 	composition        accountCompositionControls
 	cashHistory        chartDataTable
+	cashHistoryRetry   widget.Clickable
 
 	investmentActionsRow int
+	actionRows           map[*widget.Clickable]int
 	revealedShortcut     event.Tag
 }
 
@@ -38,7 +39,6 @@ func (d *accountDetailControls) restore(visit accountCompositionVisit) {
 	d.composition.chart.selected = visit.selected
 	d.composition.chart.table.open = visit.tableOpen
 	d.composition.chart.table.list.Position = visit.tablePosition
-	d.cashHistory.open = visit.cashHistoryOpen
 	d.cashHistory.list.Position = visit.cashHistoryPosition
 }
 
@@ -46,7 +46,7 @@ func (d *accountDetailControls) visit() accountCompositionVisit {
 	visit := d.composition.accountCompositionVisit
 	visit.selected = d.composition.chart.selected
 	visit.tableOpen, visit.tablePosition = d.composition.chart.table.open, d.composition.chart.table.list.Position
-	visit.cashHistoryOpen, visit.cashHistoryPosition = d.cashHistory.open, d.cashHistory.list.Position
+	visit.cashHistoryPosition = d.cashHistory.list.Position
 	return visit
 }
 
@@ -69,25 +69,61 @@ func accountDetailActions(view ui.View, actions []layout.Widget) layout.Widget {
 	}
 }
 
-func (p *accountsPage) detailAnalysisActions(view ui.View, account domain.Account) []layout.Widget {
-	d := &p.detail
-	var actions []layout.Widget
-	if d.openAnalysis != nil {
-		actions = append(actions,
-			accountDetailButton(view, &d.returns, i18n.AccountDetailReturns, ui.ButtonGhost, func() {
-				d.openAnalysis(returnAnalysisRoute, account.ID, account.Name, &d.returns)
+func accountDetailSummary(view ui.View, row accountRow, readTime, institution, group, owner string) layout.Widget {
+	l := view.Language
+	account := row.record.Account
+	identity := view.Body(ui.TextBody, institution+" · "+l.Text(accountTypes[account.AccountType]), view.Colors.SecondaryInk)
+	metadata := []layout.Widget{
+		view.Body(ui.TextCaption, l.Text(accountTrackingLabel(account.TrackingMode, account.AccountType)), view.Colors.SecondaryInk),
+		view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountGroup), group), view.Colors.SecondaryInk),
+		view.Body(ui.TextCaption, fmt.Sprintf(l.Text(i18n.AccountOwners), owner), view.Colors.SecondaryInk),
+	}
+	amounts := accountAmountLines(view, row, false)
+	status, tone := accountValuationStatus(row.value)
+	value := func(gtx layout.Context) layout.Dimensions {
+		fields := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+			return layoutAccountAmounts(gtx, view, amounts, layout.Start)
+		}}
+		if status != i18n.NoMessage {
+			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
+				return view.Badge(gtx, tone, l.Text(status))
+			})
+		}
+		if account.ArchivedAt != nil {
+			fields = append(fields, func(gtx layout.Context) layout.Dimensions {
+				return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.DirectoryArchived))
+			})
+		}
+		fields = append(fields, view.Body(ui.TextCaption, readTime, view.Colors.SecondaryInk))
+		return accountDetailActions(view, fields)(gtx)
+	}
+	if row.value != nil && accountStale(*row.value) {
+		metadata = append(metadata, view.Body(ui.TextCaption, l.Text(i18n.AccountStaleQuotes), view.Colors.WarningInk))
+	}
+	return func(gtx layout.Context) layout.Dimensions {
+		return ui.Column{Gap: ui.Space12}.Layout(gtx,
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if gtx.Constraints.Max.X < gtx.Dp(accountWideContent) {
+					return ui.Column{Gap: ui.Space8}.Layout(gtx, ui.Rigid(identity), ui.Rigid(value))
+				}
+				maxValueWidth := gtx.Constraints.Max.X * 2 / 3
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx,
+					layout.Flexed(1, identity),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, maxValueWidth)
+						return value(gtx)
+					}))
 			}),
-			accountDetailButton(view, &d.changes, i18n.AccountDetailChanges, ui.ButtonGhost, func() {
-				d.openAnalysis(assetChangesRoute, account.ID, account.Name, &d.changes)
-			}),
+			ui.Rigid(accountDetailActions(view, metadata)),
+			ui.Rigid(view.Hairline),
 		)
 	}
-	if d.openActivityList != nil {
-		actions = append(actions, accountDetailButton(view, &d.transactions, i18n.AccountDetailTransactions, ui.ButtonGhost, func() {
-			d.openActivityList(account.ID, &d.transactions)
-		}))
+}
+
+func accountSectionGap(section layout.Widget) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: ui.Space24}.Layout(gtx, section)
 	}
-	return actions
 }
 
 func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Account) layout.Widget {
@@ -100,9 +136,7 @@ func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Acc
 	case last != nil:
 		status = statementRecordedTime(view, last.CompletedAt)
 	}
-	rows := []layout.Widget{
-		view.Body(ui.TextLabel, l.Text(i18n.AccountCheckLastSuccess)+": "+status, ink),
-	}
+	heading := view.Body(ui.TextLabel, l.Text(i18n.AccountCheckLastSuccess)+": "+status, ink)
 	var actions []layout.Widget
 	if d.openReconciliation != nil {
 		if account.ArchivedAt == nil {
@@ -123,9 +157,13 @@ func (p *accountsPage) accountReconciliationRow(view ui.View, account domain.Acc
 				Title: l.Text(i18n.StatementOpen)})(gtx)
 		})
 	}
-	if len(actions) != 0 {
-		rows = append(rows, accountDetailActions(view, actions))
-	}
+	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
+		if !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 640) || len(actions) == 0 {
+			return (ui.Column{Gap: ui.Space4}).Layout(gtx, ui.Rigid(heading), ui.Rigid(accountDetailActions(view, actions)))
+		}
+		return (layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}).Layout(gtx,
+			layout.Flexed(1, heading), layout.Rigid(accountDetailActions(view, actions)))
+	}}
 	if last != nil {
 		i := slices.IndexFunc(last.Accounts, func(row domain.ReconciliationAccount) bool {
 			return row.AccountID == account.ID.String()
@@ -156,34 +194,41 @@ func accountReconciliationEvidence(view ui.View, check domain.ReconciliationAcco
 func (p *accountsPage) accountCashHistory(view ui.View) layout.Widget {
 	values := p.current.cashValues
 	if p.current.cashValuesErr != nil {
-		return view.Message(view.Language.Text(i18n.AccountCashHistoryLoadFailed), view.Colors.ErrorInk)
+		return sectionCard(view, []layout.Widget{
+			view.Message(view.Language.Text(i18n.AccountCashHistoryLoadFailed), view.Colors.ErrorInk),
+			accountDetailButton(view, &p.detail.cashHistoryRetry, i18n.HistoryRetry, ui.ButtonOutline, p.refresh),
+		})
 	}
 	if len(values) == 0 {
 		return nil
 	}
 	d, l := &p.detail.cashHistory, view.Language
-	return func(gtx layout.Context) layout.Dimensions {
-		if d.toggle.Clicked(gtx) {
-			d.open = !d.open
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		title := l.Text(i18n.AccountCashHistoryTitle)
-		rows := []layout.Widget{analysisDisclosure(view, &d.toggle, title, d.open)}
-		if d.open {
-			rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-				return d.table(gtx, view, title, accountCashHistoryTable(view, values), nil)
+	title := l.Text(i18n.AccountCashHistoryTitle)
+	return sectionCard(view, []layout.Widget{
+		view.Body(ui.TextHeading, title, view.Colors.Ink),
+		func(gtx layout.Context) layout.Dimensions {
+			table := accountCashHistoryTable(view, values)
+			return d.tableWithCells(gtx, view, title, table, nil, func(row int) layout.Widget {
+				return func(gtx layout.Context) layout.Dimensions {
+					lines := strings.SplitN(table.Rows[row][0], "\n", 3)
+					fields := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextBody, lines[0], view.Colors.Ink))}
+					for _, line := range lines[1:] {
+						fields = append(fields, ui.Rigid(view.Body(ui.TextCaption, line, view.Colors.SecondaryInk)))
+					}
+					return (ui.Column{Gap: ui.Space2}).Layout(gtx, fields...)
+				}
 			})
-		}
-		return sectionCard(view, rows)(gtx)
-	}
+		},
+	})
 }
 
 func accountCashHistoryTable(view ui.View, values []domain.AccountCashValue) charts.Table {
 	l := view.Language
 	table := charts.Table{Selected: charts.NoRow, Columns: []charts.TableColumn{
-		{Title: l.Text(i18n.PreviewAccountType), Wrap: true},
+		{Title: l.Text(i18n.AccountCashHistoryType), Wrap: true},
 		{Title: l.Text(i18n.AccountCashHistoryChange), Numeric: true},
 		{Title: l.Text(i18n.AccountCashHistoryBalance), Numeric: true},
+		{Title: l.Text(i18n.AccountCashHistoryCurrency)},
 		{Title: l.Text(i18n.AccountCashHistoryEffective), Wrap: true},
 		{Title: l.Text(i18n.AccountCashHistoryRecorded), Wrap: true},
 	}}
@@ -193,21 +238,22 @@ func accountCashHistoryTable(view ui.View, values []domain.AccountCashValue) cha
 			label = l.Text(i18n.AccountCashHistoryActivity)
 		}
 		if value.ActivityKind != nil {
-			var reason domain.ActivityReason
-			if value.ActivityReason != nil {
-				reason = *value.ActivityReason
+			label = l.Text(historyKindLabel(*value.ActivityKind, ""))
+		}
+		if value.ActivityReason != nil {
+			if reason := checkpointCashReasonLabel(*value.ActivityReason); reason != i18n.NoMessage {
+				label += "\n" + l.Text(reason)
 			}
-			label = l.Text(historyKindLabel(*value.ActivityKind, reason))
 		}
 		if value.ActivityNote != nil && *value.ActivityNote != "" {
-			label += " · " + *value.ActivityNote
+			label += "\n" + *value.ActivityNote
 		}
 		change := "—"
 		if value.Change != nil {
 			change = returnSignedMoney(view, value.Change)
 		}
 		balance := valuationMoney(view, domain.MoneyView{Amount: value.Amount.CanonicalAmount(), Currency: value.Amount.Currency()}, false)
-		table.Rows = append(table.Rows, []string{label, change, balance,
+		table.Rows = append(table.Rows, []string{label, change, balance, value.Amount.Currency().String(),
 			statementRecordedTime(view, value.EffectiveAt.Format(time.RFC3339Nano)),
 			statementRecordedTime(view, value.CreatedAt.Format(time.RFC3339Nano)),
 		})
@@ -241,7 +287,7 @@ func accountSimpleValue(view ui.View, row accountRow, actions []layout.Widget) l
 		view.Body(ui.TextHeading, l.Text(accountTypes[row.record.Account.AccountType]), view.Colors.Ink),
 		view.Message(fmt.Sprintf(l.Text(label), accountAmountLines(view, row, false)[0].label), view.Colors.SecondaryInk),
 	}
-	if len(actions) != 0 {
+	if len(actions) > 0 {
 		rows = append(rows, accountDetailActions(view, actions))
 	}
 	return sectionCard(view, rows)

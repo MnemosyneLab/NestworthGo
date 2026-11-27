@@ -16,7 +16,7 @@ import {
   useRecordProductOperation,
   useReleaseReservation
 } from "@/queries/liquidity";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ComponentProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { ProductCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
@@ -27,7 +27,13 @@ import { ProductTimeFields, type ProductLocalTime } from "./ProductTimeFields";
 import { useReviewedCommand } from "./useReviewedCommand";
 
 
-type ProductDetailSheetProps = { productId: string | null; receiptRequestId?: number; open: boolean; onOpenChange: (open: boolean) => void };
+type ProductDetailSheetProps = {
+  productId: string | null;
+  receiptRequestId?: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  finalFocus?: ComponentProps<typeof SheetContent>["finalFocus"];
+};
 export function ProductDetailSheet(props: ProductDetailSheetProps) {
   return <ProductDetailSession key={`${props.productId}:${props.open}`} {...props} />;
 }
@@ -37,12 +43,8 @@ function ProductDetailSession({
   receiptRequestId,
   open,
   onOpenChange,
-}: {
-  productId: string | null;
-  receiptRequestId?: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+  finalFocus,
+}: ProductDetailSheetProps) {
   const { t } = useTranslation();
   const detail = useProduct(productId ?? "", Boolean(productId) && open);
   const refetchDetail = detail.refetch;
@@ -175,7 +177,7 @@ function ProductDetailSession({
   if (editTerms) return <ProductEditSheet productId={productId} open={open} onOpenChange={(next) => { if (!next) setEditTerms(false); }} />;
   return (
     <Sheet open={open} onOpenChange={(next) => { if (!isSaving) { if (!next) receiptIntentEpoch.current += 1; onOpenChange(next); } }}>
-      <SheetContent size="lg" onChangeCapture={() => setReviewed(null)}>
+      <SheetContent size="lg" finalFocus={finalFocus} onChangeCapture={() => setReviewed(null)}>
         <SheetHeader>
           <SheetTitle>{product ? instrumentDisplayLabel(product) : t("availableFunds.products")}</SheetTitle>
           {product && instrumentSecondaryName(product) && <p className="text-xs text-muted-foreground">{instrumentSecondaryName(product)}</p>}

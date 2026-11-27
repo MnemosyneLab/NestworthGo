@@ -115,10 +115,10 @@ func TestValuedAndHoldingsCreationThroughInstitution(t *testing.T) {
 			t.Fatalf("%s review did not open, problem %v, group %s, date %s, owners %v", tc.name, d.problem, d.group, d.openedOn, d.owners)
 		}
 		label("Review asset account")
-		if tc.mode == domain.TrackingHoldings && !liabilityTextAppears(h.router.AppendSemantics(nil), "Default currency: USD\nStarts empty.") {
+		if tc.mode == domain.TrackingHoldings && (findPageLabel(&h.router, "Default currency: USD") == nil || findPageLabel(&h.router, "Starts empty.") == nil) {
 			t.Fatal("Holdings review omitted the empty account or its default currency")
 		}
-		if tc.mode == domain.TrackingManualValue && !liabilityTextAppears(h.router.AppendSemantics(nil), "Opening valuation: "+tc.canonical+" USD") {
+		if tc.mode == domain.TrackingManualValue && !liabilityTextAppears(h.router.AppendSemantics(nil), "Opening valuation: "+tc.detail) {
 			t.Fatal("manual review omitted the exact opening amount")
 		}
 		h.click("Create asset account", false)
@@ -129,7 +129,7 @@ func TestValuedAndHoldingsCreationThroughInstitution(t *testing.T) {
 		finish()
 		label(tc.name)
 		if tc.kind == domain.TypeCashOnHand {
-			label("Cash on hand · Cash by currency")
+			label("Cash by currency")
 		}
 		if tc.mode == domain.TrackingHoldings {
 			scrollToAccountDetailLabel(h, tc.detail)

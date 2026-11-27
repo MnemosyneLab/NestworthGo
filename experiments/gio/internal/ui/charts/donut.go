@@ -27,7 +27,9 @@ type Slice struct {
 	// formats them. The arc angle is computed from Value alone, so rounding in
 	// Share cannot change the drawing and the drawing cannot change Share.
 	Text, Share string
-	Detail      []string
+	// LegendDetail is visible below the label and in the slice readout.
+	LegendDetail string
+	Detail       []string
 	// Color overrides the theme category color for this entry.
 	Color color.NRGBA
 }
@@ -70,7 +72,7 @@ func (s DonutSpec) Rows() []TextRow {
 	rows := make([]TextRow, 0, len(s.Slices))
 	for _, sl := range s.Slices {
 		value, missing := valueText(sl.Value, sl.Text, s.Messages)
-		detail := append([]string(nil), sl.Detail...)
+		detail := sl.details()
 		if sl.Share != "" {
 			detail = append([]string{sl.Share}, detail...)
 		}
@@ -273,6 +275,13 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 		if !(sl.Value.Valid() && sl.Value.Number > 0) {
 			columns[i].note = spec.NotDrawn
 		}
+		if sl.LegendDetail != "" {
+			if columns[i].note != "" {
+				columns[i].note = sl.LegendDetail + " · " + columns[i].note
+			} else {
+				columns[i].note = sl.LegendDetail
+			}
+		}
 		amount := textBlock{style: ui.TextLabel, content: columns[i].amount, maxWidth: legendWidth, maxLines: 1}.measure(gtx, view).X
 		share := textBlock{style: ui.TextCaption, content: sl.Share, maxWidth: legendWidth, maxLines: 1}.measure(gtx, view).X
 		rightW = max(rightW, amount, share)
@@ -336,6 +345,13 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 
 type donutRow struct{ amount, note string }
 
+func (sl Slice) details() []string {
+	if sl.LegendDetail == "" {
+		return append([]string(nil), sl.Detail...)
+	}
+	return append([]string{sl.LegendDetail}, sl.Detail...)
+}
+
 func (s DonutSpec) readout(sel Selection) *readout {
 	if sel.IsZero() {
 		return nil
@@ -348,7 +364,7 @@ func (s DonutSpec) readout(sel Selection) *readout {
 		if sl.Share != "" {
 			value += " · " + sl.Share
 		}
-		detail := sl.Detail
+		detail := sl.details()
 		if !(sl.Value.Valid() && sl.Value.Number > 0) && s.NotDrawn != "" {
 			detail = append(append([]string(nil), detail...), s.NotDrawn)
 		}

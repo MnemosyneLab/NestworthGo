@@ -6,7 +6,6 @@ import (
 	"image"
 	"slices"
 
-	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -18,33 +17,21 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (p *accountsPage) accountMaintenanceActions(gtx layout.Context, view ui.View) []layout.Widget {
-	m, row := p.maintenance, p.freshDetail()
-	if m == nil || row == nil || !accountMaintenanceSupported(row.record.Account) {
-		return nil
-	}
-	a, l := row.record.Account, view.Language
-	if m.focus != nil && gtx.Enabled() {
+func (p *accountsPage) layoutAccountArchiveAction(gtx layout.Context, view ui.View, account domain.Account) layout.Dimensions {
+	m := p.maintenance
+	if m.focus == &m.archive && gtx.Enabled() {
 		gtx.Execute(key.FocusCmd{Tag: m.focus})
 		m.focus = nil
 	}
-	var result []layout.Widget
-	if canEditAccount(row.record) {
-		if m.edit.Clicked(gtx) {
-			m.startEdit(row.record)
-			gtx.Execute(op.InvalidateCmd{})
-		}
-		result = append(result, view.ButtonOf(&m.edit, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.AccountMaintenanceEdit)}))
-	}
-	action := i18n.AccountMaintenanceArchive
-	if a.ArchivedAt != nil {
-		action = i18n.AccountMaintenanceRestore
-	}
 	if m.archive.Clicked(gtx) {
-		m.startArchive(a)
+		m.startArchive(account)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	return append(result, view.ButtonOf(&m.archive, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(action)}))
+	action, variant := i18n.AccountMaintenanceArchive, ui.ButtonDestructive
+	if account.ArchivedAt != nil {
+		action, variant = i18n.AccountMaintenanceRestore, ui.ButtonOutline
+	}
+	return view.ButtonOf(&m.archive, ui.ButtonSpec{Variant: variant, Size: ui.ButtonSmall, Title: view.Language.Text(action)})(gtx)
 }
 
 func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {
@@ -56,7 +43,7 @@ func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {
 	}
 	review.dialog.Layout(gtx, view, ui.ConfirmationOptions{
 		Title: l.Text(title), Body: fmt.Sprintf(l.Text(summary), review.name),
-		Cancel: l.Text(i18n.InstitutionsCancel), Confirm: l.Text(title), Busy: m.pending != nil,
+		Cancel: l.Text(i18n.InstitutionsCancel), Confirm: l.Text(title), Busy: m.pending != nil, Destructive: review.archive,
 	}, func() {
 		m.focus, m.review = &m.archive, nil
 		gtx.Execute(op.InvalidateCmd{})
@@ -69,90 +56,104 @@ func (p *accountsPage) layoutAccountArchive(gtx layout.Context, view ui.View) {
 func (p *accountsPage) layoutAccountSettings(gtx layout.Context, view ui.View) layout.Dimensions {
 	m, l := p.maintenance, view.Language
 	d := m.draft
-	gtx, view = view.Measure(gtx, 760)
+	if d == nil {
+		return layout.Dimensions{}
+	}
 	origin := view.Origin
-	submit := false
-	dims := ui.Column{Gap: 8}.Layout(gtx,
+	readOnly := !canEditAccount(d.record)
+	role := i18n.AccountRoleAsset
+	a := d.record.Account
+	if a.IsLiability() {
+		role = i18n.AccountRoleLiability
+	}
+	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
-				return view.Label(gtx, l.Text(i18n.AccountMaintenanceEdit), 19, font.Medium, view.Colors.Ink)
-			})
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			role := i18n.AccountRoleAsset
-			if d.record.Account.IsLiability() {
-				role = i18n.AccountRoleLiability
-			}
-			a := d.record.Account
 			label := fmt.Sprintf(l.Text(i18n.AccountMaintenanceFixed), l.Text(role), l.Text(accountTrackingLabel(a.TrackingMode, a.AccountType)), a.DefaultCurrency.String())
 			return fieldPosition(gtx, &origin, view.Message(label, view.Colors.SecondaryInk))
 		}),
-		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			if m.pending != nil || p.request != nil || p.err != nil {
-				gtx = gtx.Disabled()
-			}
-			gap := gtx.Dp(16)
-			width := (gtx.Constraints.Max.X - gap) / 2
-			return layout.Flex{Gap: gap}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X, gtx.Constraints.Min.X = width, width
-					return d.layoutAccountSettingsDetails(gtx, view, origin, p.current)
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return d.layoutAccountSettingsOwners(gtx, view, origin.Add(image.Pt(width+gap, 0)), p.current.members)
-				}),
-			)
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			var lines []layout.FlexChild
-			if m.issue != i18n.NoMessage {
-				lines = append(lines, layout.Rigid(view.Message(l.Text(m.issue), view.Colors.ErrorInk)))
-			}
-			if p.err != nil {
-				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.AccountLoadError), view.Colors.ErrorInk)))
-			}
-			if m.pending != nil {
-				lines = append(lines, layout.Rigid(view.Message(l.Text(i18n.SettingsPending), view.Colors.SecondaryInk)))
-			}
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if m.pending != nil {
-				gtx = gtx.Disabled()
-			}
-			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if d.cancel.Clicked(gtx) {
-						m.draft, m.focus, m.issue = nil, &m.edit, i18n.NoMessage
-						gtx.Execute(op.InvalidateCmd{})
-					}
-					return view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel))(gtx)
-				}),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.err != nil {
-						if p.reload.Clicked(gtx) {
-							p.read()
-						}
-						return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
-					}
-					if p.freshDetail() == nil || len(d.owners) == 0 {
-						gtx = gtx.Disabled()
-					}
-					submit = d.save.Clicked(gtx)
-					return view.PrimaryButton(&d.save, l.Text(i18n.SettingsSave))(gtx)
-				}),
-			)
-		}),
-	)
-	if submit && m.draft != nil {
-		input, issue := d.input()
-		m.issue = issue
-		if issue == i18n.NoMessage {
-			p.submitAccountMaintenance(nil, input)
-		}
-		gtx.Execute(op.InvalidateCmd{})
 	}
-	return dims
+	if !readOnly {
+		rows = append(rows,
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if d.focusName && gtx.Enabled() {
+					d.name.Focus(gtx)
+					d.focusName = false
+				}
+				return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
+					return d.name.Layout(gtx, view, ui.FieldOptions{Label: i18n.AccountCreateName})
+				})
+			}),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
+					return d.layoutAccountSettingsOwners(gtx, view, origin, p.current.members)
+				})
+			}),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if d.details.Clicked(gtx) {
+					d.showDetails = !d.showDetails
+					gtx.Execute(op.InvalidateCmd{})
+				}
+				return fieldPosition(gtx, &origin, analysisDisclosure(view, &d.details, l.Text(i18n.AccountStepDetails), d.showDetails))
+			}),
+			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+				if !d.showDetails {
+					return layout.Dimensions{}
+				}
+				return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
+					return d.layoutAccountSettingsDetails(gtx, view, origin, p.current)
+				})
+			}),
+		)
+	} else if a.ArchivedAt != nil {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.AccountMaintenanceReadOnly), view.Colors.SecondaryInk)))
+	}
+	if m.issue != i18n.NoMessage {
+		rows = append(rows, ui.Rigid(view.Message(l.Text(m.issue), view.Colors.ErrorInk)))
+	}
+	if p.err != nil {
+		rows = append(rows, ui.Rigid(accountDetailButton(view, &p.reload, i18n.HistoryRetry, ui.ButtonOutline, p.read)))
+	}
+	if m.pending != nil || p.request != nil || m.review != nil {
+		gtx = gtx.Disabled()
+	}
+	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+}
+
+func (p *accountsPage) accountSettingsFooter(view ui.View, submit *bool) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		m, l := p.maintenance, view.Language
+		if m.draft == nil {
+			return layout.Dimensions{}
+		}
+		d := m.draft
+		if m.pending == nil && m.review == nil && d.cancel.Clicked(gtx) {
+			m.draft, m.focus, m.issue = nil, m.entry, i18n.NoMessage
+			gtx.Execute(op.InvalidateCmd{})
+			return layout.Dimensions{}
+		}
+		if m.pending != nil || m.review != nil {
+			gtx = gtx.Disabled()
+		}
+		if p.freshDetail() == nil {
+			gtx = gtx.Disabled()
+		}
+		actions := []layout.Widget{
+			func(gtx layout.Context) layout.Dimensions {
+				return p.layoutAccountArchiveAction(gtx, view, d.record.Account)
+			},
+			view.Button(&d.cancel, l.Text(i18n.InstitutionsCancel)),
+		}
+		if canEditAccount(d.record) {
+			actions = append(actions, func(gtx layout.Context) layout.Dimensions {
+				if len(d.owners) == 0 {
+					gtx = gtx.Disabled()
+				}
+				*submit = d.save.Clicked(gtx)
+				return view.PrimaryButton(&d.save, l.Text(i18n.SettingsSave))(gtx)
+			})
+		}
+		return accountDetailActions(view, actions)(gtx)
+	}
 }
 
 func (d *accountSettingsDraft) layoutAccountSettingsDetails(gtx layout.Context, view ui.View, origin image.Point, current *accountsResult) layout.Dimensions {
@@ -180,17 +181,11 @@ func (d *accountSettingsDraft) layoutAccountSettingsDetails(gtx layout.Context, 
 		})
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if d.focusName && gtx.Enabled() {
-				d.name.Focus(gtx)
-				d.focusName = false
-			}
-			return fieldPosition(gtx, &origin, func(gtx layout.Context) layout.Dimensions {
-				return d.name.Layout(gtx, view, ui.FieldOptions{Label: i18n.AccountCreateName})
-			})
-		}),
 		picker(i18n.AccountMaintenanceInstitution, &d.institutionPicker, ui.SelectOptions{Items: institutions, Searchable: true}, d.institution, func(id string) { d.institution = id }),
 		picker(i18n.AccountMaintenanceGroup, &d.groupPicker, ui.SelectOptions{Items: groups, Searchable: true}, d.group, func(id string) { d.group = id }),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layoutAccountIcon(gtx, view, origin, &d.iconPicker, d.icon, func(id string) { d.icon = id })
+		}),
 	)
 }
 
@@ -208,22 +203,12 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 	})
 	return ui.Column{Gap: 6}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gap := gtx.Dp(8)
-			width := (gtx.Constraints.Max.X - gap) / 2
-			return layout.Flex{Gap: gap}.Layout(gtx,
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					gtx.Constraints.Max.X = width
-					a := d.record.Account
-					choices := accountTypeChoices(l, a.BalanceSheetRole, a.TrackingMode)
-					choices = slices.DeleteFunc(choices, func(choice ui.Choice) bool { return !compatibleAccountType(a, domain.AccountType(choice.ID)) })
-					d.typePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceType, Origin: origin, Disabled: !gtx.Enabled() || len(choices) == 1},
-						ui.SelectOptions{Items: choices}, d.kind.String(), func(id string) { d.kind = domain.AccountType(id) })
-					return layout.Dimensions{Size: image.Pt(width, gtx.Dp(60))}
-				}),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-					return layoutAccountIcon(gtx, view, origin.Add(image.Pt(width+gap, 0)), &d.iconPicker, d.icon, func(id string) { d.icon = id })
-				}),
-			)
+			a := d.record.Account
+			choices := accountTypeChoices(l, a.BalanceSheetRole, a.TrackingMode)
+			choices = slices.DeleteFunc(choices, func(choice ui.Choice) bool { return !compatibleAccountType(a, domain.AccountType(choice.ID)) })
+			d.typePicker.Layout(gtx, view, ui.PickerField{Label: i18n.AccountMaintenanceType, Origin: origin, Disabled: !gtx.Enabled() || len(choices) == 1},
+				ui.SelectOptions{Items: choices}, d.kind.String(), func(id string) { d.kind = domain.AccountType(id) })
+			return layout.Dimensions{Size: image.Pt(gtx.Constraints.Max.X, gtx.Dp(60))}
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if d.include.Clicked(gtx) {
@@ -237,7 +222,10 @@ func (d *accountSettingsDraft) layoutAccountSettingsOwners(gtx layout.Context, v
 		}),
 		ui.Rigid(view.Message(l.Text(i18n.AccountCreateOwnerLabel), view.Colors.Ink)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return d.layoutShareMode(gtx, view) }),
-		ui.Fill(func(gtx layout.Context) layout.Dimensions {
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if len(members) > 12 {
+				gtx.Constraints.Max.Y = min(gtx.Constraints.Max.Y, gtx.Dp(280))
+			}
 			return d.layoutOwnerList(gtx, view, members, true)
 		}),
 	)

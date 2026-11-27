@@ -12,6 +12,7 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/format"
+	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 var supportedCurrencyChoices = func() []ui.Choice {
@@ -110,17 +111,28 @@ func (p *accountsPage) layoutAccountCreationReview(gtx layout.Context, view ui.V
 	if d.mode == domain.TrackingHoldings {
 		lines = append(lines, fmt.Sprintf(l.Text(i18n.AccountCreateReviewCurrency), r.input.DefaultCurrency), l.Text(i18n.AccountCreateHoldingsEmpty))
 	} else {
-		lines = append(lines, fmt.Sprintf(l.Text(amount), r.money.CanonicalAmount()+" "+r.money.Currency().String()))
+		lines = append(lines, fmt.Sprintf(l.Text(amount), format.AuditMoney(r.money.CanonicalAmount(), r.money.Currency().String(), settings.Settings{
+			DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator,
+		})))
 	}
-	body := strings.Join(append(lines,
+	lines = append(lines,
 		fmt.Sprintf(l.Text(i18n.AccountOwners), strings.Join(owners, " / ")),
 		l.Text(include),
-	), "\n")
+	)
 	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions { return accountStepper(gtx, view, 3) }),
 		ui.Rigid(view.Body(ui.TextHeading, l.Text(title), view.Colors.Ink)),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return view.CardPadded(gtx, view.Message(body, view.Colors.Ink))
+			return view.CardPadded(gtx, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Grid{MinColumn: 190, MaxColumns: 2, Gap: ui.Space8}).Layout(gtx, view, len(lines),
+					func(gtx layout.Context, _ ui.View, i int) layout.Dimensions {
+						style := ui.TextCaption
+						if i == 0 {
+							style = ui.TextHeading
+						}
+						return view.Body(style, lines[i], view.Colors.Ink)(gtx)
+					})
+			})
 		}),
 	}
 	if f.chooser != nil {

@@ -109,9 +109,11 @@ func TestValuedAndHoldingsMaintenanceMatchesWailsWithoutRewritingFacts(t *testin
 			t.Fatalf("financial fixture is incomplete: %+v", before)
 		}
 		label := func(s string) { assertPageLabel(t, &h.router, s) }
-		h.click("Account settings", false)
+		openAccountSettings(h)
 		h.frame()
 		label("Asset · " + tc.tracking + " · USD. Role, tracking, and currency are fixed.")
+		h.click("Details", false)
+		h.frame()
 		label("Former shell group · Archived")
 		d := p.maintenance.draft
 		if d == nil {
@@ -206,6 +208,9 @@ func TestValuedAndHoldingsMaintenanceMatchesWailsWithoutRewritingFacts(t *testin
 		}
 		assertParity(false)
 		archives := fault.archives.Load()
+		if h.shell.accounts.maintenance.draft == nil {
+			openAccountSettings(h)
+		}
 		h.click("Archive account", false)
 		h.frame()
 		h.click("Archive account", false)
@@ -222,12 +227,24 @@ func TestValuedAndHoldingsMaintenanceMatchesWailsWithoutRewritingFacts(t *testin
 			t.Fatal(err)
 		}
 		assertParity(true)
+		if h.shell.accounts.maintenance.draft == nil {
+			openAccountSettings(h)
+		}
 		h.click("Restore account", false)
 		h.frame()
 		h.click("Restore account", false)
 		finish()
 		label("Account restored.")
-		label("Account settings")
+		if p.err != nil {
+			h.click("Retry", false)
+			finish()
+		}
+		openAccountSettings(h)
+		if p.maintenance.draft == nil || !canEditAccount(p.maintenance.draft.record) {
+			t.Fatal("restored account did not regain editable settings")
+		}
+		h.press(key.NameEscape)
+		h.frame()
 		if err := wails.ArchiveAccount(ctx, tc.id.String(), false); err != nil {
 			t.Fatal(err)
 		}
@@ -276,6 +293,9 @@ func TestManualAccountMissingValueCanArchiveButCannotEdit(t *testing.T) {
 	if got := p.writeAccountMaintenance(id, nil, application.AccountInput{Name: "Forbidden"}); got.message != i18n.AccountMaintenanceChanged || fault.updates.Load() != 0 {
 		t.Fatal("stale manual settings could submit with a missing valuation")
 	}
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
+	}
 	h.click("Archive account", false)
 	h.frame()
 	h.click("Archive account", false)
@@ -283,6 +303,9 @@ func TestManualAccountMissingValueCanArchiveButCannotEdit(t *testing.T) {
 	h.click("Retry", false)
 	finish()
 	assertPageLabel(t, &h.router, "Archived account. Restore it to edit its settings.")
+	if h.shell.accounts.maintenance.draft == nil {
+		openAccountSettings(h)
+	}
 	h.click("Restore account", false)
 	h.frame()
 	h.click("Restore account", false)

@@ -74,6 +74,7 @@ type accountStatement struct {
 	open, reconciliation widget.Clickable
 	screen               *statementScreen
 	restore              statementVisit
+	restoreFocus         bool
 	openReconciliation   func(session, name string, focus event.Tag)
 }
 

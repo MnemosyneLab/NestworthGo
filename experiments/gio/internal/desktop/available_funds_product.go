@@ -96,7 +96,7 @@ func (d *fundsProductSetup) cashValue(view ui.View) string {
 	if !ok {
 		return view.Language.Text(i18n.OverviewNoValue)
 	}
-	return holdingSnapshotValue(view, amount, d.currency)
+	return valuationMoney(view, domain.MoneyView{Amount: amount, Currency: domain.CurrencyCode(d.currency)}, false)
 }
 
 func (d *fundsProductSetup) cashAmount() (string, bool) {

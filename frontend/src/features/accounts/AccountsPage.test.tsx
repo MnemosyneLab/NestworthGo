@@ -39,6 +39,8 @@ const listInstitutions = vi.fn();
 const listGroups = vi.fn();
 const listAccountCashValues = vi.fn();
 const historyMutationAllowed = vi.fn();
+const listProducts = vi.fn();
+const productDetail = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -126,9 +128,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
     Overview: () => Promise.resolve({ asOf: "", localDate: "2026-09-20", timezone: "UTC", baseCurrency: "USD", assumptions: [], buckets: [], sources: [], unresolvedReservations: [] }),
-    ListProducts: () => Promise.resolve([]),
-    Product: vi.fn(),
-    ListOperations: vi.fn(),
+    ListProducts: (...args: unknown[]) => listProducts(...args),
+    Product: (...args: unknown[]) => productDetail(...args),
+    ListOperations: () => Promise.resolve({ operations: [] }),
     PreviewProductOperation: vi.fn(),
     RecordProductOperation: vi.fn(),
   },
@@ -248,6 +250,8 @@ beforeEach(() => {
   currentInstrumentQuote.mockReset();
   listAccountCashValues.mockReset();
   historyMutationAllowed.mockReset();
+  listProducts.mockReset().mockResolvedValue([]);
+  productDetail.mockReset();
   listInstitutions.mockReset();
   listGroups.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
@@ -1770,6 +1774,39 @@ it("keeps a priced holding's native amount visible when household FX is missing"
   expect(row).not.toHaveTextContent("No current price");
 });
 
+
+it("returns focus to the balance trigger after cancelling the account drawer", async () => {
+  const user = userEvent.setup();
+  renderPage();
+  await user.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  const trigger = await screen.findByRole("button", { name: "Update balance" });
+  await user.click(trigger);
+  await screen.findByRole("dialog", { name: "Update balance" });
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(trigger).toHaveFocus());
+  expect(recordChange).not.toHaveBeenCalled();
+});
+
+it("returns focus to the selected account product after dismissing its detail", async () => {
+  const user = userEvent.setup();
+  const product = {
+    id: "deposit", name: "Synthetic term deposit", kind: "term_deposit",
+    state: "open", displayState: "due_unconfirmed", startOn: "2026-10-15", maturityOn: "2026-11-26",
+    principal: { amount: "125.25", currency: "USD" }, currentValue: { amount: "125.25", currency: "USD" },
+    policy: {},
+  };
+  const detail = { product, reservations: [], permittedActions: ["settle"] };
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  listProducts.mockResolvedValue([detail]);
+  productDetail.mockResolvedValue(detail);
+  renderPage();
+  await user.click(await screen.findByRole("button", { name: /MooMoo/ }));
+  const trigger = await screen.findByRole("button", { name: product.name });
+  await user.click(trigger);
+  await screen.findByRole("dialog", { name: product.name });
+  await user.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
 
 it.each(["deposit", "simple", "record"])("retains ordinary account %s submission through child replacement and read failure", async entry => {
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2020-01-01T00:00:00Z" });

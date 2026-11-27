@@ -107,6 +107,7 @@ type shell struct {
 	funds                                 *availableFundsPage
 	tasks                                 *tasksPage
 	accounts                              *accountsPage
+	accountProduct                        *accountProductDrawer
 	portfolio                             *portfolioPage
 	wealthHistory                         *wealthHistoryPage
 	returns                               *returnAnalysisPage
@@ -484,6 +485,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			if source == nil {
 				return i18n.NoMessage
 			}
+			if source.accountProduct.receipt != "" && source.accountProduct.receipt == s.trail.current().target.activity {
+				return i18n.ProductBackToDetails
+			}
 			if source.target.route == tasksRoute && source.tasks.holdingSession != "" {
 				id := s.trail.current().target.activity
 				if source.tasks.holdingReceipt == id || source.tasks.journalReceipt.operation == id.String() {
@@ -636,7 +640,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 				s.portfolio.openProduct = p.openProduct
 			}
 			if s.accounts != nil {
-				s.accounts.openProduct = p.openProduct
+				s.accounts.openProduct = s.openAccountProduct
 			}
 		}
 		if s.accounts != nil {
@@ -648,8 +652,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			p.productPage.openAccount = p.openAccount
 			p.productPage.onProductSaved = s.refreshLedgerReads
 			if s.historyPage != nil && s.historyPage.reads != nil {
-				p.productPage.openActivity = s.historyPage.reads.open
-				s.historyPage.reads.openProduct = p.openProduct
+				p.productPage.openActivity = s.openProductActivity
+				s.historyPage.reads.openProduct = s.openProductFromHistory
 			}
 		}
 		if s.portfolio != nil {
@@ -704,6 +708,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		if saved := s.accounts.pollBalanceTarget(); saved.account != "" {
 			s.refreshLedgerReads()
 		}
+		var source *widget.Clickable
+		if s.accountCreationOpen() {
+			source = s.accounts.creation.sheet.source
+		}
 		if record := s.accounts.pollAccountCreation(); record.Account.ID != "" {
 			s.accounts.createdID = record.Account.ID
 			s.accounts.createdMessage = i18n.AccountCreateSucceeded
@@ -721,6 +729,9 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 				if !unscoped {
 					focus = &s.accounts.createShell
 				}
+			}
+			if source == &s.accounts.createProductAccount {
+				focus = source
 			}
 			s.refreshLedgerReads()
 			s.pendingNavigation = &navigationRequest{
@@ -771,7 +782,8 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	fundsPolicyOpen := s.fundsPolicyOpen()
 	fundsProductSetupOpen, fundsProductTermsOpen := s.fundsProductSetupOpen(), s.fundsProductTermsOpen()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	accountActionOpen := s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen()
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || accountActionOpen || s.accountProduct != nil || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -805,13 +817,18 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		return dims
 	}
 	s.observeLedger(gtx)
-	s.updateNavigation(gtx)
+	if s.accountProduct != nil && s.pendingNavigation != nil && s.pendingNavigation.accountProductReceipt {
+		// Only the drawer's own receipt link may navigate through its backdrop.
+		s.updateNavigation(windowContext)
+	} else {
+		s.updateNavigation(gtx)
+	}
 	if s.activeRoute() == marketDataRoute && s.marketData != nil {
 		s.marketData.update()
 	}
 	// A navigation visit can collapse the sidebar in the same frame.
 	s.chrome = calculateTitlebar(gtx, s.titlebar, s.sidebarWidth(), !s.collapsed())
-	if !gtx.Enabled() {
+	if !gtx.Enabled() || s.accountProduct != nil {
 		s.chrome.drag = [2]image.Rectangle{}
 	}
 	if s.tasks != nil {
@@ -853,6 +870,26 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
+	if s.accountProduct != nil {
+		dims := accessibility.Hidden(gtx.Disabled(), background)
+		windowContext.Locale = gtx.Locale
+		s.layoutAccountProduct(windowContext, view)
+		return dims
+	}
+	if accountActionOpen {
+		dims := accessibility.Hidden(gtx, background)
+		windowContext.Locale = gtx.Locale
+		if m := s.accounts.maintenance; m != nil && m.review != nil {
+			accessibility.Hidden(windowContext.Disabled(), func(gtx layout.Context) layout.Dimensions {
+				s.accounts.layoutAccountActionSheet(gtx, view)
+				return layout.Dimensions{Size: gtx.Constraints.Max}
+			})
+			s.accounts.layoutAccountArchive(windowContext, view)
+		} else {
+			s.accounts.layoutAccountActionSheet(windowContext, view)
+		}
 		return dims
 	}
 	if catalogEditorOpen && s.instrumentCatalogEditorOpen() {
@@ -1088,6 +1125,9 @@ func (s *shell) invalidateLedgerReads() {
 	}
 	if s.accounts != nil && s.activeRoute() == accountsRoute {
 		s.accounts.refresh()
+		if s.accountProduct != nil {
+			s.funds.productPage.read()
+		}
 	}
 	if s.funds != nil && s.activeRoute() == fundsRoute {
 		if s.trail.current().target.product == "" {
@@ -1349,9 +1389,11 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 
 func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageID) layout.Dimensions {
 	name := view.Language.Text(title)
-	if s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.target.account != "" {
-		if accountName := s.accounts.name(); accountName != "" {
+	var accountIcon ui.Glyph
+	if p := s.accounts; s.activeRoute() == accountsRoute && p != nil && p.target.account != "" {
+		if accountName := p.name(); accountName != "" {
 			name = accountName
+			accountIcon = accountGlyph(p.current.rows[0].record.Account, p.current.institutions)
 		}
 	}
 	if entry := s.trail.current(); entry.target.route == portfolioRoute && entry.target.instrument != "" && entry.name != "" {
@@ -1389,6 +1431,19 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 				controls = append(controls,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.recentButton(gtx, view, x) }),
 					layout.Rigid(layout.Spacer{Width: 10}.Layout),
+				)
+				if p := s.accounts; s.activeRoute() == accountsRoute && p != nil && p.target.account != "" && !p.accountActionOpen() {
+					controls = append(controls, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if p.back.Clicked(gtx) {
+							p.backToList()
+							gtx.Execute(op.InvalidateCmd{})
+						}
+						headerView.Focus.Watch(gtx, &p.back)
+						return view.ButtonOf(&p.back, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall,
+							Title: view.Language.Text(i18n.NavAccounts) + " /", Name: view.Language.Text(i18n.AccountBack)})(gtx)
+					}))
+				}
+				controls = append(controls,
 					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 						if action != nil {
 							gtx.Constraints.Min.X = 0
@@ -1400,7 +1455,14 @@ func (s *shell) pageHeader(gtx layout.Context, view ui.View, title i18n.MessageI
 						}
 						defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 						event.Op(gtx.Ops, &s.headingFocus)
-						return view.Line(gtx, ui.TextPageTitle, name, colors.Ink)
+						label := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, ui.TextPageTitle, name, colors.Ink) }
+						if accountIcon == nil || gtx.Constraints.Max.X < gtx.Dp(accountHeaderIconMinWidth) {
+							return label(gtx)
+						}
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions { return ui.LayoutGlyph(gtx, accountIcon, 22, colors.Accent) }),
+							layout.Flexed(1, label),
+						)
 					}),
 				)
 				if action != nil {

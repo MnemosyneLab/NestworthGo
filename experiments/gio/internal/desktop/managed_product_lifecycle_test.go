@@ -195,10 +195,10 @@ func TestStandaloneLockedProductValuationMatchesWails(t *testing.T) {
 		fault.valuations[1] != fault.valuations[2] || fault.valuations[1].ObservedAt != "" {
 		t.Fatal("valuation retry changed Wails's standalone request")
 	}
-	assertPageLabel(t, &h.router, "Current contract value · "+amount+" USD")
-	h.clickButton("Back")
+	assertPageLabel(t, &h.router, "Current contract value · US$131.23")
+	h.clickButton("Close")
 	h.focused(h.accounts.productButtons[id])
-	assertPageLabel(t, &h.router, "Current contract value · "+amount+" USD")
+	assertPageLabel(t, &h.router, "Current contract value · US$131.23")
 
 	api := liquidityapi.NewService(ref)
 	result, err := api.AppendProductValuation(ctx, liquidityapi.AppendProductValuationRequest{
@@ -331,7 +331,7 @@ func TestStandaloneLockedProductRedemptionMatchesWails(t *testing.T) {
 	h.settle()
 	h.scrollClick("Open account · Harbor Brokerage")
 	h.scrollClick("Open product · Synthetic locked product")
-	h.clickButton("Back")
+	h.clickButton("Close")
 	h.focused(h.accounts.productButtons[id])
 
 	if err := storage.Close(); err != nil {

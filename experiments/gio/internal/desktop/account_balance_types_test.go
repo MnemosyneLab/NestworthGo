@@ -210,7 +210,7 @@ func TestBalanceTypeConversionMatchesWailsAndRejectsIncompatible(t *testing.T) {
 			finish := func() { h.frame(); p.workers.Wait(); h.frame(); p.workers.Wait(); h.frame() }
 			h.shell.pendingNavigation = &navigationRequest{target: navigationTarget{route: accountsRoute, account: id}}
 			finish()
-			h.click("Account settings", false)
+			openAccountSettings(h)
 			h.frame()
 			assertPageLabel(t, &h.router, fmt.Sprintf("%s · Total balance · USD. Role, tracking, and currency are fixed.", map[domain.BalanceSheetRole]string{domain.RoleAsset: "Asset", domain.RoleLiability: "Liability"}[tc.role]))
 			h.click("Account type", true)

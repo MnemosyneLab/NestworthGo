@@ -395,6 +395,11 @@ const (
 	AccountLoadError
 	AccountUnavailable
 	AccountReadList
+	AccountListDescription
+	AccountMemberScopeHelp
+	AccountProductsTitle
+	AccountProductsGuide
+	AccountProductsCreateHoldings
 	AccountCompositionTitle
 	AccountCompositionType
 	AccountCompositionDetail
@@ -425,6 +430,8 @@ const (
 	AccountCashConvertAction
 	AccountCashTransferAction
 	AccountCashHistoryTitle
+	AccountCashHistoryType
+	AccountCashHistoryCurrency
 	AccountCashHistoryLoadFailed
 	AccountCashHistoryActivity
 	AccountCashHistoryOpening
@@ -452,10 +459,16 @@ const (
 	AccountRecordDebtValue
 	AccountRecordValue
 	AccountRecordPositionAdjustment
+	AccountRecordScope
+	AccountRecordScopeHelp
+	AccountRecordType
 	AccountDetailTransactions
 	AccountValueUnavailable
 	AccountInstitutionNet
 	AccountValuationComplete
+	AccountValuationPartial
+	AccountValuedSubtotal
+	AccountPendingConversion
 	AccountStaleQuotes
 	AccountReferenceUnavailable
 	AccountOwners
@@ -1386,6 +1399,10 @@ const (
 	AccountCashView
 	HistoryCashReconciled
 	AccountBankBalanceAction
+	AccountBalanceUpdate
+	AccountBalanceReview
+	AccountBalanceConfirm
+	AccountBalanceSaved
 	AccountBankBalanceReview
 	AccountBankBalanceConfirm
 
@@ -2033,6 +2050,7 @@ const (
 	ManagedProductsEmpty
 	ProductTermDeposit
 	ProductOpen
+	ProductBackToDetails
 	ProductPrincipal
 	ProductValue
 	ProductStart

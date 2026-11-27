@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"gioui.org/io/pointer"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/history"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -116,7 +119,7 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	composition := assertPageLabel(t, &h.router, "Account composition")
 	check := assertPageLabel(t, &h.router, "View last successful record")
 	parent := assertPageLabel(t, &h.router, "Back to accounts")
-	if title.Min.Y >= parent.Min.Y || check.Max.Y > composition.Min.Y {
+	if parent.Max.Y > h.shell.chrome.height || title.Min.Y > h.shell.chrome.height || check.Min.Y > composition.Min.Y {
 		t.Fatalf("account header sequence: title %v, parent %v, reconciliation %v, composition %v", title, parent, check, composition)
 	}
 	for _, shortcut := range []string{"Record debt activity", "Record buy", "Transfer position"} {
@@ -149,6 +152,8 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 	settle()
 	h.focused(&p.detail.record.trigger)
 	click("Record a change")
+	label("Account · Harbor Brokerage")
+	label("This account stays fixed. For a transfer, choose the direction and the other account.")
 	for _, shown := range []string{"Buy investment", "Sell", "Record cash dividend", "Money added", "Transfer", "Convert currency"} {
 		label(shown)
 	}
@@ -241,13 +246,57 @@ func TestAccountDetailCompositionScopedActionsAndLastReconciliation(t *testing.T
 // then let the existing pointer helper locate and activate its actual control.
 func scrollToAccountDetailLabel(h *previewHarness, label string) {
 	h.t.Helper()
-	for range 16 {
-		if findPageLabel(&h.router, label) != nil {
-			return
+	for range 35 {
+		if node := findPageLabel(&h.router, label); node != nil {
+			center := node.Desc.Bounds.Min.Add(node.Desc.Bounds.Max).Div(2)
+			if node.Desc.Gestures == 0 || center.Y >= h.shell.chrome.height+24 && center.Y < h.size.Y-16 {
+				return
+			}
 		}
 		centre := f32.Pt(float32(h.size.X*3/4), float32(h.size.Y*3/4))
 		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: centre, Scroll: f32.Pt(0, 102)})
 		h.frame()
 	}
 	h.t.Fatalf("could not reveal account detail %q", label)
+}
+
+// Open settings through the actual titlebar menu and leave the modal ready for input.
+func openAccountSettings(h *previewHarness) {
+	h.t.Helper()
+	h.click("More actions for "+h.shell.accounts.name(), false)
+	h.click("Account settings", false)
+	h.frame()
+}
+
+func TestAccountPresentationPreservesNativeCashAndActivityReason(t *testing.T) {
+	prefs := settings.Default()
+	view := ui.View{Language: i18n.English, DecimalSeparator: prefs.DecimalSeparator, GroupingSeparator: prefs.GroupingSeparator, TimeLocation: time.UTC}
+	item := domain.AccountCompositionItem{Key: "cash:aud", Label: "AUD", NativeAmount: "800", NativeCurrency: "AUD",
+		BaseAmountExact: "530.22", ShareBPS: 25, ValuedCount: 1}
+	comp := &domain.AccountComposition{Status: "ready", Currency: "USD", TotalExact: "530.22", DetailSlices: []domain.AccountCompositionItem{item}}
+	donut, _ := accountCompositionSpec(view, comp, true, false)
+	row := donut.Slices[0]
+	if row.LegendDetail != "A$800.00" || row.Text != "US$530.22" || row.Share != "0.2%" || donut.Compact {
+		t.Fatalf("foreign composition legend: %+v", row)
+	}
+	comp.Currency = "AUD"
+	same, _ := accountCompositionSpec(view, comp, true, false)
+	if same.Slices[0].LegendDetail != "" {
+		t.Fatal("the household-currency row repeated its amount")
+	}
+	kind, reason, note := domain.ActivityCashIn, domain.ReasonIncome, "Sample pay"
+	amount, err := domain.ParseMoney("800", "AUD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	history := accountCashHistoryTable(view, []domain.AccountCashValue{{
+		Amount: amount, ObservationKind: "event", ActivityKind: &kind, ActivityReason: &reason, ActivityNote: &note,
+	}})
+	if len(history.Columns) != 6 || history.Columns[0].Title != "Type" || history.Columns[3].Title != "Currency" ||
+		history.Rows[0][2] != "A$800.00" || history.Rows[0][3] != "AUD" {
+		t.Fatalf("cash history columns or currency: %+v", history)
+	}
+	if lines := strings.Split(history.Rows[0][0], "\n"); len(lines) != 3 || lines[1] != "Income" || lines[2] != note {
+		t.Fatalf("activity reason and note are not distinct: %q", history.Rows[0][0])
+	}
 }

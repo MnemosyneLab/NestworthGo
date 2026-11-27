@@ -117,7 +117,8 @@ func TestAccountCashReconciliationMatchesWailsAndReplaysSafely(t *testing.T) {
 		t.Fatal("cash confirmation did not start")
 	}
 	h.clickAt(point)
-	h.click("Back", false)
+	h.shell.pendingNavigation = &navigationRequest{step: -1}
+	h.frame()
 	if !p.cashBalanceUnresolved() || h.shell.activeRoute() != accountsRoute || p.target.account != id {
 		t.Fatal("navigation escaped a cash confirmation")
 	}

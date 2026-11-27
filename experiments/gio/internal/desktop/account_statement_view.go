@@ -39,7 +39,7 @@ func (p *accountsPage) layoutStatements(gtx layout.Context, view ui.View) layout
 			p.selectStatement("")
 		default:
 			f.screen = nil
-			gtx.Execute(key.FocusCmd{Tag: &f.open})
+			f.restoreFocus = true
 		}
 		gtx.Execute(op.InvalidateCmd{})
 		return layout.Dimensions{}

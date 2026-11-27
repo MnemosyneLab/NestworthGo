@@ -36,14 +36,13 @@ func (d *fundsProductSetup) layout(gtx layout.Context, view ui.View, calendar pr
 	}
 	ready := d.preview == nil
 	origin := view.Origin
-	rows := []layout.Widget{tradeTitle(view, i18n.ProductAddAction)}
-	rows = append(rows, d.form.fields(view, &origin, calendar, d.account.Name, &d.currency, d.cashValue(view), ready,
+	rows := d.form.fields(view, &origin, calendar, d.account.Name, &d.currency, d.cashValue(view), ready,
 		func(gtx layout.Context, field *ui.TextField) {
 			if d.focus {
 				field.Focus(gtx)
 				d.focus = false
 			}
-		}, func() { d.problem = i18n.NoMessage })...)
+		}, func() { d.problem = i18n.NoMessage })
 	if d.problem != i18n.NoMessage {
 		rows = append(rows, view.Message(l.Text(d.problem), view.Colors.ErrorInk))
 	}
