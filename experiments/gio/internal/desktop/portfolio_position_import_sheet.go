@@ -127,7 +127,11 @@ func (p *portfolioPage) layoutPositionImportReceipt(gtx layout.Context, view ui.
 
 func (p *portfolioPage) openPositionReceipt(gtx layout.Context) {
 	if r := p.positionReceipt; r != nil && p.openPostedActivity != nil {
-		p.openPostedActivity(r.activity, event.Tag(&r.view))
+		focus := event.Tag(&r.view)
+		if p.investment != nil {
+			focus = &p.investment.importOpen
+		}
+		p.openPostedActivity(r.activity, focus)
 	}
 	gtx.Execute(op.InvalidateCmd{})
 }

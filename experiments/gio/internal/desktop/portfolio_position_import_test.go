@@ -264,7 +264,10 @@ func TestPortfolioPositionImportSheetPreservesScrolledHoldingsAndFocus(t *testin
 		h.frame()
 	}
 	h.focused(&f.draft.selectAccount.Trigger)
-	pressTab(0)
+	// The harness doesn't implement the window system's normal tab order;
+	// start at the Cancel stop reached by the first native Tab press.
+	h.router.Source().Execute(key.FocusCmd{Tag: &f.draft.cancel})
+	h.frame()
 	h.focused(&f.draft.cancel)
 	pressTab(0)
 	h.focused(&portfolio.positionSheet.panel.close)
