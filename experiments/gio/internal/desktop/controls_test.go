@@ -106,7 +106,12 @@ func (h *previewHarness) revealed(label string, field bool) image.Rectangle {
 		return bounds.Max.Y > h.size.Y || bounds.Min.Y < top
 	}
 	bounds := semanticBounds(h.t, &h.router, label, field)
-	inHeader := bounds.Min.Y >= 0 && bounds.Max.Y <= h.shell.chrome.height
+	center := h.shell.chrome.height / 2
+	if h.shell.titlebar.active {
+		center = h.shell.chrome.center
+	}
+	inHeader := !field && absTitlebarPixel(bounds.Min.Y+bounds.Dy()/2-center) <= 1 &&
+		bounds.Min.Y >= 0 && bounds.Max.Y <= h.shell.chrome.height
 	if inHeader || !hidden(bounds) || !h.inPage(label, field) {
 		return bounds
 	}

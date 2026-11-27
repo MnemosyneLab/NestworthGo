@@ -72,7 +72,6 @@ func TestRemainingBalanceTypesMatchWails(t *testing.T) {
 				}
 			}
 			h.click(picker, true)
-			finish()
 			h.click(tc.label, false)
 			h.frame()
 			setBankField(h, "Account name", &d.name, tc.name)
