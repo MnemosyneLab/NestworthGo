@@ -5,6 +5,7 @@ import (
 	"errors"
 	"image"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -198,6 +199,16 @@ func TestPortfolioTrendHistoryMatchesWailsAndExcludesBrokerageCash(t *testing.T)
 	table := portfolioTrendTable(ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}, allGio, charts.Selection{Item: "2026-11-22"})
 	if table.Selected != 2 || table.Rows[2][1] != "US$60.00" || table.Rows[2][3] == "" {
 		t.Fatalf("portfolio history table did not preserve the selected daily close: %+v", table)
+	}
+	partialTable := portfolioTrendTable(ui.View{Language: i18n.English, DecimalSeparator: ".", GroupingSeparator: ","}, allGio, charts.Selection{Item: "2026-11-23"})
+	if partialTable.Rows[3][1] != "US$60.00 · Known subtotal" || partialTable.Rows[3][2] != "US$60.00" ||
+		!strings.HasPrefix(partialTable.Rows[3][3], "Known subtotal · 1 item has no usable valuation") ||
+		!strings.Contains(partialTable.Rows[3][3], "Quote dates 2026-11-22") {
+		t.Fatalf("partial trend row contradicted the known subtotal or missing evidence: %+v", partialTable.Rows[3])
+	}
+	chineseTable := portfolioTrendTable(ui.View{Language: i18n.SimplifiedChinese, DecimalSeparator: ".", GroupingSeparator: ","}, allGio, charts.Selection{})
+	if chineseTable.Rows[3][1] != "US$60.00 · 已估值部分" {
+		t.Fatalf("partial trend subtotal label did not match Wails Simplified Chinese: %+v", chineseTable.Rows[3])
 	}
 
 	probe := &portfolioTrendProbe{Service: gio}
@@ -425,8 +436,8 @@ func TestPortfolioTrendDistinguishesChartTotalsFromKnownSubtotals(t *testing.T) 
 		t.Fatalf("chart changed a complete, partial or zero amount: %+v", points)
 	}
 	table := portfolioTrendTable(view, trend, charts.Selection{Item: "2026-11-20"})
-	if table.Selected != 1 || table.Rows[1][1] != "Unavailable" || table.Rows[1][2] != "US$10.25" ||
-		table.Rows[1][3] != "Known subtotal · Missing inputs 1" || table.Rows[2][3] != "Current estimate" {
+	if table.Selected != 1 || table.Rows[1][1] != "US$10.25 · Known subtotal" || table.Rows[1][2] != "US$10.25" ||
+		table.Rows[1][3] != "Known subtotal · 1 item has no usable valuation" || table.Rows[2][3] != "Current estimate" {
 		t.Fatalf("the chart table did not keep the coverage and known subtotal independent: %+v", table)
 	}
 }

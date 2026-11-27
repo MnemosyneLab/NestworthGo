@@ -138,8 +138,7 @@ func (p *portfolioPage) updateAllocationTrend(gtx layout.Context, view ui.View) 
 func (p *portfolioPage) portfolioTrendCard(view ui.View) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		a, l := &p.allocation, view.Language
-		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioValue), view.Colors.Ink)),
-			ui.Rigid(view.Body(ui.TextCaption, l.Text(i18n.PortfolioTrendBasis), view.Colors.SecondaryInk))}
+		rows := []ui.ColumnChild{ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioValue), view.Colors.Ink))}
 		if p.current.allocation.originErr != nil {
 			rows = append(rows, ui.Rigid(view.Message(l.Text(i18n.PortfolioTrendFailed), view.Colors.ErrorInk)),
 				ui.Rigid(returnMonthButton(view, &a.retry, i18n.HistoryRetry, nil, p.request == nil)))
@@ -228,6 +227,8 @@ func portfolioTrendTable(view ui.View, trend domain.PortfolioTrend, selected cha
 		total, subtotal := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)
 		if value := portfolioTrendTotal(point); value != nil {
 			total = valuationMoney(view, *value, false)
+		} else if value := point.DisplayValuation.KnownSubtotal; value != nil {
+			total = valuationMoney(view, *value, false) + " · " + l.Text(i18n.PortfolioTrendPartial)
 		}
 		if value := point.DisplayValuation.KnownSubtotal; value != nil {
 			subtotal = valuationMoney(view, *value, false)
@@ -248,7 +249,7 @@ func portfolioTrendDetails(view ui.View, point domain.PortfolioTrendPoint) []str
 	case portfolioTrendTotal(point) == nil:
 		label = i18n.OverviewNoValue
 		if point.DisplayValuation.KnownSubtotal != nil {
-			label = i18n.OverviewKnownSubtotal
+			label = i18n.PortfolioTrendPartial
 		}
 	case point.Current:
 		label = i18n.OverviewCurrentEstimate
@@ -258,8 +259,16 @@ func portfolioTrendDetails(view ui.View, point domain.PortfolioTrendPoint) []str
 		label = i18n.PortfolioTrendVerified
 	}
 	parts := []string{l.Text(label)}
-	if count := max(point.MissingCount, q.UnpricedCount); count > 0 {
-		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), count))
+	count := q.UnpricedCount
+	if count == 0 {
+		count = point.MissingCount
+	}
+	if count > 0 {
+		message := i18n.PortfolioTrendUnpricedMany
+		if count == 1 {
+			message = i18n.PortfolioTrendUnpricedOne
+		}
+		parts = append(parts, fmt.Sprintf(l.Text(message), count))
 	}
 	return append(parts, trendQuoteCoverage(view, q)...)
 }

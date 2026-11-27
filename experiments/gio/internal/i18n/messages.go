@@ -1635,6 +1635,9 @@ const (
 	PortfolioTrendRetained
 	PortfolioTrendEmpty
 	PortfolioTrendVerified
+	PortfolioTrendPartial
+	PortfolioTrendUnpricedOne
+	PortfolioTrendUnpricedMany
 	PortfolioReadFailed
 	PortfolioSearch
 	PortfolioSearchHint
