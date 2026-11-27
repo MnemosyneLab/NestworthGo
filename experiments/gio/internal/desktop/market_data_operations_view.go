@@ -48,7 +48,7 @@ func marketWorkLines(view ui.View, item application.SyncItemProgress) []string {
 	return lines
 }
 
-func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, reload i18n.MessageID) layout.Dimensions {
+func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, job := &p.latest, p.sync
 	busy := p.providerBusy()
 	button := func(control *widget.Clickable, label i18n.MessageID, active bool, action func()) layout.Widget {
@@ -109,7 +109,9 @@ func (p *marketDataPage) marketOperations(gtx layout.Context, view ui.View, relo
 			}))
 		}
 	}
-	actions = append(actions, returnMonthButton(view, &p.reload, reload, nil, p.request == nil))
+	if p.err != nil {
+		actions = append(actions, returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, p.request == nil))
+	}
 	rows := []ui.ColumnChild{ui.Rigid(marketActionRow(view, actions))}
 	if r.moreOpen && !p.focus.active() {
 		var extra []layout.Widget

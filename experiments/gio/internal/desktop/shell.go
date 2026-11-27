@@ -95,6 +95,8 @@ type shell struct {
 	// stage scrolls the active page; stageEntry is the visit it was reset for.
 	stage                                 widget.List
 	stageEntry                            *navigationEntry
+	textSelection                         ui.TextSelection
+	textSelectionEntry                    *navigationEntry
 	prefs                                 *preferenceState
 	onboarding                            *onboardingPage
 	settingsPage                          *settingsPage
@@ -200,6 +202,9 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 	}
 	if s.overviewPage != nil {
 		s.settingsPage.credential.changed = s.overviewPage.healthScan.invalidate
+	}
+	if s.funds != nil && s.funds.productPage != nil {
+		s.funds.productPage.focusFallback = &s.headingFocus
 	}
 	maintenance := newItem(marketDataRoute, i18n.NavMarketData, lucide.RefreshCw, marketDataLayout)
 	if s.marketData == nil && s.dataHealth != nil {
@@ -654,6 +659,7 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	// Drop animation state for controls that were not drawn this frame.
 	defer s.motion.EndFrame()
+	defer s.textSelection.EndFrame()
 	s.prefs.update()
 	s.preferences = s.prefs.appearance()
 	if p := s.onboarding; p != nil {
@@ -789,6 +795,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	}
 	paint.Fill(gtx.Ops, colors.PageBackground)
 	if p := s.onboarding; p != nil {
+		view := view.WithTextSelection(&s.textSelection)
 		dims := p.layout(gtx, view, s.prefs, s.wordmark)
 		s.overlay.Layout(gtx, view)
 		return dims
@@ -799,6 +806,10 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		s.tasks.pollReviewAcknowledgement(s.activeRoute() == tasksRoute)
 	}
 	entry := s.trail.current()
+	if entry != s.textSelectionEntry {
+		s.textSelection.Reset()
+		s.textSelectionEntry = entry
+	}
 	if entry.target.route == directoryRoute && entry.target.hasObject() && s.directory.object.update() {
 		s.trail.rename(entry.target, s.directory.object.name())
 	}
@@ -812,11 +823,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 	background := func(gtx layout.Context) layout.Dimensions {
+		pageView := view.WithTextSelection(&s.textSelection)
 		dims := layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions { return s.sidebar(gtx, view) }),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, view) }),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return s.page(gtx, pageView) }),
 		)
-		s.overlay.Layout(gtx, view)
+		s.overlay.Layout(gtx, pageView)
 		return dims
 	}
 	if s.historyRecordOpen() {
@@ -1299,7 +1311,7 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 			// A changed filter result can remove the original row or leave the
 			// matching chip outside the viewport. Keep the current scroll.
 			if !focus.TargetDrawn {
-				focus.Target = &s.funds.reload
+				focus.Target = &s.headingFocus
 			}
 			s.funds.policyFocus = nil
 			entry.focus, s.restoreFocus = focus.Target, false
@@ -1307,6 +1319,13 @@ func (s *shell) page(gtx layout.Context, view ui.View) layout.Dimensions {
 		}
 	} else {
 		s.finishPageFocus(gtx, focus)
+	}
+	if gtx.Enabled() && entry.target.route == fundsRoute && entry.target.product == "" && s.funds.request == nil {
+		// A removed or offscreen action has no visible button to take focus.
+		if s.funds.reservationFocus != nil || s.funds.restoreAddFocus {
+			s.funds.reservationFocus, s.funds.restoreAddFocus = nil, false
+			gtx.Execute(key.FocusCmd{Tag: &s.headingFocus})
+		}
 	}
 	return dims
 }

@@ -159,7 +159,7 @@ func TestAvailableFundsOrdinaryPolicyPanelKeepsScrolledMissingRulesVisit(t *test
 	if funds.policy != nil || funds.state != visit || h.shell.activeRoute() != fundsRoute {
 		t.Fatalf("saving the rule left the 30-day Missing rules view: %+v", funds.state)
 	}
-	h.focused(&funds.reload)
+	h.focused(&h.shell.headingFocus)
 	if got := funds.list.Position; got.First != position.First {
 		t.Fatalf("save moved the background list to row %d from %d", got.First, position.First)
 	}

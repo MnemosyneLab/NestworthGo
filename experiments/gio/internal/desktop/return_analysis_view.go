@@ -43,19 +43,15 @@ func (p *returnAnalysisPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		return ui.Column{Gap: 12}.Layout(gtx, ui.Rigid(tabs),
 			ui.Rigid(view.Message(l.Text(status), view.Colors.SecondaryInk)),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if p.refsRead != nil {
+				if p.err == nil || p.refsRead != nil {
 					return layout.Dimensions{}
 				}
 				if p.reload.Clicked(gtx) {
 					p.readRefs()
 					gtx.Execute(op.InvalidateCmd{})
 				}
-				label := i18n.HistoryRefresh
-				if p.err != nil {
-					label = i18n.HistoryRetry
-				}
 				view.Focus.Watch(gtx, &p.reload)
-				return view.Button(&p.reload, l.Text(label))(gtx)
+				return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 			}),
 		)
 	}
@@ -161,8 +157,8 @@ func (p *returnAnalysisPage) updateMonthButtons(gtx layout.Context, earliest, la
 	if modeChanged {
 		p.current = nil
 	}
-	reload := p.reload.Clicked(gtx)
-	if modeChanged || month != p.month || reload && p.request == nil {
+	retry := p.err != nil && p.request == nil && p.reload.Clicked(gtx)
+	if modeChanged || month != p.month || retry {
 		p.readMonth(month, p.sunday)
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -170,10 +166,6 @@ func (p *returnAnalysisPage) updateMonthButtons(gtx layout.Context, earliest, la
 
 func (p *returnAnalysisPage) monthControls(gtx layout.Context, view ui.View, earliest, latest time.Time) layout.Dimensions {
 	l := view.Language
-	reload := i18n.HistoryRefresh
-	if p.err != nil {
-		reload = i18n.HistoryRetry
-	}
 	name, previous, next := l.Text(i18n.DateMonthLayout), i18n.DatePreviousMonth, i18n.DateNextMonth
 	if p.year {
 		name, previous, next = l.Text(i18n.ReturnYearLayout), i18n.ReturnPreviousYear, i18n.ReturnNextYear
@@ -190,7 +182,9 @@ func (p *returnAnalysisPage) monthControls(gtx layout.Context, view ui.View, ear
 		returnMonthButton(view, &p.today, i18n.ReturnToday, nil, p.month != latest),
 		analysisToggle(view, &p.monthMode, l.Text(i18n.ReturnMonth), !p.year),
 		analysisToggle(view, &p.yearMode, l.Text(i18n.ReturnYear), p.year),
-		returnMonthButton(view, &p.reload, reload, nil, true),
+	}
+	if p.err != nil {
+		controls = append(controls, returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, p.request == nil))
 	}
 	return (ui.Wrap{Gap: 8}).Layout(gtx, len(controls), func(gtx layout.Context, index int) layout.Dimensions {
 		return controls[index](gtx)
@@ -247,14 +241,22 @@ func (p *returnAnalysisPage) monthSummary(gtx layout.Context, view ui.View) layo
 			layout.Rigid(returnValuationLabel(view, i18n.ReturnSummaryValuation, calendarValuation(data))),
 			layout.Rigid(view.Hairline),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				labels := [...]i18n.MessageID{i18n.ReturnAmount, i18n.ReturnRate, i18n.ReturnBeginning, i18n.ReturnEnding}
-				values := [...]string{returnAmountText(view, summary.ReturnAmount, summary.AmountStatus), returnRate(view, summary.ReturnRate),
-					returnMoney(view, summary.BeginningInvestedValue), returnMoney(view, summary.EndingInvestedValue)}
-				return (ui.Grid{MinColumn: 140, Gap: 12, MaxColumns: 4, Balanced: true}).Layout(gtx, view, len(labels),
+				figures := [...]struct {
+					label i18n.MessageID
+					value string
+					style ui.TextStyle
+				}{
+					{i18n.ReturnAmount, returnAmountText(view, summary.ReturnAmount, summary.AmountStatus), ui.TextMoneyMD},
+					{i18n.ReturnRate, returnRate(view, summary.ReturnRate), ui.TextMetricMD},
+					{i18n.ReturnBeginning, returnMoney(view, summary.BeginningInvestedValue), ui.TextMoneyMD},
+					{i18n.ReturnEnding, returnMoney(view, summary.EndingInvestedValue), ui.TextMoneyMD},
+				}
+				return (ui.Grid{MinColumn: 140, Gap: 12, MaxColumns: 4, Balanced: true}).Layout(gtx, view, len(figures),
 					func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
+						figure := figures[i]
 						return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(4)}.Layout(gtx,
-							layout.Rigid(view.Message(l.Text(labels[i]), view.Colors.SecondaryInk)),
-							layout.Rigid(summaryFigure(view, values[i], toneInk(i))),
+							layout.Rigid(view.Message(l.Text(figure.label), view.Colors.SecondaryInk)),
+							layout.Rigid(summaryFigure(view, figure.style, figure.value, toneInk(i))),
 						)
 					})
 			}),
@@ -285,6 +287,7 @@ func (p *returnAnalysisPage) monthGrid(gtx layout.Context, view ui.View, today s
 }
 
 func (p *returnAnalysisPage) dayCell(gtx layout.Context, view ui.View, date time.Time, today string, button *widget.Clickable) layout.Dimensions {
+	view = view.WithoutTextSelection()
 	l := view.Language
 	day := date.Format(time.DateOnly)
 	data, exists := p.current.days[domain.LocalDate(day)]

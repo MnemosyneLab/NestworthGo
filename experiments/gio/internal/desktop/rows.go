@@ -101,9 +101,9 @@ func emptyState(view ui.View, text string) layout.Widget {
 
 // summaryFigure is a headline figure in a summary card. A missing value is
 // shown as quiet body text so a row of "no value" notes does not shout.
-func summaryFigure(view ui.View, text string, ink color.NRGBA) layout.Widget {
+func summaryFigure(view ui.View, style ui.TextStyle, text string, ink color.NRGBA) layout.Widget {
 	if text == view.Language.Text(i18n.OverviewNoValue) {
 		return view.Body(ui.TextBody, text, view.Colors.SecondaryInk)
 	}
-	return view.Body(ui.TextMoneyMD, text, ink)
+	return view.Body(style, text, ink)
 }

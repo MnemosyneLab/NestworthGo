@@ -136,6 +136,7 @@ func glyphLabel(gtx layout.Context, view View, glyph Glyph, label string, ink co
 }
 
 func glyphLabelStyled(gtx layout.Context, view View, glyph Glyph, label string, style TextStyle, ink color.NRGBA) layout.Dimensions {
+	view = view.WithoutTextSelection()
 	text := func(gtx layout.Context) layout.Dimensions { return view.Line(gtx, style, label, ink) }
 	if glyph == nil {
 		return text(gtx)

@@ -276,6 +276,9 @@ func TestExistingBuyAndReopenedHoldingMatchWails(t *testing.T) {
 	}
 	now = accountTestClock.Add(6 * time.Minute)
 	click("Open account · Harbor Brokerage")
+	if h.shell.activeRoute() != accountsRoute || accounts.target.account != ids.account {
+		t.Fatal("the account link did not open the holding's account during refresh")
+	}
 	if accounts.canSell() || accounts.canFirstBuy() {
 		t.Fatal("a liquidated holding became eligible for sell or a new first holding")
 	}

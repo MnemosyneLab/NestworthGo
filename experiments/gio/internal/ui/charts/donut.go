@@ -412,8 +412,13 @@ func (c *DonutChart) drawCenter(gtx layout.Context, view ui.View, spec DonutSpec
 	colors := view.Colors
 	avail := max(1, int(plan.inner*2*0.8))
 	value := textBlock{style: ui.TextMoneyMD, content: spec.CenterValue, ink: colors.Ink, maxWidth: avail, maxLines: 1, align: text.Middle}
+	if spec.CenterValue == spec.Messages.Missing {
+		value.style = ui.TextMetricMD
+	}
 	if value.natural(gtx, view) > avail {
-		value.style = ui.TextLabel
+		smaller := ui.TextLabel
+		smaller.Serif = value.style.Serif
+		value.style = smaller
 	}
 	if value.natural(gtx, view) > avail {
 		// Wrap rather than truncate: the amount is the point of the hole.

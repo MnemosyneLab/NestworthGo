@@ -185,13 +185,15 @@ func (p *portfolioPage) instrumentDataRows(view ui.View, instrument domain.Instr
 	r, l := p.current, view.Language
 	rows := []layout.Widget{func(gtx layout.Context) layout.Dimensions {
 		price := l.Text(i18n.MarketNoCurrentPrice)
+		priceStyle := ui.TextMetricMD
 		if q := r.price; q != nil {
 			price = instrumentCurrentQuotePrice(view, instrument, *q)
+			priceStyle = ui.TextMoneyMD
 		}
 		fields := []ui.ColumnChild{
 			ui.Rigid(view.Message(l.Text(i18n.PortfolioInstrumentDataNote), view.Colors.SecondaryInk)),
 			ui.Rigid(view.Body(ui.TextHeading, l.Text(i18n.PortfolioInstrumentLatestQuote), view.Colors.Ink)),
-			ui.Rigid(view.Body(ui.TextMoneyMD, price, view.Colors.Ink)),
+			ui.Rigid(view.Body(priceStyle, price, view.Colors.Ink)),
 		}
 		if q := r.price; q != nil {
 			fields = append(fields, ui.Rigid(view.Message(instrumentCurrentQuoteEvidence(view, *q), view.Colors.SecondaryInk)))

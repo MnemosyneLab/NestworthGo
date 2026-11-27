@@ -96,11 +96,13 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("Missing exchange rate · AUD/USD · Foreign debt")
 	stamp := "Updated 2026-08-18 01:34"
 	label(stamp)
+	absent("Reload")
 	h.click("Settings", false)
 	h.click("Back", false)
 	label(stamp)
 	now = first.Add(24 * time.Hour)
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
+	h.frame()
 	label("Updating valuation…")
 	finish(failure)
 	label("Update failed. Showing the previous result.")
@@ -112,7 +114,8 @@ func TestOverviewRetryKeepsIncompletePriorResultAndItsReadTime(t *testing.T) {
 	label("No accounts to show.")
 	absent("Net worth · Known net contribution")
 	absent("A$0.00")
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
+	h.frame()
 	finish(overviewRead{value: domain.OverviewResult{
 		Currency: "AUD", AccountCount: 1, DisplayValuation: domain.HouseholdDisplayValuation{Assets: unknown, Liabilities: unknown, NetWorth: unknown},
 		MissingInputs: []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, InstrumentSymbol: "DEMO"}},

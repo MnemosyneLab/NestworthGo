@@ -173,8 +173,10 @@ pickers share one field frame; cards and floating layers share one surface
 with shadows. Motion runs only while a tween is moving, so an idle window
 requests no frames. `ui.SetReducedMotion` turns every tween into a jump.
 
-Fonts are system fonts only (Avenir Next and Helvetica Neue, and Iowan Old
-Style for display titles). On macOS, Gio prefers PingFang SC for Simplified
+Fonts are system fonts only. Gio uses Avenir Next and Helvetica Neue for body
+text, rates, and dense tables. Headlines and prominent monetary figures,
+including totals inside chart rings, use Iowan Old Style or Charter. On macOS,
+Gio prefers PingFang SC for Simplified
 Chinese, reading the installed system font asset when available. Hiragino Sans
 GB covers gaps in Han text. If the asset is unavailable, Gio tries Heiti SC
 after PingFang SC. Apple Color Emoji covers emoji. Plus Jakarta Sans is not
@@ -214,8 +216,9 @@ saved icon, including historical wordmarks.
 Back from an object returns to its list with the tab, filters, scroll and
 available source focus restored. **Recent** shows up to 20 distinct departures
 from this session. Reopening one adds a visit and can replace the forward
-branch when you have gone Back. Object views reread the stored ID on entry
-and can be reloaded. The trail and Recent start fresh after a restart.
+branch when you have gone Back. Object views reread the stored ID on entry and
+offer **Retry** after a read failure. The trail and Recent start fresh after a
+restart.
 
 Directory rereads the list after each write. If the write succeeds and the
 list fails to reload, **Retry reload** reads the list again without repeating
@@ -314,7 +317,7 @@ chart between net worth, assets and liabilities. Use the arrow keys and Enter
 on a chart date to set a range endpoint or open that day's Accounts. In the
 table, use arrows, Page Up, Page Down, Home and End to move through rows.
 
-**Reload** uses the existing ledger and stored quotes. After a read failure,
+**Refresh range** uses the existing ledger and stored quotes. After a read failure,
 **Retry** repeats the selected range and the previous capture remains visible
 until a new read succeeds.
 [Wealth History scope and verification](docs/roadmap.md#read-only-wealth-history)
@@ -325,9 +328,13 @@ Overview reads net worth, assets and liabilities from the shared Go service.
 It shows the household base currency, local read time and available quote
 dates. When values are missing, the page identifies affected accounts or
 instruments and labels available figures as known contributions or subtotals.
-An empty household has its own state. Reload rereads the ledger and stored
-quotes. A failed reload keeps the previous figures and their original read
-time visible with a retry action.
+An empty household has its own state. Valuation updates after ledger changes.
+A failed read keeps the previous figures and their original read time visible
+with a retry action.
+
+Drag across a read-only text field or amount to select part of it. Use
+**Command+C** on macOS or **Ctrl+C** on Linux to copy the selection. Selection
+spans one amount, paragraph or other text label at a time.
 
 **Net worth history** shows the shared daily series. Choose a period or
 expand **Daily valuation data** to read the values by date. Coverage links
@@ -372,8 +379,8 @@ prices or exchange rates, and stale cached quotes carry their own labels.
 **Show archived** includes archived records. If a simple archived account has
 a recorded value in its own currency, that value remains visible. **Back to
 accounts** restores the preceding account list, including its institution
-scope, archive filter, scroll and available row focus. **Reload** refreshes
-the current list or account.
+scope, archive filter, scroll and available row focus. Account data is read
+when opening the list or an account, and after ledger changes.
 
 In the account list of an active institution, choose **Add bank account**.
 Enter a name, currency and opening balance, choose active owners, and review
@@ -409,8 +416,7 @@ Open **Activity → Ledger activity** (简体中文 **活动 → 账务记录**)
 recorded activities in service order. Each row shows the activity label,
 recorded local date and optional note. The first request reads up to 50 rows.
 If the service returns a continuation, load the next page to see older rows.
-Reload starts again at the newest entry. A failed read offers a retry and
-keeps previously displayed rows available.
+A failed read offers a retry and keeps previously displayed rows available.
 
 Newly created profiles include a small set of posted sample activities.
 Opening a ledger that contains no activities shows the

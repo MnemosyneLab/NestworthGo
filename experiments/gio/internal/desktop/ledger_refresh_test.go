@@ -128,7 +128,8 @@ func TestLedgerPostRefreshesThreeViewsAndPreservesFilteredHistory(t *testing.T) 
 		t.Fatal("the initial synthetic net worth was not displayed")
 	}
 	probe.blockOverview.Store(true)
-	h.click("Reload", false)
+	h.shell.refreshLedgerReads()
+	h.frame()
 	select {
 	case <-probe.staleRead:
 	case <-time.After(3 * time.Second):

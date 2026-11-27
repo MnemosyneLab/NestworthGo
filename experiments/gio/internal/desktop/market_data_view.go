@@ -45,17 +45,13 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 			gtx.Execute(op.InvalidateCmd{})
 		}
 	}
-	if p.reload.Clicked(gtx) && p.request == nil {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	if p.openHealth != nil && p.health.Clicked(gtx) {
 		p.openHealth(&p.health)
 		gtx.Execute(op.InvalidateCmd{})
-	}
-	action := i18n.MarketReload
-	if p.err != nil {
-		action = i18n.HistoryRetry
 	}
 	rows := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -74,9 +70,9 @@ func (p *marketDataPage) layout(gtx layout.Context, view ui.View) layout.Dimensi
 		}),
 	}
 	if p.latest.service != nil || p.sync != nil {
-		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.marketOperations(gtx, view, action) }))
-	} else {
-		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, action, nil, p.request == nil)))
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.marketOperations(gtx, view) }))
+	} else if p.err != nil {
+		rows = append(rows, ui.Rigid(returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, p.request == nil)))
 	}
 	rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return view.TabTrack(gtx, len(marketTabs), func(gtx layout.Context, index int) layout.Dimensions {

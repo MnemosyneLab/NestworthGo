@@ -329,9 +329,20 @@ func (p *overviewPage) overviewTrendRows(gtx layout.Context, view ui.View) []ui.
 	if amount == nil && trend.EstimatedChange != nil {
 		change, amount = i18n.OverviewTrendEstimate, trend.EstimatedChange
 	}
+	changeLabel, changeValue := l.Text(change)+":", returnMoney(view, amount)
+	changeFields := [...]layout.Widget{
+		view.Body(ui.TextMetricMD, changeLabel, view.Colors.Ink),
+		summaryFigure(view, ui.TextMoneyMD, changeValue, view.Colors.Ink),
+	}
 	rows = append(rows,
 		ui.Rigid(view.Message(wealthDay(view, trend.StartDate)+" – "+wealthDay(view, trend.EndDate)+" · "+string(trend.Currency), view.Colors.SecondaryInk)),
-		ui.Rigid(view.Body(ui.TextMoneyMD, l.Text(change)+": "+returnMoney(view, amount), view.Colors.Ink)),
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return semanticRow(gtx, changeLabel+" "+changeValue, func(gtx layout.Context) layout.Dimensions {
+				return (ui.Wrap{Gap: ui.Space6, Middle: true}).Layout(gtx, len(changeFields), func(gtx layout.Context, i int) layout.Dimensions {
+					return changeFields[i](gtx)
+				})
+			})
+		}),
 		ui.Rigid(view.Message(caption, view.Colors.SecondaryInk)))
 	if gaps != 0 && p.openHealth != nil {
 		if t.gaps.Clicked(gtx) {

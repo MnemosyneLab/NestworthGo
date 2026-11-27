@@ -140,7 +140,7 @@ func (p *overviewPage) update() {
 func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimensions {
 	p.update()
 	p.updateTrend(gtx, view)
-	if p.reload.Clicked(gtx) {
+	if p.err != nil && p.reload.Clicked(gtx) {
 		p.read()
 		p.trend.invalidate()
 		p.funds.invalidate()
@@ -181,11 +181,9 @@ func (p *overviewPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		}
 		p.actions = append(p.actions, returnMonthButton(view, &p.breakdowns.jump, i18n.OverviewOpenBreakdowns, nil, true))
 	}
-	label := i18n.HistoryRefresh
 	if p.err != nil {
-		label = i18n.HistoryRetry
+		p.actions = append(p.actions, returnMonthButton(view, &p.reload, i18n.HistoryRetry, nil, !p.loading))
 	}
-	p.actions = append(p.actions, returnMonthButton(view, &p.reload, label, nil, !p.loading))
 	return pageListGap(gtx, view, &p.list, view.Language.Text(i18n.NavOverview), p.rowCount(), 0, func(gtx layout.Context, row int) layout.Dimensions {
 		gap := ui.Space16
 		if p.continuesAllocationDetails(row) {

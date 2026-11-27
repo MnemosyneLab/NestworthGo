@@ -106,7 +106,7 @@ func (p *availableFundsPage) policySource(ref domain.LiquiditySourceRef) *applic
 func (p *availableFundsPage) cancelPolicy(refresh bool) {
 	d := p.policy
 	p.policy = nil
-	p.policyFocus = &p.reload
+	p.policyFocus = &p.manageReservations
 	if d.entry != nil {
 		p.policyFocus = &p.controls.filters[p.state.filter]
 		if row := p.policySource(d.source); row != nil && editableFundsPolicy(*row) && fundsMatchesSourceFilter(row.Result, p.selectedFundsBucket().HorizonOn, p.state.filter) {

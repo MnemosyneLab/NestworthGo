@@ -178,6 +178,8 @@ func (h *Overlay) Layout(gtx layout.Context, view View) {
 		return
 	}
 
+	// Keep focus within the popup's declared Escape and Tab targets.
+	defer view.textSelection.suspend()()
 	// Measure once, then replay the complete popup at its window-relative position.
 	width := h.pane.width
 	if !h.pane.menu {

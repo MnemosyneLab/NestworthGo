@@ -144,7 +144,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 		p.open(navigationTarget{route: accountsRoute}, "", &p.clear)
 		gtx.Execute(op.InvalidateCmd{})
 	}
-	if p.reload.Clicked(gtx) {
+	if p.err != nil && p.reload.Clicked(gtx) {
 		p.read()
 	}
 	if p.archiveFilter.Clicked(gtx) && !detail && p.request == nil && !p.invalid {
@@ -153,17 +153,14 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 	return ui.Column{Gap: 12}.Layout(gtx,
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			reload := func(gtx layout.Context) layout.Dimensions {
-				label := i18n.HistoryRefresh
-				if p.err != nil {
-					label = i18n.HistoryRetry
-				}
+				label := l.Text(i18n.HistoryRetry)
 				if p.request != nil {
 					gtx = gtx.Disabled()
 				}
 				if detail {
-					return view.ButtonOf(&p.reload, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(label)})(gtx)
+					return view.ButtonOf(&p.reload, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: label})(gtx)
 				}
-				return view.Button(&p.reload, l.Text(label))(gtx)
+				return view.Button(&p.reload, label)(gtx)
 			}
 			var left, right []layout.Widget
 			if detail {
@@ -228,7 +225,7 @@ func (p *accountsPage) layout(gtx layout.Context, view ui.View) layout.Dimension
 					})
 				}
 			}
-			if !p.invalid {
+			if !p.invalid && p.err != nil {
 				right = append(right, reload)
 			}
 			if detail {
@@ -386,6 +383,7 @@ func (p *accountsPage) groupHeading(gtx layout.Context, view ui.View, row accoun
 }
 
 func (p *accountsPage) accountTile(gtx layout.Context, view ui.View, row accountRow, first, last bool) layout.Dimensions {
+	view = view.WithoutTextSelection()
 	account := row.record.Account
 	amounts := accountAmountLines(view, row, true)
 	labels := make([]string, len(amounts))

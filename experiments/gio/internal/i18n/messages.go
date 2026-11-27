@@ -84,7 +84,6 @@ const (
 	AgentEvidenceNoPrice
 	AgentEvidenceSource
 
-	MarketReload
 	MarketSearch
 	MarketSearchHint
 	MarketLoading
@@ -598,6 +597,7 @@ const (
 	WealthHistoryRetained
 	WealthHistoryRangeHint
 	WealthHistoryLoad
+	WealthHistoryRefreshRange
 	WealthTrendFromDate
 	WealthTrendToDate
 	WealthHistoryCapture
@@ -1066,7 +1066,6 @@ const (
 	DirectoryObjectLoadError
 	DirectoryObjectActive
 	InstitutionsSearchHint
-	InstitutionsRefresh
 	InstitutionsRetry
 	InstitutionsLoading
 	InstitutionsLoadError
@@ -1168,7 +1167,6 @@ const (
 	HistoryCount
 	HistoryLoading
 	HistoryLoadError
-	HistoryRefresh
 	HistoryRetry
 	ContributionAdd
 	ContributionTitle

@@ -326,7 +326,7 @@ func dayCell(gtx layout.Context, view View, button *widget.Clickable, label, des
 			paint.FillShape(gtx.Ops, ring, clip.Stroke{Path: clip.Ellipse(outer).Path(gtx.Ops), Width: float32(gtx.Dp(2))}.Op())
 		}
 		layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return view.Line(gtx, style, label, ink)
+			return view.WithoutTextSelection().Line(gtx, style, label, ink)
 		})
 		return layout.Dimensions{Size: size}
 	}

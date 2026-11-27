@@ -49,9 +49,9 @@ func TestCreditCardBalanceBeforeHistoryMatchesWailsWithoutReplay(t *testing.T) {
 	if findPageLabel(&h.router, "Retry same submission") != nil || findPageLabel(&h.router, "Card balance saved.") != nil {
 		t.Fatal("uncertain observation advertised an acknowledgement or safe replay")
 	}
-	click("Reload")
-	if fault.appends != 1 || len(fault.records) != 0 {
-		t.Fatalf("read recovery attempted a write: %d appends, %d adjustments", fault.appends, len(fault.records))
+	row := p.freshDetail()
+	if fault.appends != 1 || len(fault.records) != 0 || row == nil || row.record.LatestValue == nil || row.record.LatestValue.Amount.CanonicalAmount() != "0" {
+		t.Fatalf("read recovery did not show the saved balance after %d appends, %d adjustments", fault.appends, len(fault.records))
 	}
 	want, err := adapter.AppendAccountValue(ctx, refCard.String(), "0", "")
 	got := wire.FromAccountValue(*readBankRecord(t, app, card).LatestValue)

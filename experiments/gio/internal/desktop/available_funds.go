@@ -176,10 +176,10 @@ func (p *availableFundsPage) update() {
 			// A released unresolved reservation can remove its entry row.
 			// Restore focus to the persistent page control in that case.
 			if p.reservation != nil && p.reservation.entry == &buttons.reserve {
-				p.reservation.entry = &p.reload
+				p.reservation.entry = &p.manageReservations
 			}
 			if p.reservationFocus == &buttons.reserve {
-				p.reservationFocus = &p.reload
+				p.reservationFocus = &p.manageReservations
 			}
 			delete(p.links, key)
 		}
@@ -195,7 +195,7 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		p.productSaved = true
 		p.read()
 	}
-	if p.request == nil && p.reload.Clicked(gtx) {
+	if p.err != nil && p.request == nil && p.reload.Clicked(gtx) {
 		p.read()
 		gtx.Execute(op.InvalidateCmd{})
 	}
@@ -222,10 +222,9 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 		}
 	}
 	var status i18n.MessageID
-	action := i18n.HistoryRefresh
 	switch {
 	case p.err != nil:
-		status, action = i18n.FundsReadFailed, i18n.HistoryRetry
+		status = i18n.FundsReadFailed
 	case p.request != nil && p.current == nil:
 		status = i18n.FundsLoading
 	case p.request != nil:
@@ -263,16 +262,11 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 					return view.PrimaryButton(&p.addProduct, l.Text(i18n.ProductAddAction))(gtx)
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					if p.request != nil {
-						gtx = gtx.Disabled()
+					if p.err == nil {
+						return layout.Dimensions{}
 					}
-					if p.restoreAddFocus && len(accounts) == 0 && gtx.Enabled() {
-						gtx.Execute(key.FocusCmd{Tag: &p.reload})
-						p.restoreAddFocus = false
-					}
-					p.restoreReservationEntry(gtx, &p.reload)
 					view.Focus.Watch(gtx, &p.reload)
-					return view.Button(&p.reload, l.Text(action))(gtx)
+					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {

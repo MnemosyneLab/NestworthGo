@@ -225,7 +225,7 @@ func (p *directoryList) layout(gtx layout.Context, view ui.View, householdName s
 		p.archiveFilter.Update(gtx)
 	}
 	switch {
-	case !p.started, controlsEnabled && (p.refreshExternal || p.refresh.Clicked(gtx)):
+	case !p.started, controlsEnabled && (p.refreshExternal || p.readErr != nil && p.refresh.Clicked(gtx)):
 		p.refreshExternal = false
 		p.start(directoryChange{})
 	case controlsEnabled && p.archiveFilter.Value != p.includeArchived:
@@ -277,14 +277,13 @@ func (p *directoryList) toolbar(gtx layout.Context, view ui.View, householdName 
 					return accessibility.Checkbox(gtx, &p.archiveFilter, label, view.Checkbox(&p.archiveFilter, label))
 				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.readErr == nil {
+						return layout.Dimensions{}
+					}
 					if p.busy {
 						gtx = gtx.Disabled()
 					}
-					label := i18n.InstitutionsRefresh
-					if p.readErr != nil {
-						label = i18n.InstitutionsRetry
-					}
-					return view.Button(&p.refresh, l.Text(label))(gtx)
+					return view.Button(&p.refresh, l.Text(i18n.InstitutionsRetry))(gtx)
 				}),
 			)
 		}),

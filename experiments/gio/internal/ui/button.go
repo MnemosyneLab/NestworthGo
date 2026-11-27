@@ -290,6 +290,7 @@ func (v View) layoutButton(gtx layout.Context, button *widget.Clickable, spec Bu
 }
 
 func (v View) buttonContent(gtx layout.Context, spec ButtonSpec, metrics buttonMetrics, ink color.NRGBA) layout.Dimensions {
+	defer v.textSelection.suspend()()
 	if spec.Content != nil {
 		return spec.Content(gtx)
 	}
