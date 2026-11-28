@@ -93,7 +93,7 @@ func (form *historyAmendmentDraft) selectReplacement(kind historyapi.ChangeComma
 	if investment.command.Kind == kind {
 		return
 	}
-	investment.command = historyapi.ChangeCommandRequest{Kind: kind}
+	investment.command = historyapi.ChangeCommandRequest{Kind: kind, Added: kind == historyapi.ChangePositionAdjustment}
 	if kind == historyapi.ChangeTrade {
 		investment.command.Side = string(domain.TradeBuy)
 	}
