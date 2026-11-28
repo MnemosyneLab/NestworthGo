@@ -27,7 +27,7 @@ Four paired SQLite comparisons used the accepted snapshots after closing both ap
 
 Gio loads a read-only source snapshot when a correction opens. It uses the existing selector, currency, amount and review controls and the existing guarded historical preview and commit API. The previous source and the proposed destination have separate labelled effects in review. The guarded preview still owns dependency checks, balance and quantity checks, archive validation, and the frozen idempotent commit. The ordinary list and stored models have no new financial projection path. No performance benchmark was run.
 
-The chooser also exposes the existing ordinary Money removed, Cash transfer, Currency conversion, Value update, Investment transfer, Investment quantity adjustment, Debt draw and Debt payment commands. Their individual alternative replacements were outside the native commit matrix. Shared replay still requires existing destination holdings for historical transfers and refuses a position import or attached reconciliation link in this workflow. VoiceOver and Linux native windows were outside this acceptance.
+The chooser also exposes the existing ordinary Money removed, Cash transfer, Currency conversion, Value update, Investment transfer, Investment quantity adjustment, Debt draw and Debt payment commands. Their individual alternative replacements were outside the native commit matrix. The continuation covers all eight in the [native delta acceptance report](replacement-delta.md). Shared replay still requires existing destination holdings for historical transfers and refuses a position import or attached reconciliation link in this workflow. VoiceOver and Linux native windows were outside this acceptance.
 
 ## Native evidence
 
