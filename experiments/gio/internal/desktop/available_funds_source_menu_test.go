@@ -89,7 +89,18 @@ func TestAvailableFundsMissingRulesShortcutScrollsAndRestoresSourceActions(t *te
 	if sourceKey == "" {
 		t.Fatal("missing seeded holding")
 	}
-	h.focused(&funds.sourceButtons(sourceKey).menu.Trigger)
+	menuTrigger := &funds.sourceButtons(sourceKey).menu.Trigger
+	h.focused(menuTrigger)
+	h.press(key.NameReturn)
+	if h.shell.overlay.Trigger != menuTrigger || h.shell.overlay.Panel.Empty() {
+		t.Fatal("Return did not reopen the focused source action menu")
+	}
+	h.press(key.NameEscape)
+	settle()
+	if h.shell.overlay.Trigger != nil {
+		t.Fatal("Escape did not close the source action menu")
+	}
+	h.focused(menuTrigger)
 	h.click("About source amounts", false)
 	h.frame()
 	assertPageLabel(t, &h.router, "Source amounts are shown in each source’s own currency.")

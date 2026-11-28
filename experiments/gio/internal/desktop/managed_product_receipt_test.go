@@ -121,7 +121,8 @@ func TestStandaloneEarlyTermDepositReceiptMatchesWails(t *testing.T) {
 	scrollClick := func(label string) { t.Helper(); scrollProductControl(t, h, label); click(label) }
 	settle()
 	click("Available funds")
-	scrollClick("Open product · Winter Deposit")
+	chooseFundsSourceAction(t, h, "Winter Deposit · USD", "Open product")
+	settle()
 	edit := func() *productReceiptDraft {
 		t.Helper()
 		scrollClick("Confirm actual receipt")
@@ -311,8 +312,8 @@ func TestManagedTermDepositMaturityReceiptMatchesWails(t *testing.T) {
 	}
 	h.frame()
 	click("Available funds")
-	scrollProductControl(t, h, "Open product · Due Deposit")
-	click("Open product · Due Deposit")
+	chooseFundsSourceAction(t, h, "Due Deposit · USD", "Open product")
+	finish()
 	label("Estimated net proceeds · 606.25 USD")
 	label("Estimated unpaid interest at maturity · 6.25 USD")
 	click("Confirm actual receipt")

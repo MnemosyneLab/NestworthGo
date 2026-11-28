@@ -86,7 +86,8 @@ func newStandaloneLifecycleHarness(t *testing.T, app *application.Service, fault
 	t.Cleanup(out.drain)
 	out.settle()
 	out.clickButton("Available funds")
-	out.scrollClick("Open product · Synthetic locked product")
+	chooseFundsSourceAction(t, h, "Synthetic locked product · USD", "Open product")
+	out.settle()
 	return out
 }
 

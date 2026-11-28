@@ -245,21 +245,27 @@ func TestManagedTermDepositReadOnlyMatchesWails(t *testing.T) {
 		portfolio.workers.Wait()
 	}
 	t.Cleanup(drain)
-	click := func(name string) {
-		t.Helper()
-		h.click(name, false)
+	settle := func() {
 		for range 3 {
 			h.frame()
 			drain()
 		}
 		h.frame()
 	}
+	click := func(name string) {
+		t.Helper()
+		h.click(name, false)
+		settle()
+	}
 	label := func(name string) { t.Helper(); assertPageLabel(t, &h.router, name) }
 	h.frame()
 	click("Available funds")
 	const winter = "Open product · Winter Deposit"
-	scrollProductControl(t, h, winter)
-	click(winter)
+	chooseFundsSourceAction(t, h, "Winter Deposit · USD", "Open product")
+	settle()
+	if funds.productPage.id != fixture.ids["Winter Deposit"] {
+		t.Fatal("the source menu opened a different product")
+	}
 	label("Could not load product details")
 	click("Retry")
 	label("Current contract value · 1000 USD")
@@ -280,7 +286,7 @@ func TestManagedTermDepositReadOnlyMatchesWails(t *testing.T) {
 	fundsRef := funds.current.report.Sources[slices.IndexFunc(funds.current.report.Sources, func(row application.LiquidityReadSource) bool {
 		return row.Result.ProductID != nil && *row.Result.ProductID == fixture.ids["Winter Deposit"]
 	})].Result.SourceKey
-	h.focused(&funds.sourceButtons(fundsRef).product)
+	h.focused(&funds.sourceButtons(fundsRef).menu.Trigger)
 	click("Forward")
 	label("Current contract value · 1000 USD")
 	click("Back")
