@@ -16,16 +16,17 @@ import (
 
 type investmentAmendmentDraft struct {
 	history.AmendableInvestment
-	quantity, note ui.TextField
-	kind           ui.Select
-	selectors      [8]ui.Select
-	values         [4]ui.TextField
-	command        historyapi.ChangeCommandRequest
-	initial        historyapi.ChangeCommandRequest
-	sources        history.InvestmentReplacementSources
-	loading        <-chan historyResult[history.InvestmentReplacementSources]
-	readFailed     bool
-	reload         widget.Clickable
+	quantity, note      ui.TextField
+	kind                ui.Select
+	selectors           [6]ui.Select
+	secondaryAmount     ui.TextField
+	adjustmentDirection [2]widget.Clickable
+	command             historyapi.ChangeCommandRequest
+	initial             historyapi.ChangeCommandRequest
+	sources             history.InvestmentReplacementSources
+	loading             <-chan historyResult[history.InvestmentReplacementSources]
+	readFailed          bool
+	reload              widget.Clickable
 }
 
 type historyAmendmentDraft struct {
@@ -86,9 +87,7 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 		if action == history.CorrectActivity {
 			form.investment.initial, _ = history.InvestmentReplacementInitial(d.record.Activity)
 			form.investment.command = form.investment.initial
-			for i := range form.investment.values {
-				form.investment.values[i] = ui.NewTextField(true)
-			}
+			form.investment.secondaryAmount = ui.NewTextField(true)
 			r.loadInvestmentReplacement(form)
 		}
 	default:

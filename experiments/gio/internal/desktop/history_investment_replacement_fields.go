@@ -48,7 +48,7 @@ func investmentReplacementAmounts(form *historyAmendmentDraft, request *historya
 		request.Quantity = strings.TrimSpace(draft.quantity.Text())
 		request.UnitCost = ""
 		if request.Added {
-			request.UnitCost = strings.TrimSpace(draft.values[0].Text())
+			request.UnitCost = strings.TrimSpace(draft.secondaryAmount.Text())
 		}
 	}
 }
@@ -230,7 +230,7 @@ func investmentReplacementTransferFields(view ui.View, form *historyAmendmentDra
 func investmentReplacementAdjustmentFields(view ui.View, form *historyAmendmentDraft, origin *image.Point, busy bool) []layout.Widget {
 	draft, l := form.investment, view.Language
 	request := &draft.command
-	holdingPicker, add, remove := &draft.selectors[2], &draft.selectors[6].Trigger, &draft.selectors[7].Trigger
+	holdingPicker, add, remove := &draft.selectors[2], &draft.adjustmentDirection[0], &draft.adjustmentDirection[1]
 	item := investmentReplacementHolding(draft.sources.Holdings, request.HoldingID)
 	ready := item.Holding.ID != ""
 	rows := []layout.Widget{
@@ -239,7 +239,7 @@ func investmentReplacementAdjustmentFields(view ui.View, form *historyAmendmentD
 		}, investmentReplacementHoldingChoices(view, draft.sources.Holdings), request.HoldingID, true, func(id string) {
 			request.HoldingID = id
 			draft.quantity.Editor.SetText("")
-			draft.values[0].Editor.SetText("")
+			draft.secondaryAmount.Editor.SetText("")
 		}),
 		func(gtx layout.Context) layout.Dimensions {
 			if busy {
@@ -251,7 +251,7 @@ func investmentReplacementAdjustmentFields(view ui.View, form *historyAmendmentD
 			}
 			if remove.Clicked(gtx) && request.Added {
 				request.Added, form.problem = false, i18n.NoMessage
-				draft.values[0].Editor.SetText("")
+				draft.secondaryAmount.Editor.SetText("")
 				gtx.Execute(op.InvalidateCmd{})
 			}
 			return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx,
@@ -265,7 +265,7 @@ func investmentReplacementAdjustmentFields(view ui.View, form *historyAmendmentD
 	}
 	if request.Added && ready {
 		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return draft.values[0].LayoutCurrency(gtx, view, ui.FieldOptions{
+			return draft.secondaryAmount.LayoutCurrency(gtx, view, ui.FieldOptions{
 				Label: i18n.HistoryReplacementOptionalUnitCost, Disabled: busy,
 			}, item.Instrument.QuoteCurrency.String())
 		})

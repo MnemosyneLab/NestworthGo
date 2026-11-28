@@ -107,9 +107,7 @@ func (form *historyAmendmentDraft) selectReplacement(kind historyapi.ChangeComma
 	form.amount.Editor.SetText(amount)
 	form.fee.Editor.SetText(investment.command.Fee)
 	investment.quantity.Editor.SetText(investment.command.Quantity)
-	for i := range investment.values {
-		investment.values[i].Editor.SetText("")
-	}
+	investment.secondaryAmount.Editor.SetText("")
 	form.problem = i18n.NoMessage
 }
 

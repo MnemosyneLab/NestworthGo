@@ -17,7 +17,7 @@ func cashReplacementFields(view ui.View, form *historyAmendmentDraft, origin *im
 	command := &draft.command
 	accounts := draft.sources.Accounts
 	selected := cashReplacementAccount(accounts, command.AccountID)
-	otherAmount := &draft.values[0]
+	otherAmount := &draft.secondaryAmount
 
 	picker := func(index int, label i18n.MessageID, choices []ui.Choice, value string, searchable bool, change func(string)) layout.Widget {
 		return investmentReplacementPicker(view, form, origin, &draft.selectors[index],
@@ -158,7 +158,7 @@ func cashReplacementFields(view ui.View, form *historyAmendmentDraft, origin *im
 
 func cashReplacementAmounts(form *historyAmendmentDraft, request *historyapi.ChangeCommandRequest) {
 	amount, fee := form.amount.Text(), form.fee.Text()
-	otherAmount := form.investment.values[0].Text()
+	otherAmount := form.investment.secondaryAmount.Text()
 	switch request.Kind {
 	case historyapi.ChangeMoneyAdded, historyapi.ChangeMoneyRemoved:
 		request.Amount = amount
