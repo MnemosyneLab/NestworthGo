@@ -42,3 +42,5 @@ Original JPEGs are unchanged in size and bytes. Gio captured 2560×1600 and 1800
 The macOS Gio history and localization packages plus the desktop history/custody regression set passed at `80a249ce`. This covers original effects, audited replacement and reversal, sell cost and realized gain, duplicate mutation retry, standalone bank expense and fee, and cancellation. The additional spent-proceeds tests at `580e697f` compare Gio to the Wails service and assert the absence of new writes. Automated tests use shared application services and independent SQLite profiles.
 
 Broader replacement type or endpoint changes, archived holding corrections, VoiceOver and Linux native windows were outside this acceptance. The full original ledger activity parity checklist is larger than the investment-amendment increment.
+
+The subsequent Mac mini investigation verified cross-type and cross-endpoint replacement, editable dividend cash currency, and the archive boundary. [Replacement follow-up and raw native evidence](replacement-followup.md).
