@@ -101,7 +101,11 @@ func (p *portfolioPage) layoutInstrumentDetailHeader(gtx layout.Context, view ui
 			return view.TabSegment(&detail.tabs[index], label, instrumentDetailSection(index) == detail.visit.section)(gtx)
 		})
 	}))
-	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
+	gap := ui.Space8
+	if detail.visit.section == instrumentDetailPerformance {
+		gap = ui.Space4
+	}
+	return (ui.Column{Gap: gap}).Layout(gtx, rows...)
 }
 
 var instrumentDetailTypes = map[domain.InstrumentType]i18n.MessageID{

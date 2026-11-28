@@ -14,8 +14,9 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/accessibility"
 )
 
-// SwatchSize is the box of one color swatch, including its selection ring.
-const SwatchSize unit.Dp = 28
+// SwatchSize includes the selected ring and its offset around a 28dp color dot.
+// This matches the Wails size-7 swatch plus ring-offset-2/ring-2 treatment.
+const SwatchSize unit.Dp = 36
 
 // SwatchSpec describes one color swatch in a single-choice group.
 type SwatchSpec struct {
@@ -63,8 +64,8 @@ func (v View) layoutSwatch(gtx layout.Context, click *widget.Clickable, spec Swa
 		if ring > 0 {
 			StrokeRoundRect(gtx, image.Rectangle{Max: size}, RadiusFull, 2, WithAlpha(spec.Fill, ring))
 		}
-		// The dot sits 4dp inside the box, which leaves a 2dp gap to the ring,
-		// and shrinks a little while pressed.
+		// The 28dp dot sits 4dp inside the outer box, leaving a 2dp gap to the
+		// selection ring, and shrinks a little while pressed.
 		inset := gtx.Dp(4) + int(float64(gtx.Dp(1))*press*1.5)
 		FillRoundRect(gtx, image.Rectangle{Max: size}.Inset(inset), RadiusFull, Fade(spec.Fill, map[bool]float64{true: 1, false: DisabledOpacity}[enabled]))
 		return layout.Dimensions{Size: size}

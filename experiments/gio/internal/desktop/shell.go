@@ -469,7 +469,8 @@ func newShell(wordmark, mark image.Image, pages ledgerPages) *shell {
 			s.accounts.investment.onPosted = s.historyPage.showPosted
 		}
 		if s.portfolio != nil && s.portfolio.investment != nil {
-			s.portfolio.investment.onPosted = s.historyPage.showPosted
+			s.portfolio.investment.onPosted = s.portfolio.positionImported
+			s.portfolio.openPostedActivity = s.historyPage.reads.open
 		}
 		if s.accounts != nil {
 			s.historyPage.reads.openAccount = func(id domain.AccountID, name string, focus event.Tag) {
@@ -786,7 +787,7 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 	fundsPolicyOpen := s.fundsPolicyOpen()
 	fundsProductSetupOpen, fundsProductTermsOpen := s.fundsProductSetupOpen(), s.fundsProductTermsOpen()
 	accountActionOpen := s.activeRoute() == accountsRoute && s.accounts != nil && s.accounts.accountActionOpen()
-	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || accountActionOpen || s.accountProduct != nil || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() {
+	if s.settingsPage.confirming || directoryArchiveOpen || s.directoryCreationOpen() || catalogEditorOpen || s.accountCreationOpen() || accountActionOpen || s.accountProduct != nil || s.accountMaintenanceBlocking() || fundsReservationOpen || fundsPolicyOpen || fundsProductSetupOpen || fundsProductTermsOpen || s.returnDetailOpen() || s.assetDetailOpen() || s.healthRepairOpen() || s.snapshotRepairOpen() || s.wealthDetailOpen() || s.manualQuoteOpen() || s.marketOperationOpen() || s.quoteHistoryOpen() || s.fxSourceOpen() || s.instrumentSourceOpen() || s.agentEvidenceOpen() || s.historyRecordOpen() || s.startReconciliationReviewOpen() || s.portfolioPositionImportOpen() {
 		gtx = gtx.Disabled()
 	}
 	s.overlay.BeginFrame(gtx)
@@ -879,6 +880,12 @@ func (s *shell) layout(gtx layout.Context) layout.Dimensions {
 		dims := accessibility.Hidden(gtx, background)
 		windowContext.Locale = gtx.Locale
 		s.accounts.layoutAccountCreateSheet(windowContext, view)
+		return dims
+	}
+	if s.portfolioPositionImportOpen() {
+		dims := accessibility.Hidden(gtx.Disabled(), background)
+		windowContext.Locale = gtx.Locale
+		s.portfolio.layoutPositionImportSheet(windowContext, view.WithTextSelection(&s.textSelection))
 		return dims
 	}
 	if s.accountProduct != nil {

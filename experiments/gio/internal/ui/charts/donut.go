@@ -61,6 +61,12 @@ type DonutSpec struct {
 	Compact bool
 	// StackLegend gives the chart its own row and scales the ring to the available width.
 	StackLegend bool
+	// BalancedSlots divides a side-by-side chart into equal ring and legend
+	// columns for views that give both halves of the card comparable weight.
+	BalancedSlots bool
+	// StackedDiameter caps only the ring size when StackLegend is true. A zero
+	// value preserves the standard responsive size.
+	StackedDiameter unit.Dp
 	// HideReadout removes the footer when the interactive legend already
 	// shows the same information.
 	HideReadout bool
@@ -97,9 +103,10 @@ func (s DonutSpec) Validate() []Problem {
 type donutGeometry struct {
 	width int
 	// stacked puts the legend below the ring; otherwise it sits beside it.
-	stacked  bool
-	diameter int
-	pullout  int
+	stacked       bool
+	balancedSlots bool
+	diameter      int
+	pullout       int
 	// holeRatio is the inner radius as a fraction of the outer radius.
 	holeRatio float64
 	gap       int
@@ -146,6 +153,14 @@ func (s DonutSpec) plan(g donutGeometry) donutPlan {
 		p.legend = image.Rect(0, g.diameter+g.gap, g.width, g.diameter+g.gap+legendHeight)
 		p.center.X = float32(g.width) / 2
 		p.height = p.legend.Max.Y
+	} else if g.balancedSlots {
+		slot := g.width / 2
+		x := slot + g.gap
+		p.center.X = float32(slot) / 2
+		p.height = max(g.diameter, legendHeight)
+		p.center.Y = float32(p.height) / 2
+		y := max(0, (p.height-legendHeight)/2)
+		p.legend = image.Rect(x, y, max(x, g.width), y+legendHeight)
 	} else {
 		x := g.diameter + g.gap*2
 		p.legend = image.Rect(x, 0, max(x, g.width), legendHeight)
@@ -252,14 +267,20 @@ func (c *DonutChart) Layout(gtx layout.Context, view ui.View, spec DonutSpec) (l
 	diameter := min(gtx.Dp(diameterDp), inner)
 	if spec.StackLegend {
 		diameter = min(inner, max(gtx.Dp(200), min(gtx.Dp(300), inner*3/5)))
+		if spec.StackedDiameter > 0 {
+			diameter = min(inner, gtx.Dp(spec.StackedDiameter))
+		}
 	} else if !stacked {
 		diameter = min(diameter, inner*2/5)
 	} else if spec.Compact {
 		diameter = min(gtx.Dp(donutDiameter*2/3), inner)
 	}
-	g := donutGeometry{width: inner, stacked: stacked, diameter: diameter, pullout: gtx.Dp(ui.Space6), holeRatio: donutHole, gap: gap}
+	g := donutGeometry{width: inner, stacked: stacked, balancedSlots: spec.BalancedSlots && !stacked,
+		diameter: diameter, pullout: gtx.Dp(ui.Space6), holeRatio: donutHole, gap: gap}
 	legendWidth := inner
-	if !stacked {
+	if !stacked && spec.BalancedSlots {
+		legendWidth = inner - inner/2 - gap
+	} else if !stacked {
 		legendWidth = inner - diameter - 2*gap
 	}
 	rowInset := gtx.Dp(ui.Space8)

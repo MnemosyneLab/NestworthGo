@@ -1647,6 +1647,9 @@ const (
 	PortfolioTrendRetained
 	PortfolioTrendEmpty
 	PortfolioTrendVerified
+	PortfolioTrendPartial
+	PortfolioTrendUnpricedOne
+	PortfolioTrendUnpricedMany
 	PortfolioReadFailed
 	PortfolioSearch
 	PortfolioSearchHint
@@ -1656,6 +1659,9 @@ const (
 	PortfolioValue
 	PortfolioCurrentValue
 	PortfolioSummaryCoverage
+	PortfolioColumnCost
+	PortfolioColumnValue
+	PortfolioColumnGain
 	PortfolioCost
 	PortfolioNativeValue
 	PortfolioCurrentPrice
@@ -1685,6 +1691,7 @@ const (
 	PortfolioInstrumentMetal
 	PortfolioInstrumentBankProduct
 	PortfolioInstrumentMarketNote
+	PortfolioPerformanceInfo
 	PortfolioInstrumentDataNote
 	PortfolioInstrumentLatestQuote
 	PortfolioInstrumentQuoteManual
@@ -1776,6 +1783,8 @@ const (
 	PortfolioCurrencySubtotal
 	PortfolioAccountOne
 	PortfolioAccountCount
+	PortfolioShowAccountHoldings
+	PortfolioHideAccountHoldings
 	PortfolioUnrealized
 	PortfolioCostMissing
 	PortfolioHoldingFXMissing
@@ -1868,6 +1877,11 @@ const (
 	PositionImportAccount
 	PositionImportPortfolioAction
 	PositionImportBackPortfolio
+	PositionImportSingleCandidate
+	PositionImportQuantityBefore
+	PositionImportQuantityChange
+	PositionImportQuantityAfter
+	PositionImportViewActivity
 	CustodyOpen
 	CustodyReview
 	CustodyConfirm

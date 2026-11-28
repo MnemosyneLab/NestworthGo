@@ -11,6 +11,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -34,9 +35,12 @@ var diagnosticsLevels = []settingOption{
 }
 
 func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft preferences.Values, viewport image.Rectangle) layout.Dimensions {
+	if !p.prefs.busy && (view.Overlay == nil || view.Overlay.Trigger == nil) {
+		p.moveMarketFocus(gtx)
+	}
 	l := view.Language
 	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
-	return settingsCard(gtx, view, l.Text(i18n.SettingsMarket), func(gtx layout.Context, view ui.View) layout.Dimensions {
+	return settingsParityCard(gtx, view, l.Text(i18n.SettingsMarket), func(gtx layout.Context, view ui.View) layout.Dimensions {
 		width := gtx.Constraints.Max.X
 		fields := grid.Layout(gtx, view, 2, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 			if i == 0 {
@@ -46,11 +50,11 @@ func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft prefer
 			field := ui.PickerField{Label: i18n.SettingsQuoteCacheTTL, Previous: &p.fxProvider.Trigger, Next: p.credential.nextFocus(draft.CoinGeckoConfigured)}
 			return p.sectionPicker(gtx, view, &p.quoteTTL, field, draft.QuoteCacheTTL, quoteCacheDurations, i18n.SettingsQuoteCacheHelp)
 		})
-		y := fields.Size.Y + gtx.Dp(18)
+		y := fields.Size.Y + gtx.Dp(20)
 		help := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
-			return view.Body(ui.TextCaption, l.Text(i18n.SettingsCredentialsHelp), view.Colors.SecondaryInk)(gtx)
+			return view.Body(ui.TextBody, l.Text(i18n.SettingsCredentialsHelp), view.Colors.SecondaryInk)(gtx)
 		})
-		y += help.Size.Y + gtx.Dp(10)
+		y += help.Size.Y + gtx.Dp(20)
 		credential := ui.Place(gtx, view, image.Pt(0, y), width, func(gtx layout.Context, view ui.View) layout.Dimensions {
 			dims := p.credential.layout(gtx, view, p.prefs)
 			if p.credential.reveal && !p.prefs.busy && gtx.Enabled() {
@@ -67,6 +71,28 @@ func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft prefer
 		})
 		return layout.Dimensions{Size: image.Pt(width, y+credential.Size.Y)}
 	})
+}
+
+// Tab leaves the selected Market tab for its first interactive control.
+// Shift+Tab from that control returns to Market instead of a different tab.
+func (p *settingsPage) moveMarketFocus(gtx layout.Context) {
+	for _, move := range []struct {
+		from, to event.Tag
+		modifier key.Modifiers
+	}{
+		{&p.tabs[settingsMarket], &p.fxProvider.Trigger, 0},
+		{&p.fxProvider.Trigger, &p.tabs[settingsMarket], key.ModShift},
+	} {
+		for {
+			e, ok := gtx.Event(key.Filter{Focus: move.from, Name: key.NameTab, Required: move.modifier})
+			if !ok {
+				break
+			}
+			if e.(key.Event).State == key.Press {
+				gtx.Execute(key.FocusCmd{Tag: move.to})
+			}
+		}
+	}
 }
 
 func (p *settingsPage) diagnosticsCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
@@ -118,13 +144,21 @@ func settingsAboutCard(gtx layout.Context, view ui.View) layout.Dimensions {
 }
 
 func settingsCard(gtx layout.Context, view ui.View, title string, body func(layout.Context, ui.View) layout.Dimensions) layout.Dimensions {
+	return settingsCardWithMetrics(gtx, view, title, 20, 12, body)
+}
+
+func settingsParityCard(gtx layout.Context, view ui.View, title string, body func(layout.Context, ui.View) layout.Dimensions) layout.Dimensions {
+	return settingsCardWithMetrics(gtx, view, title, 24, 20, body)
+}
+
+func settingsCardWithMetrics(gtx layout.Context, view ui.View, title string, padding, headingGap unit.Dp, body func(layout.Context, ui.View) layout.Dimensions) layout.Dimensions {
 	return view.Card(gtx, func(gtx layout.Context) layout.Dimensions {
-		pad := gtx.Dp(20)
+		pad := gtx.Dp(padding)
 		width := gtx.Constraints.Max.X
 		heading := ui.Place(gtx, view, image.Pt(pad, pad), width-2*pad, func(gtx layout.Context, view ui.View) layout.Dimensions {
 			return view.Line(gtx, ui.TextHeading, title, view.Colors.Ink)
 		})
-		y := pad + heading.Size.Y + gtx.Dp(12)
+		y := pad + heading.Size.Y + gtx.Dp(headingGap)
 		content := ui.Place(gtx, view, image.Pt(pad, y), width-2*pad, body)
 		return layout.Dimensions{Size: image.Pt(width, y+content.Size.Y+pad)}
 	})
@@ -202,7 +236,7 @@ func (c *settingsCredential) layout(gtx layout.Context, view ui.View, prefs *pre
 		gtx = gtx.Disabled()
 	}
 	return view.Surface(gtx, ui.SurfaceSpec{Fill: view.Colors.PageBackground}, func(gtx layout.Context) layout.Dimensions {
-		return layout.UniformInset(14).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			status, ink := i18n.SettingsCoinGeckoMissing, view.Colors.SecondaryInk
 			if configured {
 				status, ink = i18n.SettingsCoinGeckoConfigured, view.Colors.Success
@@ -213,24 +247,24 @@ func (c *settingsCredential) layout(gtx layout.Context, view ui.View, prefs *pre
 					ink = view.Colors.ErrorInk
 				}
 			}
-			rows := []layout.FlexChild{
-				layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.SettingsCoinGecko), view.Colors.Ink)),
-				layout.Rigid(view.Body(ui.TextCaption, l.Text(status), ink)),
-			}
+			rows := []layout.FlexChild{layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.SettingsCoinGecko), view.Colors.Ink))}
 			if configured && !c.editing {
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return (ui.Wrap{Gap: 8}).Layout(gtx, 2, func(gtx layout.Context, i int) layout.Dimensions {
-						label := i18n.SettingsCoinGeckoRemove
-						button := &c.remove
-						if i == 0 {
-							label, button = i18n.SettingsSecretReplace, &c.replace
-						}
-						return view.ButtonOf(button, ui.ButtonSpec{Title: l.Text(label), Description: l.Text(i18n.SettingsCoinGeckoKey)})(gtx)
-					})
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
+						layout.Rigid(view.Body(ui.TextLabel, l.Text(i18n.SettingsCoinGeckoKey), view.Colors.Ink)),
+						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
+								layout.Rigid(view.Body(ui.TextLabel, "••••••••", view.Colors.SecondaryInk)),
+								layout.Rigid(view.ButtonOf(&c.replace, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: l.Text(i18n.SettingsSecretReplace), Description: l.Text(i18n.SettingsCoinGeckoKey)})),
+								layout.Rigid(view.ButtonOf(&c.remove, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: l.Text(i18n.SettingsCoinGeckoRemove), Description: l.Text(i18n.SettingsCoinGeckoKey)})),
+							)
+						}),
+					)
 				}))
 			} else {
 				rows = append(rows, layout.Rigid(func(gtx layout.Context) layout.Dimensions { return c.editForm(gtx, view, prefs, configured) }))
 			}
+			rows = append(rows, layout.Rigid(view.Body(ui.TextBody, l.Text(status), ink)))
 			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, rows...)
 		})
 	})
@@ -252,11 +286,6 @@ func (c *settingsCredential) editForm(gtx layout.Context, view ui.View, prefs *p
 	}
 	return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return c.input.Layout(ui.LimitWidth(gtx, 520), view, ui.FieldOptions{
-				Label: i18n.SettingsCoinGeckoKey, Hint: i18n.SettingsCoinGeckoHint, Disabled: !gtx.Enabled(),
-			})
-		}),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			l := view.Language
 			keyLabel := l.Text(i18n.SettingsCoinGeckoKey)
 			value := strings.TrimSpace(c.input.Text())
@@ -264,19 +293,31 @@ func (c *settingsCredential) editForm(gtx layout.Context, view ui.View, prefs *p
 				c.write(prefs, value)
 				gtx = gtx.Disabled()
 			}
-			buttons := []layout.Widget{
-				func(gtx layout.Context) layout.Dimensions {
-					if value == "" {
-						gtx = gtx.Disabled()
-					}
-					return view.ButtonOf(&c.save, ui.ButtonSpec{Variant: ui.ButtonSoft, Title: l.Text(i18n.SettingsCoinGeckoSave)})(gtx)
-				},
-				view.ButtonOf(&c.show, ui.ButtonSpec{Title: l.Text(visibility), Description: keyLabel, Toggle: true, Selected: c.visible}),
+			gtx = ui.LimitWidth(gtx, 520)
+			children := []layout.FlexChild{
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return c.input.Layout(gtx, view, ui.FieldOptions{
+						Label: i18n.SettingsCoinGeckoKey, Hint: i18n.SettingsCoinGeckoHint, Disabled: !gtx.Enabled(),
+					})
+				}),
+				layout.Rigid(view.ButtonOf(&c.show, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: l.Text(visibility), Description: keyLabel, Toggle: true, Selected: c.visible})),
 			}
 			if configured {
-				buttons = append(buttons, view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.SettingsCancel), Description: keyLabel}))
+				children = append(children, layout.Rigid(view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.SettingsCancel), Description: keyLabel})))
 			}
-			return (ui.Wrap{Gap: 8}).Layout(gtx, len(buttons), func(gtx layout.Context, i int) layout.Dimensions { return buttons[i](gtx) })
+			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			value := strings.TrimSpace(c.input.Text())
+			if value != "" && c.save.Clicked(gtx) {
+				c.write(prefs, value)
+				gtx = gtx.Disabled()
+			}
+			if value == "" {
+				gtx = gtx.Disabled()
+			}
+			gtx = ui.LimitWidth(gtx, 520)
+			return view.ButtonOf(&c.save, ui.ButtonSpec{Variant: ui.ButtonPrimary, Fill: true, Title: view.Language.Text(i18n.SettingsCoinGeckoSave)})(gtx)
 		}),
 	)
 }

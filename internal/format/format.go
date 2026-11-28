@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -151,6 +153,12 @@ func ShareBPS(value int) string {
 		return "-" + result
 	}
 	return result
+}
+
+// ShareBPSOneDecimal formats a basis-point share to one decimal percentage
+// using the same half-even rounding as the Wails presentation layer.
+func ShareBPSOneDecimal(value int) string {
+	return decimal.New(int64(value), -2).RoundBank(1).StringFixed(1) + "%"
 }
 
 func decimalString(value string) bool {

@@ -220,10 +220,13 @@ func (s *TextSelection) updateKeys(gtx layout.Context, target *textTarget, press
 			}
 			continue
 		}
-		if k := e.(key.Event); k.Name == key.NameEscape && k.State == key.Press {
+		if k, isKey := e.(key.Event); isKey && k.Name == key.NameEscape && k.State == key.Press {
 			s.clear()
 			return
 		}
+		// A focused selectable can also receive an EditEvent from an input
+		// method. Keep forwarding it to Gio's selectable router; it is not a
+		// key.Event and must not be treated as one.
 		s.input.Queue(e)
 	}
 }

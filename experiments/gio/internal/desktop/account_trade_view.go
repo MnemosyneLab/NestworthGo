@@ -45,10 +45,11 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 		gtx.Execute(op.InvalidateCmd{})
 	}
 	origin := view.Origin
-	children := []layout.FlexChild{
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := []layout.FlexChild{}
+	if !d.contextualSheet {
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return fieldPosition(gtx, &origin, tradeTitle(view, labels.action))
-		}),
+		}))
 	}
 	if d.custody != nil {
 		children = append(children, f.custodyFields(view, &origin)...)
@@ -70,6 +71,11 @@ func (f *accountInvestment) layoutForm(gtx layout.Context, view ui.View, run inv
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.PositionImportHelp), view.Colors.SecondaryInk))
 			}))
+			if d.contextualSheet && len(d.sources.Instruments) == 1 && d.instrument == d.sources.Instruments[0].ID {
+				children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return fieldPosition(gtx, &origin, view.Message(l.Text(i18n.PositionImportSingleCandidate), view.Colors.SecondaryInk))
+				}))
+			}
 		}
 		children = append(children,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -364,9 +370,11 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 		timestamp = tradeTimestamp(view, preview.Activity.EffectiveAt, review.Timezone)
 	}
 	children := []layout.FlexChild{
-		layout.Rigid(tradeTitle(view, labels.review)),
 		layout.Rigid(view.Message(contextName, view.Colors.Ink)),
 		layout.Rigid(view.Message(timestamp, view.Colors.SecondaryInk)),
+	}
+	if !d.contextualSheet {
+		children = append([]layout.FlexChild{layout.Rigid(tradeTitle(view, labels.review))}, children...)
 	}
 	fact := func(id i18n.MessageID, value string) layout.FlexChild {
 		return layout.Rigid(view.Message(fmt.Sprintf(l.Text(id), value), view.Colors.Ink))
@@ -389,9 +397,20 @@ func (f *accountInvestment) layoutReview(gtx layout.Context, view ui.View, run i
 			children = append(children, d.adjustment.reviewFacts(view, preview, fact)...)
 			break
 		}
-		for _, endpoint := range preview.Resulting {
-			if endpoint.Target == domain.EffectTargetHoldingQuantity {
-				children = append(children, fact(i18n.AccountQuantity, portfolioDecimal(view, endpoint.Quantity)))
+		if d.contextualSheet {
+			for _, endpoint := range preview.Review {
+				if endpoint.Target == domain.EffectTargetHoldingQuantity {
+					children = append(children,
+						fact(i18n.PositionImportQuantityBefore, portfolioDecimal(view, endpoint.Before)),
+						fact(i18n.PositionImportQuantityChange, portfolioDecimal(view, endpoint.Delta)),
+						fact(i18n.PositionImportQuantityAfter, portfolioDecimal(view, endpoint.After)))
+				}
+			}
+		} else {
+			for _, endpoint := range preview.Resulting {
+				if endpoint.Target == domain.EffectTargetHoldingQuantity {
+					children = append(children, fact(i18n.AccountQuantity, portfolioDecimal(view, endpoint.Quantity)))
+				}
 			}
 		}
 		if preview.DerivedUnitPrice != nil {
