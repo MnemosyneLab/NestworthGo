@@ -165,7 +165,11 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 			}))
 			if !known.Reversible {
-				children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryReversalArchived), view.Colors.SecondaryInk)))
+				message := i18n.HistoryReversalArchived
+				if known.Activity.TradeDetail != nil {
+					message = i18n.HistoryReversalArchivedTrade
+				}
+				children = append(children, ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk)))
 			}
 		}
 		if known.Links != (history.AmendmentLinks{}) {

@@ -1374,6 +1374,7 @@ const (
 	HistoryAmendmentFee
 	HistoryTransferCorrectionFee
 	HistoryReversalArchived
+	HistoryReversalArchivedTrade
 	HistoryBalanceAfterCorrection
 	HistoryBalanceAfterReversal
 	HistoryAmendmentNoChange
