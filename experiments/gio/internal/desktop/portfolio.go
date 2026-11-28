@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image"
 	"slices"
 	"strings"
 	"sync"
@@ -149,6 +150,9 @@ type portfolioPage struct {
 	openHoldingHistory    func(domain.InstrumentID, domain.AccountID, string, event.Tag)
 	openHoldingAnalysis   func(routeID, domain.InstrumentID, domain.AccountID, string, event.Tag)
 	productButtons        map[domain.ProductContractID]*widget.Clickable
+	positionSheet         *portfolioPositionImportSheet
+	positionReceipt       *portfolioPositionReceipt
+	openPostedActivity    func(domain.ActivityID, event.Tag)
 }
 
 func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate func()) *portfolioPage {
@@ -157,6 +161,10 @@ func newPortfolioPage(ctx context.Context, service portfolioReader, invalidate f
 		catalog: portfolioCatalog{ledger: catalogLedger, search: ui.SearchField{Field: ui.NewTextField(true)}, links: make(map[domain.InstrumentID]*portfolioCatalogActions)},
 		search:  ui.SearchField{Field: ui.NewTextField(true)}, list: widget.List{List: layout.List{Axis: layout.Vertical}},
 		instruments: make(map[domain.InstrumentID]*widget.Clickable), accounts: make(map[domain.AccountID]*widget.Clickable), productButtons: make(map[domain.ProductContractID]*widget.Clickable)}
+}
+
+func (p *portfolioPage) investmentRuntime() investmentRuntime {
+	return investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
 }
 
 func (p *portfolioPage) enterScoped(id domain.InstrumentID, account domain.AccountID, query string, position layout.Position) {
@@ -223,9 +231,9 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	p.update()
 	p.updateAllocationTrend(gtx, view)
 	if f := p.investment; f != nil {
-		run := investmentRuntime{ctx: p.ctx, workers: &p.workers, clock: p.clock, invalidate: p.invalidate}
+		run := p.investmentRuntime()
 		f.poll(run)
-		if f.draft != nil {
+		if f.draft != nil && !f.draft.contextualSheet {
 			return f.layoutForm(gtx, view, run)
 		}
 	}
@@ -242,13 +250,22 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 	case p.request != nil:
 		status = i18n.OverviewRefreshing
 	}
-	return ui.Column{Gap: 12}.Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+	children := make([]ui.ColumnChild, 0, 5)
+	showStatusRow := status != i18n.NoMessage || p.id != ""
+	refreshingLoadedRoot := p.id == "" && p.current != nil && p.request != nil && p.err == nil
+	if refreshingLoadedRoot {
+		// Keep the populated holdings/catalog viewport stationary while an
+		// asynchronous refresh is pending. Show its status inside the existing
+		// valuation summary instead of inserting a new row above the page.
+		showStatusRow = false
+	}
+	if showStatusRow {
+		children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-					// Keep the toolbar at a steady height when a background read
-					// starts between pressing and releasing a control below it.
+					// Keep the initial loading and detail-page status slot at a
+					// steady height when a background read is in flight.
 					gtx.Constraints.Min.Y = gtx.Sp(ui.TextBody.Size) + gtx.Dp(ui.Space12)
 					if status == i18n.NoMessage {
 						return layout.Dimensions{Size: gtx.Constraints.Min}
@@ -269,6 +286,22 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 					return view.Button(&p.reload, l.Text(i18n.HistoryRetry))(gtx)
 				}),
 			)
+		}))
+	}
+	children = append(children,
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.positionReceipt == nil {
+				return layout.Dimensions{}
+			}
+			if p.positionReceipt.view.Clicked(gtx) {
+				p.openPositionReceipt(gtx)
+			}
+			if p.positionReceipt.dismiss.Clicked(gtx) {
+				p.positionReceipt = nil
+				gtx.Execute(op.InvalidateCmd{})
+				return layout.Dimensions{}
+			}
+			return p.layoutPositionImportReceipt(gtx, view)
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.id != "" {
@@ -278,7 +311,7 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 				return p.layoutPortfolioTabs(gtx, view)
 			}
 			return (ui.Column{Gap: ui.Space12}).Layout(gtx,
-				ui.Rigid(portfolioSummary(view, p.current.summary)),
+				ui.Rigid(portfolioSummary(view, p.current.summary, refreshingLoadedRoot)),
 				ui.Rigid(func(gtx layout.Context) layout.Dimensions { return p.layoutPortfolioTabs(gtx, view) }),
 			)
 		}),
@@ -301,14 +334,45 @@ func (p *portfolioPage) layout(gtx layout.Context, view ui.View) layout.Dimensio
 			}
 			rows := p.rows(view)
 			gap := ui.Space12
-			if p.id == "" && p.tabs.active == portfolioHoldingsTab && ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, holdingTableWidth) {
-				gap = ui.Space4
+			if p.id == "" && p.tabs.active == portfolioHoldingsTab {
+				return pageListGapWithRowOrigins(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), 0, p.holdings.listOrigin, &p.holdings.rowHeights,
+					func(origin image.Point, width, _ int) {
+						p.holdings.rowOrigin, p.holdings.rowWidth = origin, width
+					}, func(gtx layout.Context, i int) layout.Dimensions {
+						return rows[i](gtx)
+					})
+			}
+			if p.id == "" && p.tabs.active == portfolioInstruments {
+				return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), 0, func(gtx layout.Context, i int) layout.Dimensions {
+					return rows[i](gtx)
+				})
 			}
 			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavPortfolio), len(rows), gap, func(gtx layout.Context, i int) layout.Dimensions {
 				return rows[i](gtx)
 			})
 		}),
 	)
+	columnGap := ui.Space12
+	if p.id == "" && p.current != nil && p.tabs.active == portfolioHoldingsTab {
+		// The holdings page has its own compact filter toolbar directly under
+		// the portfolio tabs. Keep this stack closer to the first group header.
+		columnGap = ui.Space8
+	} else if p.id != "" && p.detail.visit.section == instrumentDetailPerformance {
+		columnGap = ui.Space8
+	}
+	return (ui.Column{Gap: columnGap}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
+		if index == len(children)-1 {
+			p.holdings.listOrigin = origin
+		}
+	}, children...)
+}
+
+func (p *portfolioPage) positionImported(activity domain.Activity, notice i18n.MessageID, _ event.Tag) {
+	p.positionReceipt = &portfolioPositionReceipt{activity: activity.ID, message: notice}
+	if p.investment != nil {
+		p.investment.restore = &p.investment.importOpen
+	}
+	p.read()
 }
 
 func (p *portfolioPage) canImportPosition() bool {
@@ -329,7 +393,7 @@ func (p *portfolioPage) rows(view ui.View) []layout.Widget {
 	}
 }
 
-func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Widget {
+func portfolioSummary(view ui.View, summary domain.PortfolioValuation, refreshing bool) layout.Widget {
 	l := view.Language
 	quality := summary.DisplayValuation.Quality
 	status, tone := i18n.OverviewCurrentEstimate, ui.BadgeSuccess
@@ -354,10 +418,16 @@ func portfolioSummary(view ui.View, summary domain.PortfolioValuation) layout.Wi
 		return (ui.Column{Gap: ui.Space4}).Layout(gtx,
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				base := fmt.Sprintf(l.Text(i18n.OverviewBaseCurrency), summary.Currency)
-				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx,
+				children := []layout.FlexChild{
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions { return view.Badge(gtx, tone, l.Text(status)) }),
 					layout.Rigid(view.Body(ui.TextCaption, base, view.Colors.SecondaryInk)),
-				)
+				}
+				if refreshing {
+					children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return view.Badge(gtx, ui.BadgeNeutral, l.Text(i18n.OverviewRefreshing))
+					}))
+				}
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space8)}.Layout(gtx, children...)
 			}),
 			ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return overviewEvidence(gtx, view, quality, i18n.OverviewQuoteDates)

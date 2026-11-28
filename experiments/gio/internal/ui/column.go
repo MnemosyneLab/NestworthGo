@@ -51,6 +51,17 @@ const DefaultMinFill unit.Dp = 220
 
 // Layout lays the rows out. Rigid rows see no height limit.
 func (c Column) Layout(gtx layout.Context, children ...ColumnChild) layout.Dimensions {
+	return c.layout(gtx, image.Point{}, nil, children...)
+}
+
+// LayoutWithOrigins lays out a Column and reports each child's window-relative
+// origin. The fill child is reported before it is laid out, which lets nested
+// layouts that register an anchored popup use the position of their viewport.
+func (c Column) LayoutWithOrigins(gtx layout.Context, origin image.Point, onOrigin func(index int, at image.Point), children ...ColumnChild) layout.Dimensions {
+	return c.layout(gtx, origin, onOrigin, children...)
+}
+
+func (c Column) layout(gtx layout.Context, origin image.Point, onOrigin func(index int, at image.Point), children ...ColumnChild) layout.Dimensions {
 	height := gtx.Constraints.Max.Y
 	if height >= unbounded {
 		height = gtx.Constraints.Min.Y
@@ -86,6 +97,13 @@ func (c Column) Layout(gtx layout.Context, children ...ColumnChild) layout.Dimen
 		total += gap * (len(children) - 1)
 	}
 	if fill >= 0 {
+		if onOrigin != nil {
+			y := 0
+			for i := 0; i < fill; i++ {
+				y += rows[i].size.Y + gap
+			}
+			onOrigin(fill, origin.Add(image.Pt(0, y)))
+		}
 		filled := child
 		filled.Constraints.Max.Y = max(height-total, minFill)
 		filled.Constraints.Min.Y = filled.Constraints.Max.Y
@@ -97,7 +115,10 @@ func (c Column) Layout(gtx layout.Context, children ...ColumnChild) layout.Dimen
 	}
 
 	y := 0
-	for _, row := range rows {
+	for i, row := range rows {
+		if onOrigin != nil && i != fill {
+			onOrigin(i, origin.Add(image.Pt(0, y)))
+		}
 		stack := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
 		row.call.Add(gtx.Ops)
 		stack.Pop()

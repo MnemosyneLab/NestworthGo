@@ -58,6 +58,7 @@ type accountInvestmentDraft struct {
 	selectAccount                        ui.Select
 	accounts                             []domain.Account
 	pickAccount, focusAccount            bool
+	contextualSheet                      bool
 	datePicker                           ui.DatePicker
 	timePicker                           ui.TimePicker
 	cancel, retry, preview, edit         widget.Clickable

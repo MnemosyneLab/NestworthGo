@@ -25,17 +25,19 @@ type portfolioAllocation struct {
 	dates       analysisDateShortcuts
 	window      analysisDateWindow
 
-	request   <-chan historyResult[domain.PortfolioTrend]
-	cancel    context.CancelFunc
-	period    domain.TrendRange
-	queriedOn string
-	current   *domain.PortfolioTrend
-	stale     bool
-	err       error
-	retry     widget.Clickable
-	chart     charts.LineChart
-	table     chartDataTable
-	selected  charts.Selection
+	request     <-chan historyResult[domain.PortfolioTrend]
+	cancel      context.CancelFunc
+	period      domain.TrendRange
+	queriedOn   string
+	current     *domain.PortfolioTrend
+	stale       bool
+	err         error
+	retry       widget.Clickable
+	chart       charts.LineChart
+	table       chartDataTable
+	selected    charts.Selection
+	stackLegend bool
+	chartWidth  int
 }
 
 type portfolioAllocationVisit struct {
@@ -195,7 +197,7 @@ func portfolioTrendSpec(view ui.View, trend domain.PortfolioTrend) charts.LineSp
 		FormatValue: func(value float64) string { return chartAxisNumber(view, value) },
 		Messages:    charts.Messages{Empty: l.Text(i18n.PortfolioTrendEmpty), Missing: l.Text(i18n.OverviewNoValue), Selected: l.Text(i18n.ChartSelected)},
 	}
-	series := charts.LineSeries{ID: "portfolio-valued-holdings", Name: l.Text(i18n.PortfolioValuedHoldings)}
+	series := charts.LineSeries{ID: "portfolio-valued-holdings", Name: l.Text(i18n.AccountValuedSubtotal)}
 	for _, point := range trend.Points {
 		date, ok := ui.ParseCivilDay(point.LocalDate)
 		if !ok {
@@ -219,12 +221,14 @@ func portfolioTrendSpec(view ui.View, trend domain.PortfolioTrend) charts.LineSp
 func portfolioTrendTable(view ui.View, trend domain.PortfolioTrend, selected charts.Selection) charts.Table {
 	l := view.Language
 	table := charts.Table{Columns: []charts.TableColumn{{Title: l.Text(i18n.ChartDate)},
-		{Title: l.Text(i18n.PortfolioValuedHoldings), Numeric: true}, {Title: l.Text(i18n.OverviewKnownSubtotal), Numeric: true},
+		{Title: l.Text(i18n.AccountValuedSubtotal), Numeric: true}, {Title: l.Text(i18n.OverviewKnownSubtotal), Numeric: true},
 		{Title: l.Text(i18n.ChartCoverage), Wrap: true}}, Selected: charts.NoRow}
 	for i, point := range trend.Points {
 		total, subtotal := l.Text(i18n.OverviewNoValue), l.Text(i18n.OverviewNoValue)
 		if value := portfolioTrendTotal(point); value != nil {
 			total = valuationMoney(view, *value, false)
+		} else if value := point.DisplayValuation.KnownSubtotal; value != nil {
+			total = valuationMoney(view, *value, false) + " · " + l.Text(i18n.PortfolioTrendPartial)
 		}
 		if value := point.DisplayValuation.KnownSubtotal; value != nil {
 			subtotal = valuationMoney(view, *value, false)
@@ -245,7 +249,7 @@ func portfolioTrendDetails(view ui.View, point domain.PortfolioTrendPoint) []str
 	case portfolioTrendTotal(point) == nil:
 		label = i18n.OverviewNoValue
 		if point.DisplayValuation.KnownSubtotal != nil {
-			label = i18n.OverviewKnownSubtotal
+			label = i18n.PortfolioTrendPartial
 		}
 	case point.Current:
 		label = i18n.OverviewCurrentEstimate
@@ -255,8 +259,16 @@ func portfolioTrendDetails(view ui.View, point domain.PortfolioTrendPoint) []str
 		label = i18n.PortfolioTrendVerified
 	}
 	parts := []string{l.Text(label)}
-	if count := max(point.MissingCount, q.UnpricedCount); count > 0 {
-		parts = append(parts, fmt.Sprintf(l.Text(i18n.WealthHistoryMissing), count))
+	count := q.UnpricedCount
+	if count == 0 {
+		count = point.MissingCount
+	}
+	if count > 0 {
+		message := i18n.PortfolioTrendUnpricedMany
+		if count == 1 {
+			message = i18n.PortfolioTrendUnpricedOne
+		}
+		parts = append(parts, fmt.Sprintf(l.Text(message), count))
 	}
 	return append(parts, trendQuoteCoverage(view, q)...)
 }

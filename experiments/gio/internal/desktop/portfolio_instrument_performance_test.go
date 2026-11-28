@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/io/key"
 	"github.com/google/uuid"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
@@ -194,9 +196,59 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	}
 	label("30-day return")
 	label("Annualized · 243.33%")
+	h.size = image.Pt(900, 600)
+	h.shell.prefs.saved.Language = settings.LanguageZhCN
+	h.shell.prefs.saved.Appearance = settings.AppearanceDark
+	settle()
+	assertPageLabel(t, &h.router, "+20.00%")
+	chartSummary := semanticBoundsContaining(&h.router, i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceBasis))
+	weeklyClose := semanticBoundsContaining(&h.router, "EUR 105")
+	visible := func(bounds []image.Rectangle) bool {
+		for _, rect := range bounds {
+			if rect.Min.Y >= 0 && rect.Min.Y < h.size.Y {
+				return true
+			}
+		}
+		return false
+	}
+	if len(chartSummary) != 0 || !visible(weeklyClose) {
+		t.Fatalf("the 900×600 chart should show its daily close without repeating the basis note: summary %v, weekly close %v", chartSummary, weeklyClose)
+	}
+	infoLabel := i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceInfo)
+	h.click(infoLabel, false)
+	settle()
+	if len(semanticBoundsContaining(&h.router, i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceBasis))) == 0 {
+		t.Fatal("the performance info affordance did not reveal the price-basis explanation")
+	}
+	h.click(infoLabel, false)
+	settle()
+	if len(semanticBoundsContaining(&h.router, i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceBasis))) != 0 {
+		t.Fatal("the performance info affordance did not hide the price-basis explanation")
+	}
+	h.size = image.Pt(1280, 800)
+	settle()
+	tableAction := semanticBounds(t, &h.router, i18n.SimplifiedChinese.Text(i18n.ChartDataTable), false)
+	returnsStart := assertPageLabel(t, &h.router, fmt.Sprintf(i18n.SimplifiedChinese.Text(i18n.PortfolioPerformanceDays), 30))
+	returnsLine := semanticTextLineBounds(returnsStart, ui.TextCaption)
+	info := semanticBounds(t, &h.router, infoLabel, false)
+	dateText := performanceDateRange(ui.View{Language: i18n.SimplifiedChinese, DateFormat: h.shell.prefs.saved.DateFormat}, "2026-09-14", "2026-10-14")
+	dateLine := semanticTextLineBounds(assertPageLabel(t, &h.router, dateText), ui.TextCaption)
+	if tableAction.Min.Y >= h.size.Y || returnsLine.Max.Y > h.size.Y {
+		t.Fatalf("the 1280×800 single-card performance layout should show its table launcher and returns below: table %v, returns %v", tableAction, returnsStart)
+	}
+	if dateLine.Empty() || info.Min.X < dateLine.Max.X || info.Min.X-dateLine.Max.X > h.metric().Dp(ui.Space8)+2 {
+		t.Fatalf("the price-basis info action should sit beside its date range: date %v, info %v", dateLine, info)
+	}
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	h.size = image.Pt(1280, 1080)
+	settle()
 	h.size = image.Pt(665, 480)
 	settle()
-	click("Last week")
+	h.router.Source().Execute(key.FocusCmd{Tag: &perf.buttons[0]})
+	h.frame()
+	h.focused(&perf.buttons[0])
+	h.press(key.NameReturn)
+	settle()
 	checkSeries(fixture.full.ID, 7, "14.2857142857142857142857", "")
 	label("+14.29%")
 	h.size = image.Pt(1280, 1080)
@@ -204,7 +256,11 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	click("All history")
 	checkSeries(fixture.full.ID, 0, "50", "")
 	label("+50.00%")
-	click("View data table")
+	h.router.Source().Execute(key.FocusCmd{Tag: &perf.table.toggle})
+	h.frame()
+	h.focused(&perf.table.toggle)
+	h.press(key.NameReturn)
+	settle()
 	if !perf.table.open || probe.returnsCalls.Load() != 2 {
 		t.Fatal("chart period changed the fixed returns or failed to open the saved-price table")
 	}
@@ -248,7 +304,13 @@ func TestPortfolioInstrumentPerformanceMatchesWails(t *testing.T) {
 	click("Note")
 	click("Market performance")
 	checkSeries(fixture.manual.ID, 30, "", "insufficient_daily_history")
+	click("About price performance")
 	label("Price and NAV changes describe this instrument, not your personal return.")
+	label("Price or unit NAV change from saved daily observations.")
+	click("About price performance")
+	if findPageLabel(&h.router, "Price and NAV changes describe this instrument, not your personal return.") != nil {
+		t.Fatal("the performance information affordance did not close its explanation")
+	}
 	label("No daily price history yet")
 	label("Record or sync daily closing prices. Timestamped manual prices are available in Market Data.")
 	if len(perf.series.value.Points) != 0 {

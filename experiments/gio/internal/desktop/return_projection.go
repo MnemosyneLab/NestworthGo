@@ -336,6 +336,49 @@ func pageListGap(gtx layout.Context, view ui.View, list *widget.List, title stri
 	return dims
 }
 
+// pageListGapWithRowOrigins lays out the same compact page list while
+// reporting each visible row's window-relative origin. This keeps overlays
+// attached to their trigger when variable-height rows live in a scrolling
+// list.
+func pageListGapWithRowOrigins(gtx layout.Context, view ui.View, list *widget.List, title string, count int, gap unit.Dp, viewportOrigin image.Point, rowHeights *[]int, setRowOrigin func(image.Point, int, int), row layout.ListElement) layout.Dimensions {
+	list.Axis = layout.Vertical
+	bleed := gtx.Dp(pageInset.Right)
+	gtx.Constraints.Max.X += bleed
+	gtx.Constraints.Min.X = gtx.Constraints.Max.X
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+	if len(*rowHeights) != count {
+		*rowHeights = make([]int, count)
+	}
+	first, offset, havePosition := 0, 0, false
+	dims := keyboardList(gtx, view, list, title, count, func(gtx layout.Context, i int) layout.Dimensions {
+		return layout.Inset{Right: pageInset.Right, Bottom: gap}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			if !havePosition {
+				first, offset, havePosition = list.Position.First, list.Position.Offset, true
+			}
+			y := -offset
+			if i >= first {
+				for row := first; row < i && row < len(*rowHeights); row++ {
+					y += (*rowHeights)[row]
+				}
+			} else {
+				for row := i; row < first && row < len(*rowHeights); row++ {
+					y -= (*rowHeights)[row]
+				}
+			}
+			if setRowOrigin != nil {
+				setRowOrigin(viewportOrigin.Add(image.Pt(0, y)), gtx.Constraints.Max.X, i)
+			}
+			rowDims := row(gtx, i)
+			(*rowHeights)[i] = rowDims.Size.Y + gtx.Dp(gap)
+			return rowDims
+		})
+	})
+	if gtx.Focused(list) {
+		ui.StrokeRoundRect(gtx, image.Rectangle{Max: dims.Size}, ui.RadiusXL, 2, ui.WithAlpha(view.Colors.Accent, 0.5))
+	}
+	return dims
+}
+
 // keyboardList makes a list a single tab stop that scrolls with the arrow,
 // page, Home and End keys.
 func keyboardList(gtx layout.Context, view ui.View, list *widget.List, title string, count int, row layout.ListElement) layout.Dimensions {

@@ -2,9 +2,12 @@ package desktop
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -326,11 +329,145 @@ type marketRowSpec struct {
 	name, subtitle, caption string
 	badges                  []marketBadge
 	value, evidence         string
+	catalogActions          bool
+	actionLabels            []string
 }
 
 type marketBadge struct {
 	tone ui.BadgeTone
 	text string
+}
+
+func marketTextWidth(gtx layout.Context, view ui.View, style ui.TextStyle, value string) int {
+	if value == "" {
+		return 0
+	}
+	gtx.Constraints = layout.Constraints{Max: image.Pt(1<<16, 1<<16)}
+	macro := op.Record(gtx.Ops)
+	label := view.TextLabelStyle(style, value, view.Colors.Ink)
+	label.MaxLines = 1
+	width := label.Layout(gtx).Size.X
+	macro.Stop()
+	if width > gtx.Sp(style.Size) {
+		return width
+	}
+	// Software-only Gio tests have no registered platform font faces, so the
+	// shaper can report one em for every string. Keep a conservative intrinsic
+	// width floor there; native windows use the actual shaped width above.
+	fallback, em := 0, gtx.Sp(style.Size)
+	for _, r := range value {
+		fallback += marketFallbackRuneWidth(em, r)
+	}
+	return max(width, fallback)
+}
+
+func marketFallbackRuneWidth(em int, r rune) int {
+	switch {
+	case unicode.Is(unicode.Han, r), unicode.Is(unicode.Hiragana, r), unicode.Is(unicode.Katakana, r), unicode.Is(unicode.Hangul, r):
+		return em
+	case unicode.IsSpace(r):
+		return max(1, em/3)
+	case unicode.IsPunct(r):
+		return max(1, em*2/5)
+	case unicode.IsSymbol(r):
+		return em
+	default:
+		// Generic fallbacks can be wider than the Latin face used in local
+		// screenshots. Bias toward common sans-serif glyph advances instead
+		// of assuming a narrow geometric face.
+		return max(1, em*3/5)
+	}
+}
+
+func marketRowActionsAreTrailing(gtx layout.Context, view ui.View, spec marketRowSpec, actionCount int) bool {
+	return gtx.Constraints.Max.X >= marketRowActionsMinimumWidth(gtx, view, spec, actionCount)
+}
+
+func marketRowActionsMinimumWidth(gtx layout.Context, view ui.View, spec marketRowSpec, actionCount int) int {
+	if spec.catalogActions {
+		return marketCatalogIdentityWidth(gtx, view, spec) + marketCatalogQuoteWidth(gtx, view, spec) +
+			marketCatalogActionWidth(gtx, view, spec.actionLabels) + 2*gtx.Dp(ui.Space12)
+	}
+	leftWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.name),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.subtitle),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.caption),
+	)
+	for _, badge := range spec.badges {
+		leftWidth = max(leftWidth, marketTextWidth(gtx, view, ui.TextCaptionStrong, badge.text)+gtx.Dp(16))
+	}
+	figureWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.value),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.evidence),
+	)
+	children, fixed := 3, gtx.Dp(32)
+	if actionCount > 0 {
+		children++
+		fixed += min(gtx.Constraints.Max.X, gtx.Dp(300))
+	}
+	fixed += gtx.Dp(ui.Space16) * (children - 1)
+	return fixed + 2*max(leftWidth, figureWidth)
+}
+
+func marketCatalogActionWidth(gtx layout.Context, view ui.View, labels []string) int {
+	width := 0
+	for index, label := range labels {
+		if index > 0 {
+			width += gtx.Dp(ui.Space6)
+		}
+		width += marketTextWidth(gtx, view, ui.TextCaption, label) + 2*gtx.Dp(ui.Space12)
+	}
+	return width
+}
+
+func marketCatalogMetadataWidth(gtx layout.Context, view ui.View, spec marketRowSpec) int {
+	width, children := 0, 0
+	if spec.caption != "" {
+		width = marketTextWidth(gtx, view, ui.TextCaption, spec.caption)
+		children++
+	}
+	for _, badge := range spec.badges {
+		if children > 0 {
+			width += gtx.Dp(ui.Space6)
+		}
+		width += marketTextWidth(gtx, view, ui.TextCaptionStrong, badge.text) + gtx.Dp(ui.Space16)
+		children++
+	}
+	return width
+}
+
+func marketCatalogIdentityWidth(gtx layout.Context, view ui.View, spec marketRowSpec) int {
+	labelWidth := max(
+		marketTextWidth(gtx, view, ui.TextLabel, spec.name),
+		marketTextWidth(gtx, view, ui.TextCaption, spec.subtitle),
+	)
+	width := gtx.Dp(20+ui.Space8) + labelWidth
+	if len(spec.badges) > 0 {
+		width += gtx.Dp(ui.Space8) + marketCatalogMetadataWidth(gtx, view, spec)
+	}
+	return width
+}
+
+func marketCatalogQuoteWidth(gtx layout.Context, view ui.View, spec marketRowSpec) int {
+	width := marketTextWidth(gtx, view, ui.TextLabel, spec.value)
+	if spec.evidence != "" {
+		width += gtx.Dp(ui.Space8) + marketTextWidth(gtx, view, ui.TextCaption, spec.evidence)
+	}
+	return width
+}
+
+func marketCatalogCompactFits(gtx layout.Context, view ui.View, spec marketRowSpec) bool {
+	if !spec.catalogActions || len(spec.actionLabels) == 0 {
+		return false
+	}
+	innerWidth := gtx.Constraints.Max.X
+	gap := gtx.Dp(ui.Space12)
+	identityWidth := marketCatalogIdentityWidth(gtx, view, spec)
+	actionWidth := marketCatalogActionWidth(gtx, view, spec.actionLabels)
+	if identityWidth+gap+actionWidth > innerWidth {
+		return false
+	}
+	return marketCatalogQuoteWidth(gtx, view, spec) <= innerWidth
 }
 
 // marketBadges are the currency and quote-source chips of a row.
@@ -354,6 +491,12 @@ func marketBadges(view ui.View, currency string, source domain.QuoteSourceKind) 
 func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions []layout.Widget) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
 		return view.RowCard(gtx, first, last, func(gtx layout.Context) layout.Dimensions {
+			// Catalog cards are intrinsic-height rows. The page scroll container
+			// can hand children a tall minimum constraint; carrying that through a
+			// compact row vertically centers identity and actions in unused space.
+			if spec.catalogActions {
+				gtx.Constraints.Min.Y = 0
+			}
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space16}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				colors := view.Colors
@@ -387,13 +530,149 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 					}
 				}
 				buttons := marketActionRow(view, actions)
+				if spec.catalogActions {
+					catalogIcon := func(gtx layout.Context) layout.Dimensions {
+						return view.IconTile(gtx, spec.icon, 20, colors.Tint(colors.Accent, 0.10), colors.Accent)
+					}
+					catalogIdentity := func(gtx layout.Context) layout.Dimensions {
+						assignedWidth := gtx.Constraints.Min.X
+						count := 2 + len(spec.badges)
+						dims := ui.Wrap{Gap: ui.Space8, Middle: true}.Layout(gtx, count, func(gtx layout.Context, index int) layout.Dimensions {
+							switch {
+							case index == 0:
+								return catalogIcon(gtx)
+							case index == 1:
+								children := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return view.Line(gtx, ui.TextLabel, spec.name, colors.Ink)
+								})}
+								if spec.subtitle != "" {
+									children = append(children, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+										return view.Line(gtx, ui.TextCaption, spec.subtitle, colors.SecondaryInk)
+									}))
+								}
+								return (ui.Column{}).Layout(gtx, children...)
+							default:
+								badge := spec.badges[index-2]
+								return view.Badge(gtx, badge.tone, badge.text)
+							}
+						})
+						// Wrap reports its intrinsic width. Preserve the Flexed slot
+						// assigned by the parent so row actions stay on one trailing edge.
+						dims.Size.X = max(dims.Size.X, assignedWidth)
+						return dims
+					}
+					catalogQuote := func(gtx layout.Context) layout.Dimensions {
+						width := marketCatalogQuoteWidth(gtx, view, spec)
+						gtx.Constraints = layout.Constraints{Min: image.Pt(width, 0), Max: image.Pt(width, gtx.Constraints.Max.Y)}
+						line := func(style ui.TextStyle, content string, fg color.NRGBA) layout.Widget {
+							return func(gtx layout.Context) layout.Dimensions {
+								width := marketTextWidth(gtx, view, style, content)
+								gtx.Constraints = layout.Constraints{Min: image.Pt(width, 0), Max: image.Pt(width, gtx.Constraints.Max.Y)}
+								return view.Line(gtx, style, content, fg)
+							}
+						}
+						children := []layout.FlexChild{layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return line(ui.TextLabel, spec.value, colors.Ink)(gtx)
+						})}
+						if spec.evidence != "" {
+							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Spacer{Width: ui.Space8}.Layout(gtx)
+							}), layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return line(ui.TextCaption, spec.evidence, colors.SecondaryInk)(gtx)
+							}))
+						}
+						return layout.Flex{Alignment: layout.Middle}.Layout(gtx, children...)
+					}
+					compactCatalog := func(gtx layout.Context) layout.Dimensions {
+						return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+							ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+									layout.Flexed(1, catalogIdentity), layout.Rigid(buttons))
+							}),
+							ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.E.Layout(gtx, catalogQuote)
+							}),
+						)
+					}
+					wideCatalog := func(gtx layout.Context) layout.Dimensions {
+						return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+							layout.Flexed(1, catalogIdentity), layout.Rigid(catalogQuote), layout.Rigid(buttons))
+					}
+					fits := marketCatalogCompactFits(gtx, view, spec)
+					if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium) && marketRowActionsAreTrailing(gtx, view, spec, len(actions)) {
+						return wideCatalog(gtx)
+					}
+					if fits {
+						return compactCatalog(gtx)
+					}
+				}
+				compactCatalog := func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Min.Y = 0
+					metadata := func(gtx layout.Context) layout.Dimensions {
+						count := len(spec.badges) + boolInt(spec.caption != "")
+						return ui.Wrap{Gap: ui.Space6, Middle: true}.Layout(gtx, count, func(gtx layout.Context, index int) layout.Dimensions {
+							if spec.caption != "" {
+								if index == 0 {
+									return view.Line(gtx, ui.TextCaption, spec.caption, colors.SecondaryInk)
+								}
+								index--
+								return view.Badge(gtx, spec.badges[index].tone, spec.badges[index].text)
+							}
+							return view.Badge(gtx, spec.badges[index].tone, spec.badges[index].text)
+						})
+					}
+					figuresEnd := func(gtx layout.Context) layout.Dimensions {
+						children := []layout.FlexChild{
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return view.LineEnd(gtx, ui.TextLabel, spec.value, colors.Ink)
+							}),
+						}
+						if spec.evidence != "" {
+							children = append(children,
+								layout.Rigid(layout.Spacer{Height: ui.Space4}.Layout),
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return view.LineEnd(gtx, ui.TextCaption, spec.evidence, colors.SecondaryInk)
+								}),
+							)
+						}
+						return layout.Flex{Axis: layout.Vertical, Alignment: layout.End, Gap: gtx.Dp(ui.Space4)}.Layout(gtx, children...)
+					}
+					// Flex records operations at the current origin. Build each row
+					// inside Column's child callback so its text, quote, and actions
+					// are replayed together at that row's actual vertical offset.
+					return (ui.Column{Gap: ui.Space4}).Layout(gtx,
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+								layout.Rigid(tile),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									return view.Line(gtx, ui.TextLabel, spec.name, colors.Ink)
+								}),
+								layout.Rigid(buttons),
+							)
+						}),
+						ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
+								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									return layout.Spacer{Width: ui.Space32 + ui.Space12}.Layout(gtx)
+								}),
+								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+									width := gtx.Constraints.Max.X
+									dims := metadata(gtx)
+									dims.Size.X = width
+									return dims
+								}),
+								layout.Flexed(1, figuresEnd),
+							)
+						}),
+					)
+				}
 				fill := func(w layout.Widget) layout.Widget {
 					return func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 						return w(gtx)
 					}
 				}
-				if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, 900) {
+				horizontal := func(gtx layout.Context) layout.Dimensions {
 					children := []layout.FlexChild{
 						layout.Rigid(tile), layout.Flexed(1, fill(left)), layout.Flexed(1, fill(figures())),
 					}
@@ -406,6 +685,20 @@ func marketQuoteRow(view ui.View, first, last bool, spec marketRowSpec, actions 
 						}))
 					}
 					return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space16)}.Layout(gtx, children...)
+				}
+				if spec.catalogActions {
+					compactFits := marketCatalogCompactFits(gtx, view, spec)
+					if !ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium) && compactFits {
+						return compactCatalog(gtx)
+					}
+					if ui.WidthAtLeast(gtx, gtx.Constraints.Max.X, ui.BreakpointMedium) && marketRowActionsAreTrailing(gtx, view, spec, len(actions)) {
+						return horizontal(gtx)
+					}
+					if compactFits {
+						return compactCatalog(gtx)
+					}
+				} else if marketRowActionsAreTrailing(gtx, view, spec, len(actions)) {
+					return horizontal(gtx)
 				}
 				body := []ui.ColumnChild{ui.Rigid(left), ui.Rigid(figures())}
 				if len(actions) > 0 {

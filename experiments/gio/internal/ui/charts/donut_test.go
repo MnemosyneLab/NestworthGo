@@ -89,6 +89,34 @@ func TestDonutPickRingAndLegend(t *testing.T) {
 	}
 }
 
+func TestBalancedDonutSlotsKeepRingAndLegendCenteredInTheirColumns(t *testing.T) {
+	spec := DonutSpec{BalancedSlots: true, Slices: []Slice{{ID: "stock", Value: Num(74)}, {ID: "fund", Value: Num(26)}}}
+	g := donutGeometryFor(920, false, 2)
+	g.balancedSlots = true
+	p := spec.plan(g)
+	slot := g.width / 2
+	if got := int(p.center.X); got != slot/2 {
+		t.Fatalf("ring center x = %d, want left slot center %d", got, slot/2)
+	}
+	if p.legend.Min.X != slot+g.gap || p.legend.Max.X != g.width {
+		t.Fatalf("legend bounds = %v, want right slot [%d,%d)", p.legend, slot+g.gap, g.width)
+	}
+	for i, sl := range p.slices {
+		if !sl.row.In(p.legend) {
+			t.Fatalf("legend row %d %v escaped balanced legend %v", i, sl.row, p.legend)
+		}
+		at := sl.row.Min.Add(image.Pt(3, 3))
+		if sel, ok := p.pick(at); !ok || sel.Item != sl.sel.Item {
+			t.Fatalf("legend click %d selected %v (%v), want %s", i, sel, ok, sl.sel.Item)
+		}
+	}
+	mid := (p.outer + p.inner) / 2
+	ring := image.Pt(int(p.center.X+float32(mid)), int(p.center.Y))
+	if sel, ok := p.pick(ring); !ok || sel.Item != "stock" {
+		t.Fatalf("ring selection = %v (%v), want stock", sel, ok)
+	}
+}
+
 func TestDonutPlanStackedFitsNarrowWidth(t *testing.T) {
 	spec := DonutSpec{Slices: []Slice{{ID: "a", Value: Num(1)}, {ID: "b", Value: Num(2)}, {ID: "c", Value: Num(3)}}}
 	g := donutGeometryFor(280, true, 3)
@@ -105,6 +133,24 @@ func TestDonutPlanStackedFitsNarrowWidth(t *testing.T) {
 	wide := spec.plan(donutGeometryFor(700, false, 3))
 	if wide.legend.Min.X < 240 {
 		t.Fatalf("side legend %v overlaps the ring", wide.legend)
+	}
+}
+
+func TestDonutStackedDiameterCanBeCappedForItsOwningView(t *testing.T) {
+	r := newRig(700, false)
+	base := DonutSpec{Label: "Composition", StackLegend: true, CenterCaption: "Holdings", CenterValue: "$60",
+		Slices: []Slice{{ID: "a", Label: "Stocks", Value: Num(40), Text: "$40", Share: "67%"},
+			{ID: "b", Label: "Funds", Value: Num(20), Text: "$20", Share: "33%"}}}
+	var standard, capped DonutChart
+	standardSize, _ := r.frame(func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return standard.Layout(gtx, view, base)
+	}, Selection{})
+	base.StackedDiameter = 224
+	cappedSize, _ := r.frame(func(gtx layout.Context, view ui.View, _ Selection) (layout.Dimensions, []Event) {
+		return capped.Layout(gtx, view, base)
+	}, Selection{})
+	if standardSize.Y-cappedSize.Y != 76 {
+		t.Fatalf("a view-local 224dp cap changed stacked height by %dpx, want only the 76px ring difference (standard %v, capped %v)", standardSize.Y-cappedSize.Y, standardSize, cappedSize)
 	}
 }
 

@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -11,7 +12,10 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
@@ -177,19 +181,19 @@ func (p *portfolioPage) catalogControls(gtx layout.Context, view ui.View) layout
 			c.focus = nil
 		}
 	}
-	return (ui.Column{Gap: ui.Space8}).Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return c.search.Layout(ui.LimitWidth(gtx, 440), view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
-				p.list.Position = layout.Position{}
-				gtx.Execute(op.InvalidateCmd{})
-			})
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if c.notice == i18n.NoMessage {
-				return layout.Dimensions{}
-			}
+	rows := []ui.ColumnChild{ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return c.search.Layout(gtx, view, i18n.MarketSearch, i18n.MarketSearchHint, func(string) {
+			p.list.Position = layout.Position{}
+			gtx.Execute(op.InvalidateCmd{})
+		})
+	})}
+	if c.notice != i18n.NoMessage {
+		rows = append(rows, ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return view.Message(view.Language.Text(c.notice), view.Colors.Ink)(gtx)
 		}))
+	}
+	return (ui.Column{Gap: ui.Space8}).Layout(gtx, rows...)
 }
 
 func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
@@ -200,7 +204,7 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 	}
 	query := normalizeDirectoryQuery(c.search.Field.Text())
 	grouped := make(map[domain.InstrumentType][]domain.Instrument)
-	for _, item := range catalog.instruments {
+	for _, item := range sortPortfolioCatalogInstruments(catalog.instruments, l) {
 		if catalogMatches(item, query) {
 			grouped[item.Type] = append(grouped[item.Type], item)
 		}
@@ -211,7 +215,11 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 		if len(items) == 0 {
 			continue
 		}
+		if len(rows) > 0 {
+			rows = append(rows, portfolioSpacer(ui.Space12))
+		}
 		rows = append(rows, view.Body(ui.TextHeading, l.Text(marketInstrumentTypes[kind]), view.Colors.Ink))
+		rows = append(rows, portfolioSpacer(ui.Space8))
 		for i, item := range items {
 			rows = append(rows, p.catalogRow(view, item, catalog, i == 0, i == len(items)-1))
 		}
@@ -226,9 +234,50 @@ func (p *portfolioPage) catalogRows(view ui.View) []layout.Widget {
 	return rows
 }
 
+func portfolioSpacer(height unit.Dp) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Spacer{Height: height}.Layout(gtx)
+	}
+}
+
+// Wails groups by domain type, then sorts each group by quote currency and
+// display label. Sorting the flattened slice first produces the same ordering
+// while retaining the existing type-section layout.
+func sortPortfolioCatalogInstruments(items []domain.Instrument, locale i18n.Language) []domain.Instrument {
+	result := slices.Clone(items)
+	types := domain.AllInstrumentTypes()
+	col := collate.New(language.Make(string(locale)))
+	slices.SortStableFunc(result, func(a, b domain.Instrument) int {
+		aType, bType := slices.Index(types, a.Type), slices.Index(types, b.Type)
+		if aType < 0 {
+			aType = len(types)
+		}
+		if bType < 0 {
+			bType = len(types)
+		}
+		if order := cmp.Compare(aType, bType); order != 0 {
+			return order
+		}
+		if a.Type != b.Type {
+			return col.CompareString(string(a.Type), string(b.Type))
+		}
+		if order := col.CompareString(a.QuoteCurrency.String(), b.QuoteCurrency.String()); order != 0 {
+			return order
+		}
+		return col.CompareString(a.DisplayLabel(), b.DisplayLabel())
+	})
+	return result
+}
+
 func catalogMatches(item domain.Instrument, query string) bool {
-	facts := strings.Join([]string{item.Name, item.ShortName, productString(item.Symbol), productString(item.ISIN),
-		productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()}, " ")
+	var fields []string
+	for _, value := range []string{item.ShortName, item.Name, productString(item.Symbol), productString(item.ISIN),
+		productString(item.MarketCode), productString(item.ProviderSymbol), item.QuoteCurrency.String()} {
+		if value = strings.TrimSpace(value); value != "" {
+			fields = append(fields, value)
+		}
+	}
+	facts := strings.Join(fields, " ")
 	return strings.Contains(normalizeDirectoryQuery(facts), query)
 }
 
@@ -242,6 +291,9 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 	}
 	managed := catalog.managed[item.ID.String()] != ""
 	badges := marketBadges(view, item.QuoteCurrency.String(), item.QuoteSource)
+	if source := instrumentQuoteSources[item.QuoteSource]; source != i18n.NoMessage && len(badges) > 0 {
+		badges[len(badges)-1].text = l.Text(source)
+	}
 	if item.ArchivedAt != nil {
 		badges = append(badges, marketBadge{ui.BadgeNeutral, l.Text(i18n.DirectoryArchived)})
 	}
@@ -252,10 +304,10 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 	if icon == nil {
 		icon = lucide.TrendingUp
 	}
-	value, evidence := l.Text(i18n.MarketNoQuote), ""
+	value, evidence := l.Text(i18n.MarketNoCurrentPrice), ""
 	if q := catalog.quotes[item.ID]; q != nil {
-		value = l.Text(i18n.PortfolioInstrumentLatestQuote) + " · " + instrumentCurrentQuotePrice(view, item, *q)
-		evidence = instrumentCurrentQuoteEvidence(view, *q)
+		value = fmt.Sprintf(l.Text(i18n.MarketLatestPrice), instrumentCurrentQuotePrice(view, item, *q))
+		evidence = instrumentCatalogQuoteEvidence(view, item, *q)
 	} else if catalog.quoteErrors[item.ID] {
 		value = l.Text(i18n.PortfolioCatalogQuoteUnavailable)
 	}
@@ -264,6 +316,7 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			gtx = gtx.Disabled()
 		}
 		var buttons []layout.Widget
+		var actionLabels []string
 		if p.openInstrument != nil {
 			if actions.open.Clicked(gtx) {
 				p.openInstrument(item.ID, title, &actions.open)
@@ -273,6 +326,7 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			buttons = append(buttons, view.ButtonOf(&actions.open, ui.ButtonSpec{
 				Variant: ui.ButtonLink, Size: ui.ButtonSmall, Title: l.Text(i18n.PortfolioCatalogDetails), Name: label,
 			}))
+			actionLabels = append(actionLabels, l.Text(i18n.PortfolioCatalogDetails))
 		}
 		if c.ledger != nil && !managed {
 			if c.focus == &actions.manage && gtx.Enabled() {
@@ -286,11 +340,42 @@ func (p *portfolioPage) catalogRow(view ui.View, item domain.Instrument, catalog
 			buttons = append(buttons, view.ButtonOf(&actions.manage, ui.ButtonSpec{
 				Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(i18n.InstitutionsEdit), Name: label,
 			}))
+			actionLabels = append(actionLabels, l.Text(i18n.InstitutionsEdit))
 		}
 		return marketQuoteRow(view, first, last, marketRowSpec{
-			icon: icon, name: title, caption: caption, badges: badges, value: value, evidence: evidence,
+			icon: icon, name: title, subtitle: caption, badges: badges, value: value, evidence: evidence,
+			catalogActions: true, actionLabels: actionLabels,
 		}, buttons)(gtx)
 	}
+}
+
+func instrumentCatalogQuoteEvidence(view ui.View, instrument domain.Instrument, quote domain.InstrumentQuote) string {
+	l := view.Language
+	var parts []string
+	day := ""
+	if quote.TimestampBasis == "date_label" {
+		day = quote.EffectiveDate
+	}
+	if stamp := strings.TrimPrefix(portfolioQuoteStamp(view, "", day, quote.QuotedAt), " · "); stamp != "" {
+		parts = append(parts, fmt.Sprintf(l.Text(i18n.PortfolioInstrumentQuoteAsOf), stamp))
+	}
+	if quote.SourceKey != "" && quote.SourceKey != string(quote.SourceKind) {
+		source := l.Text(instrumentQuoteSources[quote.SourceKind])
+		if source == "" {
+			source = l.Text(i18n.MarketNoSource)
+		}
+		parts = append(parts, source+" · "+quote.SourceKey)
+	} else if quote.SourceKind != instrument.QuoteSource {
+		source := l.Text(instrumentQuoteSources[quote.SourceKind])
+		if source == "" {
+			source = l.Text(i18n.MarketNoSource)
+		}
+		parts = append(parts, source)
+	}
+	if quote.Delayed {
+		parts = append(parts, l.Text(i18n.MarketDelayed))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func (p *portfolioPage) saveCatalogInstrument(archive bool) {

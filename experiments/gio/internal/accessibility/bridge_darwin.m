@@ -296,6 +296,19 @@ static id axHitTest(NSView *view, SEL selector, NSPoint point) {
 	return view;
 }
 
+static void setMarkedText(NSView *view, SEL selector, id text, NSRange selection, NSRange replacement) {
+	Class base = axBridge(view).originalClass;
+	IMP implementation = class_getMethodImplementation(base, selector);
+	((void (*)(id, SEL, id, NSRange, NSRange))implementation)(view, selector, text, selection, replacement);
+
+	// macOS Pinyin cancels composition with empty marked text. Gio 0.10.3
+	// leaves that range marked and the input method consumes the next Escape.
+	id<NSTextInputClient> input = (id<NSTextInputClient>)view;
+	if ([text length] == 0 && input.hasMarkedText) {
+		[input unmarkText];
+	}
+}
+
 void nestworthAXAttach(uintptr_t handle, uintptr_t viewRef) {
 	NSView *view = (__bridge NSView *)(void *)viewRef;
 	dispatch_async(dispatch_get_main_queue(), ^{
@@ -316,6 +329,11 @@ void nestworthAXAttach(uintptr_t handle, uintptr_t viewRef) {
 			Method hit = class_getInstanceMethod(base, @selector(accessibilityHitTest:));
 			if (hit) {
 				class_addMethod(provider, @selector(accessibilityHitTest:), (IMP)axHitTest, method_getTypeEncoding(hit));
+			}
+			SEL markedTextSelector = @selector(setMarkedText:selectedRange:replacementRange:);
+			Method markedText = class_getInstanceMethod(base, markedTextSelector);
+			if (markedText && class_conformsToProtocol(base, @protocol(NSTextInputClient))) {
+				class_addMethod(provider, markedTextSelector, (IMP)setMarkedText, method_getTypeEncoding(markedText));
 			}
 			objc_registerClassPair(provider);
 		}
