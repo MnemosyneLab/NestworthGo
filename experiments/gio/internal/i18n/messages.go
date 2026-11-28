@@ -1347,6 +1347,9 @@ const (
 	HistoryRemeasurement
 	HistoryCorrectionRecord
 	HistoryCorrectAction
+	HistoryCorrectBuy
+	HistoryCorrectSell
+	HistoryCorrectDividend
 	HistoryCorrectDescription
 	HistoryCorrectPreview
 	HistoryCorrectReview

@@ -129,13 +129,22 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 				detail.LiabilityAccount = account.Account.ID
 			}
 		}
-		if movement, eligible := CashAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
-			endpoints, ok, err := movement.accounts(ctx, service, id, accounts)
-			if err != nil {
-				return Detail{}, err
+		if zone != nil && detail.Links.Reversal == "" {
+			if movement, eligible := CashAmendment(record); eligible {
+				endpoints, ok, err := movement.accounts(ctx, service, id, accounts)
+				if err != nil {
+					return Detail{}, err
+				}
+				detail.Amendable = ok
+				detail.Reversible = ok && endpoints.active()
+			} else if investment, eligible := InvestmentAmendment(record); eligible {
+				account, err := investment.account(ctx, service, id, accounts)
+				if err != nil {
+					return Detail{}, err
+				}
+				detail.Amendable = account.ID != ""
+				detail.Reversible = detail.Amendable && account.ArchivedAt == nil
 			}
-			detail.Amendable = ok
-			detail.Reversible = ok && endpoints.active()
 		}
 	}
 	if hasInstruments {

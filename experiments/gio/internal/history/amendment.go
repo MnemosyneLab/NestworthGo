@@ -29,6 +29,7 @@ const (
 
 type AmendmentInput struct {
 	Amount   string
+	Quantity string
 	Received string
 	Fee      string
 	From, To domain.HoldingID
@@ -59,9 +60,18 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 			if err != nil {
 				return nil, err
 			}
+			if original.ID != id {
+				return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+			}
+			investment, isInvestment := InvestmentAmendment(original)
 			var replacement historyapi.ChangeCommandRequest
-			if _, custody := CustodyAmendment(original); custody && original.ID == id {
+			if _, custody := CustodyAmendment(original); custody {
 				replacement = custodyReplacement(amounts)
+			} else if isInvestment {
+				if _, err := investmentAmendmentTarget(ctx, ledger, id, investment); err != nil {
+					return nil, err
+				}
+				replacement = investment.replacement(amounts)
 			} else {
 				movement, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
 				if err != nil {
@@ -86,7 +96,13 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 				return nil, &domain.Error{Code: domain.ErrMissingHistoryOrigin}
 			}
 			review.replacement, err = request.ToCommand(origin.HouseholdID, origin.Timezone)
-			return review.replacement, err
+			if err != nil {
+				return nil, err
+			}
+			if isInvestment && investment.unchanged(review.replacement, original.Note) {
+				return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
+			}
+			return review.replacement, nil
 		})
 	case ReverseActivity:
 		err = ledger.WithRead(ctx, func(ctx context.Context) error {
@@ -94,7 +110,18 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 			if err != nil {
 				return err
 			}
-			if _, custody := CustodyAmendment(original); !custody || original.ID != id {
+			if original.ID != id {
+				return &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+			}
+			if investment, supported := InvestmentAmendment(original); supported {
+				account, err := investmentAmendmentTarget(ctx, ledger, id, investment)
+				if err != nil {
+					return err
+				}
+				if account.ArchivedAt != nil {
+					return &domain.Error{Code: domain.ErrConflict, Field: "accountId"}
+				}
+			} else if _, custody := CustodyAmendment(original); !custody {
 				_, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
 				if err != nil {
 					return err
@@ -126,6 +153,21 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 	digest := sha256.Sum256(append([]byte("gio_activity_amendment\n"), payload...))
 	review.hash = hex.EncodeToString(digest[:])
 	return review, nil
+}
+
+func investmentAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, investment AmendableInvestment) (domain.Account, error) {
+	rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{investment.Account}, IncludeArchived: true})
+	if err != nil {
+		return domain.Account{}, err
+	}
+	account, err := investment.account(ctx, ledger, id, rows)
+	if err != nil {
+		return domain.Account{}, err
+	}
+	if account.ID == "" {
+		return domain.Account{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+	}
+	return account, nil
 }
 
 func cashAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, activity domain.Activity) (AmendableCash, amendmentAccounts, error) {

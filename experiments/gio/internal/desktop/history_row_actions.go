@@ -58,6 +58,9 @@ func (r *historyReads) hasPotentialRowActions(activity domain.Activity) bool {
 	if _, ok := history.CustodyAmendment(activity); ok {
 		return true
 	}
+	if _, ok := history.InvestmentAmendment(activity); ok {
+		return true
+	}
 	// Shape alone is enough to offer the disclosure. The shared detail read
 	// decides whether this exact record is currently eligible.
 	return r.repeatAPI != nil && (activity.Kind == domain.ActivityCashIn || activity.Kind == domain.ActivityCashOut) &&
@@ -130,6 +133,16 @@ func (r *historyReads) startRequestedRowAction(visit *historyDetailVisit) {
 func historyCorrectLabel(activity domain.Activity) i18n.MessageID {
 	if _, custody := history.CustodyAmendment(activity); custody {
 		return i18n.CustodyAmendmentCorrect
+	}
+	if investment, ok := history.InvestmentAmendment(activity); ok {
+		switch investment.Kind {
+		case domain.ActivityBuy:
+			return i18n.HistoryCorrectBuy
+		case domain.ActivitySell:
+			return i18n.HistoryCorrectSell
+		case domain.ActivityCashDividend:
+			return i18n.HistoryCorrectDividend
+		}
 	}
 	return i18n.HistoryCorrectAction
 }

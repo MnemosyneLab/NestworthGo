@@ -25,9 +25,7 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	focus := &d.reverse
 	if fix {
 		actionTitle, prepareTitle, reviewTitle, confirmTitle = i18n.HistoryCorrectAction, i18n.HistoryCorrectPreview, i18n.HistoryCorrectReview, i18n.HistoryCorrectConfirm
-		if form.custody != nil {
-			actionTitle = i18n.CustodyAmendmentCorrect
-		}
+		actionTitle = historyCorrectLabel(d.record.Activity)
 		focus = &d.correct
 	}
 	if form.commit == nil && !form.uncertain && form.cancel.Clicked(gtx) {
@@ -57,6 +55,9 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 
 	if form.custody != nil {
 		return p.layoutCustodyAmendment(gtx, view, fix, busy, actionTitle, prepareTitle, reviewTitle, confirmTitle)
+	}
+	if form.investment != nil {
+		return p.layoutInvestmentAmendment(gtx, view, fix, busy, actionTitle, prepareTitle, reviewTitle, confirmTitle)
 	}
 	movement := form.movement
 	accountName := func(id *domain.AccountID) string { return d.record.Accounts[*id] }

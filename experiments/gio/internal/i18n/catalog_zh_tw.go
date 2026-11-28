@@ -1488,6 +1488,9 @@ var traditionalChineseCatalog = catalog{
 	TransferQuoteAgent:             "Agent 報價",
 
 	HistoryCorrectAction:                "更正金額",
+	HistoryCorrectBuy:                   "更正買入",
+	HistoryCorrectSell:                  "更正賣出",
+	HistoryCorrectDividend:              "更正現金股息",
 	HistoryCorrectDescription:           "關聯沖銷與替換記錄沿用原生效時間，並重算後續餘額。",
 	HistoryCorrectPreview:               "預覽更正",
 	HistoryCorrectReview:                "核對更正",

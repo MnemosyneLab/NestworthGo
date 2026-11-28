@@ -1488,6 +1488,9 @@ var englishCatalog = catalog{
 	TransferQuoteAgent:             "Agent quote",
 
 	HistoryCorrectAction:                "Correct amount",
+	HistoryCorrectBuy:                   "Correct buy",
+	HistoryCorrectSell:                  "Correct sell",
+	HistoryCorrectDividend:              "Correct dividend",
 	HistoryCorrectDescription:           "A linked reversal and replacement keep the original effective time. Later balances are replayed.",
 	HistoryCorrectPreview:               "Preview correction",
 	HistoryCorrectReview:                "Review correction",

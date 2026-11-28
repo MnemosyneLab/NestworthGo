@@ -1487,6 +1487,9 @@ var japaneseCatalog = catalog{
 	TransferQuoteAgent:             "Agent のレート",
 
 	HistoryCorrectAction:                "金額を訂正",
+	HistoryCorrectBuy:                   "買付を訂正",
+	HistoryCorrectSell:                  "売却を訂正",
+	HistoryCorrectDividend:              "現金配当を訂正",
 	HistoryCorrectDescription:           "元の適用日時で取消と置換を記録し、以後の残高を再計算します。",
 	HistoryCorrectPreview:               "訂正をプレビュー",
 	HistoryCorrectReview:                "訂正内容を確認",
