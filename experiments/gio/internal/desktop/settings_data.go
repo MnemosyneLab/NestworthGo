@@ -42,7 +42,7 @@ func (d *settingsDataRebuild) update() {
 
 func (d *settingsDataRebuild) card(gtx layout.Context, view ui.View, prefs *preferenceState) layout.Dimensions {
 	l := view.Language
-	return settingsCard(gtx, view, l.Text(i18n.SettingsDataRebuildTitle), func(gtx layout.Context, view ui.View) layout.Dimensions {
+	return settingsParityCard(gtx, view, l.Text(i18n.SettingsDataRebuildTitle), func(gtx layout.Context, view ui.View) layout.Dimensions {
 		if d.run != nil && d.request == nil && !prefs.busy && d.rebuild.Clicked(gtx) {
 			d.result, d.problem = nil, i18n.NoMessage
 			if d.cancelLatest != nil {

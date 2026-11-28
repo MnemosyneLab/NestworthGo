@@ -175,6 +175,7 @@ func (p *settingsPage) updateTabs(gtx layout.Context) {
 		button := &p.tabs[i]
 		if button.Clicked(gtx) {
 			active = settingsSection(i)
+			gtx.Execute(key.FocusCmd{Tag: button})
 		}
 		for _, press := range ui.PressedKeys(gtx, button, key.NameLeftArrow, key.NameRightArrow, key.NameHome, key.NameEnd) {
 			switch press.Name {
@@ -214,16 +215,16 @@ type settingField struct {
 // Settings container thresholds. They are widths of the card or footer, not of
 // the window, so they stay local; the window itself uses ui.Breakpoint*.
 const (
-	settingsGap            unit.Dp = 18
-	settingsMinColumn      unit.Dp = 215 // two columns once the card holds 448dp
-	settingsSwatchRowWidth unit.Dp = 305 // below this the accent swatches wrap under the select
+	settingsGap            unit.Dp = 20
+	settingsMinColumn      unit.Dp = 214 // two columns once the card holds 448dp
+	settingsSwatchRowWidth unit.Dp = 352 // below this the accent swatches wrap under the select
 	settingsFooterRowWidth unit.Dp = 510 // below this the status wraps above the actions
 )
 
 func (p *settingsPage) generalCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
 	fields := p.formFields(view, draft)
 	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
-	return settingsCard(gtx, view, view.Language.Text(i18n.SettingsGeneral), func(gtx layout.Context, view ui.View) layout.Dimensions {
+	return settingsParityCard(gtx, view, view.Language.Text(i18n.SettingsGeneral), func(gtx layout.Context, view ui.View) layout.Dimensions {
 		return grid.Layout(gtx, view, len(fields)+1, func(gtx layout.Context, view ui.View, i int) layout.Dimensions {
 			if i == len(fields) {
 				currency := draft.HouseholdCurrency
@@ -236,10 +237,17 @@ func (p *settingsPage) generalCard(gtx layout.Context, view ui.View, draft prefe
 				return p.currency.Layout(gtx, view, ui.FieldOptions{Label: i18n.SettingsCurrency, ReadOnly: true, Help: i18n.SettingsCurrencyHelp})
 			}
 			field := fields[i]
-			separator := field.label == i18n.SettingsDecimal || field.label == i18n.SettingsGrouping
-			return p.field(gtx, view, i, field, separator && draft.DecimalSeparator == draft.GroupingSeparator)
+			return p.field(gtx, view, i, field, settingsFieldInvalid(field.label, draft))
 		})
 	})
+}
+
+func settingsSeparatorConflict(draft preferences.Values) bool {
+	return draft.DecimalSeparator == draft.GroupingSeparator
+}
+
+func settingsFieldInvalid(field i18n.MessageID, draft preferences.Values) bool {
+	return (field == i18n.SettingsDecimal || field == i18n.SettingsGrouping) && settingsSeparatorConflict(draft)
 }
 
 func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field settingField, invalid bool) layout.Dimensions {
@@ -256,7 +264,7 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 	stackSwatches := hasSwatches && width < gtx.Dp(settingsSwatchRowWidth)
 	selectWidth := width
 	if hasSwatches && !stackSwatches {
-		selectWidth -= gtx.Dp(145)
+		selectWidth -= gtx.Dp(185)
 	}
 	input := gtx
 	input.Constraints.Min.X, input.Constraints.Max.X = selectWidth, selectWidth
@@ -267,7 +275,7 @@ func (p *settingsPage) field(gtx layout.Context, view ui.View, index int, field 
 		offset := image.Pt(selectWidth+gtx.Dp(5), gtx.Dp(25))
 		if stackSwatches {
 			offset = image.Pt(0, y+gtx.Dp(4))
-			y += gtx.Dp(34)
+			y += gtx.Dp(44)
 		}
 		ui.Place(gtx, view, offset, width-offset.X, func(gtx layout.Context, view ui.View) layout.Dimensions { return p.palette(gtx, view, field) })
 	}
@@ -376,7 +384,7 @@ func (p *settingsPage) hasZone(zone string) bool {
 
 func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
 	dirty := draft != p.prefs.saved
-	canSave := dirty && draft.DecimalSeparator != draft.GroupingSeparator && !p.prefs.busy
+	canSave := dirty && !settingsSeparatorConflict(draft) && !p.prefs.busy
 	if canSave && p.save.Clicked(gtx) {
 		p.notice = i18n.NoMessage
 		p.prefs.save(p.prefs.saved, draft, func() { clear(p.edits); p.notice = i18n.SettingsSaved })
@@ -404,31 +412,34 @@ func (p *settingsPage) footer(gtx layout.Context, view ui.View, draft preference
 				status = p.notice
 			}
 			ink := view.Colors.SecondaryInk
-			if draft.DecimalSeparator == draft.GroupingSeparator {
-				status, ink = i18n.SettingsSeparatorConflict, view.Colors.ErrorInk
-			}
 			if p.prefs.err != nil {
 				status = i18n.SettingsSaveError
 				ink = view.Colors.ErrorInk
 			}
 			message := view.Body(ui.TextCaption, view.Language.Text(status), ink)
 			actions := func(gtx layout.Context) layout.Dimensions { return p.actions(gtx, view, canSave, dirty) }
-			if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
-				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))
+			reset := func(gtx layout.Context) layout.Dimensions {
+				if p.prefs.busy {
+					gtx = gtx.Disabled()
+				}
+				return view.ButtonOf(&p.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: view.Language.Text(i18n.SettingsReset)})(gtx)
 			}
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx, layout.Flexed(1, message), layout.Rigid(actions))
+			statusAndActions := func(gtx layout.Context) layout.Dimensions {
+				if gtx.Constraints.Max.X < gtx.Dp(settingsFooterRowWidth) {
+					return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(10)}.Layout(gtx, layout.Rigid(message), layout.Rigid(actions))
+				}
+				return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx, layout.Flexed(1, message), layout.Rigid(actions))
+			}
+			return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(12)}.Layout(gtx,
+				layout.Rigid(reset),
+				layout.Rigid(statusAndActions),
+			)
 		})
 	})
 }
 
 func (p *settingsPage) actions(gtx layout.Context, view ui.View, canSave, dirty bool) layout.Dimensions {
 	return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.prefs.busy {
-				gtx = gtx.Disabled()
-			}
-			return view.ButtonOf(&p.reset, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: view.Language.Text(i18n.SettingsReset)})(gtx)
-		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if !canSave {
 				gtx = gtx.Disabled()

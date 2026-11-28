@@ -10,6 +10,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -34,6 +35,31 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	h.press(key.NameDownArrow)
 	h.press(key.NameReturn)
 	assertPageLabel(t, &h.router, "Decimal and grouping separators must differ")
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.SettingsUnsaved))
+	conflict := "Decimal and grouping separators must differ"
+	fields := p.formFields(ui.View{Language: i18n.English}, p.draft())
+	conflictFields := 0
+	invalidFields := 0
+	for _, field := range fields {
+		if field.label == i18n.SettingsDecimal || field.label == i18n.SettingsGrouping {
+			invalidFields++
+			if !settingsFieldInvalid(field.label, p.draft()) {
+				t.Fatalf("%v is not invalid while decimal and grouping separators match", field.label)
+			}
+		}
+		if field.help == conflict {
+			conflictFields++
+			if field.label != i18n.SettingsGrouping {
+				t.Fatalf("separator conflict is attached to %v; want only the grouping field", field.label)
+			}
+		}
+	}
+	if conflictFields != 1 {
+		t.Fatalf("separator conflict is attached to %d fields; want one inline grouping-field explanation", conflictFields)
+	}
+	if invalidFields != 2 {
+		t.Fatalf("separator conflict invalidated %d fields; want decimal and grouping fields", invalidFields)
+	}
 	var bounds image.Rectangle
 	var inspect func(input.SemanticNode)
 	inspect = func(node input.SemanticNode) {
@@ -60,6 +86,15 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	if p.prefs.saved.DecimalSeparator != "." || p.draft().GroupingSeparator != "." {
 		t.Fatal("editing the draft changed the saved preferences")
 	}
+	for _, field := range p.formFields(ui.View{Language: i18n.English}, p.draft()) {
+		if settingsFieldInvalid(field.label, p.draft()) {
+			t.Fatalf("%v remained invalid after choosing distinct separators", field.label)
+		}
+	}
+	if findPageLabel(&h.router, conflict) != nil {
+		t.Fatal("separator conflict message remained after choosing distinct separators")
+	}
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.SettingsUnsaved))
 	// A sidebar write should survive saving a different set of fields.
 	p.prefs.saved.Accent = settings.AccentSky
 	h.frame()
@@ -76,6 +111,24 @@ func TestGeneralSettingsDraftSaveDiscardAndSeparators(t *testing.T) {
 	h.click("Discard changes", false)
 	if p.draft().DateFormat != settings.DateFormatISO || len(p.edits) != 0 {
 		t.Fatal("discard did not return to the saved date format")
+	}
+}
+
+func TestSettingsFooterPlacesResetAboveSaveAndDiscard(t *testing.T) {
+	h, _ := generalSettingsHarness(t)
+	h.click("Date format", true)
+	h.press(key.NameDownArrow)
+	h.press(key.NameReturn)
+	h.frame()
+
+	reset := semanticBounds(t, &h.router, "Restore all preference defaults", false)
+	save := semanticBounds(t, &h.router, "Save changes", false)
+	discard := semanticBounds(t, &h.router, "Discard changes", false)
+	if reset.Min.Y >= save.Min.Y {
+		t.Fatalf("reset action bounds %v should sit above save bounds %v", reset, save)
+	}
+	if save.Min.Y != discard.Min.Y {
+		t.Fatalf("save bounds %v and discard bounds %v should share a row", save, discard)
 	}
 }
 
@@ -161,6 +214,7 @@ func TestGeneralSettingsNarrowScrolledPicker(t *testing.T) {
 	h.press(key.NameEscape)
 	p.edit(i18n.SettingsTimezone, "Asia/Tokyo")
 	p.edit(i18n.SettingsTimezone, settings.TimezoneSystem)
+	p.edit(i18n.SettingsDate, settings.DateFormatDayFirst)
 	p.prefs.saved.Timezone = "UTC"
 	if p.draft().Timezone != "UTC" {
 		t.Fatal("reverted field overrode a newer saved preference")
@@ -171,6 +225,14 @@ func TestGeneralSettingsNarrowScrolledPicker(t *testing.T) {
 	b = semanticBounds(t, &h.router, "Restore all preference defaults", false)
 	if b.Min.Y < 0 || b.Max.Y > h.size.Y {
 		t.Fatalf("footer bounds %v outside compact viewport %v", b, h.size)
+	}
+	save := semanticBounds(t, &h.router, "Save changes", false)
+	discard := semanticBounds(t, &h.router, "Discard changes", false)
+	if b.Min.Y >= save.Min.Y {
+		t.Fatalf("compact reset bounds %v should sit above save bounds %v", b, save)
+	}
+	if save.Max.Y > h.size.Y || discard.Max.Y > h.size.Y {
+		t.Fatalf("compact save/discard bounds %v/%v outside viewport %v", save, discard, h.size)
 	}
 	h.clickAt(b.Min.Add(b.Max).Div(2))
 	if !p.confirming {
