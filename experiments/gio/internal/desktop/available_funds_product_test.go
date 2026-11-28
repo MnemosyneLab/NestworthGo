@@ -90,6 +90,9 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 				return funds.setup
 			}
 			h.size = image.Pt(665, 660)
+			if !entry.account {
+				h.size = image.Pt(900, 600)
+			}
 			h.shell.prefs.saved.Language = settings.LanguageEnglish
 			settle := func() {
 				for range 4 {
@@ -186,7 +189,15 @@ func TestStandaloneProductSetupMatchesWails(t *testing.T) {
 					}
 				} else {
 					h.focused(&d.form.currency.Trigger)
-					label("Available cash in USD: US$156.00")
+					if pos := d.sheet.list.Position; pos.First != 0 || pos.Offset != 0 {
+						t.Fatalf("the initial product sheet scrolled away from the account and currency: %+v", pos)
+					}
+					for _, label := range []string{"Contract currency", "Account: Harbor Brokerage", "Available cash in USD: US$156.00"} {
+						bounds := assertPageLabel(t, &h.router, label)
+						if bounds.Min.Y < 0 || bounds.Min.Y >= h.size.Y {
+							t.Fatalf("initial product field %q is outside the viewport: %v", label, bounds)
+						}
+					}
 					expectRequired := func(message string, field event.Tag) {
 						t.Helper()
 						click(reviewLabel)

@@ -172,9 +172,9 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	}
 
 	accounts := semanticBounds(t, &h.router, "Accounts", false)
-	entry := "Manage reservations · Harbor Savings"
-	scrollReservationSource(t, h, entry)
-	click(entry)
+	entry := "Harbor Savings · USD"
+	chooseFundsSourceAction(t, h, entry, "Manage reservations")
+	finish()
 	if funds.reservation == nil || funds.reservation.current == nil {
 		t.Fatal("the source button did not open the reservation manager")
 	}
@@ -248,9 +248,10 @@ func TestAvailableFundsReservationLifecycleMatchesWails(t *testing.T) {
 	checkState(reference, ref.bank, refBefore, "140.625", "125.4321", "0", "15.1929")
 
 	click("Close")
+	click("Details · " + entry)
 	label("Reservation shortfall · 15.1929 USD")
-	scrollReservationSource(t, h, entry)
-	click(entry)
+	chooseFundsSourceAction(t, h, entry, "Manage reservations")
+	finish()
 	click("Release · Emergency fund")
 	clickTwiceWhileBlocked("Confirm release", fault.releasing, unblockRelease)
 	label("Reservation released. Available funds will be recalculated.")
@@ -289,9 +290,9 @@ func TestAvailableFundsReservationOnZeroCashMatchesWails(t *testing.T) {
 	reference, _, _, _ := openFundsFixture(t, true)
 	funds, h, finish := reservationHarness(t, app, app)
 	click := func(text string) { t.Helper(); h.click(text, false); finish() }
-	entry := "Manage reservations · Empty Savings"
-	scrollReservationSource(t, h, entry)
-	click(entry)
+	entry := "Empty Savings · USD"
+	chooseFundsSourceAction(t, h, entry, "Manage reservations")
+	finish()
 	if funds.reservation == nil || funds.reservation.current == nil {
 		t.Fatal("the zero-balance source button did not open the reservation manager")
 	}

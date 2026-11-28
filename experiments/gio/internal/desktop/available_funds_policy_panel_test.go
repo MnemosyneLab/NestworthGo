@@ -32,10 +32,9 @@ func TestAvailableFundsOrdinaryPolicyPanelCashAndDateCancellation(t *testing.T) 
 		t.Fatalf("expected the 30-day Funds visit, got %+v", visit)
 	}
 	ref := domain.AccountValueSourceRef(ids.bank)
-	button := &funds.sourceButtons(ref.Key()).policy
-	const trigger = "Edit source rules · Harbor Savings · USD"
-	scrollReservationSource(t, h, trigger)
-	click(trigger)
+	button := &funds.sourceButtons(ref.Key()).menu.Trigger
+	chooseFundsSourceAction(t, h, "Harbor Savings · USD", "Edit source rules")
+	settle()
 	draft := funds.policy
 	if draft == nil || draft.entry != button || draft.source.Key() != ref.Key() || h.shell.activeRoute() != fundsRoute {
 		t.Fatalf("cash rule did not open in the Funds visit: %+v", draft)

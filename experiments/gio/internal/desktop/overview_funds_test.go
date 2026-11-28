@@ -149,8 +149,8 @@ func TestOverviewAvailableFundsJourney(t *testing.T) {
 	if h.shell.activeRoute() != fundsRoute || funds.state.horizonOn != month || funds.state.filter != fundsNeedsRules || funds.state.includeEarly {
 		t.Fatalf("missing-rules link did not preserve the normal 30-day scope: %+v", funds.state)
 	}
-	assertPageLabel(t, &h.router, "QA-FUND · USD")
-	if findPageLabel(&h.router, "Harbor Savings · USD") != nil {
+	assertPageLabel(t, &h.router, "QA-FUND")
+	if findPageLabel(&h.router, "Harbor Savings") != nil {
 		t.Fatal("scoped source list included an account with known rules")
 	}
 	h.click("Back", false)

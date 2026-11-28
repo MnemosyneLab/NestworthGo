@@ -130,7 +130,8 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 	click("Close")
 
 	click("Funding sources")
-	click("Manage reservations · Travel Wallet cash · USD")
+	chooseFundsSourceAction(t, h, "Travel Wallet cash · USD", "Manage reservations")
+	settle()
 	checkScope(usd)
 	if len(funds.reservation.current.records) != 0 {
 		t.Fatal("the USD source manager showed a reservation for the EUR leg")
@@ -149,8 +150,8 @@ func TestAvailableFundsPairedMixedCurrencyReservationScopesAndConflicts(t *testi
 
 	// Exclusion prevents adding, while an existing reservation can still be
 	// managed at that exact source as in the Wails source row.
-	scrollReservationSource(t, h, "Manage reservations · Harbor Savings")
-	click("Manage reservations · Harbor Savings")
+	chooseFundsSourceAction(t, h, "Harbor Savings · USD", "Manage reservations")
+	settle()
 	checkScope(bank)
 	assertPageLabel(t, &h.router, "Edit · Rent")
 	if findPageLabel(&h.router, "Add reservation") != nil {
