@@ -156,9 +156,8 @@ func TestAvailableFundsReservationPanelScopedWriteAndReleasedHistory(t *testing.
 	if visit.filter != fundsAvailable || visit.horizonOn != fundsPresetDay(funds.localDate, 30) {
 		t.Fatalf("setup did not select the Funds visit: %+v", visit)
 	}
-	const manage = "Manage reservations · AUD Cash"
-	scrollReservationSource(t, h, manage)
-	click(manage)
+	chooseFundsSourceAction(t, h, "AUD Cash · AUD", "Manage reservations")
+	settle()
 	r := funds.reservation
 	if r == nil || r.source.Key() != ref.Key() || len(r.current.records) != 0 {
 		t.Fatalf("source-scoped panel included unrelated reservations: %+v", r)

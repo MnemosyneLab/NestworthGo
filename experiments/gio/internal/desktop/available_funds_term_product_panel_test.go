@@ -204,8 +204,8 @@ func TestAvailableFundsTermProductPanelsKeepVisitAndHoldingIdentity(t *testing.T
 	all := fundsSourceCount(funds.current.report.Sources, month, fundsAll)
 	click(fmt.Sprintf("All %d", all))
 	const edit = "Edit terms and rules"
-	scrollProductControl(t, h, "Open product · "+termName)
-	click("Open product · " + termName)
+	chooseFundsSourceAction(t, h, termName+" · USD", "Open product")
+	settle()
 	scrollProductControl(t, h, edit)
 	termsPosition := detail.list.Position
 	click(edit)

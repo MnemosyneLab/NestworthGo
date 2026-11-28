@@ -34,15 +34,15 @@ func TestAvailableFundsBreakdownWrapsAndKeepsAccessibleAmounts(t *testing.T) {
 	const unreserved = "Available after reservations · €25.25"
 	// The fixture lacks EUR-to-USD FX. The shared comparison marks that
 	// cash category unavailable while retaining known native spendable euros.
-	const cash = "Accessible cash before reservations · Unavailable"
+	const cash = "Accessible cash before reservations · Unknown"
 	const currency = "Native amounts · EUR"
-	wide := draw(900)
+	wide := draw(780)
 	header := assertPageLabel(t, wide, "Currency")
 	wideCurrency := assertPageLabel(t, wide, currency)
 	wideCash := assertPageLabel(t, wide, cash)
 	wideAfter := assertPageLabel(t, wide, unreserved)
 	if header.Min.Y >= wideCurrency.Min.Y || wideCurrency.Max.X > wideCash.Min.X || wideCash.Max.X > wideAfter.Min.X ||
-		wideCurrency.Intersect(image.Rect(0, wideCash.Min.Y, 900, wideCash.Max.Y)).Empty() {
+		wideCurrency.Intersect(image.Rect(0, wideCash.Min.Y, 780, wideCash.Max.Y)).Empty() {
 		t.Fatalf("wide comparison did not align columns: %v %v %v %v", header, wideCurrency, wideCash, wideAfter)
 	}
 	narrow := draw(350)
@@ -87,13 +87,13 @@ func TestAvailableFundsSourceJumpAndDetailsKeepActions(t *testing.T) {
 	h.focused(&funds.controls.filters[fundsAll])
 	const details = "Details · Harbor Savings · USD"
 	scrollReservationSource(t, h, details)
-	assertPageLabel(t, &h.router, "Manage reservations · Harbor Savings")
+	assertPageLabel(t, &h.router, "Actions for Harbor Savings · USD")
 	if findPageLabel(&h.router, "Requested reservation · 40.125 USD") != nil {
 		t.Fatal("source details were expanded before disclosure")
 	}
 	h.click(details, false)
 	settle()
-	assertPageLabel(t, &h.router, "Manage reservations · Harbor Savings")
+	assertPageLabel(t, &h.router, "Actions for Harbor Savings · USD")
 	assertPageLabel(t, &h.router, "Requested reservation · 40.125 USD")
 	if buttons := funds.links[domain.AccountValueSourceRef(ids.bank).Key()]; buttons == nil || !buttons.showDetails {
 		t.Fatal("the source disclosure failed to open the selected row")
@@ -138,10 +138,10 @@ func TestAvailableFundsSourceColumnsFollowContainerWidth(t *testing.T) {
 	if expected == "" {
 		t.Fatal("fixture cash source was not read")
 	}
-	const name = "Harbor Savings · USD"
+	const name = "Harbor Savings"
 	const current = "Current value · US$125.43"
 	const after = "Available after reservations · US$85.31"
-	const action = "Manage reservations · Harbor Savings"
+	const action = "Actions for Harbor Savings · USD"
 	wideHeaders := []string{"Asset", "Current value", "Expected availability", "Spendable", "Actions"}
 	fields := []string{name, current, expected, after, action}
 	lastX := 0
@@ -155,14 +155,14 @@ func TestAvailableFundsSourceColumnsFollowContainerWidth(t *testing.T) {
 		lastX = field.Max.X - 1
 	}
 	assertPageLabel(t, &h.router, "Reserved from available funds · US$40.12")
-	h.click(action, false)
+	chooseFundsSourceAction(t, h, "Harbor Savings · USD", "Manage reservations")
 	settle()
 	if funds.reservation == nil || funds.reservation.source.Key() != ref.Key() {
 		t.Fatal("the compact action did not retain its source scope")
 	}
 	h.click("Close", false)
 	settle()
-	h.focused(&funds.links[ref.Key()].reserve)
+	h.focused(&funds.links[ref.Key()].menu.Trigger)
 
 	setWidth(620)
 	if findPageLabel(&h.router, "Asset") != nil || findPageLabel(&h.router, "Actions") != nil {
@@ -173,8 +173,8 @@ func TestAvailableFundsSourceColumnsFollowContainerWidth(t *testing.T) {
 	narrowAction := assertPageLabel(t, &h.router, action)
 	assertPageLabel(t, &h.router, expected)
 	assertPageLabel(t, &h.router, after)
-	if narrowName.Min.Y >= narrowCurrent.Min.Y || narrowCurrent.Min.Y >= narrowAction.Min.Y {
-		t.Fatalf("narrow source did not stack labeled values and actions: %v %v %v", narrowName, narrowCurrent, narrowAction)
+	if narrowName.Min.Y >= narrowCurrent.Min.Y || narrowAction.Min.Y >= narrowCurrent.Min.Y {
+		t.Fatalf("narrow source did not place labelled values below identity and actions: %v %v %v", narrowName, narrowCurrent, narrowAction)
 	}
 	if app.MobileDataVersion() != version {
 		t.Fatal("viewing the source layout and reservation list wrote to the ledger")

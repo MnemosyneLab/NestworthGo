@@ -27,6 +27,7 @@ type PickerField struct {
 	Origin         image.Point
 	Next, Previous event.Tag
 	Disabled       bool
+	HideLabel      bool // Omit the visible label while keeping its accessible name.
 }
 
 var ExpandIcon Glyph = lucide.ChevronDown
@@ -37,8 +38,11 @@ func pickerTrigger(gtx layout.Context, view View, field PickerField, trigger *wi
 	if field.Name != i18n.NoMessage {
 		name = view.Language.Text(field.Name)
 	}
-	view.Line(gtx, TextLabel, title, view.Colors.Ink)
-	y := gtx.Dp(24)
+	y := 0
+	if !field.HideLabel {
+		view.Line(gtx, TextLabel, title, view.Colors.Ink)
+		y = gtx.Dp(24)
+	}
 	offset := op.Offset(image.Pt(0, y)).Push(gtx.Ops)
 	defer offset.Pop()
 	size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(ControlDefault))

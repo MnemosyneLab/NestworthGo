@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gioui.org/f32"
+	"gioui.org/io/key"
 	"gioui.org/io/pointer"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/pilot"
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -178,7 +179,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	settle()
 	label("Could not load available funds.")
 	click("Retry")
-	label("Today · 2026-11-21 (UTC)")
+	label("As of 2026-11-21 · UTC")
 	label("Base currency total · USD")
 	label("Partial coverage")
 	reveal("Native amounts · EUR", 100)
@@ -187,8 +188,11 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	label("Available after reservations · €25.25")
 	reveal("Known available after reservations · US$85.31", 80)
 	label("Known available after reservations · US$85.31")
-	reveal("Missing exchange rate to the base currency.", 80)
+	reveal("About source amounts", 80)
+	click("About source amounts")
 	label("Missing exchange rate to the base currency.")
+	h.press(key.NameEscape)
+	settle()
 	if fault.attempts.Load() != 2 {
 		t.Fatalf("read retry made %d attempts", fault.attempts.Load())
 	}
@@ -197,17 +201,19 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 		t.Fatalf("partial conversion exposed a complete total: %+v", got)
 	}
 
-	reveal("Open account · Harbor Savings", 80)
-	label("Harbor Savings · USD")
+	reveal("Actions for Harbor Savings · USD", 80)
+	label("Harbor Savings")
 	label("Reserved from available funds · US$40.12")
 	label("Available after reservations · US$85.31")
-	bankLink := "Open account · Harbor Savings"
+	bankLink := "Actions for Harbor Savings · USD"
 	label(bankLink)
 	before := funds.list.Position
 	if before.First == 0 {
 		t.Fatal("account link was tested without leaving the summary position")
 	}
 	click(bankLink)
+	chooseFundsMenuOption(t, h, "Open account")
+	settle()
 	if target := h.shell.trail.current().target; target.account != ids.bank || target.route != accountsRoute {
 		t.Fatalf("wrong account destination: %+v", target)
 	}
@@ -216,19 +222,21 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	if h.shell.activeRoute() != fundsRoute || funds.list.Position.First != before.First {
 		t.Fatalf("Back lost the Available Funds position: %+v -> %+v", before, funds.list.Position)
 	}
-	h.focused(&funds.links[domain.AccountValueSourceRef(ids.bank).Key()].account)
+	h.focused(&funds.links[domain.AccountValueSourceRef(ids.bank).Key()].menu.Trigger)
 	click("Forward")
 	if h.shell.trail.current().target.account != ids.bank {
 		t.Fatal("Forward lost the account target")
 	}
 	click("Back")
 
-	reveal("Open instrument · QA-FUND", 80)
-	label("Missing access rules.")
-	label("Current value · Unavailable")
-	instrument := "Open instrument · QA-FUND"
-	label(instrument)
+	instrument := "Actions for QA-FUND · USD"
+	reveal(instrument, 80)
+	label("Needs information")
+	label("Hill Brokerage")
+	label("Current value · Unknown")
 	click(instrument)
+	chooseFundsMenuOption(t, h, "Open instrument")
+	settle()
 	if target := h.shell.trail.current().target; target.instrument != ids.instrument || target.route != portfolioRoute {
 		t.Fatalf("wrong instrument destination: %+v", target)
 	}

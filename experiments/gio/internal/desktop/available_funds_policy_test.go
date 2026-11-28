@@ -9,9 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gioui.org/f32"
 	"gioui.org/io/key"
-	"gioui.org/io/pointer"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -211,14 +209,8 @@ func TestAvailableFundsOrdinaryPolicyResetConfirmation(t *testing.T) {
 	click := func(name string) { t.Helper(); h.click(name, false); settle() }
 	settle()
 	click("Available funds")
-	for range 20 {
-		if findPageLabel(&h.router, "Edit source rules") != nil {
-			break
-		}
-		h.router.Queue(pointer.Event{Kind: pointer.Scroll, Source: pointer.Mouse, Position: f32.Pt(550, 500), Scroll: f32.Pt(0, 150)})
-		h.frame()
-	}
-	click("Edit source rules")
+	chooseFundsSourceAction(t, h, "Reset bank · USD", "Edit source rules")
+	settle()
 	if p.policy.revision != 1 || p.policy.fields.advanced {
 		t.Fatalf("did not select the existing Soon quick choice: %+v", p.policy)
 	}
@@ -283,5 +275,5 @@ func TestAvailableFundsOrdinaryPolicyResetConfirmation(t *testing.T) {
 		p.selectedFundsBucket().FullUnreserved.CanonicalAmount() != "10" {
 		t.Fatalf("default rule or availability was not restored: %+v", row)
 	}
-	h.focused(&p.sourceButtons(ref.Key()).policy)
+	h.focused(&p.sourceButtons(ref.Key()).menu.Trigger)
 }

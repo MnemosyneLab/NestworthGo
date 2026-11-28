@@ -47,6 +47,63 @@ func TestAvailableFundsAmountsUseCurrencyPrecision(t *testing.T) {
 	}
 }
 
+func TestAvailableFundsComparisonDistinguishesSubminorZeroAndUnknown(t *testing.T) {
+	view := ui.View{Language: i18n.English, DecimalSeparator: settings.DecimalDot, GroupingSeparator: settings.GroupingComma}
+	for _, tc := range []struct{ amount, display string }{
+		{"0", "US$0.00"},
+		{"0.004", "US$0.00 (0.004 USD)"},
+		{"0.006", "US$0.01"},
+	} {
+		money, err := domain.ParseMoney(tc.amount, "USD")
+		if err != nil {
+			t.Fatal(err)
+		}
+		native := money.Amount()
+		if got := fundsComparisonMoney(view, &money); got != tc.display {
+			t.Errorf("base %s displayed as %q, want %q", tc.amount, got, tc.display)
+		}
+		if got := fundsComparisonAmount(view, &native, "USD"); got != tc.display {
+			t.Errorf("native %s displayed as %q, want %q", tc.amount, got, tc.display)
+		}
+	}
+	if got := fundsComparisonMoney(view, nil); got != "Unknown" {
+		t.Errorf("unknown amount displayed as %q", got)
+	}
+}
+
+func TestAvailableFundsNarrowToolbarAndCurrencyRows(t *testing.T) {
+	app, _, _, _ := openFundsFixture(t, true)
+	p, h, settle := reservationHarness(t, app, app)
+	h.size = image.Pt(900, 600)
+	settle()
+	date := semanticBounds(t, &h.router, "Custom date", true)
+	early := assertPageLabel(t, &h.router, "Consider early withdrawal")
+	if date.Max.X >= early.Min.X || date.Min.Y >= early.Max.Y || early.Min.Y >= date.Max.Y || date.Dx() > 200 {
+		t.Fatalf("date and early-withdrawal controls do not fit in one compact toolbar: %v / %v", date, early)
+	}
+	if early.Max.Y > h.size.Y || early.Dy() > 40 {
+		t.Fatalf("early withdrawal exceeds its toolbar row: %v", early)
+	}
+	for _, label := range []string{"Native amounts · EUR", "Native amounts · USD", "Known available after reservations · US$85.31"} {
+		if bounds := assertPageLabel(t, &h.router, label); bounds.Empty() || bounds.Min.Y < 0 || bounds.Max.Y > h.size.Y {
+			t.Errorf("%q is outside the initial 900×600 window: %v", label, bounds)
+		}
+	}
+	if p.list.Position.First != 0 {
+		t.Fatal("overview visibility required scrolling")
+	}
+	h.click("About these amounts", false)
+	if h.shell.overlay.Trigger != &p.controls.comparisonAbout || h.shell.overlay.Panel.Empty() {
+		t.Fatal("comparison help did not open")
+	}
+	assertPageLabel(t, &h.router, i18n.English.Text(i18n.FundsComparisonNote))
+	h.press(key.NameEscape)
+	if h.shell.overlay.Trigger != nil {
+		t.Fatal("Escape did not dismiss comparison help")
+	}
+	h.focused(&p.controls.comparisonAbout)
+}
+
 func TestAvailableFundsHorizonControlsMatchWails(t *testing.T) {
 	ctx := t.Context()
 	app, _, _, fixture := openManagedProductFixture(t)

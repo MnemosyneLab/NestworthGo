@@ -91,7 +91,8 @@ func TestProductOperationHistoryMatchesWails(t *testing.T) {
 	scrollClick := func(label string) { t.Helper(); scrollProductControl(t, h, label); click(label) }
 	settle()
 	click("Available funds")
-	scrollClick("Open product · Synthetic locked product")
+	chooseFundsSourceAction(t, h, "Synthetic locked product · USD", "Open product")
+	settle()
 	if p.history.problem != i18n.ProductHistoryFailed || p.err != nil {
 		t.Fatal("history failure incorrectly blocked product detail")
 	}

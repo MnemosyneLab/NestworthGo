@@ -1936,6 +1936,7 @@ const (
 	FundsNative
 	FundsComplete
 	FundsPartial
+	FundsPartialShort
 	FundsEmpty
 	FundsSources
 	FundsCashSource
@@ -1998,12 +1999,18 @@ const (
 	FundsBreakdownCurrency
 	FundsSourceDetails
 	FundsNamedSourceDetails
+	FundsSourceAmountsHelp
+	FundsSourceNativeCurrency
+	FundsCashReady
+	FundsHoldingRedeemable
 	FundsSameAs
 	FundsMoreThan
 	FundsLessThan
 	FundsMissingRuleCountOne
 	FundsMissingRuleCountMany
 	FundsComparisonNote
+	FundsComparisonHeading
+	FundsComparisonAbout
 	FundsRouteFee
 
 	FundsPolicyTitle

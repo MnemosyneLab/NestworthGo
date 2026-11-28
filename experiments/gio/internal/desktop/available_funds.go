@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"image"
 	"slices"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
+	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui/lucide"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -68,6 +70,7 @@ func readAvailableFundsQuery(ctx context.Context, service availableFundsReader, 
 type fundsLinks struct {
 	account, instrument, reserve, product, policy, details widget.Clickable
 	showDetails                                            bool
+	menu                                                   ui.Select
 }
 
 type availableFundsPage struct {
@@ -100,6 +103,9 @@ type availableFundsPage struct {
 	nextRefresh         time.Time
 
 	list               widget.List
+	rowOrigin          image.Point
+	rowWidth           int
+	rowHeights         []int
 	reload             widget.Clickable
 	manageReservations widget.Clickable
 	jumpSources        widget.Clickable
@@ -221,10 +227,20 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 	case p.request != nil:
 		status = i18n.FundsUpdating
 	}
-	var headerHeight int
-	return ui.Column{Gap: ui.Space8}.Layout(gtx,
-		ui.Rigid(func(gtx layout.Context) (dims layout.Dimensions) {
-			defer func() { headerHeight = dims.Size.Y }()
+	var listOrigin image.Point
+	return (ui.Column{Gap: ui.Space8}).LayoutWithOrigins(gtx, view.Origin, func(index int, origin image.Point) {
+		if index == 2 {
+			listOrigin = origin
+		}
+	},
+		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if p.err == nil && p.localDate != "" && (p.current == nil || len(p.current.report.Sources) != 0) {
+				caption := l.Text(status)
+				if status == i18n.NoMessage {
+					caption = fmt.Sprintf(l.Text(i18n.FundsToday), historyDay(view, p.localDate), p.timezone)
+				}
+				return p.layoutFundsControls(gtx, view, caption)
+			}
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 					if status == i18n.NoMessage && p.current != nil {
@@ -247,13 +263,6 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 				}))
 		}),
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.localDate == "" || p.current != nil && len(p.current.report.Sources) == 0 {
-				return layout.Dimensions{}
-			}
-			view.Origin.Y += headerHeight + gtx.Dp(ui.Space8)
-			return p.layoutFundsControls(gtx, view)
-		}),
-		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			if p.policyNotice != i18n.NoMessage {
 				return view.Message(l.Text(p.policyNotice), view.Colors.Ink)(gtx)
 			}
@@ -269,7 +278,12 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 			if p.current == nil {
 				return layout.Dimensions{}
 			}
-			rows, sourcesIndex := p.rows(view)
+			listView := view.WithScrollAnchors(&p.list)
+			viewport := image.Rectangle{Min: listOrigin, Max: listOrigin.Add(gtx.Constraints.Max)}
+			if view.Overlay != nil {
+				view.Overlay.ScrollOutsidePanel(gtx, &p.list, viewport)
+			}
+			rows, sourcesIndex := p.rows(listView)
 			if p.state.focusSources && p.request == nil {
 				if sourcesIndex >= 0 {
 					p.list.Position = layout.Position{First: sourcesIndex}
@@ -278,12 +292,23 @@ func (p *availableFundsPage) layout(gtx layout.Context, view ui.View) layout.Dim
 				}
 			}
 			p.list.Position = restoredPosition(p.list.Position, len(rows))
-			return pageListGap(gtx, view, &p.list, l.Text(i18n.NavAvailableFunds), len(rows), ui.Space12, func(gtx layout.Context, i int) layout.Dimensions {
-				if p.request != nil {
-					gtx = gtx.Disabled()
-				}
-				return rows[i](gtx)
-			})
+			dims := pageListGapWithRowOrigins(gtx, listView, &p.list, l.Text(i18n.NavAvailableFunds), len(rows), ui.Space12,
+				listOrigin, &p.rowHeights, func(origin image.Point, width, index int) {
+					// Popover clipping applies the list's pixel offset after layout.
+					p.rowOrigin, p.rowWidth = origin.Add(image.Pt(0, p.list.Position.Offset)), width
+					if index == 0 {
+						p.controls.comparisonOrigin = p.rowOrigin
+					}
+				}, func(gtx layout.Context, index int) layout.Dimensions {
+					if p.request != nil {
+						gtx = gtx.Disabled()
+					}
+					return rows[index](gtx)
+				})
+			if view.Overlay != nil {
+				view.Overlay.OffsetScrollAnchor(&p.list, viewport)
+			}
+			return dims
 		}))
 }
 
@@ -301,11 +326,6 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	} else if p.reservationLedger != nil {
 		rows = append(rows, p.globalReservationButton(view, &p.manageReservations))
 	}
-	// Across currencies the converted base total is a distinct projection.
-	// A single native group in the base currency already shows those amounts.
-	if len(groups) != 1 || groups[0].Currency != overview.BaseCurrency {
-		rows = append(rows, fundsBaseSummary(view, overview.BaseCurrency, bucket))
-	}
 	if len(groups) != 0 || len(data.report.Sources) != 0 {
 		horizon := fundsHorizon{bucket: bucket, label: i18n.FundsHorizonToday}
 		for _, option := range p.fundsHorizons() {
@@ -316,6 +336,11 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 		}
 		rows = append(rows, fundsBreakdown(view, horizon, data.native[bucket.HorizonOn]))
 	}
+	// Across currencies the converted base total is a distinct projection.
+	// A single native group in the base currency already shows those amounts.
+	if len(groups) != 1 || groups[0].Currency != overview.BaseCurrency {
+		rows = append(rows, fundsBaseSummary(view, overview.BaseCurrency, bucket))
+	}
 	sourcesIndex := -1
 	if len(data.report.Sources) == 0 {
 		for _, warning := range bucket.Warnings {
@@ -325,7 +350,7 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 	} else {
 		counts := countFundsSources(data.report.Sources, bucket.HorizonOn)
 		sourcesIndex = len(rows)
-		rows = append(rows, p.fundsSourcesHeader(view, bucket, counts))
+		rows = append(rows, p.fundsSourcesHeader(view, bucket, counts, p.state.focusSources && p.request == nil))
 		for _, source := range data.report.Sources {
 			if fundsMatchesSourceFilter(source.Result, bucket.HorizonOn, p.state.filter) {
 				rows = append(rows, p.source(view, source, bucket.HorizonOn))
@@ -348,20 +373,23 @@ func (p *availableFundsPage) rows(view ui.View) ([]layout.Widget, int) {
 
 func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadSource, day string) layout.Widget {
 	source := row.Result
-	var kind domain.ProductKind
-	if source.ProductID != nil && row.ProductKind != nil {
-		kind = domain.ProductKind(*row.ProductKind)
-	}
 	l := view.Language
+	unknown := l.Text(i18n.OverviewFundsUnknownAmount)
 	values := fundsSourceValues{
 		current:   fundsMoneyFigure(view, i18n.FundsCurrent, source.CurrentNativeValue),
-		expected:  fundsFigure{i18n.FundsLater, l.Text(i18n.OverviewNoValue)},
+		expected:  fundsFigure{i18n.FundsLater, unknown},
 		spendable: fundsMoneyFigure(view, i18n.FundsAvailableAfter, nil),
 	}
-	var notes, details, actions []layout.Widget
+	if source.CurrentNativeValue == nil {
+		values.current.value = unknown
+	}
+	values.spendable.value = unknown
+	var details []layout.Widget
 	result := fundsResultForHorizon(source, day)
 	if result != nil && !source.Excluded {
-		values.spendable = fundsMoneyFigure(view, i18n.FundsAvailableAfter, result.UnreservedNative)
+		if result.UnreservedNative != nil {
+			values.spendable = fundsMoneyFigure(view, i18n.FundsAvailableAfter, result.UnreservedNative)
+		}
 		if result.NetNative != nil {
 			before := fundsMoneyFigure(view, i18n.FundsAvailableBefore, result.NetNative)
 			details = append(details, labeledAmount(view, before.pattern, before.value, view.Colors.Ink))
@@ -371,7 +399,7 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 			values.applied = &reserve
 		}
 		if result.ReserveShortfallNative != nil && !result.ReserveShortfallNative.IsZero() {
-			notes = append(notes, fundsAmount(view, i18n.FundsShortfall, result.ReserveShortfallNative))
+			details = append(details, fundsAmount(view, i18n.FundsShortfall, result.ReserveShortfallNative))
 		}
 	}
 	if source.Excluded {
@@ -421,56 +449,95 @@ func (p *availableFundsPage) source(view ui.View, row application.LiquidityReadS
 		}
 	}
 	for _, reason := range reasons {
-		if kind != "" && reason == i18n.FundsDue && source.DisplayState == domain.ProductDisplayDueUnconfirmed {
-			continue // The product state below already explains the unconfirmed receipt.
+		if source.DueUnconfirmed && reason == i18n.FundsDue {
+			continue
 		}
-		notes = append(notes, view.Message(l.Text(reason), view.Colors.SecondaryInk))
-	}
-	var instrument domain.InstrumentID
-	if source.ProductID == nil && row.InstrumentID != nil {
-		instrument = domain.InstrumentID(*row.InstrumentID)
-	}
-	if kind == domain.ProductTermDeposit || kind == domain.ProductLockedProduct {
-		notes = append(notes, productState(view, kind, source.DisplayState))
-		if p.openProduct != nil {
-			actions = append(actions, productLink(view, *source.ProductID, source.DisplayName, &p.sourceButtons(source.SourceKey).product, p.openProduct))
-		}
+		details = append(details, view.Message(l.Text(reason), view.Colors.SecondaryInk))
 	}
 	title := p.sourceTitle(view, source)
-	if p.policyLedger != nil {
-		switch {
-		case editableFundsPolicy(row):
-			actions = append(actions, p.policyButton(view, row, title, result != nil && result.NeedsRules))
-		case source.ProductID != nil:
-			details = append(details, view.Message(l.Text(i18n.FundsPolicyManaged), view.Colors.SecondaryInk))
-		default:
-			details = append(details, view.Message(l.Text(i18n.FundsPolicyReadOnly), view.Colors.SecondaryInk))
+	buttons := p.sourceButtons(source.SourceKey)
+	account := p.current.accounts[source.AccountID].Name
+	name := p.sourceName(view, source)
+	identity := fundsSourceIdentity(view, name, account, source)
+	editable := p.policyLedger != nil && editableFundsPolicy(row)
+	complete := editable && (source.DisplayState == domain.ProductDisplayNeedsInfo || result != nil && result.NeedsRules)
+	var primary layout.Widget
+	if complete {
+		primary = p.policyButton(view, row, title, true)
+	}
+	if p.policyLedger != nil && !editable {
+		reason := i18n.FundsPolicyReadOnly
+		if source.ProductID != nil {
+			reason = i18n.FundsPolicyManaged
+		}
+		details = append(details, view.Message(l.Text(reason), view.Colors.SecondaryInk))
+	}
+	actions := p.fundsSourceMenu(view, row, title, buttons, editable && !complete)
+	return fundsSourceRow(view, title, buttons, identity, values, primary, actions, details)
+}
+
+func (p *availableFundsPage) sourceName(view ui.View, source domain.LiquiditySourceResult) string {
+	if source.Ref.Kind == domain.SourceAccountCash {
+		if name := p.current.accounts[source.AccountID].Name; name != "" {
+			return fmt.Sprintf(view.Language.Text(i18n.FundsCashSource), name)
 		}
 	}
-	if p.reservationLedger != nil {
-		name := source.DisplayName
-		if source.Ref.Kind != domain.SourceAccountValue {
-			name = reservationSourceName(view, &source, p.current.accounts[source.AccountID].Name)
-		}
-		actions = append(actions, p.reservationButton(view, name, source.Ref))
-	}
-	actions = append(actions, p.sourceNavigationActions(view, source.SourceKey, source.AccountID, instrument, source.DisplayName)...)
-	return func(gtx layout.Context) layout.Dimensions {
-		return fundsSourceRow(view, title, p.sourceButtons(source.SourceKey), values, notes, actions, details)(gtx)
-	}
+	return source.DisplayName
 }
 
 func (p *availableFundsPage) sourceTitle(view ui.View, source domain.LiquiditySourceResult) string {
-	title := source.DisplayName
-	if source.Ref.Kind == domain.SourceAccountCash {
-		if name := p.current.accounts[source.AccountID].Name; name != "" {
-			title = fmt.Sprintf(view.Language.Text(i18n.FundsCashSource), name)
-		}
-	}
+	name := p.sourceName(view, source)
 	if source.NativeCurrency != "" {
-		title += " · " + source.NativeCurrency.String()
+		name += " · " + source.NativeCurrency.String()
 	}
-	return title
+	return name
+}
+
+func (p *availableFundsPage) fundsSourceMenu(view ui.View, row application.LiquidityReadSource, title string, buttons *fundsLinks, editRules bool) layout.Widget {
+	source := row.Result
+	l := view.Language
+	entry := &buttons.menu.Trigger
+	var items []ui.Choice
+	commands := map[string]func(){}
+	add := func(item ui.Choice, command func()) {
+		items = append(items, item)
+		commands[item.ID] = command
+	}
+	if editRules {
+		add(ui.Choice{ID: "rules", Label: l.Text(i18n.FundsPolicyEdit)}, func() { p.startPolicy(row, title, entry) })
+	}
+	if p.reservationLedger != nil {
+		add(ui.Choice{ID: "reservations", Label: l.Text(i18n.ReserveManageAll)}, func() { p.openReservations(source.Ref, entry) })
+	}
+	if source.ProductID != nil && p.openProduct != nil {
+		add(ui.Choice{ID: "product", Label: fundsFigureLabel(l, i18n.ProductOpen)}, func() { p.openProduct(*source.ProductID, source.DisplayName, entry) })
+	}
+	if name := p.current.accounts[source.AccountID].Name; p.openAccount != nil && name != "" {
+		add(ui.Choice{ID: "account", Label: fundsFigureLabel(l, i18n.HistoryOpenAccount)}, func() { p.openAccount(source.AccountID, name, entry) })
+	}
+	if source.ProductID == nil && row.InstrumentID != nil && p.openInstrument != nil {
+		add(ui.Choice{ID: "instrument", Label: fundsFigureLabel(l, i18n.PortfolioOpenInstrument)}, func() {
+			p.openInstrument(domain.InstrumentID(*row.InstrumentID), source.DisplayName, entry)
+		})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	label := fmt.Sprintf(l.Text(i18n.PortfolioActionsFor), title)
+	return func(gtx layout.Context) layout.Dimensions {
+		p.restoreReservationEntry(gtx, entry)
+		size := gtx.Dp(ui.ControlCompact)
+		origin := p.rowOrigin.Add(image.Pt(p.rowWidth-gtx.Dp(ui.Space12)-size, gtx.Dp(ui.Space8)))
+		bounds := image.Rectangle{Min: origin, Max: origin.Add(image.Pt(size, size))}
+		buttons.menu.Menu(gtx, view, bounds, items, label, "", nil, nil, 208, func(id string) {
+			if command := commands[id]; command != nil {
+				command()
+			}
+		})
+		view.Focus.Watch(gtx, entry)
+		return view.ButtonOf(entry, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonCompact,
+			Name: label, ShortName: label, Icon: lucide.Ellipsis})(gtx)
+	}
 }
 
 func (p *availableFundsPage) sourceLinks(view ui.View, key string, account domain.AccountID, instrument domain.InstrumentID, name string) layout.Widget {
