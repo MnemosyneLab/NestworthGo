@@ -11,11 +11,21 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
 
 type investmentAmendmentDraft struct {
 	history.AmendableInvestment
 	quantity, note ui.TextField
+	kind           ui.Select
+	selectors      [8]ui.Select
+	values         [4]ui.TextField
+	command        historyapi.ChangeCommandRequest
+	initial        historyapi.ChangeCommandRequest
+	sources        history.InvestmentReplacementSources
+	loading        <-chan historyResult[history.InvestmentReplacementSources]
+	readFailed     bool
+	reload         widget.Clickable
 }
 
 type historyAmendmentDraft struct {
@@ -73,6 +83,14 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 		if note := d.record.Activity.Note; note != nil {
 			form.investment.note.Editor.SetText(*note)
 		}
+		if action == history.CorrectActivity {
+			form.investment.initial, _ = history.InvestmentReplacementInitial(d.record.Activity)
+			form.investment.command = form.investment.initial
+			for i := range form.investment.values {
+				form.investment.values[i] = ui.NewTextField(true)
+			}
+			r.loadInvestmentReplacement(form)
+		}
 	default:
 		form.amount.Editor.SetText(movement.Principal.Money.CanonicalAmount())
 	}
@@ -85,6 +103,14 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 	if action == history.ReverseActivity {
 		r.previewAmendment()
 	}
+}
+
+func (r *historyReads) loadInvestmentReplacement(form *historyAmendmentDraft) {
+	original := r.detail.record.Activity
+	form.investment.readFailed = false
+	form.investment.loading = runHistoryRead(&r.workers, r.invalidate, func() (history.InvestmentReplacementSources, error) {
+		return history.LoadInvestmentReplacementSources(r.ctx, r.service, original)
+	})
 }
 
 func (r *historyReads) previewAmendment() {
@@ -101,8 +127,12 @@ func (r *historyReads) previewAmendment() {
 		}
 		amounts.From, amounts.To, amounts.Note = c.from, c.to, c.note.Text()
 	}
-	if investment := form.investment; investment != nil && form.action == history.CorrectActivity {
-		amounts.Quantity, amounts.Note = investment.quantity.Text(), investment.note.Text()
+	if form.investment != nil && form.action == history.CorrectActivity {
+		replacement, ready := investmentReplacementRequest(form)
+		if !ready {
+			return
+		}
+		amounts.Replacement = &replacement
 	}
 	form.problem = i18n.NoMessage
 	form.preview = runHistoryRead(&r.workers, r.invalidate, func() (history.ReviewedAmendment, error) {
@@ -140,6 +170,14 @@ func (p *historyPage) pollAmendment() {
 		case result := <-c.loading:
 			c.loading = nil
 			c.sources, c.readFailed = result.value, result.err != nil
+		default:
+		}
+	}
+	if investment := form.investment; investment != nil {
+		select {
+		case result := <-investment.loading:
+			investment.loading = nil
+			investment.sources, investment.readFailed = result.value, result.err != nil
 		default:
 		}
 	}
@@ -202,7 +240,7 @@ func (form *historyAmendmentDraft) amendmentProblem(err error, fallback i18n.Mes
 	if !errors.As(err, &issue) {
 		return fallback
 	}
-	if form.investment != nil && form.investment.Kind == domain.ActivityCashDividend && issue.Field == "amount" &&
+	if form.investment != nil && form.investment.command.Kind == historyapi.ChangeCashDividend && issue.Field == "amount" &&
 		(issue.Code == domain.ErrValidation || issue.Code == domain.ErrInvalidChange) {
 		return i18n.DividendInvalidAmount
 	}

@@ -208,6 +208,11 @@ func amendmentActions(view ui.View, form *historyAmendmentDraft, fix bool, prepa
 				if form.custody != nil && fix && (!form.custody.selected() || strings.TrimSpace(form.amount.Text()) == "") {
 					gtx = gtx.Disabled()
 				}
+				if form.investment != nil && fix {
+					if _, ready := investmentReplacementRequest(form); !ready {
+						gtx = gtx.Disabled()
+					}
+				}
 				return view.PrimaryButton(&form.prepare, l.Text(prepareTitle))(gtx)
 			})
 		default:

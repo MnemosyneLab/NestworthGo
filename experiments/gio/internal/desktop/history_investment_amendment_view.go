@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"fmt"
+	"image"
 
 	"gioui.org/layout"
 
@@ -16,6 +17,8 @@ func (p *historyPage) layoutInvestmentAmendment(gtx layout.Context, view ui.View
 	detail, l := p.reads.detail, view.Language
 	record, form := detail.record, detail.amendment
 	investment := form.investment
+	view = view.WithScrollAnchors(&form.scroll)
+	origin := view.Origin
 	title := action
 	if form.review != nil {
 		title = reviewTitle
@@ -34,7 +37,7 @@ func (p *historyPage) layoutInvestmentAmendment(gtx layout.Context, view ui.View
 		view.Message(l.Text(i18n.HistoryOriginalMovement), view.Colors.SecondaryInk),
 		view.Message(tradeTimestamp(view, record.Activity.EffectiveAt, record.Location), view.Colors.SecondaryInk),
 	}
-	rows = append(rows, investmentAmendmentFacts(view, record, record.Activity, record.Activity.Effects)...)
+	rows = append(rows, investmentAmendmentFacts(view, record, record.Activity, record.Activity.Effects, history.InvestmentReplacementSources{})...)
 	description := i18n.HistoryReverseDescription
 	if fix {
 		description = i18n.HistoryCorrectDescription
@@ -50,20 +53,31 @@ func (p *historyPage) layoutInvestmentAmendment(gtx layout.Context, view ui.View
 		if !fix {
 			rows = append(rows, view.Message(tradeTimestamp(view, preview.Activity.EffectiveAt, record.Location), view.Colors.SecondaryInk))
 		}
-		rows = append(rows, investmentAmendmentFacts(view, record, preview.Activity, preview.Effects)...)
+		rows = append(rows, investmentAmendmentFacts(view, record, preview.Activity, preview.Effects, investment.sources)...)
 		rows = append(rows, investmentAmendmentResults(view, preview, fix)...)
 	} else if fix {
-		rows = append(rows, investmentAmendmentFields(view, form, busy)...)
+		rows = append(rows, p.replacementFields(view, form, &origin, busy)...)
 	}
 	children := make([]layout.FlexChild, 0, len(rows))
 	for _, row := range rows {
-		children = append(children, layout.Rigid(row))
+		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return fieldPosition(gtx, &origin, row)
+		}))
 	}
 	panel := []ui.ColumnChild{
 		ui.Fill(func(gtx layout.Context) layout.Dimensions {
-			return view.List(&form.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+			bounds := image.Rectangle{Min: view.Origin, Max: view.Origin.Add(gtx.Constraints.Max)}
+			if view.Overlay != nil {
+				view.Overlay.ScrollOutsidePanel(gtx, &form.scroll, bounds)
+			}
+			dims := view.List(&form.scroll).Layout(gtx, 1, func(gtx layout.Context, _ int) layout.Dimensions {
+				origin = view.Origin
 				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 			})
+			if view.Overlay != nil {
+				view.Overlay.OffsetScrollAnchor(&form.scroll, bounds)
+			}
+			return dims
 		}),
 	}
 	problem := form.problem
@@ -77,17 +91,29 @@ func (p *historyPage) layoutInvestmentAmendment(gtx layout.Context, view ui.View
 	return (ui.Column{Gap: 8}).Layout(gtx, panel...)
 }
 
-func investmentAmendmentFacts(view ui.View, record *history.Detail, activity domain.Activity, effects []domain.ActivityEffect) []layout.Widget {
+func investmentAmendmentFacts(view ui.View, record *history.Detail, activity domain.Activity, effects []domain.ActivityEffect, sources history.InvestmentReplacementSources) []layout.Widget {
 	l := view.Language
 	account := func(id *domain.AccountID) string {
-		if id != nil && record.Accounts[*id] != "" {
-			return record.Accounts[*id]
+		if id != nil {
+			if name := record.Accounts[*id]; name != "" {
+				return name
+			}
+			for _, account := range sources.Accounts {
+				if account.ID == *id {
+					return account.Name
+				}
+			}
 		}
 		return l.Text(i18n.AccountReferenceUnavailable)
 	}
 	instrument := func(id domain.InstrumentID) string {
 		if name := record.Instruments[id]; name != "" {
 			return name
+		}
+		for _, holding := range sources.Holdings {
+			if holding.Instrument.ID == id {
+				return holding.Instrument.DisplayLabel()
+			}
 		}
 		return l.Text(i18n.HistoryInstrumentUnavailable)
 	}
@@ -125,14 +151,18 @@ func investmentAmendmentResults(view ui.View, preview domain.ChangePreview, fix 
 	if len(preview.Review) != 0 {
 		for _, endpoint := range preview.Review {
 			switch endpoint.Target {
-			case domain.EffectTargetAccountCash:
+			case domain.EffectTargetAccountCash, domain.EffectTargetAccountValue:
 				currency := " " + endpoint.Currency.String()
+				rows = append(rows, view.Message(endpoint.AccountName, view.Colors.SecondaryInk))
 				rows = append(rows,
 					fact(i18n.ContributionBefore, endpoint.Before+currency),
 					fact(i18n.HistoryChangeDelta, endpoint.Delta+currency),
 					fact(balanceLabel, endpoint.After+currency),
 				)
 			case domain.EffectTargetHoldingQuantity:
+				if endpoint.AccountName != "" && endpoint.Instrument != "" {
+					rows = append(rows, view.Message(endpoint.AccountName+" · "+endpoint.Instrument, view.Colors.SecondaryInk))
+				}
 				rows = append(rows, fact(i18n.CustodyAmendmentBeforeAfter, portfolioDecimal(view, endpoint.Before), portfolioDecimal(view, endpoint.After)))
 			}
 		}
@@ -147,46 +177,4 @@ func investmentAmendmentResults(view ui.View, preview domain.ChangePreview, fix 
 		}
 	}
 	return rows
-}
-
-func investmentAmendmentFields(view ui.View, form *historyAmendmentDraft, busy bool) []layout.Widget {
-	investment := form.investment
-	amountLabel, quantityLabel := i18n.BuyGross, i18n.BuyQuantity
-	switch investment.Kind {
-	case domain.ActivitySell:
-		amountLabel, quantityLabel = i18n.SellGross, i18n.SellQuantity
-	case domain.ActivityCashDividend:
-		amountLabel = i18n.DividendAmount
-	}
-	dividend := investment.Kind == domain.ActivityCashDividend
-	focus := func(gtx layout.Context, field *ui.TextField) {
-		if form.focus && !busy && gtx.Enabled() {
-			field.Focus(gtx)
-			form.focus = false
-		}
-	}
-	var rows []layout.Widget
-	if !dividend {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			focus(gtx, &investment.quantity)
-			return investment.quantity.Layout(gtx, view, ui.FieldOptions{Label: quantityLabel, Disabled: busy})
-		})
-	}
-	currency := investment.Currency.String()
-	rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-		if dividend {
-			focus(gtx, &form.amount)
-		}
-		return form.amount.LayoutCurrency(gtx, view, ui.FieldOptions{Label: amountLabel, Disabled: busy}, currency)
-	})
-	if !dividend {
-		rows = append(rows, func(gtx layout.Context) layout.Dimensions {
-			return form.fee.LayoutCurrency(gtx, view, ui.FieldOptions{Label: i18n.BuyFee, Disabled: busy}, currency)
-		})
-	}
-	return append(rows, func(gtx layout.Context) layout.Dimensions {
-		return investment.note.Layout(gtx, view, ui.FieldOptions{
-			Label: i18n.PreviewNotes, Hint: i18n.PreviewNotesHint, Help: i18n.PreviewNotesHelp, Disabled: busy,
-		})
-	})
 }

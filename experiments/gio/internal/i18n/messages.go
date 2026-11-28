@@ -1350,6 +1350,10 @@ const (
 	HistoryCorrectBuy
 	HistoryCorrectSell
 	HistoryCorrectDividend
+	HistoryReplacementTrade
+	HistoryReplacementTradeSide
+	HistoryReplacementOptionalUnitCost
+	HistoryReplacementArchivedTrade
 	HistoryCorrectDescription
 	HistoryCorrectPreview
 	HistoryCorrectReview

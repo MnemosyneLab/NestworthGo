@@ -28,12 +28,13 @@ const (
 )
 
 type AmendmentInput struct {
-	Amount   string
-	Quantity string
-	Received string
-	Fee      string
-	From, To domain.HoldingID
-	Note     string
+	Amount      string
+	Quantity    string
+	Received    string
+	Fee         string
+	From, To    domain.HoldingID
+	Note        string
+	Replacement *historyapi.ChangeCommandRequest
 }
 
 type ReviewedAmendment struct {
@@ -51,6 +52,19 @@ type ReviewedAmendment struct {
 // instant and mutation envelope. The application owns replay and projection.
 func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action AmendmentAction, id domain.ActivityID, amounts AmendmentInput, at time.Time) (ReviewedAmendment, error) {
 	review := ReviewedAmendment{Action: action, original: id, mutation: domain.NewMutationID().String()}
+	var explicitReplacement *historyapi.ChangeCommandRequest
+	if supplied := amounts.Replacement; supplied != nil {
+		if action != CorrectActivity || supplied.ReconciliationLink != nil || supplied.Kind == historyapi.ChangePositionImport {
+			return ReviewedAmendment{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "replacement"}
+		}
+		frozen := *supplied
+		frozen.MutationID, frozen.EffectiveAt, frozen.EffectiveLocalDate, frozen.EffectiveLocalTime = "", "", "", ""
+		if frozen.Note != nil {
+			note := *frozen.Note
+			frozen.Note = &note
+		}
+		explicitReplacement = &frozen
+	}
 	var request *historyapi.ChangeCommandRequest
 	var err error
 	switch action {
@@ -64,14 +78,22 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 				return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
 			}
 			investment, isInvestment := InvestmentAmendment(original)
+			if explicitReplacement != nil && !isInvestment {
+				return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "replacement"}
+			}
 			var replacement historyapi.ChangeCommandRequest
+			var position PositionHolding
 			if _, custody := CustodyAmendment(original); custody {
 				replacement = custodyReplacement(amounts)
 			} else if isInvestment {
-				if _, err := investmentAmendmentTarget(ctx, ledger, id, investment); err != nil {
+				position, err = investmentAmendmentTarget(ctx, ledger, id, investment)
+				if err != nil {
 					return nil, err
 				}
 				replacement = investment.replacement(amounts)
+				if explicitReplacement != nil {
+					replacement = *explicitReplacement
+				}
 			} else {
 				movement, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
 				if err != nil {
@@ -99,8 +121,13 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 			if err != nil {
 				return nil, err
 			}
-			if isInvestment && investment.unchanged(review.replacement, original.Note) {
-				return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
+			if isInvestment {
+				if err := investment.validateArchivedTrade(position, review.replacement); err != nil {
+					return nil, err
+				}
+				if investment.unchanged(review.replacement, original.Note) {
+					return nil, &domain.Error{Code: domain.ErrNoChange, Field: "amount"}
+				}
 			}
 			return review.replacement, nil
 		})
@@ -114,12 +141,15 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 				return &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
 			}
 			if investment, supported := InvestmentAmendment(original); supported {
-				account, err := investmentAmendmentTarget(ctx, ledger, id, investment)
+				position, err := investmentAmendmentTarget(ctx, ledger, id, investment)
 				if err != nil {
 					return err
 				}
-				if account.ArchivedAt != nil {
+				if position.Account.ArchivedAt != nil {
 					return &domain.Error{Code: domain.ErrConflict, Field: "accountId"}
+				}
+				if investment.restrictedTrade(position) {
+					return &domain.Error{Code: domain.ErrConflict, Field: "holdingId"}
 				}
 			} else if _, custody := CustodyAmendment(original); !custody {
 				_, accounts, err := cashAmendmentTarget(ctx, ledger, id, original)
@@ -155,19 +185,23 @@ func ReviewAmendment(ctx context.Context, ledger AmendmentLedger, action Amendme
 	return review, nil
 }
 
-func investmentAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, investment AmendableInvestment) (domain.Account, error) {
+func investmentAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, investment AmendableInvestment) (PositionHolding, error) {
 	rows, err := ledger.ListAccounts(ctx, domain.AccountFilter{AccountIDs: []domain.AccountID{investment.Account}, IncludeArchived: true})
 	if err != nil {
-		return domain.Account{}, err
+		return PositionHolding{}, err
 	}
-	account, err := investment.account(ctx, ledger, id, rows)
+	instruments, err := ledger.ListInstruments(ctx, true)
 	if err != nil {
-		return domain.Account{}, err
+		return PositionHolding{}, err
 	}
-	if account.ID == "" {
-		return domain.Account{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+	position, err := investment.position(ctx, ledger, id, rows, instruments)
+	if err != nil {
+		return PositionHolding{}, err
 	}
-	return account, nil
+	if position.Account.ID == "" {
+		return PositionHolding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "activityId"}
+	}
+	return position, nil
 }
 
 func cashAmendmentTarget(ctx context.Context, ledger AmendmentLedger, id domain.ActivityID, activity domain.Activity) (AmendableCash, amendmentAccounts, error) {

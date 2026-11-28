@@ -118,8 +118,9 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 	for _, result := range record.Resulting {
 		addAccount(result.AccountID)
 	}
+	var accounts []domain.AccountRecord
 	if len(ids) > 0 {
-		accounts, err := service.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids, IncludeArchived: true})
+		accounts, err = service.ListAccounts(ctx, domain.AccountFilter{AccountIDs: ids, IncludeArchived: true})
 		if err != nil {
 			return Detail{}, err
 		}
@@ -137,13 +138,6 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 				}
 				detail.Amendable = ok
 				detail.Reversible = ok && endpoints.active()
-			} else if investment, eligible := InvestmentAmendment(record); eligible {
-				account, err := investment.account(ctx, service, id, accounts)
-				if err != nil {
-					return Detail{}, err
-				}
-				detail.Amendable = account.ID != ""
-				detail.Reversible = detail.Amendable && account.ArchivedAt == nil
 			}
 		}
 	}
@@ -157,6 +151,14 @@ func LoadDetail(ctx context.Context, service DetailReader, id domain.ActivityID)
 		for _, instrument := range instruments {
 			detail.Instruments[instrument.ID] = instrument.DisplayLabel()
 			detail.InstrumentCurrencies[instrument.ID] = instrument.QuoteCurrency
+		}
+		if investment, eligible := InvestmentAmendment(record); eligible && zone != nil && detail.Links.Reversal == "" {
+			position, err := investment.position(ctx, service, id, accounts, instruments)
+			if err != nil {
+				return Detail{}, err
+			}
+			detail.Amendable = position.Account.ID != ""
+			detail.Reversible = detail.Amendable && position.Account.ArchivedAt == nil && !investment.restrictedTrade(position)
 		}
 	}
 	if _, custody := CustodyAmendment(record); custody && zone != nil && detail.Links.Reversal == "" {

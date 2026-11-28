@@ -96,30 +96,47 @@ func matchesInvestmentCash(effect domain.ActivityEffect, role domain.EffectRole,
 		effect.Money.Currency() == amount.Currency() && effect.Money.CanonicalAmount() == amount.CanonicalAmount()
 }
 
-// account verifies the exact holding and reconciliation linkage without using
+// position verifies the exact holding and reconciliation linkage without using
 // today's quantity as an eligibility gate for historical replay.
-func (m AmendableInvestment) account(ctx context.Context, ledger DetailReader, id domain.ActivityID, rows []domain.AccountRecord) (domain.Account, error) {
+func (m AmendableInvestment) position(ctx context.Context, ledger DetailReader, id domain.ActivityID, rows []domain.AccountRecord, instruments []domain.Instrument) (PositionHolding, error) {
 	index := slices.IndexFunc(rows, func(row domain.AccountRecord) bool {
 		return row.Account.ID == m.Account && supportsCashMovement(row) &&
 			row.Account.TrackingMode == domain.TrackingHoldings && row.Account.AccountType != domain.TypeCashOnHand
 	})
-	if index < 0 {
-		return domain.Account{}, nil
+	instrument := slices.IndexFunc(instruments, func(instrument domain.Instrument) bool { return instrument.ID == m.Instrument })
+	if index < 0 || instrument < 0 {
+		return PositionHolding{}, nil
 	}
 	holdings, err := ledger.HoldingsByAccounts(ctx, []domain.AccountID{m.Account})
 	if err != nil {
-		return domain.Account{}, err
+		return PositionHolding{}, err
 	}
-	if !slices.ContainsFunc(holdings[m.Account], func(holding domain.Holding) bool {
+	inventory := holdings[m.Account]
+	holding := slices.IndexFunc(inventory, func(holding domain.Holding) bool {
 		return holding.ID == m.holding && holding.AccountID == m.Account && holding.InstrumentID == m.Instrument
-	}) {
-		return domain.Account{}, nil
+	})
+	if holding < 0 {
+		return PositionHolding{}, nil
 	}
 	linked, err := ledger.HasReconciliationActivityLink(ctx, m.Account, id)
 	if err != nil || linked {
-		return domain.Account{}, err
+		return PositionHolding{}, err
 	}
-	return rows[index].Account, nil
+	return PositionHolding{Holding: inventory[holding], Account: rows[index].Account, Instrument: instruments[instrument]}, nil
+}
+
+// InvestmentReplacementInitial seeds the historical amendment from the original
+// facts. Review supplies the original effective instant and its own mutation ID.
+func InvestmentReplacementInitial(activity domain.Activity) (historyapi.ChangeCommandRequest, bool) {
+	investment, ok := InvestmentAmendment(activity)
+	if !ok {
+		return historyapi.ChangeCommandRequest{}, false
+	}
+	input := AmendmentInput{Amount: investment.Amount, Quantity: investment.Quantity, Fee: investment.Fee}
+	if activity.Note != nil {
+		input.Note = *activity.Note
+	}
+	return investment.replacement(input), true
 }
 
 func (m AmendableInvestment) replacement(input AmendmentInput) historyapi.ChangeCommandRequest {
@@ -145,22 +162,52 @@ func (m AmendableInvestment) replacement(input AmendmentInput) historyapi.Change
 
 func (m AmendableInvestment) unchanged(command any, originalNote *string) bool {
 	sameNote := func(note *string) bool {
-		if originalNote == nil || note == nil {
-			return originalNote == nil && note == nil
+		text := func(value *string) string {
+			if value == nil {
+				return ""
+			}
+			return strings.TrimSpace(*value)
 		}
-		return *originalNote == *note
+		return text(originalNote) == text(note)
 	}
 	switch input := command.(type) {
 	case domain.TradeInput:
 		fee := ""
+		if input.Fee != nil && input.Fee.Currency() != m.Currency {
+			return false
+		}
 		if input.Fee != nil && !input.Fee.IsZero() {
 			fee = input.Fee.CanonicalAmount()
 		}
-		return m.Quantity == input.Quantity.Canonical() && m.Amount == input.Gross.CanonicalAmount() &&
+		return m.sameTradePosition(input) && m.Quantity == input.Quantity.Canonical() && m.Amount == input.Gross.CanonicalAmount() &&
 			(m.Fee == fee || (m.Fee == "0" && fee == "")) && sameNote(input.Note)
 	case domain.CashDividendInput:
-		return m.Amount == input.Amount.CanonicalAmount() && sameNote(input.Note)
+		return m.Kind == domain.ActivityCashDividend && m.holding == input.HoldingID && m.Currency == input.Amount.Currency() &&
+			m.Amount == input.Amount.CanonicalAmount() && sameNote(input.Note)
 	default:
 		return false
 	}
+}
+
+func (m AmendableInvestment) sameTradePosition(input domain.TradeInput) bool {
+	sideMatches := (m.Kind == domain.ActivityBuy && input.Side == domain.TradeBuy) ||
+		(m.Kind == domain.ActivitySell && input.Side == domain.TradeSell)
+	return sideMatches && m.Account == input.SettlementAccountID && m.holding == input.HoldingID &&
+		m.Instrument == input.InstrumentID && m.Currency == input.Gross.Currency()
+}
+
+func (m AmendableInvestment) restrictedTrade(position PositionHolding) bool {
+	return m.Kind != domain.ActivityCashDividend && (position.Account.ArchivedAt != nil ||
+		position.Holding.ArchivedAt != nil || position.Instrument.ArchivedAt != nil)
+}
+
+func (m AmendableInvestment) validateArchivedTrade(position PositionHolding, command any) error {
+	if !m.restrictedTrade(position) {
+		return nil
+	}
+	trade, ok := command.(domain.TradeInput)
+	if !ok || !m.sameTradePosition(trade) || m.Quantity != trade.Quantity.Canonical() {
+		return &domain.Error{Code: domain.ErrConflict, Field: "holdingId"}
+	}
+	return nil
 }
