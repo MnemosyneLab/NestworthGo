@@ -35,6 +35,9 @@ var diagnosticsLevels = []settingOption{
 }
 
 func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft preferences.Values, viewport image.Rectangle) layout.Dimensions {
+	if !p.prefs.busy && (view.Overlay == nil || view.Overlay.Trigger == nil) {
+		p.moveMarketFocus(gtx)
+	}
 	l := view.Language
 	grid := ui.Grid{MinColumn: settingsMinColumn, Gap: settingsGap, MaxColumns: 2}
 	return settingsParityCard(gtx, view, l.Text(i18n.SettingsMarket), func(gtx layout.Context, view ui.View) layout.Dimensions {
@@ -68,6 +71,28 @@ func (p *settingsPage) marketCard(gtx layout.Context, view ui.View, draft prefer
 		})
 		return layout.Dimensions{Size: image.Pt(width, y+credential.Size.Y)}
 	})
+}
+
+// Tab leaves the selected Market tab for its first interactive control.
+// Shift+Tab from that control returns to Market instead of a different tab.
+func (p *settingsPage) moveMarketFocus(gtx layout.Context) {
+	for _, move := range []struct {
+		from, to event.Tag
+		modifier key.Modifiers
+	}{
+		{&p.tabs[settingsMarket], &p.fxProvider.Trigger, 0},
+		{&p.fxProvider.Trigger, &p.tabs[settingsMarket], key.ModShift},
+	} {
+		for {
+			e, ok := gtx.Event(key.Filter{Focus: move.from, Name: key.NameTab, Required: move.modifier})
+			if !ok {
+				break
+			}
+			if e.(key.Event).State == key.Press {
+				gtx.Execute(key.FocusCmd{Tag: move.to})
+			}
+		}
+	}
 }
 
 func (p *settingsPage) diagnosticsCard(gtx layout.Context, view ui.View, draft preferences.Values) layout.Dimensions {
@@ -275,12 +300,12 @@ func (c *settingsCredential) editForm(gtx layout.Context, view ui.View, prefs *p
 						Label: i18n.SettingsCoinGeckoKey, Hint: i18n.SettingsCoinGeckoHint, Disabled: !gtx.Enabled(),
 					})
 				}),
-				layout.Rigid(view.ButtonOf(&c.show, ui.ButtonSpec{Variant: ui.ButtonOutline, Size: ui.ButtonSmall, Title: l.Text(visibility), Description: keyLabel, Toggle: true, Selected: c.visible})),
+				layout.Rigid(view.ButtonOf(&c.show, ui.ButtonSpec{Variant: ui.ButtonOutline, Title: l.Text(visibility), Description: keyLabel, Toggle: true, Selected: c.visible})),
 			}
 			if configured {
-				children = append(children, layout.Rigid(view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: l.Text(i18n.SettingsCancel), Description: keyLabel})))
+				children = append(children, layout.Rigid(view.ButtonOf(&c.cancel, ui.ButtonSpec{Variant: ui.ButtonGhost, Title: l.Text(i18n.SettingsCancel), Description: keyLabel})))
 			}
-			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(8)}.Layout(gtx, children...)
+			return layout.Flex{Alignment: layout.End, Gap: gtx.Dp(8)}.Layout(gtx, children...)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			value := strings.TrimSpace(c.input.Text())

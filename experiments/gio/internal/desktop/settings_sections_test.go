@@ -56,6 +56,27 @@ func TestSettingsTabsSharePreferenceDraft(t *testing.T) {
 	}
 }
 
+func TestSettingsMarketTabMovesFocusToPanelAndBack(t *testing.T) {
+	h, p := generalSettingsHarness(t)
+	h.click("Market data", false)
+	h.focused(&p.tabs[settingsMarket])
+	h.press(key.NameTab)
+	h.focused(&p.fxProvider.Trigger)
+
+	h.router.Queue(key.Event{Name: key.NameTab, Modifiers: key.ModShift, State: key.Press})
+	h.frame()
+	h.focused(&p.tabs[settingsMarket])
+	h.router.Queue(key.Event{Name: key.NameTab, Modifiers: key.ModShift, State: key.Release})
+	h.frame()
+
+	h.press(key.NameLeftArrow)
+	h.focused(&p.tabs[settingsAppearance])
+	h.press(key.NameRightArrow)
+	h.focused(&p.tabs[settingsMarket])
+	h.press(key.NameTab)
+	h.focused(&p.fxProvider.Trigger)
+}
+
 func TestSettingsCoinGeckoKeyUsesItsOwnSave(t *testing.T) {
 	h, p := generalSettingsHarness(t)
 	p.edit(i18n.SettingsQuoteCacheTTL, settings.QuoteCacheTTL1h)

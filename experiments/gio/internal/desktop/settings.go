@@ -175,6 +175,7 @@ func (p *settingsPage) updateTabs(gtx layout.Context) {
 		button := &p.tabs[i]
 		if button.Clicked(gtx) {
 			active = settingsSection(i)
+			gtx.Execute(key.FocusCmd{Tag: button})
 		}
 		for _, press := range ui.PressedKeys(gtx, button, key.NameLeftArrow, key.NameRightArrow, key.NameHome, key.NameEnd) {
 			switch press.Name {
