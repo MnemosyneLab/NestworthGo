@@ -1971,7 +1971,7 @@ var japaneseCatalog = catalog{
 
 	FundsLoading:             "利用可能資金を読み込んでいます…",
 	FundsReadFailed:          "利用可能資金を読み込めませんでした。",
-	FundsToday:               "今日 · %s（%s）",
+	FundsToday:               "%s 時点 · %s",
 	FundsBase:                "基準通貨での合計 · %s",
 	FundsNative:              "原通貨での金額 · %s",
 	FundsComplete:            "集計済み",
@@ -2050,6 +2050,7 @@ var japaneseCatalog = catalog{
 	FundsMissingRuleCountOne:  "利用条件の設定が必要な項目が %d 件あります",
 	FundsMissingRuleCountMany: "利用条件の設定が必要な項目が %d 件あります",
 	FundsComparisonNote:       "金額は取り置きと推定手数料を差し引いた各日付までの累計です。日付ごとの合計を足し合わせないでください。 現在の為替レートで換算しています。将来の金額は推定です。",
+	FundsComparisonHeading:    "利用可能な資金",
 	FundsComparisonAbout:      "これらの金額について",
 	FundsRouteFee:             "手数料 · %s",
 

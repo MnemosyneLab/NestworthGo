@@ -2009,6 +2009,7 @@ const (
 	FundsMissingRuleCountOne
 	FundsMissingRuleCountMany
 	FundsComparisonNote
+	FundsComparisonHeading
 	FundsComparisonAbout
 	FundsRouteFee
 

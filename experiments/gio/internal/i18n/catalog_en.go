@@ -1972,7 +1972,7 @@ var englishCatalog = catalog{
 
 	FundsLoading:             "Loading available funds…",
 	FundsReadFailed:          "Could not load available funds.",
-	FundsToday:               "Today · %s (%s)",
+	FundsToday:               "As of %s · %s",
 	FundsBase:                "Base currency total · %s",
 	FundsNative:              "Native amounts · %s",
 	FundsComplete:            "Complete",
@@ -2051,6 +2051,7 @@ var englishCatalog = catalog{
 	FundsMissingRuleCountOne:  "%d item needs availability rules",
 	FundsMissingRuleCountMany: "%d items need availability rules",
 	FundsComparisonNote:       "Amounts are cumulative through each date, after reserves and estimated fees. Do not add the date totals together. Converted at current exchange rates; future amounts are estimates.",
+	FundsComparisonHeading:    "Available to spend",
 	FundsComparisonAbout:      "About these amounts",
 	FundsRouteFee:             "Fee · %s",
 

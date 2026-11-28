@@ -179,7 +179,7 @@ func TestAvailableFundsReadRetryAndSourceNavigation(t *testing.T) {
 	settle()
 	label("Could not load available funds.")
 	click("Retry")
-	label("Today · 2026-11-21 (UTC)")
+	label("As of 2026-11-21 · UTC")
 	label("Base currency total · USD")
 	label("Partial coverage")
 	reveal("Native amounts · EUR", 100)

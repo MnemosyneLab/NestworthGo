@@ -1972,7 +1972,7 @@ var simplifiedChineseCatalog = catalog{
 
 	FundsLoading:             "正在读取可用资金…",
 	FundsReadFailed:          "无法读取可用资金。",
-	FundsToday:               "今日 · %s（%s）",
+	FundsToday:               "截至 %s · %s",
 	FundsBase:                "本位币汇总 · %s",
 	FundsNative:              "原币金额 · %s",
 	FundsComplete:            "完整",
@@ -2051,6 +2051,7 @@ var simplifiedChineseCatalog = catalog{
 	FundsMissingRuleCountOne:  "%d 项待补可用规则",
 	FundsMissingRuleCountMany: "%d 项待补可用规则",
 	FundsComparisonNote:       "金额为截至该日的累计可动用资金，已扣除预留和预计费用；各日期金额不可相加。 按当前汇率折算，未来金额为估算值。",
+	FundsComparisonHeading:    "可动用资金",
 	FundsComparisonAbout:      "关于这些金额",
 	FundsRouteFee:             "费用 · %s",
 

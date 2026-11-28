@@ -166,7 +166,7 @@ func (p *availableFundsPage) fundsControlsRow(gtx layout.Context, view ui.View, 
 	dateLabel, earlyLabel := l.Text(i18n.FundsCustomDate), l.Text(i18n.FundsConsiderEarly)
 	captionWidth := marketTextWidth(gtx, view, ui.TextLabel, dateLabel)
 	dateWidth := min(width, captionWidth+gap+gtx.Dp(176))
-	earlyWidth := min(width, marketTextWidth(gtx, view, ui.TextLabel, earlyLabel)+gtx.Dp(48))
+	earlyWidth := min(width, marketTextWidth(gtx, view, ui.TextLabel, earlyLabel)+gtx.Dp(72))
 	metadataWidth := marketTextWidth(gtx, view, ui.TextBody, asOf) + gtx.Dp(24)
 	controlsWidth := dateWidth + gap + earlyWidth
 	dateX, dateY := max(0, width-controlsWidth), 0
@@ -296,7 +296,7 @@ func (p *availableFundsPage) fundsComparisonHeading(view ui.View) layout.Widget 
 				var titleWidth, currencyWidth int
 				return layout.Flex{Gap: gap, Alignment: layout.Middle}.Layout(gtx,
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						dims := view.Body(ui.TextHeading, l.Text(i18n.NavAvailableFunds), view.Colors.Ink)(gtx)
+						dims := view.Body(ui.TextHeading, l.Text(i18n.FundsComparisonHeading), view.Colors.Ink)(gtx)
 						titleWidth = dims.Size.X
 						return dims
 					}),

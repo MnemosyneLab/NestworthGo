@@ -1972,7 +1972,7 @@ var traditionalChineseCatalog = catalog{
 
 	FundsLoading:             "正在讀取可用資金…",
 	FundsReadFailed:          "無法讀取可用資金。",
-	FundsToday:               "今日 · %s（%s）",
+	FundsToday:               "截至 %s · %s",
 	FundsBase:                "本位幣彙總 · %s",
 	FundsNative:              "原幣金額 · %s",
 	FundsComplete:            "完整",
@@ -2051,6 +2051,7 @@ var traditionalChineseCatalog = catalog{
 	FundsMissingRuleCountOne:  "%d 項待補可用規則",
 	FundsMissingRuleCountMany: "%d 項待補可用規則",
 	FundsComparisonNote:       "金額為截至該日的累計可動用資金，已扣除預留和預計費用；各日期金額不可相加。 按目前匯率折算，未來金額為估算值。",
+	FundsComparisonHeading:    "可動用資金",
 	FundsComparisonAbout:      "關於這些金額",
 	FundsRouteFee:             "費用 · %s",
 
