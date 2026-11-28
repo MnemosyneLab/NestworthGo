@@ -121,7 +121,11 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	if page.reads.detail == nil || page.reads.detail.id != row.ID {
 		t.Fatal("keyboard opening did not follow the row ID")
 	}
-	h.click("Back", false)
+	if !page.reads.detail.contextual {
+		t.Fatal("a timeline row did not open a contextual detail")
+	}
+	h.focused(&page.reads.detail.sheet.close)
+	h.press(key.NameEscape)
 	finish()
 	h.focused(button)
 	if page.list.Position.First != end {
@@ -133,7 +137,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	if page.reads.detail == nil || page.reads.detail.id != row.ID {
 		t.Fatal("Forward did not restore the same detail")
 	}
-	h.click("Back to ledger activity", false)
+	h.click("Close", false)
 	finish()
 
 	pick("Account", "Reserve", "Cash Reserve · Archived")
@@ -145,11 +149,11 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	h.click("View", false)
 	finish()
 	label("Internal transfer")
-	label("Received by Cash Reserve · 10 USD")
+	label("Received by Cash Reserve · US$10.00")
 	if findPageLabel(&h.router, "External inflow") != nil || findPageLabel(&h.router, "External outflow") != nil {
 		t.Fatal("a transfer principal was presented as an external flow")
 	}
-	h.click("Back to ledger activity", false)
+	h.click("Close", false)
 	finish()
 	h.click("Kind", true)
 	h.click("Currency conversion", false)
@@ -185,11 +189,11 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	}
 	h.click("View", false)
 	finish()
-	label("Sent from Harbor Checking · 20 USD")
-	label("Received by Euro cash · 16 EUR")
+	label("Sent from Harbor Checking · US$20.00")
+	label("Received by Euro cash · €16.00")
 	label("Executed rate · 1 USD = 0.8 EUR")
 	label("Internal transfer")
-	h.click("Back to ledger activity", false)
+	h.click("Close", false)
 	finish()
 	h.click("Clear filters", false)
 	finish()
@@ -225,7 +229,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 		page.reads.detail.record.Activity.TradeDetail.UnitPrice.Canonical() != "10" {
 		t.Fatalf("trade detail contract failed: %+v, %v", wantTrade, err)
 	}
-	h.click("Back to ledger activity", false)
+	h.click("Close", false)
 	finish()
 	fault.missing = tradeID
 	h.click("View", false)
@@ -234,7 +238,7 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 	if findPageLabel(&h.router, "Retry") != nil {
 		t.Fatal("an unavailable activity was shown as a transient read failure")
 	}
-	h.click("Back to ledger activity", false)
+	h.click("Close", false)
 	finish()
 
 	// Save outside the filtered scope, then fail the first timeline refresh
@@ -260,6 +264,42 @@ func TestHistoryFiltersAndDetailsMatchWailsAndPreserveVisits(t *testing.T) {
 		len(fault.attempts) != 1 {
 		t.Fatal("refresh retry changed the active scope or called the writer")
 	}
+}
+
+func TestLedgerSnapshotHealthLinkRestoresVisit(t *testing.T) {
+	ctx := t.Context()
+	service, _ := openBankFixture(t, createFixtureRoot(t))
+	page := newLedgerHistory(ctx, service, func() time.Time { return accountTestClock }, func() {})
+	market := &marketDataPage{ctx: ctx, reader: service, invalidate: func() {}}
+	health := &dataHealthPage{ctx: ctx, reader: fixedDataHealthRead(application.MarketDataHealthReport{Healthy: true, CoverageThrough: "2026-11-20"}), invalidate: func() {}}
+	h := newShellHarnessWithPages(t, ledgerPages{history: page, marketData: market, dataHealth: health})
+	h.shell.prefs.saved.Language = settings.LanguageEnglish
+	wait := func() {
+		page.model.Wait()
+		page.reads.workers.Wait()
+		page.cashMovements.workers.Wait()
+		market.workers.Wait()
+		health.workers.Wait()
+	}
+	t.Cleanup(wait)
+	finish := func() { h.frame(); wait(); h.frame(); wait(); h.frame() }
+	h.frame()
+	h.click("Ledger activity", false)
+	finish()
+	filters := history.Filters{Kind: domain.ActivityCashIn}
+	page.model.SetFilters(filters)
+	finish()
+	h.click("Snapshot health and repair", false)
+	finish()
+	if h.shell.activeRoute() != dataHealthRoute || health.report == nil || !health.report.Healthy {
+		t.Fatal("Ledger did not open the existing health scan")
+	}
+	h.click("Back", false)
+	finish()
+	if h.shell.activeRoute() != historyRoute || !page.model.Filters().Equal(filters) {
+		t.Fatal("return from snapshot health lost the Ledger visit")
+	}
+	h.focused(&page.snapshotHealth)
 }
 
 func seedMixedTimeline(t *testing.T, service *application.Service) (domain.AccountID, domain.Instrument) {
@@ -371,7 +411,7 @@ func TestHistoryBackAndForwardIgnoreAnObsoleteDetail(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("the older detail read did not start")
 	}
-	h.click("Back", false)
+	h.click("Close", false)
 	h.frame()
 	if page.reads.detail != nil {
 		t.Fatal("Back did not retire the pending detail")
@@ -387,7 +427,8 @@ func TestHistoryBackAndForwardIgnoreAnObsoleteDetail(t *testing.T) {
 	if page.reads.detail == nil || page.reads.detail.record == nil || page.reads.detail.record.Activity.ID != current.ID {
 		t.Fatal("the older detail replaced the new visit")
 	}
-	h.click("Back", false)
+	h.click("Close", false)
+	h.frame()
 	h.focused(button)
 	h.click("Forward", false)
 	page.reads.workers.Wait()

@@ -37,10 +37,11 @@ func (m AmendableCash) CrossCurrency() bool {
 
 func CashAmendment(activity domain.Activity) (AmendableCash, bool) {
 	movement, supported := CashMovementOf(activity.Kind, activity.Reason)
-	if activity.Kind == domain.ActivityCashOut && activity.Reason == domain.ReasonExpense {
+	if activity.Kind == domain.ActivityCashOut && (activity.Reason == domain.ReasonExpense || activity.Reason == domain.ReasonFee) {
 		movement, supported = CashWithdrawal, true
 	}
-	if !supported || activity.ReversesActivityID != nil || activity.ProductContext != nil || len(activity.Effects) == 0 {
+	if !supported || activity.ReversesActivityID != nil || activity.ProductContext != nil ||
+		activity.TradeDetail != nil || activity.DividendDetail != nil || len(activity.Effects) == 0 {
 		return AmendableCash{}, false
 	}
 	effects := activity.Effects
@@ -49,7 +50,11 @@ func CashAmendment(activity domain.Activity) (AmendableCash, bool) {
 	case CashContribution:
 		return m, len(effects) == 1 && matchesCashEffect(m.Principal, domain.EffectRoleAmount, domain.EffectAdded, domain.ClassificationExternalInflow)
 	case CashWithdrawal:
-		return m, len(effects) == 1 && matchesCashEffect(m.Principal, domain.EffectRoleAmount, domain.EffectRemoved, domain.ClassificationExternalOutflow)
+		classification := domain.ClassificationExternalOutflow
+		if activity.Reason == domain.ReasonFee {
+			classification = domain.ClassificationFee
+		}
+		return m, len(effects) == 1 && matchesCashEffect(m.Principal, domain.EffectRoleAmount, domain.EffectRemoved, classification)
 	}
 	if len(effects) < 2 || len(effects) > 3 || activity.Reason != domain.ReasonOther {
 		return AmendableCash{}, false
@@ -106,7 +111,7 @@ func (m AmendableCash) accounts(ctx context.Context, reader reconciliationActivi
 	if !ok {
 		return amendmentAccounts{}, false, nil
 	}
-	if m.reason == domain.ReasonExpense {
+	if m.reason == domain.ReasonExpense || m.reason == domain.ReasonFee {
 		if source.AccountType != domain.TypeBankAccount || source.TrackingMode != domain.TrackingBalance {
 			return amendmentAccounts{}, false, nil
 		}

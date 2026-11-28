@@ -170,7 +170,7 @@ func TestStage6PairedContributionFindsExactLedgerRecord(t *testing.T) {
 		d.record.Activity.DividendDetail == nil || d.record.Activity.DividendDetail.Amount.CanonicalAmount() != record.DividendDetail.Amount.Amount {
 		t.Fatal("Gio did not open the matching Ledger record and exact dividend")
 	}
-	click("Back to ledger activity")
+	click("Close")
 	h.focused(ledger.reads.buttons[rows[0].ID])
 	click("Back")
 	h.focused(trigger)

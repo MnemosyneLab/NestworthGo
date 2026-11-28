@@ -75,7 +75,7 @@ func TestHistoryRowActionsReuseDraftsAndCheckEligibilityAgain(t *testing.T) {
 	if err := service.ArchiveAccount(ctx, bank, false); err != nil {
 		t.Fatal(err)
 	}
-	click("Back to ledger activity")
+	click("Close")
 
 	click("More actions")
 	click("Reverse activity")

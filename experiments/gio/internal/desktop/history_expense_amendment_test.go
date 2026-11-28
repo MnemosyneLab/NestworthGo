@@ -31,6 +31,10 @@ type bankExpenseFixture struct {
 }
 
 func seedBankExpenseAmendments(t *testing.T, start time.Time) ([]byte, bankExpenseFixture) {
+	return seedBankOutflowAmendments(t, start, domain.ReasonExpense)
+}
+
+func seedBankOutflowAmendments(t *testing.T, start time.Time, reason domain.ActivityReason) ([]byte, bankExpenseFixture) {
 	t.Helper()
 	ctx := t.Context()
 	now := start
@@ -66,7 +70,7 @@ func seedBankExpenseAmendments(t *testing.T, start time.Time) ([]byte, bankExpen
 		now = now.Add(time.Hour + 11*time.Second)
 		result, err := api.RecordChange(ctx, historyapi.ChangeCommandRequest{
 			Kind: historyapi.ChangeMoneyRemoved, AccountID: account.String(), Amount: amount, Currency: "USD",
-			Reason: string(domain.ReasonExpense), Note: &note, EffectiveAt: wire.FormatTime(now),
+			Reason: string(reason), Note: &note, EffectiveAt: wire.FormatTime(now),
 			MutationID: domain.NewMutationID().String(), ReconciliationLink: link,
 		})
 		if err != nil {
@@ -104,10 +108,45 @@ func TestExportBankExpenseAmendmentFixtures(t *testing.T) {
 	t.Logf("fixtures=%s household=%q bank=%q correct=%s reverse=%s linked=%s", root, bankExpenseHousehold, bankExpenseAccount, ids.correct, ids.reverse, ids.linked)
 }
 
-func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
+func TestHistoryStandaloneBankOutflowCorrectionAndUndoMatchWails(t *testing.T) {
+	for _, reason := range []domain.ActivityReason{domain.ReasonExpense, domain.ReasonFee} {
+		t.Run(string(reason), func(t *testing.T) { testBankOutflowAmendment(t, reason) })
+	}
+}
+
+func TestCashFeeAmendmentRejectsOtherShapes(t *testing.T) {
+	raw, ids := seedBankOutflowAmendments(t, accountTestClock.AddDate(0, 0, -4), domain.ReasonFee)
+	path := writeStage6Fixture(t, filepath.Join(t.TempDir(), "fee-shapes"), raw)
+	_, _, app := openStage6Database(t, path, func() time.Time { return accountTestClock })
+	fee, err := app.Activity(t.Context(), ids.correct)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := history.CashAmendment(fee); !ok {
+		t.Fatal("standalone fee was not eligible")
+	}
+	for name, alter := range map[string]func(*domain.Activity){
+		"tax":              func(a *domain.Activity) { a.Reason = domain.ReasonTax },
+		"product":          func(a *domain.Activity) { a.ProductContext = &domain.ProductActivityContext{} },
+		"associated fee":   func(a *domain.Activity) { a.DividendDetail = &domain.DividendDetail{} },
+		"extra fee effect": func(a *domain.Activity) { a.Effects = append(a.Effects, a.Effects[0]) },
+		"wrong class":      func(a *domain.Activity) { a.Effects[0].Classification = domain.ClassificationExternalOutflow },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := fee
+			candidate.Effects = append([]domain.ActivityEffect(nil), fee.Effects...)
+			alter(&candidate)
+			if _, ok := history.CashAmendment(candidate); ok {
+				t.Fatalf("unsupported %s was eligible", name)
+			}
+		})
+	}
+}
+
+func testBankOutflowAmendment(t *testing.T, reason domain.ActivityReason) {
 	ctx := t.Context()
 	clock := func() time.Time { return accountTestClock }
-	raw, ids := seedBankExpenseAmendments(t, clock().AddDate(0, 0, -4))
+	raw, ids := seedBankOutflowAmendments(t, clock().AddDate(0, 0, -4), reason)
 	copyProfile := func(label string) *application.Service {
 		t.Helper()
 		path := writeStage6Fixture(t, filepath.Join(t.TempDir(), label), raw)
@@ -182,10 +221,10 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 	}
 	setBankField(h, "New amount · USD", &form.amount, "10.2345")
 	click("Preview correction")
-	label("Replacement amount · 10.2345 USD")
+	label("Replacement amount · US$10.23 (10.2345 USD)")
 	request := historyapi.ChangeCommandRequest{
 		Kind: historyapi.ChangeMoneyRemoved, AccountID: ids.bank.String(), Currency: "USD", Amount: "10.2345",
-		Reason: string(domain.ReasonExpense), Note: activity(app, ids.correct).Note, MutationID: domain.NewMutationID().String(),
+		Reason: string(reason), Note: activity(app, ids.correct).Note, MutationID: domain.NewMutationID().String(),
 	}
 	wantPreview, err := adapter.PreviewFixChange(ctx, ids.correct.String(), request)
 	gotPreview := wire.FromReviewedChangePreview(form.review.Preview)
@@ -193,6 +232,7 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 		t.Fatalf("Gio expense review differs from Wails: %+v / %+v, %v", gotPreview, wantPreview, err)
 	}
 	balance(app, "81.8521", 3)
+	correctionReview := *form.review
 	click("Confirm correction")
 	label("Correction saved.")
 	label(bankExpenseCorrectNote)
@@ -203,9 +243,13 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 	}
 	compare(gioFixed, domain.ActivityID(wailsFixed.Activity.ID))
 	corrected, original := activity(app, gioFixed), activity(app, ids.correct)
-	if corrected.Reason != domain.ReasonExpense || corrected.Note == nil || *corrected.Note != bankExpenseCorrectNote ||
+	wantClass := domain.ClassificationExternalOutflow
+	if reason == domain.ReasonFee {
+		wantClass = domain.ClassificationFee
+	}
+	if corrected.Reason != reason || corrected.Note == nil || *corrected.Note != bankExpenseCorrectNote ||
 		!corrected.EffectiveAt.Equal(original.EffectiveAt) || corrected.EffectiveLocalDate != original.EffectiveLocalDate ||
-		corrected.Effects[0].Classification != domain.ClassificationExternalOutflow {
+		corrected.Effects[0].Classification != wantClass {
 		t.Fatalf("correction lost the expense's original business context: %+v", corrected)
 	}
 	gioReversal := page.reads.detail.record.Links.CorrectionReversal
@@ -223,11 +267,16 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 	}
 	balance(app, "83.9632", 5)
 	balance(reference, "83.9632", 5)
+	retryCorrection, err := correctionReview.Commit(ctx, app)
+	if err != nil || retryCorrection.Activity.ID != gioFixed {
+		t.Fatalf("correction retry did not return the original result: %+v, %v", retryCorrection, err)
+	}
+	balance(app, "83.9632", 5)
 
 	click("Back to ledger activity")
 	activate(ids.reverse)
 	click("Reverse activity")
-	label("Reversal amount · 4.5678 USD")
+	label("Reversal amount · US$4.57 (4.5678 USD)")
 	click("Cancel")
 	if page.reads.detail != nil {
 		t.Fatal("cancel did not return to the expense list")
@@ -236,6 +285,7 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 	balance(app, "83.9632", 5)
 	activate(ids.reverse)
 	click("Reverse activity")
+	reversalReview := *page.reads.detail.amendment.review
 	click("Confirm reversal")
 	label("Reversal saved.")
 	if record := page.reads.detail.record; record.Links.Original != ids.reverse || record.Links.Replacement != "" {
@@ -251,4 +301,9 @@ func TestHistoryStandaloneBankExpenseCorrectionAndUndoMatchWails(t *testing.T) {
 	compare(ids.linked, ids.linked)
 	balance(app, "88.531", 6)
 	balance(reference, "88.531", 6)
+	retryReversal, err := reversalReview.Commit(ctx, app)
+	if err != nil || retryReversal.Activity.ID != page.reads.detail.id {
+		t.Fatalf("reversal retry did not return the original result: %+v, %v", retryReversal, err)
+	}
+	balance(app, "88.531", 6)
 }

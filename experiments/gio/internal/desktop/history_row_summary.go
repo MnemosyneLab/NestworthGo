@@ -19,6 +19,19 @@ type historyRowNames struct {
 	holdingAccounts map[domain.HoldingID]domain.AccountID
 }
 
+func historyDisplayMoney(view ui.View, amount string, currency domain.CurrencyCode) string {
+	return format.AuditMoney(amount, currency.String(), settings.Settings{
+		DecimalSeparator: view.DecimalSeparator, GroupingSeparator: view.GroupingSeparator,
+	})
+}
+
+func historyDisplayEffectMoney(view ui.View, effect domain.ActivityEffect) string {
+	if effect.Money == nil {
+		return ""
+	}
+	return historyDisplayMoney(view, effect.Money.CanonicalAmount(), effect.Money.Currency())
+}
+
 func newHistoryRowNames(refs history.References) historyRowNames {
 	names := historyRowNames{
 		accounts:    make(map[domain.AccountID]domain.Account, len(refs.Accounts)),

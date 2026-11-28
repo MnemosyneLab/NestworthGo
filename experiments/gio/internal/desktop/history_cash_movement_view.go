@@ -428,13 +428,13 @@ func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View,
 	next := any(&d.preview)
 	if d.movement == history.CashTransfer || d.movement == history.CashConversion {
 		next = &d.fee.Editor
-	} else if !d.defaultTime.IsZero() {
+	} else if d.secondsPicker {
 		next = &d.useNow
 	}
 	drawDay := func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.PreviewEffectiveDate, Origin: origin, Disabled: !gtx.Enabled(), Next: &d.timePicker.Trigger}
 		d.datePicker.Layout(gtx, view, field, dates, d.day, func(day string) {
-			d.day, d.problem = day, i18n.NoMessage
+			d.day, d.problem, d.timeEdited = day, i18n.NoMessage, true
 		})
 		if sideBySide {
 			origin.X += gtx.Constraints.Max.X + gtx.Dp(8)
@@ -445,8 +445,8 @@ func (d *cashMovementDraft) layoutMovementTime(gtx layout.Context, view ui.View,
 	}
 	drawTime := func(gtx layout.Context) layout.Dimensions {
 		field := ui.PickerField{Label: i18n.PreviewEffectiveTime, Origin: origin, Disabled: !gtx.Enabled(), Previous: &d.datePicker.Trigger, Next: next}
-		setTime := func(clock string) { d.time, d.problem = clock, i18n.NoMessage }
-		if d.defaultTime.IsZero() {
+		setTime := func(clock string) { d.time, d.problem, d.timeEdited = clock, i18n.NoMessage, true }
+		if !d.secondsPicker {
 			d.timePicker.Layout(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, false, setTime)
 		} else {
 			d.timePicker.LayoutSeconds(gtx, view, field, d.time, view.TimeFormat == settings.TimeFormat12, setTime)

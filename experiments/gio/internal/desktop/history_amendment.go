@@ -11,12 +11,29 @@ import (
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/i18n"
 	"github.com/waltwang/nestworth-go/experiments/gio/internal/ui"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	historyapi "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 )
+
+type investmentAmendmentDraft struct {
+	history.AmendableInvestment
+	quantity, note      ui.TextField
+	kind                ui.Select
+	selectors           [6]ui.Select
+	secondaryAmount     ui.TextField
+	adjustmentDirection [2]widget.Clickable
+	command             historyapi.ChangeCommandRequest
+	initial             historyapi.ChangeCommandRequest
+	sources             history.InvestmentReplacementSources
+	loading             <-chan historyResult[history.InvestmentReplacementSources]
+	readFailed          bool
+	reload              widget.Clickable
+}
 
 type historyAmendmentDraft struct {
 	action      history.AmendmentAction
 	movement    history.AmendableCash
 	custody     *custodyAmendmentDraft
+	investment  *investmentAmendmentDraft
 	amount      ui.TextField
 	received    ui.TextField
 	fee         ui.TextField
@@ -39,7 +56,8 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 	}
 	movement, supported := history.CashAmendment(d.record.Activity)
 	custody, isCustody := history.CustodyAmendment(d.record.Activity)
-	if !supported && !isCustody {
+	investment, isInvestment := history.InvestmentAmendment(d.record.Activity)
+	if !supported && !isCustody && !isInvestment {
 		return
 	}
 	form := &historyAmendmentDraft{
@@ -48,13 +66,31 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 		scroll: widget.List{List: layout.List{Axis: layout.Vertical}},
 	}
 	d.amendment = form
-	if isCustody {
+	switch {
+	case isCustody:
 		form.custody = newCustodyAmendment(custody, d.record.Activity.Note)
 		form.amount.Editor.SetText(custody.From.Quantity.Canonical())
 		if action == history.CorrectActivity {
 			r.loadCustodyAmendment(form)
 		}
-	} else {
+	case isInvestment:
+		form.investment = &investmentAmendmentDraft{
+			AmendableInvestment: investment,
+			quantity:            ui.NewTextField(true), note: ui.NewTextField(false),
+		}
+		form.amount.Editor.SetText(investment.Amount)
+		form.fee.Editor.SetText(investment.Fee)
+		form.investment.quantity.Editor.SetText(investment.Quantity)
+		if note := d.record.Activity.Note; note != nil {
+			form.investment.note.Editor.SetText(*note)
+		}
+		if action == history.CorrectActivity {
+			form.investment.initial, _ = history.InvestmentReplacementInitial(d.record.Activity)
+			form.investment.command = form.investment.initial
+			form.investment.secondaryAmount = ui.NewTextField(true)
+			r.loadInvestmentReplacement(form)
+		}
+	default:
 		form.amount.Editor.SetText(movement.Principal.Money.CanonicalAmount())
 	}
 	if supported && movement.Paired() {
@@ -66,6 +102,14 @@ func (r *historyReads) startAmendment(action history.AmendmentAction) {
 	if action == history.ReverseActivity {
 		r.previewAmendment()
 	}
+}
+
+func (r *historyReads) loadInvestmentReplacement(form *historyAmendmentDraft) {
+	original := r.detail.record.Activity
+	form.investment.readFailed = false
+	form.investment.loading = runHistoryRead(&r.workers, r.invalidate, func() (history.InvestmentReplacementSources, error) {
+		return history.LoadInvestmentReplacementSources(r.ctx, r.service, original)
+	})
 }
 
 func (r *historyReads) previewAmendment() {
@@ -81,6 +125,13 @@ func (r *historyReads) previewAmendment() {
 			return
 		}
 		amounts.From, amounts.To, amounts.Note = c.from, c.to, c.note.Text()
+	}
+	if form.investment != nil && form.action == history.CorrectActivity {
+		replacement, ready := investmentReplacementRequest(form)
+		if !ready {
+			return
+		}
+		amounts.Replacement = &replacement
 	}
 	form.problem = i18n.NoMessage
 	form.preview = runHistoryRead(&r.workers, r.invalidate, func() (history.ReviewedAmendment, error) {
@@ -121,14 +172,22 @@ func (p *historyPage) pollAmendment() {
 		default:
 		}
 	}
+	if investment := form.investment; investment != nil {
+		select {
+		case result := <-investment.loading:
+			investment.loading = nil
+			investment.sources, investment.readFailed = result.value, result.err != nil
+		default:
+		}
+	}
 	select {
 	case result := <-form.preview:
 		form.preview = nil
 		if result.err != nil {
-			form.problem = amendmentProblem(result.err, i18n.HistoryAmendmentPreviewFailed)
+			form.problem = form.amendmentProblem(result.err, i18n.HistoryAmendmentPreviewFailed)
 		} else {
 			form.review = &result.value
-			form.reviewFocus = form.custody != nil
+			form.reviewFocus = form.custody != nil || form.investment != nil
 			form.scroll.Position = layout.Position{}
 		}
 	default:
@@ -147,7 +206,7 @@ func (p *historyPage) pollAmendment() {
 					notice = i18n.HistoryCorrectionSavedRefreshFailed
 				}
 			}
-			if form.custody != nil {
+			if form.custody != nil || form.investment != nil {
 				focus = &d.linked[2]
 				if form.action == history.CorrectActivity {
 					focus = &d.linked[3]
@@ -157,28 +216,42 @@ func (p *historyPage) pollAmendment() {
 			p.showPosted(result.value.Activity, notice, focus)
 			return
 		}
-		problem := amendmentProblem(result.err, i18n.NoMessage)
+		problem := form.amendmentProblem(result.err, i18n.NoMessage)
 		if problem != i18n.NoMessage {
 			form.review, form.uncertain, form.problem = nil, false, problem
-			if form.custody != nil && form.action == history.CorrectActivity {
-				form.focus = true
-				if problem == i18n.HistoryAmendmentStale {
+			if form.action == history.CorrectActivity {
+				form.focus = form.custody != nil || form.investment != nil
+				if form.custody != nil && problem == i18n.HistoryAmendmentStale {
 					p.reads.loadCustodyAmendment(form)
 				}
 			}
 			form.scroll.Position = layout.Position{}
 		} else {
 			form.uncertain = true
-			form.reviewFocus = form.custody != nil
+			form.reviewFocus = form.custody != nil || form.investment != nil
 		}
 	default:
 	}
 }
 
-func amendmentProblem(err error, fallback i18n.MessageID) i18n.MessageID {
+func (form *historyAmendmentDraft) amendmentProblem(err error, fallback i18n.MessageID) i18n.MessageID {
 	var issue *domain.Error
 	if !errors.As(err, &issue) {
 		return fallback
+	}
+	if form.investment != nil && form.investment.command.Kind == historyapi.ChangeCashDividend && issue.Field == "amount" &&
+		(issue.Code == domain.ErrValidation || issue.Code == domain.ErrInvalidChange) {
+		return i18n.DividendInvalidAmount
+	}
+	if form.investment != nil && (issue.Code == domain.ErrValidation || issue.Code == domain.ErrInvalidTrade) {
+		switch issue.Field {
+		case "quantity":
+			return i18n.BuyInvalidQuantity
+		case "gross":
+			return i18n.BuyInvalidGross
+		case "fee":
+			return i18n.BuyInvalidFee
+		}
 	}
 	switch issue.Code {
 	case domain.ErrStalePreview:

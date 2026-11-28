@@ -17,6 +17,37 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+func (s *shell) historyDetailOpen() bool {
+	return s.activeRoute() == historyRoute && s.historyPage != nil && s.historyPage.reads != nil &&
+		s.historyPage.reads.detail != nil && s.historyPage.reads.detail.contextual
+}
+
+func (p *historyPage) layoutDetailSheet(gtx layout.Context, view ui.View) {
+	d := p.reads.detail
+	view.Overlay = &d.overlay
+	d.overlay.BeginFrame(gtx)
+	canClose := !p.amendmentUnresolved() && !p.repeatUnresolved()
+	if d.overlay.Trigger == nil {
+		dismiss := d.sheet.dismissed(gtx)
+		for {
+			e, ok := gtx.Event(key.Filter{Name: key.NameEscape})
+			if !ok {
+				break
+			}
+			dismiss = dismiss || e.(key.Event).State == key.Press
+		}
+		if dismiss && canClose {
+			p.reads.back()
+			gtx.Execute(op.InvalidateCmd{})
+			return
+		}
+	}
+	d.sheet.layoutPanel(gtx, view, view.Language.Text(i18n.HistoryDetailTitle), func(gtx layout.Context, view ui.View) layout.Dimensions {
+		return p.layoutDetail(gtx, view)
+	}, nil, canClose)
+	d.overlay.Layout(gtx, view)
+}
+
 func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dimensions {
 	r, l := p.reads, view.Language
 	d := r.detail
@@ -50,6 +81,10 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 	}
 	title := i18n.HistoryDetailTitle
 	known := d.record
+	if d.contextual && known != nil && d.restoreFocus != nil && gtx.Enabled() {
+		gtx.Execute(key.FocusCmd{Tag: d.restoreFocus})
+		d.restoreFocus = nil
+	}
 	if known != nil {
 		title = historyKindLabel(known.Activity.Kind, known.Activity.Reason)
 		if known.LiabilityAccount != "" {
@@ -71,6 +106,9 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 
 	children := []ui.ColumnChild{
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if d.contextual {
+				return view.Label(gtx, l.Text(title), 19, font.Medium, view.Colors.Ink)
+			}
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(10)}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					view.Focus.Watch(gtx, &d.back)
@@ -127,14 +165,18 @@ func (p *historyPage) layoutDetail(gtx layout.Context, view ui.View) layout.Dime
 				return layout.Flex{Gap: gtx.Dp(8)}.Layout(gtx, buttons...)
 			}))
 			if !known.Reversible {
-				children = append(children, ui.Rigid(view.Message(l.Text(i18n.HistoryReversalArchived), view.Colors.SecondaryInk)))
+				message := i18n.HistoryReversalArchived
+				if known.Activity.TradeDetail != nil {
+					message = i18n.HistoryReversalArchivedTrade
+				}
+				children = append(children, ui.Rigid(view.Message(l.Text(message), view.Colors.SecondaryInk)))
 			}
 		}
 		if known.Links != (history.AmendmentLinks{}) {
 			children = append(children, ui.Rigid(r.amendmentLinks(view)))
 		}
 		facts := append(r.accountLinks(view, *known), r.instrumentLinks(view, *known)...)
-		facts = append(facts, activityFacts(view, *known)...)
+		facts = append(facts, activityFacts(view, *known, d.contextual)...)
 		children = append(children, ui.Fill(func(gtx layout.Context) layout.Dimensions {
 			return view.List(&d.scroll).Layout(gtx, len(facts), func(gtx layout.Context, i int) layout.Dimensions {
 				return layout.Inset{Bottom: 8}.Layout(gtx, facts[i])
@@ -234,8 +276,14 @@ var effectClasses = map[domain.ActivityClassification]i18n.MessageID{
 	domain.ClassificationRemeasurement:    i18n.HistoryRemeasurement,
 }
 
-func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
+func activityFacts(view ui.View, detail history.Detail, formatted bool) []layout.Widget {
 	activity, l := detail.Activity, view.Language
+	money := func(effect domain.ActivityEffect) string {
+		if formatted {
+			return historyDisplayEffectMoney(view, effect)
+		}
+		return movementMoney(effect)
+	}
 	ink := func(text string) layout.Widget { return view.Message(text, view.Colors.Ink) }
 	muted := func(text string) layout.Widget { return view.Message(text, view.Colors.SecondaryInk) }
 	movement, supported := history.CashMovementOf(activity.Kind, activity.Reason)
@@ -323,14 +371,14 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			if effect.Direction == domain.EffectRemoved {
 				label = i18n.HistoryDebtReduced
 			}
-			caption = fmt.Sprintf(l.Text(label), account(effect.AccountID), movementMoney(effect))
+			caption = fmt.Sprintf(l.Text(label), account(effect.AccountID), money(effect))
 			if effect.AccountID != nil {
 				debtAccount = *effect.AccountID
 			}
 		case debt && effect.Role == domain.EffectRoleFee && effect.Money != nil:
-			caption = fmt.Sprintf(l.Text(i18n.TransferFeePaid), account(effect.AccountID), movementMoney(effect))
+			caption = fmt.Sprintf(l.Text(i18n.TransferFeePaid), account(effect.AccountID), money(effect))
 		default:
-			caption = effectCaption(l, effect, paired, supported, movement, account, instrument)
+			caption = effectCaption(view, effect, formatted, paired, supported, movement, account, instrument)
 		}
 		class := l.Text(effectClasses[effect.Classification])
 		if product := activity.ProductContext; product != nil && product.Purpose == domain.ProductPurposeInterest &&
@@ -398,6 +446,9 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 			shown[row] = true
 		}
 		balance := result.Amount + " " + result.Currency.String()
+		if formatted {
+			balance = historyDisplayMoney(view, result.Amount, result.Currency)
+		}
 		if debtAccount != "" && result.AccountID != nil && *result.AccountID == debtAccount && result.Target == domain.EffectTargetAccountValue {
 			facts = append(facts, ink(fmt.Sprintf(l.Text(i18n.AccountCardBalanceOwedAfter), balance)))
 		} else if namedBalances || debt {
@@ -409,9 +460,13 @@ func activityFacts(view ui.View, detail history.Detail) []layout.Widget {
 	return facts
 }
 
-func effectCaption(l i18n.Language, effect domain.ActivityEffect, paired, supported bool, movement history.CashMovement, account func(*domain.AccountID) string, instrument func(domain.InstrumentID) string) string {
+func effectCaption(view ui.View, effect domain.ActivityEffect, formatted, paired, supported bool, movement history.CashMovement, account func(*domain.AccountID) string, instrument func(domain.InstrumentID) string) string {
+	l := view.Language
 	if effect.Money != nil {
 		amount := movementMoney(effect)
+		if formatted {
+			amount = historyDisplayEffectMoney(view, effect)
+		}
 		if paired {
 			label := map[domain.EffectRole]i18n.MessageID{
 				domain.EffectRoleTransferFrom: i18n.TransferSent,

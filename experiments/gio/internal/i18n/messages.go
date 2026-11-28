@@ -1191,6 +1191,10 @@ const (
 	OnboardingDateInvalid
 
 	HistoryCount
+	HistoryQueryRange
+	HistoryQueryAllDates
+	HistoryChangeDelta
+	HistorySnapshotHealth
 	HistoryLoading
 	HistoryLoadError
 	HistoryRetry
@@ -1343,6 +1347,13 @@ const (
 	HistoryRemeasurement
 	HistoryCorrectionRecord
 	HistoryCorrectAction
+	HistoryCorrectBuy
+	HistoryCorrectSell
+	HistoryCorrectDividend
+	HistoryReplacementTrade
+	HistoryReplacementTradeSide
+	HistoryReplacementOptionalUnitCost
+	HistoryReplacementArchivedTrade
 	HistoryCorrectDescription
 	HistoryCorrectPreview
 	HistoryCorrectReview
@@ -1363,6 +1374,7 @@ const (
 	HistoryAmendmentFee
 	HistoryTransferCorrectionFee
 	HistoryReversalArchived
+	HistoryReversalArchivedTrade
 	HistoryBalanceAfterCorrection
 	HistoryBalanceAfterReversal
 	HistoryAmendmentNoChange

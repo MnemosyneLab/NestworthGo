@@ -5,6 +5,7 @@ import (
 	"image"
 	"slices"
 
+	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -23,6 +24,8 @@ type historyPage struct {
 	model                   *history.Model
 	list                    widget.List
 	retryButton, moreButton widget.Clickable
+	snapshotHealth          widget.Clickable
+	openSnapshotHealth      func(event.Tag)
 	filter                  historyFilterControls
 	cashMovements           *historyCashMovements
 	investment              *accountInvestment
@@ -74,7 +77,7 @@ func (p *historyPage) layout(gtx layout.Context, view ui.View) layout.Dimensions
 	}
 	if p.reads != nil {
 		p.reads.update()
-		if p.reads.detail != nil {
+		if p.reads.detail != nil && !p.reads.detail.contextual {
 			return p.layoutDetail(gtx, view)
 		}
 	}
@@ -97,6 +100,16 @@ func (p *historyPage) layoutActivity(gtx layout.Context, view ui.View) layout.Di
 		ui.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(12)}.Layout(gtx,
 				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return p.status(gtx, view) }),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					if p.openSnapshotHealth == nil {
+						return layout.Dimensions{}
+					}
+					if p.snapshotHealth.Clicked(gtx) {
+						p.openSnapshotHealth(&p.snapshotHealth)
+						gtx.Execute(op.InvalidateCmd{})
+					}
+					return view.ButtonOf(&p.snapshotHealth, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.HistorySnapshotHealth)})(gtx)
+				}),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 					if p.model.Err() != nil {
 						return view.Button(&p.retryButton, view.Language.Text(i18n.HistoryRetry))(gtx)
@@ -170,8 +183,8 @@ func (p *historyPage) activityList(gtx layout.Context, view ui.View) layout.Dime
 func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row history.Row) layout.Dimensions {
 	r := p.reads
 	if r == nil {
-		summary := historyRowSummary(view, row.Activity, historyRowNames{})
-		return historyEntry(gtx, view, summary, row.Note)
+		summary := historyListSentence(view, row.Activity, historyRowNames{})
+		return historyEntry(gtx, view, row.Kind, summary, row.Note)
 	}
 	button := p.detailButton(row.ID)
 	if button.Clicked(gtx) {
@@ -198,13 +211,15 @@ func (p *historyPage) layoutActivityRow(gtx layout.Context, view ui.View, row hi
 	if names.holdingAccounts == nil && expanded && menu.record != nil {
 		names.holdingAccounts = menu.record.HoldingAccounts
 	}
-	summary := historyRowSummary(view, row.Activity, names)
+	summary := historyListSentence(view, row.Activity, names)
 	header := func(gtx layout.Context) layout.Dimensions {
 		kind := view.Language.Text(historyKindLabel(row.Kind, row.Reason))
 		day := historyDay(view, row.EffectiveLocalDate)
 		name := fmt.Sprintf(view.Language.Text(i18n.HistoryViewOn), kind, day)
 		controls := []layout.FlexChild{
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions { return historyEntry(gtx, view, summary, row.Note) }),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return historyEntry(gtx, view, row.Kind, summary, row.Note)
+			}),
 			layout.Rigid(view.ButtonOf(button, ui.ButtonSpec{Variant: ui.ButtonGhost, Size: ui.ButtonSmall, Title: view.Language.Text(i18n.DirectoryView), Name: name})),
 		}
 		if toggle != nil {
@@ -247,17 +262,30 @@ func historyDay(view ui.View, day string) string {
 	return day
 }
 
-func historyEntry(gtx layout.Context, view ui.View, summary string, note *string) layout.Dimensions {
+func historyListSentence(view ui.View, activity domain.Activity, names historyRowNames) string {
+	if activity.CorrectionGroupID != nil {
+		return historyRowSummary(view, activity, names)
+	}
+	return overviewActivitySentence(view, activity, names)
+}
+
+func historyEntry(gtx layout.Context, view ui.View, kind domain.ActivityKind, summary string, note *string) layout.Dimensions {
 	return layout.Inset{Top: ui.Space12, Bottom: ui.Space12, Left: ui.Space16, Right: ui.Space8}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+		icon, tone := overviewActivityStyle(kind)
+		return layout.Flex{Alignment: layout.Middle, Gap: gtx.Dp(ui.Space12)}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return view.Body(ui.TextLabel, summary, view.Colors.Ink)(gtx)
+				return view.IconTile(gtx, icon, 32, view.Colors.CategorySoft(tone), view.Colors.Category[tone])
 			}),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				if note == nil || *note == "" {
-					return layout.Dimensions{}
-				}
-				return view.Body(ui.TextCaption, *note, view.Colors.SecondaryInk)(gtx)
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical, Gap: gtx.Dp(ui.Space4)}.Layout(gtx,
+					layout.Rigid(view.Body(ui.TextLabel, summary, view.Colors.Ink)),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if note == nil || *note == "" {
+							return layout.Dimensions{}
+						}
+						return view.Body(ui.TextCaption, *note, view.Colors.SecondaryInk)(gtx)
+					}),
+				)
 			}),
 		)
 	})

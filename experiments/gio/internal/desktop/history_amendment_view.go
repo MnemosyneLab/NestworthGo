@@ -25,9 +25,7 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	focus := &d.reverse
 	if fix {
 		actionTitle, prepareTitle, reviewTitle, confirmTitle = i18n.HistoryCorrectAction, i18n.HistoryCorrectPreview, i18n.HistoryCorrectReview, i18n.HistoryCorrectConfirm
-		if form.custody != nil {
-			actionTitle = i18n.CustodyAmendmentCorrect
-		}
+		actionTitle = historyCorrectLabel(d.record.Activity)
 		focus = &d.correct
 	}
 	if form.commit == nil && !form.uncertain && form.cancel.Clicked(gtx) {
@@ -58,6 +56,9 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 	if form.custody != nil {
 		return p.layoutCustodyAmendment(gtx, view, fix, busy, actionTitle, prepareTitle, reviewTitle, confirmTitle)
 	}
+	if form.investment != nil {
+		return p.layoutInvestmentAmendment(gtx, view, fix, busy, actionTitle, prepareTitle, reviewTitle, confirmTitle)
+	}
 	movement := form.movement
 	accountName := func(id *domain.AccountID) string { return d.record.Accounts[*id] }
 	title := actionTitle
@@ -74,7 +75,7 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 		children = append(children, pairedAmendmentEffects(view, d.record.Activity.Effects, accountName, false)...)
 	} else {
 		children = append(children, layout.Rigid(view.Message(accountName(movement.Principal.AccountID), view.Colors.Ink)),
-			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HistoryOriginalAmount), movementMoney(movement.Principal)), view.Colors.Ink)))
+			layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HistoryOriginalAmount), historyDisplayEffectMoney(view, movement.Principal)), view.Colors.Ink)))
 	}
 	if fix {
 		effective := contributionTimestamp(view, d.record.Activity.EffectiveAt, d.record.Location)
@@ -109,19 +110,35 @@ func (p *historyPage) layoutAmendment(gtx layout.Context, view ui.View) layout.D
 				label = i18n.HistoryReplacementAmount
 			}
 			for _, effect := range review.Preview.Effects {
-				children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(label), movementMoney(effect)), view.Colors.Ink)))
+				children = append(children, layout.Rigid(view.Message(fmt.Sprintf(l.Text(label), historyDisplayEffectMoney(view, effect)), view.Colors.Ink)))
 			}
 		}
-		for _, endpoint := range review.Preview.Resulting {
-			label := i18n.HistoryBalanceAfterReversal
-			if fix {
-				label = i18n.HistoryBalanceAfterCorrection
+		if fix && len(review.Preview.Review) > 0 {
+			for _, endpoint := range review.Preview.Review {
+				if endpoint.Currency == "" {
+					continue
+				}
+				if movement.Paired() {
+					children = append(children, layout.Rigid(view.Message(endpoint.AccountName, view.Colors.Ink)))
+				}
+				children = append(children,
+					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.ContributionBefore), historyDisplayMoney(view, endpoint.Before, endpoint.Currency)), view.Colors.SecondaryInk)),
+					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HistoryChangeDelta), historyDisplayMoney(view, endpoint.Delta, endpoint.Currency)), view.Colors.Ink)),
+					layout.Rigid(view.Message(fmt.Sprintf(l.Text(i18n.HistoryBalanceAfterCorrection), historyDisplayMoney(view, endpoint.After, endpoint.Currency)), view.Colors.Ink)),
+				)
 			}
-			balance := fmt.Sprintf(l.Text(label), endpoint.Amount+" "+endpoint.Currency.String())
-			if movement.Paired() {
-				balance = endpoint.Name + " · " + balance
+		} else {
+			for _, endpoint := range review.Preview.Resulting {
+				label := i18n.HistoryBalanceAfterReversal
+				if fix {
+					label = i18n.HistoryBalanceAfterCorrection
+				}
+				balance := fmt.Sprintf(l.Text(label), historyDisplayMoney(view, endpoint.Amount, endpoint.Currency))
+				if movement.Paired() {
+					balance = endpoint.Name + " · " + balance
+				}
+				children = append(children, layout.Rigid(view.Message(balance, view.Colors.Ink)))
 			}
-			children = append(children, layout.Rigid(view.Message(balance, view.Colors.Ink)))
 		}
 	} else if fix {
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
@@ -191,6 +208,11 @@ func amendmentActions(view ui.View, form *historyAmendmentDraft, fix bool, prepa
 				if form.custody != nil && fix && (!form.custody.selected() || strings.TrimSpace(form.amount.Text()) == "") {
 					gtx = gtx.Disabled()
 				}
+				if form.investment != nil && fix {
+					if _, ready := investmentReplacementRequest(form); !ready {
+						gtx = gtx.Disabled()
+					}
+				}
 				return view.PrimaryButton(&form.prepare, l.Text(prepareTitle))(gtx)
 			})
 		default:
@@ -213,7 +235,7 @@ func pairedAmendmentEffects(view ui.View, effects []domain.ActivityEffect, accou
 	l := view.Language
 	var rows []layout.FlexChild
 	for _, effect := range effects {
-		caption := effectCaption(l, effect, !reverse, false, 0, account, nil)
+		caption := effectCaption(view, effect, true, !reverse, false, 0, account, nil)
 		if reverse && effect.Role == domain.EffectRoleFee {
 			caption += " · " + fmt.Sprintf(l.Text(i18n.HistoryReversedEffect), l.Text(i18n.HistoryFee))
 		}

@@ -27,6 +27,7 @@ type cashMovementDraft struct {
 	incoming                                          bool
 	send, receive                                     widget.Clickable
 	defaultTime                                       time.Time
+	timeEdited, secondsPicker                         bool
 	focusReview                                       bool
 	day, time                                         string
 	focusAmount                                       bool
@@ -69,6 +70,7 @@ func (p *historyCashMovements) start(movement history.CashMovement) {
 	p.draft = &cashMovementDraft{
 		movement: movement, amount: ui.NewTextField(true), received: ui.NewTextField(true), fee: ui.NewTextField(true),
 		focusAmount: movement == history.CashContribution || movement == history.CashWithdrawal,
+		defaultTime: p.clock().UTC().Truncate(time.Millisecond),
 	}
 	if p.linked != nil {
 		p.draft.focusAmount = true
@@ -141,7 +143,8 @@ func (d *cashMovementDraft) receiveSources(sources history.CashMovementSources, 
 			d.chooseCurrency(linked.currency)
 		}
 	case first:
-		local := now.In(sources.Location)
+		local := d.defaultTime.In(sources.Location)
+		d.defaultTime, d.timeEdited = local, false
 		d.day, d.time = local.Format(time.DateOnly), local.Format("15:04")
 		if d.movement.Debt() {
 			var cashID domain.AccountID
@@ -221,7 +224,21 @@ func (d *cashMovementDraft) chooseLinkedTransferPeer(linked *checkpointCashScope
 
 func (d *cashMovementDraft) captureCurrentTime(now time.Time) {
 	d.defaultTime = now.In(d.sources.Location)
+	d.timeEdited, d.secondsPicker = false, true
 	d.day, d.time, d.problem = d.defaultTime.Format(time.DateOnly), d.defaultTime.Format(time.TimeOnly), i18n.NoMessage
+}
+
+// Untouched defaults retain their captured instant. Explicit date or time
+// selections use the civil values shown by the picker instead.
+func (d *cashMovementDraft) effectiveAt() time.Time {
+	format := "15:04"
+	if d.secondsPicker {
+		format = time.TimeOnly
+	}
+	if !d.timeEdited && !d.defaultTime.IsZero() && d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(format) {
+		return d.defaultTime
+	}
+	return time.Time{}
 }
 
 func (d *cashMovementDraft) accountByID(id domain.AccountID) (domain.Account, bool) {
@@ -308,7 +325,7 @@ func (p *historyCashMovements) preview() {
 	input := history.CashMovementInput{
 		Movement: d.movement, Account: d.account, Destination: d.destination,
 		Currency: d.currency, ToCurrency: d.toCurrency,
-		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time,
+		Amount: d.amount.Text(), Received: d.received.Text(), Fee: d.fee.Text(), Date: d.day, Time: d.time, EffectiveAt: d.effectiveAt(),
 	}
 	if p.account != "" {
 		input.Reason, input.Note = d.reason, d.note.Text()
@@ -319,9 +336,6 @@ func (p *historyCashMovements) preview() {
 			return
 		}
 		input.Reason, input.Note = d.reason, d.note.Text()
-		if d.day == d.defaultTime.Format(time.DateOnly) && d.time == d.defaultTime.Format(time.TimeOnly) {
-			input.EffectiveAt = d.defaultTime
-		}
 	}
 	d.problem = i18n.NoMessage
 	d.previewing = runHistoryRead(&p.workers, p.invalidate, func() (history.ReviewedCashMovement, error) {
